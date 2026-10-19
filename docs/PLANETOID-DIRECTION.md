@@ -1,6 +1,6 @@
 # EnFractal direction: planetoids, primitives, one material, a teammate
 
-**Proposal, 18 October 2026. Not approved.** Drafted from the founder's design conversation of 15 to 18 October. When the founder approves it, this page supersedes [ROOM-SCALE-DIRECTION.md](ROOM-SCALE-DIRECTION.md) and [ROOM-TO-LANDSCAPE.md](ROOM-TO-LANDSCAPE.md), which get superseded banners in the same way the geography era did. Until then, nothing here changes code, contracts or branches.
+**Proposal, 18 October 2026, amended 19 October. Not approved.** Drafted from the founder's design conversation of 15 to 18 October. On 19 October the founder decided that the room-era game continues as **the Garage Game**, in this repository, and that **EnFractal moves to a new repository**. When approved, this page moves there as EnFractal's direction, with this banner removed. This repository keeps [ROOM-SCALE-DIRECTION.md](ROOM-SCALE-DIRECTION.md) and [ROOM-TO-LANDSCAPE.md](ROOM-TO-LANDSCAPE.md) as the Garage Game's own direction; they are not superseded. Until then, nothing here changes code, contracts or branches.
 
 ## The game in a paragraph
 
@@ -139,16 +139,27 @@ The second milestone, not the first. A rule is `when <trigger> if <condition> th
 
 Passing is the founder watching a fresh player finish all eight in ten minutes and want to show someone, plus the founder's eye on the look from the fixed camera. Nothing new enters the plan before that.
 
-## Isolating the two visions
+## Two repositories
 
-Follow the 6 October pattern:
+**The founder's decision, 19 October 2026.** The room-era game is not dormant: the founder's children want it to continue. It carries on as **the Garage Game**, in this repository, renamed on GitHub from EnFractal to Garage-Game. **EnFractal is the planetoid game and lives in a new repository.** Two games under active development do not share a main branch, an AGENTS.md, a contracts folder or a test runner: an agent reads one direction per repository, and one file cannot hold two.
 
-1. **Tag the current tree** as the room era's final state, `room-era-final`, the way `geography-era-final` was kept.
-2. **Move to the branch:** `pipeline/` entirely, the capture, recipe and landscape-generator work and the room corpus; the garage examples with meshes; the landscape look, water and fish code; the per-asset schema; the painterly restyle work.
-3. **Keep on main:** the kernel, the command host, the companion server and its tests, saves, the body controller retuned to the new scale, the HUD, the Forward+ baseline and material roles for the felt skin later, and the research.
-4. **Contracts, as proposals for the integrator:** a world manifest of planets, blocks, primitives, palette slots and matter; a skin schema replacing the style preset; the command schema changes above. `common.schema.json` stays.
-5. **Docs:** superseded banners on ROOM-SCALE-DIRECTION, ROOM-TO-LANDSCAPE, the Run 2 briefs, BUILDING, LIVE-VOICE's tiers, JOURNAL and PERCEPTION. `docs/research/` stays as research.
-6. **Process:** one lane at a time until the ten-minute script passes. Short reports. The refusal log starts on day one.
+The port is a copy, then a strip. Nothing is moved out of the Garage Game and nothing is deleted from it. EnFractal takes only what the planetoid game needs and drops the ceremony on the way: no undo, no checkpoints, no locks, no trust tiers, no creation-manifest compiler.
+
+| EnFractal takes a copy of | The Garage Game keeps |
+|---|---|
+| The pinned toolchain and the runners, Windows and Linux | `pipeline/`: capture, recipes, the landscape generator and the room corpus |
+| The command host, canonical JSON, receipts and budgets, with protection, undo and checkpoints removed | Room manifests, the garage examples with meshes, the per-asset schema |
+| `companion/`: the MCP server, the link, lockdown, refusals, client profiles and the tests, retargeted at the cut-down contract | The landscape look, water, fish, climbing and swimming, the island and the sea |
+| The body controller retuned to the new scale, the HUD shell, saves simplified to one rolling autosave, the Forward+ baseline and material roles for the felt skin | The building kit design, the journal, the voice and trust-tier designs, the painterly presets and restyle work |
+| `common.schema.json`, the command schema to be cut down, `validate.py` and the contract tests, plus new world and skin schemas | All run briefs and status pages, `docs/history/`, the visual-style and capture research |
+| AGENTS.md rewritten, the orchestration policy, the AI security and physics research, the companion security and transport docs, and this page with its banner removed | The `geography-era-final` branch |
+
+Shared code will diverge, and that is intended: the command set changes, and a fix that matters to both games is cherry-picked by hand. A shared library across the two Godot projects is not built unless the duplication proves painful.
+
+1. **The Garage Game.** This page stays here as the record of the decision. The README gains a short note that EnFractal continues in its own repository and that this one is the Garage Game. Its scope is finishing what is in flight for the founder's children, with no new systems; how much time it gets is the founder's call.
+2. **EnFractal, day one.** A licence, an AGENTS.md written for the planetoid game, this page as the direction doc with its banner removed, the toolchain, and then the ported pieces in the order the ten-minute script needs them.
+3. **Contracts in EnFractal.** `common.schema.json` and `validate.py` carried over; a world manifest of planets, blocks, primitives, palette slots and matter; a skin schema in place of the style preset; the command schema cut down as described above.
+4. **Process.** One lane at a time until the ten-minute script passes. Short reports. The refusal log starts on day one.
 
 ## Open questions for the founder
 
@@ -171,3 +182,4 @@ Follow the 6 October pattern:
 - Trust tiers removed. Irreversible actions, no undo, one rolling autosave, no slots.
 - Memory is a short, player-editable notebook per profile about the quality of play, not a log of the world.
 - Blueprints are the only non-matter thing a player owns; both players propose ghosts and either builds.
+- 19 October: the room-era game continues as the Garage Game in this repository, for the founder's children, with a scope of finishing what is in flight; EnFractal is the planetoid game in a new repository, built by copying and stripping, never by moving.
