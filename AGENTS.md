@@ -2,6 +2,8 @@
 
 EnFractal is a single-player sandbox set inside a real room the player photographed. The player is a ~10 cm avatar; their AI has a separate avatar and acts as the player's magic through one shared ruleset. Native Godot .NET 4.7.2 with C#, plus a retained GDScript creation kernel. Multiplayer is a later phase and out of scope.
 
+**The repository split (20 October 2026).** This repository is the Garage Game, the room-era EnFractal kept whole for the founder's children (GitHub: `YourLifewithAI/Garage-Game`). EnFractal's new direction is a separate repository, `YourLifewithAI/EnFractal`, with its own AGENTS.md; nothing from there applies here. The integrator's local checkout is still `C:\dev\EnFractal` until the founder renames it to `C:\dev\Garage-Game` (see `docs/runs/RUN-2-STATUS.md`, "The repository split"); after that rename, read `C:\dev\Garage-Game` wherever this file says `C:\dev\EnFractal`.
+
 ## Start here
 
 1. [docs/ROOM-SCALE-DIRECTION.md](docs/ROOM-SCALE-DIRECTION.md): the concept, the four tracks (Look, Capture, Play, AI companion) and the runs.

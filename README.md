@@ -1,5 +1,7 @@
 # EnFractal
 
+> **This repository is the Garage Game** (renamed on GitHub from `EnFractal` to `YourLifewithAI/Garage-Game` on 19 October 2026): the room-era EnFractal, kept whole so the founder can keep adding to it for their children. EnFractal's new direction (planetoids in the void, primitives, one material, the AI as a teammate) lives in a fresh repository at [github.com/YourLifewithAI/EnFractal](https://github.com/YourLifewithAI/EnFractal). Nothing here was removed by the split.
+
 A sandbox where you and your AI play together inside a real room that you photographed, shrunk to the size of a thumb.
 
 **Direction as of 6 October 2026.** The player photographs a room or house. An AI-driven pipeline guides the capture, reconstructs the space, turns every object into its own game asset, and applies a chosen whimsical style. The player then enters that room as a ~10 cm avatar beside a separate avatar for their own AI. The AI is the player's magic: a spoken or typed wish ("there's a dragon haunting the garage", "build a cozy village along the shelves", "make this a spaceport") becomes a real change in the world through one shared baseline ruleset. Single-player first; multiplayer last.
