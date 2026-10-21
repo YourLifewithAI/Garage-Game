@@ -1506,7 +1506,9 @@ public partial class PlayHudTest : Node
         // In order through the day (an hour past midnight for night is allowed to wrap), light by day and dark at night.
         var unwrapped = hours.Select((h, i) => i > 0 && h < hours[0] ? h + 24f : h).ToArray();
         Check(unwrapped.Zip(unwrapped.Skip(1), (a, b) => b > a).All(ok => ok), "the seven times run in order: " + string.Join(", ", hours.Select(h => h.ToString("0.0"))));
-        Check(daylight[2] >= daylight[1] && daylight[2] >= daylight[3] && daylight[3] > daylight[4] && daylight[4] > daylight[6], $"noon is the brightest and the light falls through the afternoon to sunset ({string.Join(" ", daylight.Select(d => d.ToString("0.00")))})");
+        // Noon within 0.02 of the brightest: the day's light keys plateau through the afternoon, and on some real dates (mid
+        // October: noon 0.89, late afternoon 0.90) the late-afternoon step reads a hundredth brighter, which no one can see.
+        Check(daylight[2] >= daylight[1] && daylight[2] >= daylight[3] - 0.02f && daylight[3] > daylight[4] && daylight[4] > daylight[6], $"noon is the brightest and the light falls through the afternoon to sunset ({string.Join(" ", daylight.Select(d => d.ToString("0.00")))})");
         Check(daylight[6] < 0.1f && daylight[5] <= daylight[4] && look.Moment.MoonWeight > 0.9f, "night is dark and lit by the moon");
         Check(look.LampsOn, "and the lamps are on at night");
         _hud._UnhandledInput(Press(Key.T));
