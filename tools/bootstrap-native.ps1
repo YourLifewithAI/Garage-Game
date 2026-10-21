@@ -35,5 +35,5 @@ foreach ($package in $packages) {
     }
 }
 . (Join-Path $PSScriptRoot 'native-toolchain.ps1')
-$toolchain = Get-EnfractalNativeToolchain
+$toolchain = Get-GarageGameNativeToolchain
 Write-Output "Ready: $($toolchain.EngineVersion), .NET SDK $($toolchain.SdkVersion)"

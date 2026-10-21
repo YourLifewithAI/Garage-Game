@@ -63,7 +63,7 @@ if ($openGame -and -not $AllowOpenGame) {
 }
 $repository = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $repository 'tools/native-toolchain.ps1')
-$toolchain = Get-EnfractalNativeToolchain
+$toolchain = Get-GarageGameNativeToolchain
 $camerasPath = (Resolve-Path -LiteralPath (Join-Path $repository $Cameras)).Path
 $outPath = [System.IO.Path]::GetFullPath($OutDir, $repository)
 New-Item -ItemType Directory -Force $outPath | Out-Null
@@ -108,7 +108,7 @@ if ($Baseline) {
 }
 
 Write-Output (Invoke-Checked $toolchain.DotnetPath @('build', 'GarageGame.csproj', '--configuration', 'Debug', '--nologo', '-v:q') $projectPath).Trim()
-$import = Invoke-EnfractalNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
+$import = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
     -Arguments @('--headless', '--editor', '--path', $projectPath, '--import') -TimeoutSeconds 180
 if ($import.Stderr -match 'SCRIPT ERROR:') { throw $import.Stderr }
 
@@ -152,7 +152,7 @@ if ($Style) { $userArgs += "--style=$(([System.IO.Path]::GetFullPath($Style, $re
 if ($Room) {
     if ($Room -in @('landscape', 'landscape10')) {
         . (Join-Path $repository 'tools/landscape-fixture.ps1')
-        $Room = (Get-EnfractalLandscapeFixture -Toolchain $toolchain -Scale ($Room -eq 'landscape10' ? 10 : 1)).Room
+        $Room = (Get-GarageGameLandscapeFixture -Toolchain $toolchain -Scale ($Room -eq 'landscape10' ? 10 : 1)).Room
     }
     $userArgs += "--room=$(([System.IO.Path]::GetFullPath($Room, $repository)) -replace '\\', '/')"
 }

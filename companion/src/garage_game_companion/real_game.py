@@ -43,8 +43,8 @@ def toolchain(repo: Path = DEFAULT_REPO_ROOT) -> tuple[Path, Path]:
     if match is None:
         raise GameNotAvailable("game/GarageGame.csproj names no Godot .NET version")
     version = match.group(1)
-    engine = os.environ.get("ENFRACTAL_GODOT_DOTNET") or os.environ.get("ENFRACTAL_GODOT")
-    dotnet = os.environ.get("ENFRACTAL_DOTNET")
+    engine = os.environ.get("GARAGE_GAME_GODOT_DOTNET") or os.environ.get("GARAGE_GAME_GODOT")
+    dotnet = os.environ.get("GARAGE_GAME_DOTNET")
     if os.name == "nt":
         if not engine:
             found = sorted((repo / ".cache" / "godot").rglob(f"Godot_v{version}-stable_mono_win64_console.exe")) \

@@ -2,7 +2,7 @@
 #
 # The exported garage is derived data: generated and exported at test time, never committed. Every worktree of a checkout
 # reads one cache, under the integrator's checkout (the main worktree, found through git's common directory) at
-# .cache/landscape-fixtures, or wherever ENFRACTAL_FIXTURE_CACHE names:
+# .cache/landscape-fixtures, or wherever GARAGE_GAME_FIXTURE_CACHE names:
 #   <cache>/x1/<key>/landscape_garage_nominal    the quick fixture every run of tools/test-room.ps1 plays on
 #   <cache>/x10/<key>/landscape_garage_nominal   the 10x island, built only for the scale suite (test-room.ps1 -Scale)
 #   <cache>/x10/<key>/room                       the garage magnified ten times, which the 10x package was generated from
@@ -12,7 +12,7 @@
 # <cache>/x<N>/<key>.lock (held with no sharing; the system frees it if the builder dies), into <key>.partial, then moved
 # into place in one rename. Readers never write: the fixture's files are made read-only once built.
 
-function Get-EnfractalLandscapeFixtureKey {
+function Get-GarageGameLandscapeFixtureKey {
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)][string]$RepositoryPath)
     # The same key as tools/linux/test-all.sh computes: sha256sum's lines ("<hash>  <path>"), in byte order of the paths, hashed.
@@ -34,17 +34,17 @@ function Get-EnfractalLandscapeFixtureKey {
     return [System.Convert]::ToHexString($digest).Substring(0, 16).ToLowerInvariant()
 }
 
-function Get-EnfractalFixtureCacheRoot {
+function Get-GarageGameFixtureCacheRoot {
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)][string]$RepositoryPath)
-    if ($env:ENFRACTAL_FIXTURE_CACHE) { return [System.IO.Path]::GetFullPath($env:ENFRACTAL_FIXTURE_CACHE) }
+    if ($env:GARAGE_GAME_FIXTURE_CACHE) { return [System.IO.Path]::GetFullPath($env:GARAGE_GAME_FIXTURE_CACHE) }
     # The integrator's checkout: the main worktree owns the repository's common git directory.
     $common = (& git -C $RepositoryPath rev-parse --path-format=absolute --git-common-dir 2>$null | Out-String).Trim()
     $main = if ($LASTEXITCODE -eq 0 -and $common -and (Split-Path -Leaf $common) -eq '.git') { Split-Path -Parent $common } else { $RepositoryPath }
     return [System.IO.Path]::GetFullPath((Join-Path $main '.cache/landscape-fixtures'))
 }
 
-function Get-EnfractalLandscapeFixture {
+function Get-GarageGameLandscapeFixture {
     <#
     .SYNOPSIS
     The exported garage at world scale 1 or 10 from the shared cache, built first if it is missing. Returns its room folder,
@@ -58,8 +58,8 @@ function Get-EnfractalLandscapeFixture {
         [int]$WaitSeconds = 1800
     )
     $repository = $Toolchain.RepositoryPath
-    $key = Get-EnfractalLandscapeFixtureKey -RepositoryPath $repository
-    $variant = Join-Path (Get-EnfractalFixtureCacheRoot -RepositoryPath $repository) "x$Scale"
+    $key = Get-GarageGameLandscapeFixtureKey -RepositoryPath $repository
+    $variant = Join-Path (Get-GarageGameFixtureCacheRoot -RepositoryPath $repository) "x$Scale"
     $final = Join-Path $variant $key
     $record = Join-Path $final 'fixture.json'
     $result = { param($built) [pscustomobject]@{
@@ -108,7 +108,7 @@ function Get-EnfractalLandscapeFixture {
         $seconds = [ordered]@{}
         foreach ($step in $steps.Keys) {
             $clock = [System.Diagnostics.Stopwatch]::StartNew()
-            $run = Invoke-EnfractalNativeProcess -Toolchain $Toolchain -FilePath $python -WorkingDirectory $repository -TimeoutSeconds 1800 -Arguments $steps[$step]
+            $run = Invoke-GarageGameNativeProcess -Toolchain $Toolchain -FilePath $python -WorkingDirectory $repository -TimeoutSeconds 1800 -Arguments $steps[$step]
             $seconds[$step] = [math]::Round($clock.Elapsed.TotalSeconds, 1)
             Write-Host (($run.Stdout.Trim().Split("`n") | Where-Object { $_ -match '^(LANDSCAPE_PACKAGE|ROOM_EXPORTED|SCALED_ROOM)' }) -join "`n")
         }
@@ -124,14 +124,14 @@ function Get-EnfractalLandscapeFixture {
         [System.IO.Directory]::Move($partial, $final)
         Write-Host ("LANDSCAPE_FIXTURE x{0} {1} built in {2:0} s ({3}), {4:0.0} MB: {5}" -f $Scale, $key, ($seconds.Values | Measure-Object -Sum).Sum,
             (($seconds.Keys | ForEach-Object { "$_ $($seconds[$_]) s" }) -join ', '), ($bytes / 1MB), $final)
-        Remove-EnfractalStaleLandscapeFixtures -Variant $variant -Keep $key
+        Remove-GarageGameStaleLandscapeFixtures -Variant $variant -Keep $key
         return (& $result $true)
     } finally {
         $lock.Dispose()
     }
 }
 
-function Remove-EnfractalStaleLandscapeFixtures {
+function Remove-GarageGameStaleLandscapeFixtures {
     # Older keys go once four newer ones exist and they are three days old, so a worktree still on an older generator keeps
     # its fixture for a while. A fixture another process holds open stays; the next build tries again.
     param([string]$Variant, [string]$Keep)

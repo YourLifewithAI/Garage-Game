@@ -427,7 +427,7 @@ public partial class LookPresetTest
         Check(CharmLook.Pin(new[] { CharmLook.PinArgument + "off" }, null) == false && CharmLook.Pin(Array.Empty<string>(), "OFF ") == false
               && CharmLook.Pin(new[] { CharmLook.PinArgument + "on" }, "off") == true && CharmLook.Pin(Array.Empty<string>(), null) == null
               && CharmLook.Pin(new[] { CharmLook.PinArgument + "maybe" }, null) == null,
-            "a capture pins the charm off by --look-charm=off (first) or ENFRACTAL_LOOK_CHARM=off; on, or nothing, leaves the default");
+            "a capture pins the charm off by --look-charm=off (first) or GARAGE_GAME_LOOK_CHARM=off; on, or nothing, leaves the default");
         var holder = new Node3D { Name = "CharmPinHolder" };
         AddChild(holder);
         var built = RoomBuilder.Build(hamlet);

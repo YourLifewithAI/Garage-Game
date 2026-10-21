@@ -497,19 +497,19 @@ public partial class LookPresetTest : Node3D
         string? NoEnv(string name) => null;
         var both = LookClock.ClockOverride(new[] { "--look-clock=18:45", "--look-date=2026-01-15" }, NoEnv);
         Check(both.Hour is { } h && Mathf.IsEqualApprox(h, 18.75f) && both.DayOfYear == 15 && both.Error.Length == 0, "--look-clock and --look-date pin the hour and the day");
-        var fromEnv = LookClock.ClockOverride(Array.Empty<string>(), name => name == "ENFRACTAL_LOOK_CLOCK" ? "7:05" : null);
-        Check(fromEnv.Hour is { } e && Mathf.IsEqualApprox(e, 7f + 5f / 60f) && fromEnv.DayOfYear == null, "ENFRACTAL_LOOK_CLOCK pins the hour alone; the day still follows the calendar");
-        var argsWin = LookClock.ClockOverride(new[] { "--look-clock=09:00" }, name => name == "ENFRACTAL_LOOK_CLOCK" ? "21:00" : null);
+        var fromEnv = LookClock.ClockOverride(Array.Empty<string>(), name => name == "GARAGE_GAME_LOOK_CLOCK" ? "7:05" : null);
+        Check(fromEnv.Hour is { } e && Mathf.IsEqualApprox(e, 7f + 5f / 60f) && fromEnv.DayOfYear == null, "GARAGE_GAME_LOOK_CLOCK pins the hour alone; the day still follows the calendar");
+        var argsWin = LookClock.ClockOverride(new[] { "--look-clock=09:00" }, name => name == "GARAGE_GAME_LOOK_CLOCK" ? "21:00" : null);
         Check(argsWin.Hour is { } a && Mathf.IsEqualApprox(a, 9f), "the command line wins over the environment");
         var bad = LookClock.ClockOverride(new[] { "--look-clock=25:00", "--look-date=2026-13-01" }, NoEnv);
         Check(bad.Hour == null && bad.DayOfYear == null && bad.Error.Contains("25:00") && bad.Error.Contains("2026-13-01"), "an unreadable override is reported and ignored: " + bad.Error);
         var none = LookClock.ClockOverride(Array.Empty<string>(), NoEnv);
         Check(none.Hour == null && none.DayOfYear == null && none.Error.Length == 0, "without an override the look follows the preset");
-        var lampsOff = LookClock.LampsOverride(new[] { "--look-lamps=off" }, name => name == "ENFRACTAL_LOOK_LAMPS" ? "on" : null);
-        var lampsEnv = LookClock.LampsOverride(Array.Empty<string>(), name => name == "ENFRACTAL_LOOK_LAMPS" ? "On" : null);
+        var lampsOff = LookClock.LampsOverride(new[] { "--look-lamps=off" }, name => name == "GARAGE_GAME_LOOK_LAMPS" ? "on" : null);
+        var lampsEnv = LookClock.LampsOverride(Array.Empty<string>(), name => name == "GARAGE_GAME_LOOK_LAMPS" ? "On" : null);
         var lampsBad = LookClock.LampsOverride(new[] { "--look-lamps=dim" }, NoEnv);
         Check(lampsOff.LampsOn == false && lampsEnv.LampsOn == true && LookClock.LampsOverride(Array.Empty<string>(), NoEnv) is (null, "")
-            && lampsBad.LampsOn == null && lampsBad.Error.Contains("dim"), "--look-lamps and ENFRACTAL_LOOK_LAMPS pin the lamps on or off (the command line wins); a bad value is reported");
+            && lampsBad.LampsOn == null && lampsBad.Error.Contains("dim"), "--look-lamps and GARAGE_GAME_LOOK_LAMPS pin the lamps on or off (the command line wins); a bad value is reported");
 
         // The real day maps onto the keys' reference day: a continuous, increasing map, sunrise to sunrise and sunset to sunset.
         var (rise, set) = LookClock.DayLimits(preset);
@@ -1254,16 +1254,16 @@ public partial class LookPresetTest : Node3D
         holder.QueueFree();
         await Frames(1);
         // The deterministic override, as a reviewer or playtester sets it (the environment form; the command line reads the same way).
-        var savedClock = OS.GetEnvironment("ENFRACTAL_LOOK_CLOCK");
-        var savedDate = OS.GetEnvironment("ENFRACTAL_LOOK_DATE");
-        OS.SetEnvironment("ENFRACTAL_LOOK_CLOCK", "05:15");
-        OS.SetEnvironment("ENFRACTAL_LOOK_DATE", "2026-07-15");
+        var savedClock = OS.GetEnvironment("GARAGE_GAME_LOOK_CLOCK");
+        var savedDate = OS.GetEnvironment("GARAGE_GAME_LOOK_DATE");
+        OS.SetEnvironment("GARAGE_GAME_LOOK_CLOCK", "05:15");
+        OS.SetEnvironment("GARAGE_GAME_LOOK_DATE", "2026-07-15");
         var (pinnedHolder, pinned) = NewDirector(preset, room, "PinnedClockHolder");
-        Check(Mathf.IsEqualApprox(pinned.Moment.Hour, 5.25f) && pinned.Moment.DayOfYear == 196 && pinned.ClockNote.Contains("ENFRACTAL_LOOK_CLOCK"),
-            $"ENFRACTAL_LOOK_CLOCK and ENFRACTAL_LOOK_DATE pin the look when it is applied ({pinned.Moment.Hour:0.##} h, day {pinned.Moment.DayOfYear}; {pinned.ClockNote})");
+        Check(Mathf.IsEqualApprox(pinned.Moment.Hour, 5.25f) && pinned.Moment.DayOfYear == 196 && pinned.ClockNote.Contains("GARAGE_GAME_LOOK_CLOCK"),
+            $"GARAGE_GAME_LOOK_CLOCK and GARAGE_GAME_LOOK_DATE pin the look when it is applied ({pinned.Moment.Hour:0.##} h, day {pinned.Moment.DayOfYear}; {pinned.ClockNote})");
         pinnedHolder.QueueFree();
-        if (savedClock.Length > 0) OS.SetEnvironment("ENFRACTAL_LOOK_CLOCK", savedClock); else OS.UnsetEnvironment("ENFRACTAL_LOOK_CLOCK");
-        if (savedDate.Length > 0) OS.SetEnvironment("ENFRACTAL_LOOK_DATE", savedDate); else OS.UnsetEnvironment("ENFRACTAL_LOOK_DATE");
+        if (savedClock.Length > 0) OS.SetEnvironment("GARAGE_GAME_LOOK_CLOCK", savedClock); else OS.UnsetEnvironment("GARAGE_GAME_LOOK_CLOCK");
+        if (savedDate.Length > 0) OS.SetEnvironment("GARAGE_GAME_LOOK_DATE", savedDate); else OS.UnsetEnvironment("GARAGE_GAME_LOOK_DATE");
         await Frames(1);
     }
 

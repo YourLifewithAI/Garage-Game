@@ -280,10 +280,10 @@ public partial class LookPresetTest
     private async Task CheckWorldClockInTheLook(StylePreset preset, GarageGame.Native.Room.RoomData room)
     {
         var saved = LookClock.UtcClock;
-        var savedClock = OS.GetEnvironment("ENFRACTAL_LOOK_CLOCK");
-        var savedDate = OS.GetEnvironment("ENFRACTAL_LOOK_DATE");
-        OS.UnsetEnvironment("ENFRACTAL_LOOK_CLOCK");
-        OS.UnsetEnvironment("ENFRACTAL_LOOK_DATE");
+        var savedClock = OS.GetEnvironment("GARAGE_GAME_LOOK_CLOCK");
+        var savedDate = OS.GetEnvironment("GARAGE_GAME_LOOK_DATE");
+        OS.UnsetEnvironment("GARAGE_GAME_LOOK_CLOCK");
+        OS.UnsetEnvironment("GARAGE_GAME_LOOK_DATE");
         try
         {
             var instant = Utc(2026, 4, 15, 18);
@@ -353,8 +353,8 @@ public partial class LookPresetTest
         finally
         {
             LookClock.UtcClock = saved;
-            if (savedClock.Length > 0) OS.SetEnvironment("ENFRACTAL_LOOK_CLOCK", savedClock);
-            if (savedDate.Length > 0) OS.SetEnvironment("ENFRACTAL_LOOK_DATE", savedDate);
+            if (savedClock.Length > 0) OS.SetEnvironment("GARAGE_GAME_LOOK_CLOCK", savedClock);
+            if (savedDate.Length > 0) OS.SetEnvironment("GARAGE_GAME_LOOK_DATE", savedDate);
         }
         await Frames(1);
     }

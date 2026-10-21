@@ -204,15 +204,15 @@ public static class LookClock
 
     /// <summary>
     /// A deterministic clock for reviews and playtests: --look-clock=HH:MM and --look-date=YYYY-MM-DD after "--" on
-    /// the command line, or the ENFRACTAL_LOOK_CLOCK and ENFRACTAL_LOOK_DATE environment variables. Either may be
+    /// the command line, or the GARAGE_GAME_LOOK_CLOCK and GARAGE_GAME_LOOK_DATE environment variables. Either may be
     /// given alone; the other then follows the preset (the real clock or calendar). A pinned clock is local standard
     /// time, so a pin means the same sun on every machine. Returns null when neither is set, and an error message for
     /// a value it cannot read (the look then warns and follows the preset).
     /// </summary>
     public static (float? Hour, int? DayOfYear, string Error) ClockOverride(IReadOnlyList<string> userArgs, Func<string, string?> environment)
     {
-        var clock = Find(userArgs, environment, "look-clock", "ENFRACTAL_LOOK_CLOCK");
-        var date = Find(userArgs, environment, "look-date", "ENFRACTAL_LOOK_DATE");
+        var clock = Find(userArgs, environment, "look-clock", "GARAGE_GAME_LOOK_CLOCK");
+        var date = Find(userArgs, environment, "look-date", "GARAGE_GAME_LOOK_DATE");
         float? hour = null;
         int? day = null;
         var errors = new List<string>();
@@ -231,12 +231,12 @@ public static class LookClock
     }
 
     /// <summary>
-    /// Room lamps pinned on or off for reviews and playtests: --look-lamps=on|off|auto after "--", or ENFRACTAL_LOOK_LAMPS.
+    /// Room lamps pinned on or off for reviews and playtests: --look-lamps=on|off|auto after "--", or GARAGE_GAME_LOOK_LAMPS.
     /// Null (with no error) means the lamps switch themselves; an unreadable value is reported and ignored.
     /// </summary>
     public static (bool? LampsOn, string Error) LampsOverride(IReadOnlyList<string> userArgs, Func<string, string?> environment)
     {
-        var value = Find(userArgs, environment, "look-lamps", "ENFRACTAL_LOOK_LAMPS");
+        var value = Find(userArgs, environment, "look-lamps", "GARAGE_GAME_LOOK_LAMPS");
         return value?.ToLowerInvariant() switch
         {
             null or "auto" => (null, ""),

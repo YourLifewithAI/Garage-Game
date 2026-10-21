@@ -230,7 +230,7 @@ class WishRunner:
         flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         # The adapter starts in an empty scratch folder, never in the game repository. Its executable and
         # arguments come only from the player's local configuration, never from a wish or model output.
-        with tempfile.TemporaryDirectory(prefix="enfractal-wish-") as folder:
+        with tempfile.TemporaryDirectory(prefix="garage-game-wish-") as folder:
             child = await asyncio.create_subprocess_exec(*self.config.command, stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL, cwd=folder, limit=MAX_LINE_BYTES,
                 creationflags=flags)

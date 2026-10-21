@@ -439,7 +439,7 @@ def recipe_library():
 
     path = find_repo_root() / "pipeline" / "recipes" / "specs.py"
     assert path.is_file(), "pipeline/recipes/specs.py is missing: merge run2/integration into this branch"
-    spec = importlib.util.spec_from_file_location("enfractal_recipe_specs", path)
+    spec = importlib.util.spec_from_file_location("garage_game_recipe_specs", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

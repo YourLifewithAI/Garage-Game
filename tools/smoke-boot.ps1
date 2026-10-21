@@ -32,8 +32,8 @@ $ErrorActionPreference = 'Stop'
 if ($Profile -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$') { throw '-Profile takes a short name of letters, digits, - and _.' }
 . (Join-Path $PSScriptRoot 'native-toolchain.ps1')
 . (Join-Path $PSScriptRoot 'landscape-fixture.ps1')
-$toolchain = Get-EnfractalNativeToolchain
-Build-EnfractalNativeProject -Toolchain $toolchain | Select-Object -Last 1
+$toolchain = Get-GarageGameNativeToolchain
+Build-GarageGameNativeProject -Toolchain $toolchain | Select-Object -Last 1
 # The import below launches the editor directly: without these a modal .NET dialog can block the screen.
 $env:DOTNET_ROOT = Split-Path -Parent $toolchain.DotnetPath
 $env:PATH = $env:DOTNET_ROOT + [System.IO.Path]::PathSeparator + $env:PATH
@@ -48,7 +48,7 @@ $environment = @{ APPDATA = $roaming; LOCALAPPDATA = $local; XDG_DATA_HOME = (Jo
 
 $roomId = $null
 if ($Room -in @('landscape', 'landscape10')) {
-    $Room = (Get-EnfractalLandscapeFixture -Toolchain $toolchain -Scale ($Room -eq 'landscape10' ? 10 : 1)).Room
+    $Room = (Get-GarageGameLandscapeFixture -Toolchain $toolchain -Scale ($Room -eq 'landscape10' ? 10 : 1)).Room
 } elseif ($Room -notmatch '[\\/]') {
     # An id: install a copy of the player's own room into the scratch profile, as the game finds it.
     $roomId = $Room
@@ -67,6 +67,6 @@ if (-not $roomId) {
     if (-not (Test-Path -LiteralPath $manifest -PathType Leaf)) { throw "No room.json in $Room." }
     $roomId = (Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json).room_id
 }
-$boot = Invoke-EnfractalRoomBoot -Toolchain $toolchain -Room $Room -RoomId $roomId -Frames $Frames -TimeoutSeconds $TimeoutSeconds -Environment $environment
+$boot = Invoke-GarageGameRoomBoot -Toolchain $toolchain -Room $Room -RoomId $roomId -Frames $Frames -TimeoutSeconds $TimeoutSeconds -Environment $environment
 Write-Output (($boot.Stdout -split "`r?`n" | Where-Object { $_ -match '^(ROOM_|POND_LIFE|COMMAND_HOST|LOOK:)' }) -join "`n")
 Write-Output ("SMOKE_BOOT passed: {0} loaded and quit after {1} frames, exit 0, {2:0.0} s in all (profile {3})" -f $roomId, $Frames, $boot.Seconds, $profileRoot)

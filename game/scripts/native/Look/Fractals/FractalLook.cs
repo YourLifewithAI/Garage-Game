@@ -110,7 +110,7 @@ public partial class FractalLook : Node3D
     public const string GlintShaderPath = "res://shaders/fractal_glint.gdshader";
     /// <summary>The pin for a capture or a comparison: "--look-fractal-form=crystal|seed|star" after "--", or this environment variable.</summary>
     public const string FormArgument = "--look-fractal-form=";
-    public const string FormVariable = "ENFRACTAL_LOOK_FRACTAL_FORM";
+    public const string FormVariable = "GARAGE_GAME_LOOK_FRACTAL_FORM";
 
     /// <summary>The uniforms FractalLook sets on each shader: every one it declares (the look suite holds both lists to the shaders).</summary>
     public static readonly string[] FormParameterNames =

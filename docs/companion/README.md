@@ -83,8 +83,8 @@ fetch, which run once the host walks to things and fetches. `test_real_host.py` 
 pinned Godot .NET and .NET SDK and the C# project built (the runners build it first), and skips with the reason
 otherwise.
 The canonical JSON test uses the kernel's golden fixture in `game/tests/fixtures/kernel/` when the
-checkout has it (or the folder `ENFRACTAL_KERNEL_FIXTURE_DIR` names), and this lane's byte-identical copy
-otherwise. `ENFRACTAL_CONTRACTS_DIR` points the whole suite, the stdio server included, at another copy of
+checkout has it (or the folder `GARAGE_GAME_KERNEL_FIXTURE_DIR` names), and this lane's byte-identical copy
+otherwise. `GARAGE_GAME_CONTRACTS_DIR` points the whole suite, the stdio server included, at another copy of
 `contracts/`, to check a proposed change.
 
 ## Connect an MCP client or agent harness

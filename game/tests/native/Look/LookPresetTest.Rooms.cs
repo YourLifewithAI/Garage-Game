@@ -421,10 +421,10 @@ public partial class LookPresetTest
     private async Task CheckLightProtections(StylePreset preset, RoomData room)
     {
         // The clock follows real time, and is re-read as it goes.
-        var savedClock = OS.GetEnvironment("ENFRACTAL_LOOK_CLOCK");
-        var savedDate = OS.GetEnvironment("ENFRACTAL_LOOK_DATE");
-        OS.UnsetEnvironment("ENFRACTAL_LOOK_CLOCK");
-        OS.UnsetEnvironment("ENFRACTAL_LOOK_DATE");
+        var savedClock = OS.GetEnvironment("GARAGE_GAME_LOOK_CLOCK");
+        var savedDate = OS.GetEnvironment("GARAGE_GAME_LOOK_DATE");
+        OS.UnsetEnvironment("GARAGE_GAME_LOOK_CLOCK");
+        OS.UnsetEnvironment("GARAGE_GAME_LOOK_DATE");
         var real = new DateTime(2026, 4, 15, 5, 40, 0);
         var saved = LookClock.UtcClock;
         try
@@ -460,8 +460,8 @@ public partial class LookPresetTest
         finally
         {
             LookClock.UtcClock = saved;
-            if (savedClock.Length > 0) OS.SetEnvironment("ENFRACTAL_LOOK_CLOCK", savedClock);
-            if (savedDate.Length > 0) OS.SetEnvironment("ENFRACTAL_LOOK_DATE", savedDate);
+            if (savedClock.Length > 0) OS.SetEnvironment("GARAGE_GAME_LOOK_CLOCK", savedClock);
+            if (savedDate.Length > 0) OS.SetEnvironment("GARAGE_GAME_LOOK_DATE", savedDate);
         }
         // Lamps switch themselves as the daylight goes, and the sun's shadows come from the shell.
         var (lampHolder, lamps) = NewDirector(preset, room, "LampProtectionHolder");

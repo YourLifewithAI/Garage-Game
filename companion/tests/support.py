@@ -15,8 +15,8 @@ from pathlib import Path
 
 COMPANION_DIR = Path(__file__).resolve().parents[1]
 REPO = COMPANION_DIR.parent
-# ENFRACTAL_CONTRACTS_DIR points the suite at another copy of contracts/, to check a proposed change.
-CONTRACTS = Path(os.environ.get("ENFRACTAL_CONTRACTS_DIR") or REPO / "contracts").resolve()
+# GARAGE_GAME_CONTRACTS_DIR points the suite at another copy of contracts/, to check a proposed change.
+CONTRACTS = Path(os.environ.get("GARAGE_GAME_CONTRACTS_DIR") or REPO / "contracts").resolve()
 EXAMPLES = CONTRACTS / "examples" / "messages"
 SRC = COMPANION_DIR / "src"
 

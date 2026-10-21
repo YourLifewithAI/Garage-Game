@@ -210,7 +210,7 @@ public partial class LookDirector : Node3D
         if (error.Length > 0) Warn(error + "; following the preset's clock instead");
         _pinnedHour = hour;
         _pinnedDay = day is { } d ? Math.Clamp(d, 1, 366) : null;
-        _clockSource = hour != null || day != null ? "pinned by --look-clock/--look-date or ENFRACTAL_LOOK_CLOCK/ENFRACTAL_LOOK_DATE" : "";
+        _clockSource = hour != null || day != null ? "pinned by --look-clock/--look-date or GARAGE_GAME_LOOK_CLOCK/GARAGE_GAME_LOOK_DATE" : "";
         var (lampsOn, lampsError) = LookClock.LampsOverride(OS.GetCmdlineUserArgs(), OS.GetEnvironment);
         if (lampsError.Length > 0) Warn(lampsError + "; the lamps switch themselves instead");
         _lampsPinned = lampsOn;

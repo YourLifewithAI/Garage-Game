@@ -49,13 +49,13 @@ if ($MotionOnly) {
     # Headless: nothing is drawn, so neither a game window nor the GPU's load matters.
     $repository = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
     . (Join-Path $repository 'tools/native-toolchain.ps1')
-    $toolchain = Get-EnfractalNativeToolchain
-    Build-EnfractalNativeProject -Toolchain $toolchain | Out-Null
+    $toolchain = Get-GarageGameNativeToolchain
+    Build-GarageGameNativeProject -Toolchain $toolchain | Out-Null
     $assets = (Join-Path $repository 'assets/characters') -replace '\\', '/'
     $motionArgs = @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native/Look/character_sheet_capture.tscn', '--',
         '--motion-only=true', "--assets=$assets")
     if ($Characters) { $motionArgs += "--characters=$Characters" }
-    $motion = Invoke-EnfractalNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath -Arguments $motionArgs -TimeoutSeconds $TimeoutSeconds
+    $motion = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath -Arguments $motionArgs -TimeoutSeconds $TimeoutSeconds
     if ($motion.Stderr -or $motion.Stdout -notmatch 'CHARACTER_SHEET_MOTION: (\d+)/\1 tiles show their motion') { throw "$($motion.Stdout)`n$($motion.Stderr)" }
     $motion.Stdout.Split("`n") | Where-Object { $_ -match '^CHARACTER_SHEET_MOTION' } | ForEach-Object { Write-Output $_.TrimEnd() }
     return
@@ -68,7 +68,7 @@ if ($openGame -and -not $AllowOpenGame) {
 }
 $repository = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $repository 'tools/native-toolchain.ps1')
-$toolchain = Get-EnfractalNativeToolchain
+$toolchain = Get-GarageGameNativeToolchain
 if (-not $OutDir) { $OutDir = ".cache/character-sheets/$Label" }
 $outPath = [System.IO.Path]::GetFullPath($OutDir, $repository)
 New-Item -ItemType Directory -Force $outPath | Out-Null
@@ -83,8 +83,8 @@ $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
 $projectPath = $toolchain.ProjectPath
 $commit = (git -C $repository rev-parse --short HEAD).Trim()
 $dirty = [bool](git -C $repository status --porcelain -- game tools/look assets/characters)
-Build-EnfractalNativeProject -Toolchain $toolchain | Out-Null
-$import = Invoke-EnfractalNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
+Build-GarageGameNativeProject -Toolchain $toolchain | Out-Null
+$import = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
     -Arguments @('--headless', '--editor', '--path', $projectPath, '--import') -TimeoutSeconds 180
 if ($import.Stderr -match 'SCRIPT ERROR:') { throw $import.Stderr }
 

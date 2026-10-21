@@ -41,7 +41,7 @@ PROBE = textwrap.dedent(r'''
     pywin32_loaded = "win32api" in sys.modules
     removed = lockdown.scrub_environment()
     lockdown.install(read_files=[allowed], read_roots=[Path(sys.argv[1])])
-    report = {"env": sorted(os.environ), "removed_secret": "ENFRACTAL_CANARY_API_KEY" in removed}
+    report = {"env": sorted(os.environ), "removed_secret": "GARAGE_GAME_CANARY_API_KEY" in removed}
 
     def attempt(name, fn):
         try:
@@ -137,7 +137,7 @@ class Lockdown(unittest.TestCase):
         listener.bind(("127.0.0.1", 0))
         listener.listen(1)
         env = {k: v for k, v in os.environ.items()}
-        env["ENFRACTAL_CANARY_API_KEY"] = "sk-canary-0000"
+        env["GARAGE_GAME_CANARY_API_KEY"] = "sk-canary-0000"
         try:
             completed = subprocess.run(
                 [sys.executable, "-c", PROBE, str(SRC), str(cls.session), str(cls.outside),

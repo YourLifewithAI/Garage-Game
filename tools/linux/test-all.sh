@@ -17,7 +17,7 @@ P="$REPO/game"; LOG="$LINUX/test-logs"; mkdir -p "$LOG"; failed=0
 SCALE=0; [ "${1:-}" = "--scale" ] && SCALE=1
 
 # The garage landscape fixture, shared by every worktree of this clone (tools/landscape-fixture.ps1 on Windows, the same key): derived
-# data never committed, under the main worktree's .cache/landscape-fixtures (or $ENFRACTAL_FIXTURE_CACHE), x1/<key> and x10/<key>,
+# data never committed, under the main worktree's .cache/landscape-fixtures (or $GARAGE_GAME_FIXTURE_CACHE), x1/<key> and x10/<key>,
 # keyed by the generator, the exporter, the harness and the corpus room (line endings normalised where Git converts them), built by
 # one checkout at a time under flock into <key>.partial and moved into place; its files are read-only for readers.
 landscape_key() {
@@ -28,7 +28,7 @@ landscape_key() {
     done | sha256sum | cut -c1-16)
 }
 fixture_cache() {
-  if [ -n "${ENFRACTAL_FIXTURE_CACHE:-}" ]; then echo "$ENFRACTAL_FIXTURE_CACHE"; return; fi
+  if [ -n "${GARAGE_GAME_FIXTURE_CACHE:-}" ]; then echo "$GARAGE_GAME_FIXTURE_CACHE"; return; fi
   local common; common=$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
   if [ -n "$common" ] && [ "$(basename "$common")" = .git ]; then echo "$(dirname "$common")/.cache/landscape-fixtures"; else echo "$REPO/.cache/landscape-fixtures"; fi
 }

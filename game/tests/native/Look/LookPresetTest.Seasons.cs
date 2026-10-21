@@ -281,11 +281,11 @@ public partial class LookPresetTest
     /// <summary>In the look: the clock, its pins and an island's world clock drive the land's season; the light stays the moment's own.</summary>
     private async Task CheckSeasonsInTheLook(StylePreset preset, RoomData room)
     {
-        var savedClock = OS.GetEnvironment("ENFRACTAL_LOOK_CLOCK");
-        var savedDate = OS.GetEnvironment("ENFRACTAL_LOOK_DATE");
+        var savedClock = OS.GetEnvironment("GARAGE_GAME_LOOK_CLOCK");
+        var savedDate = OS.GetEnvironment("GARAGE_GAME_LOOK_DATE");
         var savedUtc = LookClock.UtcClock;
-        OS.UnsetEnvironment("ENFRACTAL_LOOK_CLOCK");
-        OS.UnsetEnvironment("ENFRACTAL_LOOK_DATE");
+        OS.UnsetEnvironment("GARAGE_GAME_LOOK_CLOCK");
+        OS.UnsetEnvironment("GARAGE_GAME_LOOK_DATE");
         try
         {
             var (holder, look) = NewDirector(preset, room, "SeasonsHolder");
@@ -326,13 +326,13 @@ public partial class LookPresetTest
             // The pins: --look-date (here its environment form) sets the land's season as it sets the sky's.
             foreach (var (date, season) in new[] { ("2026-01-15", "winter"), ("2026-04-15", "spring"), ("2026-07-15", "summer"), ("2026-10-15", "autumn") })
             {
-                OS.SetEnvironment("ENFRACTAL_LOOK_DATE", date);
+                OS.SetEnvironment("GARAGE_GAME_LOOK_DATE", date);
                 var (pinnedHolder, pinned) = NewDirector(preset, room, "SeasonPinHolder");
                 Check(pinned.Moment.Season == season && LandSeason.Applied is { } p && p.Weights == SeasonWeights.Only(season) && p == LandSeason.At(pinned.Moment),
-                    $"ENFRACTAL_LOOK_DATE={date} gives the land {season} ({pinned.ClockNote})");
+                    $"GARAGE_GAME_LOOK_DATE={date} gives the land {season} ({pinned.ClockNote})");
                 pinnedHolder.QueueFree();
             }
-            OS.UnsetEnvironment("ENFRACTAL_LOOK_DATE");
+            OS.UnsetEnvironment("GARAGE_GAME_LOOK_DATE");
 
             // An island's own clock: four game days a real day, so a game year passes in about 91 real days and its seasons with it.
             var instant = new DateTime(2026, 1, 15, 3, 0, 0, DateTimeKind.Utc);
@@ -355,8 +355,8 @@ public partial class LookPresetTest
         finally
         {
             LookClock.UtcClock = savedUtc;
-            if (savedClock.Length > 0) OS.SetEnvironment("ENFRACTAL_LOOK_CLOCK", savedClock); else OS.UnsetEnvironment("ENFRACTAL_LOOK_CLOCK");
-            if (savedDate.Length > 0) OS.SetEnvironment("ENFRACTAL_LOOK_DATE", savedDate); else OS.UnsetEnvironment("ENFRACTAL_LOOK_DATE");
+            if (savedClock.Length > 0) OS.SetEnvironment("GARAGE_GAME_LOOK_CLOCK", savedClock); else OS.UnsetEnvironment("GARAGE_GAME_LOOK_CLOCK");
+            if (savedDate.Length > 0) OS.SetEnvironment("GARAGE_GAME_LOOK_DATE", savedDate); else OS.UnsetEnvironment("GARAGE_GAME_LOOK_DATE");
         }
         await Frames(1);
     }

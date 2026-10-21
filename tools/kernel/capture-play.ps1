@@ -28,7 +28,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repository = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $repository 'tools/native-toolchain.ps1')
-$toolchain = Get-EnfractalNativeToolchain
+$toolchain = Get-GarageGameNativeToolchain
 $outPath = [System.IO.Path]::GetFullPath($OutDir, $repository)
 New-Item -ItemType Directory -Force $outPath | Out-Null
 
@@ -40,8 +40,8 @@ if ($openGame.Count -gt 0 -and -not $AllowOpenGame) {
 $env:DOTNET_ROOT = Split-Path -Parent $toolchain.DotnetPath
 $env:PATH = $env:DOTNET_ROOT + [System.IO.Path]::PathSeparator + $env:PATH
 if (-not $NoBuild) {
-    Write-Output (Build-EnfractalNativeProject -Toolchain $toolchain)
-    $import = Invoke-EnfractalNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
+    Write-Output (Build-GarageGameNativeProject -Toolchain $toolchain)
+    $import = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
         -Arguments @('--headless', '--editor', '--path', $toolchain.ProjectPath, '--import') -TimeoutSeconds 180
     if ($import.Stderr -match 'SCRIPT ERROR:') { throw $import.Stderr }
 }

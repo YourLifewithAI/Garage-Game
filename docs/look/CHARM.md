@@ -10,7 +10,7 @@
 
 - **The room's data and the look's read-only state.** The room's objects (the hamlet), its spawns, its sea and its trees (the plant copies), the ground under the strings (rays down, once), and the look's `LampsOn`, its haze and the meadow's wind axis (`LandscapeLook.Roles["meadow"]`).
 - **Scenery, as the fish are.** No entity, no save, no collider, no light, nothing in the kernel's sight or the journal's map. Placement is deterministic from the room's id and `Tuning.Seed` (20261006, the preset's reserved `charm.seed`): the same island always wears the same charm.
-- **On by default in open land, never in a room** (a room's charm is the bible's indoor list, not this packet). `--look-charm=off` after `--` (or `ENFRACTAL_LOOK_CHARM=off`) pins it away for a capture that compares.
+- **On by default in open land, never in a room** (a room's charm is the bible's indoor list, not this packet). `--look-charm=off` after `--` (or `GARAGE_GAME_LOOK_CHARM=off`) pins it away for a capture that compares.
 - **Attached beside `NatureLook`** in `RoomWorld` once the room is built: `AddChild(CharmLook.Create(Room, Built, Look))`.
 
 ## Finding the hamlet
@@ -65,7 +65,7 @@ Six MultiMeshes at most, one draw each, no shadows. The cloth is 7 triangles a f
 
 ## The captures
 
-On the 10x garage (`-Room landscape10`, `-NoLightChecks`), each set at 09:00 (the landscape's own setup) and at 21:00 with the lamps on, `before` with the charm pinned off (`ENFRACTAL_LOOK_CHARM=off`):
+On the 10x garage (`-Room landscape10`, `-NoLightChecks`), each set at 09:00 (the landscape's own setup) and at 21:00 with the lamps on, `before` with the charm pinned off (`GARAGE_GAME_LOOK_CHARM=off`):
 - the island cameras' derived `hamlet` (`tools/look/island_cameras.json`), which stands on the island's side and sees the cottages' backs;
 - `hamlet_front`, a fixed scratch camera in the shallows south of the hamlet, which sees their doors and windows (the warm windows show only from there);
 - `charm_close`, the two strings from 0.6 m (after only).

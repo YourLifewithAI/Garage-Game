@@ -194,7 +194,7 @@ def _load_validator(contracts_dir: Path) -> ModuleType:
     path = contracts_dir / "validate.py"
     if not path.is_file():
         raise ContractLoadError(f"contract validator not found at {path}")
-    spec = importlib.util.spec_from_file_location("enfractal_contracts_validate", path)
+    spec = importlib.util.spec_from_file_location("garage_game_contracts_validate", path)
     if spec is None or spec.loader is None:
         raise ContractLoadError(f"cannot load {path}")
     module = importlib.util.module_from_spec(spec)

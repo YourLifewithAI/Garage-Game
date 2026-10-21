@@ -154,4 +154,4 @@ registers every `*.schema.json`. The Run 1 fix round regenerated the patch for t
 (canonical frames, no `locked` code, a real process id range). It was checked by applying it, alone and
 together with `contracts-text-rules.diff` in either order, to a copy of `contracts/`, and running the
 contract tests there (34 pass alone, 39 with both) and the companion suite against that copy
-(`ENFRACTAL_CONTRACTS_DIR=<copy>`).
+(`GARAGE_GAME_CONTRACTS_DIR=<copy>`).

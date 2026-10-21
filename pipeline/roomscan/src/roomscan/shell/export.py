@@ -32,7 +32,7 @@ def check_with_contract(room_dir: Path) -> list[str]:
     path = (repo / "contracts" / "validate.py") if repo else None
     if path is None or not path.is_file():
         return ["contracts/validate.py not found"]
-    spec = importlib.util.spec_from_file_location("enfractal_contract_validate", path)
+    spec = importlib.util.spec_from_file_location("garage_game_contract_validate", path)
     module = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
     try:
         spec.loader.exec_module(module)  # type: ignore[union-attr]

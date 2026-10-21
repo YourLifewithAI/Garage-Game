@@ -10,7 +10,7 @@
 
 ## The body: the star, the founder's pick of three
 
-The founder chose the body from a sheet of three, rendered on the 10x garage by day (09:00, the island's own setup) and at 21:00, blind (`fractal_forms.png`; the rows' order was a coin flip, written down before the sheet was shown: 1 the seed, 2 the crystal, 3 the star). **The founder picked 3, the star (15 October).** The agent had recommended the crystal, in writing before the sheet went out. `FractalLook.Tuning.Form` holds the pick; the crystal and the seed stay built, and `--look-fractal-form=crystal|seed|star` after `--` (or `ENFRACTAL_LOOK_FRACTAL_FORM`) pins one for a capture.
+The founder chose the body from a sheet of three, rendered on the 10x garage by day (09:00, the island's own setup) and at 21:00, blind (`fractal_forms.png`; the rows' order was a coin flip, written down before the sheet was shown: 1 the seed, 2 the crystal, 3 the star). **The founder picked 3, the star (15 October).** The agent had recommended the crystal, in writing before the sheet went out. `FractalLook.Tuning.Form` holds the pick; the crystal and the seed stay built, and `--look-fractal-form=crystal|seed|star` after `--` (or `GARAGE_GAME_LOOK_FRACTAL_FORM`) pins one for a capture.
 
 | Form | What it is | Triangles |
 |---|---|---|

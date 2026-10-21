@@ -2,6 +2,6 @@
 param([string]$EnginePath, [string]$DotnetPath)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'native-toolchain.ps1')
-$nativeToolchain = Get-EnfractalNativeToolchain -EnginePath $EnginePath -DotnetPath $DotnetPath
+$nativeToolchain = Get-GarageGameNativeToolchain -EnginePath $EnginePath -DotnetPath $DotnetPath
 Write-Output "Godot $($nativeToolchain.EngineVersion); .NET SDK $($nativeToolchain.SdkVersion)"
-Build-EnfractalNativeProject -Toolchain $nativeToolchain
+Build-GarageGameNativeProject -Toolchain $nativeToolchain

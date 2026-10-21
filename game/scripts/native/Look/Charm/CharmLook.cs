@@ -20,7 +20,7 @@ namespace GarageGame.Native.Look.Charm;
 /// Tuning.Seed. One MultiMesh a kind, one draw each; only the smoke is written on the CPU each frame, the sway and the twinkle are
 /// the shaders'. Nothing here is an entity, saved, collides, lights anything or is seen by the kernel, sight or map. On by
 /// default in open land, never in a room (a room's charm is the bible's indoor list); "--look-charm=off" after "--" (or
-/// ENFRACTAL_LOOK_CHARM=off) pins it away for a capture that compares.
+/// GARAGE_GAME_LOOK_CHARM=off) pins it away for a capture that compares.
 /// </summary>
 public partial class CharmLook : Node3D
 {
@@ -136,7 +136,7 @@ public partial class CharmLook : Node3D
     public const string GlowShaderPath = "res://shaders/charm_glow.gdshader";
     /// <summary>The pin for a capture that compares: "--look-charm=off" after "--", or this environment variable ("on" keeps the default).</summary>
     public const string PinArgument = "--look-charm=";
-    public const string PinVariable = "ENFRACTAL_LOOK_CHARM";
+    public const string PinVariable = "GARAGE_GAME_LOOK_CHARM";
 
     /// <summary>The uniforms each shader declares and CharmLook sets (the look suite holds the lists to the shaders).</summary>
     public static readonly string[] SmokeParameterNames = { "smoke_color", "softness", "lumps", "light_wrap", "scatter" };
@@ -206,7 +206,7 @@ public partial class CharmLook : Node3D
         var pin = Pin(OS.GetCmdlineUserArgs(), System.Environment.GetEnvironmentVariable(PinVariable));
         Enabled = pin != false && LandscapeLook.IsOpenLand(room);
         Survey = HamletSurvey.Of(room);
-        Summary = !Enabled ? (pin == false ? "pinned off (--look-charm=off or ENFRACTAL_LOOK_CHARM)" : "not drawn in a room (a room's charm is the bible's indoor list)") : "waiting for the ground";
+        Summary = !Enabled ? (pin == false ? "pinned off (--look-charm=off or GARAGE_GAME_LOOK_CHARM)" : "not drawn in a room (a room's charm is the bible's indoor list)") : "waiting for the ground";
         if (!Enabled) GD.Print("CHARM_LOOK: " + Summary);
         SetPhysicsProcess(Enabled);
     }

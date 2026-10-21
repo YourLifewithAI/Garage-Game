@@ -1,7 +1,7 @@
 """The mock host fingerprints receipts with Lane P's canonical JSON v1, byte for byte.
 
 The golden fixture is the kernel's own, game/tests/fixtures/kernel/, wherever it exists: on the
-integration branch, or in another checkout named by ENFRACTAL_KERNEL_FIXTURE_DIR. On this lane's
+integration branch, or in another checkout named by GARAGE_GAME_KERNEL_FIXTURE_DIR. On this lane's
 branch, which predates it, the suite uses the byte-identical copy in fixtures/canonical_json_v1
 (see SOURCE.txt). The copy is not pinned against line-ending conversion, so a Windows checkout may
 hold its input with CRLF; that changes no parsed value, and the expected bytes have no line ending.
@@ -18,7 +18,7 @@ from support import COMPANION, REPO, command, new_host
 from garage_game_companion import canonical
 
 GOLDEN_SHA256 = "a08519e8874d0895f7d9fded02fccb92ebf508101829de3db7c6ad9df2c85589"
-_SHARED = Path(os.environ.get("ENFRACTAL_KERNEL_FIXTURE_DIR") or REPO / "game" / "tests" / "fixtures" / "kernel")
+_SHARED = Path(os.environ.get("GARAGE_GAME_KERNEL_FIXTURE_DIR") or REPO / "game" / "tests" / "fixtures" / "kernel")
 FIXTURE = _SHARED if (_SHARED / "canonical_expected.json").is_file() else \
     Path(__file__).resolve().parent / "fixtures" / "canonical_json_v1"
 
@@ -42,7 +42,7 @@ class CanonicalJsonV1(unittest.TestCase):
         self.assertEqual(body, b'{"message":' + expected + b',"seq":7,"type":"request"}')
 
     def test_a_named_shared_fixture_is_the_one_checked(self):
-        if os.environ.get("ENFRACTAL_KERNEL_FIXTURE_DIR"):
+        if os.environ.get("GARAGE_GAME_KERNEL_FIXTURE_DIR"):
             self.assertEqual(FIXTURE, _SHARED)  # a typo in the path must not fall back to the copy silently
 
     def test_the_contract_layer_measures_and_fingerprints_with_v1(self):
