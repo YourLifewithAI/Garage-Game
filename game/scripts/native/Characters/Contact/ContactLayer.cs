@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using Godot;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Characters.Contact;
+namespace GarageGame.Native.Characters.Contact;
 
 /// <summary>What a landing meant, from <see cref="PlayerVitals.FallDamage"/> (what it would cost in Challenge, in every mode).</summary>
 public enum LandingTier

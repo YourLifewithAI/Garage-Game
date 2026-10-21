@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace EnFractal.Native.Navigation;
+namespace GarageGame.Native.Navigation;
 
 /// <summary>
 /// Makes neighbouring tiles' seams match corner for corner, so the navigation map joins them by its own exact edge keys.

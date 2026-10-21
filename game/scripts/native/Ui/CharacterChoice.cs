@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using Godot;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// One drawn character the player may choose in the Customize panel (the characters round, K6; docs/runs/RUN-2-CHARACTERS.md):
@@ -36,7 +36,7 @@ public sealed record CharacterChoice(string Id, string DisplayName, Texture2D? T
     /// The shipped characters as choices (the Gubble left out; each refusal logged), with their thumbnails from the converter's renders
     /// beside the source models (assets/characters/&lt;id&gt;/three_quarter.png): a build without them draws a named swatch instead.
     /// </summary>
-    public static IReadOnlyList<CharacterChoice> FromLibrary(EnFractal.Native.Characters.CharacterLibrary library)
+    public static IReadOnlyList<CharacterChoice> FromLibrary(GarageGame.Native.Characters.CharacterLibrary library)
     {
         foreach (var entry in library.Entries)
             if (!entry.IsLoaded) GD.PushWarning($"CHARACTERS: {entry.Id} refused: {entry.RefusalReason}");

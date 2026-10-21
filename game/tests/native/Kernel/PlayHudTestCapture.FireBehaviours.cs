@@ -2,11 +2,11 @@ using Godot;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The Fire behaviours packet's captures, in the real window on a scratch profile: "fractal" walks the body into the island's nearest
@@ -28,11 +28,11 @@ public partial class PlayHudTestCapture
             // and the look is bound again so it draws it, as an island whose manifest placed it would.
             // To the side, clear of the starting campfire in front of the spawn.
             var ahead = spawn + player.GlobalBasis * new Vector3(0.5f, 0, 0);
-            using var down = PhysicsRayQueryParameters3D.Create(ahead + Vector3.Up * 0.5f, ahead + Vector3.Down * 0.5f, EnFractal.Native.Room.RoomBuilder.WorldLayer);
+            using var down = PhysicsRayQueryParameters3D.Create(ahead + Vector3.Up * 0.5f, ahead + Vector3.Down * 0.5f, GarageGame.Native.Room.RoomBuilder.WorldLayer);
             using var floor = player.GetWorld3D().DirectSpaceState.IntersectRay(down);
             if (floor.Count > 0) ahead = floor["position"].AsVector3();
             host.FractalsForTests = new[] { new IslandFractal("fractal:capture01", ahead, null, null) };
-            _world.GetNodeOrNull<EnFractal.Native.Look.Fractals.FractalLook>("FractalLook")?.Configure(host, _world.Look);
+            _world.GetNodeOrNull<GarageGame.Native.Look.Fractals.FractalLook>("FractalLook")?.Configure(host, _world.Look);
             fractal = host.Fractals.First();
             GD.Print("PLAY_HUD_CAPTURE: this island places no Fractals; one is set 50 cm to the side for the capture");
         }
@@ -119,7 +119,7 @@ public partial class PlayHudTestCapture
             for (var back = 0.15f; back <= 1.2f; back += 0.05f)
             {
                 var land = water + new Vector3(from.X - water.X, 0, from.Z - water.Z).Normalized() * back;
-                using var query = PhysicsRayQueryParameters3D.Create(land + Vector3.Up * 2f, land + Vector3.Down * 2f, EnFractal.Native.Room.RoomBuilder.WorldLayer);
+                using var query = PhysicsRayQueryParameters3D.Create(land + Vector3.Up * 2f, land + Vector3.Down * 2f, GarageGame.Native.Room.RoomBuilder.WorldLayer);
                 using var hit = space.IntersectRay(query);
                 if (hit.Count == 0) continue;
                 var floor = hit["position"].AsVector3();

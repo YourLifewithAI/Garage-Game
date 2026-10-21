@@ -4,12 +4,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
-using RoomStateOutcome = EnFractal.Native.Kernel.CommandHost.RoomStateOutcome;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
+using RoomStateOutcome = GarageGame.Native.Kernel.CommandHost.RoomStateOutcome;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// P6, the world as data (Run 2): play changes the test room (objects moved, creations built, locks, a note, a fetch's

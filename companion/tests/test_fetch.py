@@ -18,8 +18,8 @@ import unittest
 from mcp_harness import McpHarness
 from support import COMPANION, PLAYER, FakeClock, HostPolicy, command, contract_problems, new_host, query
 
-from enfractal_companion import mock_game
-from enfractal_companion.mock_host import COME_ARRIVAL_M, HOVER_M
+from garage_game_companion import mock_game
+from garage_game_companion.mock_host import COME_ARRIVAL_M, HOVER_M
 
 FAST = HostPolicy(companion_messages_per_s=1_000_000)
 BESIDE_THE_BOOK = [0.45, HOVER_M, 0.24]  # book at (0.45, 0, 0.1); Gubble spawn at (0.45, HOVER_M, 0.6)

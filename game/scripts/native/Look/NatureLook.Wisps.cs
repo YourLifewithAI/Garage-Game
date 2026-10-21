@@ -1,8 +1,8 @@
 using System;
 using Godot;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// Fire's behaviours in the look (MECHANICS.md decisions 78 and 80): the Fireline's outline while it is previewed, and the

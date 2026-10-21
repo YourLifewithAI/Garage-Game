@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Godot;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// The tumbling body (the plan's fallback, shipped: docs/runs/RUN-2-CHARACTERS.md, "The risk"): one Jolt rigid body shaped like

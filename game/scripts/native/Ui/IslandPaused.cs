@@ -1,6 +1,6 @@
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// What the pages say while an island is held (docs/game/MECHANICS.md decision 54, the founder on 15 October: "While an island is

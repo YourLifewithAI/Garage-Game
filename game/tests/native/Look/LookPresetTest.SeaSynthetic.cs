@@ -4,11 +4,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using EnFractal.Native.Look;
-using EnFractal.Native.Look.Fauna;
-using EnFractal.Native.Room;
+using GarageGame.Native.Look;
+using GarageGame.Native.Look.Fauna;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// The open sea on synthetic geometry and physics, so its protections hold whether or not a landscape has been exported (Codex's

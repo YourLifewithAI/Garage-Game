@@ -2,9 +2,9 @@ using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using Godot;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>Local controls for the host's magic commands. Every action is checked again by the host.</summary>
 public partial class RoomHud

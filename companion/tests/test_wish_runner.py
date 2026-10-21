@@ -12,10 +12,10 @@ from unittest.mock import AsyncMock, patch
 from jsonschema import Draft202012Validator
 
 from support import NO_HOLDS, contracts, new_host
-from enfractal_companion.link import LinkClient, LinkServer, read_frame
-from enfractal_companion.server import Adapter
-from enfractal_companion import wish_demo_adapter
-from enfractal_companion.wish_runner import ClientConfig, RunnerError, WishRunner, claude_command, game_data, verify_claude_inventory
+from garage_game_companion.link import LinkClient, LinkServer, read_frame
+from garage_game_companion.server import Adapter
+from garage_game_companion import wish_demo_adapter
+from garage_game_companion.wish_runner import ClientConfig, RunnerError, WishRunner, claude_command, game_data, verify_claude_inventory
 
 
 FAKE_ADAPTER = r'''
@@ -309,12 +309,12 @@ class WishRunnerTests(unittest.IsolatedAsyncioTestCase):
                   "result": '{"type":"done","status":"unsupported"}'}
         init = {"type": "system", "subtype": "init", "tools": [], "mcp_servers": [], "plugins": []}
         runner = self.runner("light")
-        with patch("enfractal_companion.wish_runner.asyncio.create_subprocess_exec", new=AsyncMock(return_value=Child([init, result]))) as launch:
+        with patch("garage_game_companion.wish_runner.asyncio.create_subprocess_exec", new=AsyncMock(return_value=Child([init, result]))) as launch:
             self.assertEqual(await runner._claude_turn("{}", self.folder.name), {"type": "done", "status": "unsupported"})
             self.assertEqual(launch.call_args.args[1:], tuple(claude_command(sys.executable)[1:]))
         for events in ([result], [{**init, "tools": ["Bash"]}, result],
                        [init, {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash"}]}}]):
-            with self.subTest(events=events), patch("enfractal_companion.wish_runner.asyncio.create_subprocess_exec", new=AsyncMock(return_value=Child(events))):
+            with self.subTest(events=events), patch("garage_game_companion.wish_runner.asyncio.create_subprocess_exec", new=AsyncMock(return_value=Child(events))):
                 with self.assertRaises(RunnerError):
                     await runner._claude_turn("{}", self.folder.name)
 

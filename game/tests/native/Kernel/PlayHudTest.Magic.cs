@@ -1,10 +1,10 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 using Godot;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The Magic panel: the mode picker, Grow's button, the player's "Let the Gubble use fire", Fire's preview and
@@ -47,10 +47,10 @@ public partial class PlayHudTest
         var fireSetting = (CheckButton)_hud.FindChild("GubbleFireSetting", true, false)!;
         Check(fireSetting.ButtonPressed && host.GubbleFireAllowed && fireSetting.Text == "Let the Gubble use fire", "the settings panel has \"Let the Gubble use fire\", on by default");
         fireSetting.EmitSignal(BaseButton.SignalName.Toggled, false);
-        Check(!host.GubbleFireAllowed && !fireSetting.ButtonPressed && !CommandHost.LoadGubbleFire(EnFractal.Native.RoomHud.ProfilePath),
+        Check(!host.GubbleFireAllowed && !fireSetting.ButtonPressed && !CommandHost.LoadGubbleFire(GarageGame.Native.RoomHud.ProfilePath),
             "switching it off is obeyed by the host and saved in the player's profile");
         fireSetting.EmitSignal(BaseButton.SignalName.Toggled, true);
-        Check(host.GubbleFireAllowed && CommandHost.LoadGubbleFire(EnFractal.Native.RoomHud.ProfilePath), "and so is switching it back on");
+        Check(host.GubbleFireAllowed && CommandHost.LoadGubbleFire(GarageGame.Native.RoomHud.ProfilePath), "and so is switching it back on");
         // Decision 52: Bloom became Grow and its flower trail went: the panel has Grow's button and no trail switch.
         var growButton = _hud.FindChildren("*", "Button", true, false).OfType<Button>().SingleOrDefault(button => button.Text == "Grow the plants at the selected spot");
         Check(host.NatureConfigured && growButton != null && _hud.FindChild("FlowerTrailToggle", true, false) == null, "the Magic panel has Grow's button and no flower trail switch");
@@ -105,7 +105,7 @@ public partial class PlayHudTest
         var submit = (Button)_hud.FindChild("WishSubmitButton", true, false)!;
         var stop = (Button)_hud.FindChild("WishStopButton", true, false)!;
         var disclosure = _hud.FindChild("WishDisclosure", true, false) as Label;
-        Check(disclosure is { Visible: true } && disclosure.Text == EnFractal.Native.RoomHud.WishDisclosure && disclosure.Text.Contains("sent to the AI you connected", StringComparison.Ordinal) &&
+        Check(disclosure is { Visible: true } && disclosure.Text == GarageGame.Native.RoomHud.WishDisclosure && disclosure.Text.Contains("sent to the AI you connected", StringComparison.Ordinal) &&
               disclosure.Text.Contains("company", StringComparison.Ordinal),
             "the wish page always says the wish's words go to the connected AI and its company");
         wishes.Text = "Build a small bridge.";

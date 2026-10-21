@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>Why a chain exists (the inference rule that made it).</summary>
 public enum ChainKind { Custom, Hat, Hair, Ear, Tail, DanglingLeg, DanglingFoot, Arm, Horn, Flame, Wand, Sparkle }

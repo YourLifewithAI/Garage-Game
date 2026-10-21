@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// Reading a playtest record in a test (Playtest/PlaytestRecorder): its manifest, its events line by line, and the contract's own
@@ -114,7 +114,7 @@ public static class PlaytestRecords
         for (var i = 0; i < lines.Count; i++)
         {
             JsonObject line;
-            try { using var strict = EnFractal.Native.Kernel.CanonicalJson.Parse(lines[i]); line = JsonNode.Parse(lines[i])!.AsObject(); }
+            try { using var strict = GarageGame.Native.Kernel.CanonicalJson.Parse(lines[i]); line = JsonNode.Parse(lines[i])!.AsObject(); }
             catch (Exception error) { problems.Add($"line {i + 1} is not strict JSON: {error.Message}"); continue; }
             if (System.Text.Encoding.UTF8.GetByteCount(lines[i]) + 1 > 8192) problems.Add($"line {i + 1} is too long");
             var t = line["t"]?.GetValue<double>() ?? -1;

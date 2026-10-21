@@ -9,7 +9,7 @@ player sees, and how fetch works, including what the real host still needs for i
 ## The swap to the real game host
 
 ```
-any MCP client --stdio--> enfractal-companion --loopback link--> CompanionLinkServer --main thread--> CommandHost
+any MCP client --stdio--> garage-game-companion --loopback link--> CompanionLinkServer --main thread--> CommandHost
                           (Python, unchanged)                     (C#, game/scripts/native/Companion/)  (kernel, P1)
 ```
 
@@ -25,7 +25,7 @@ any MCP client --stdio--> enfractal-companion --loopback link--> CompanionLinkSe
 - **Wiring.** `RoomWorld` attaches the bridge after the command host: the one-line change is the integrator's
   ([proposals/a2-real-host.md](proposals/a2-real-host.md)). Until it lands,
   `game/scripts/native/Companion/companion_room.tscn` runs the room as the game builds it and attaches the bridge
-  itself; `python -m enfractal_companion.real_game` starts it headless (no GPU) for an AI client or the suite.
+  itself; `python -m garage_game_companion.real_game` starts it headless (no GPU) for an AI client or the suite.
 - **The mock stays** as the test double. The two are held together three ways: `test_kernel_alignment.py` reads the
   kernel's constants; `test_real_host.py` runs the link cases and the boundary cases against the real host;
   `test_fetch.py` pins the fetch lifecycle the real host must match when it fetches.
@@ -141,7 +141,7 @@ tool schema but this host refuses it.
 --ignore-user-config --ephemeral -s read-only`, web search off, the shell, unified exec, browser, computer use, apps,
 plugins, image generation, multi-agent, hooks, skills and the other tool features disabled, and this server as its
 only MCP server (`-c mcp_servers.enfractal.*`, the profile generator's values with `--session-file`), against
-`python -m enfractal_companion.real_game --isolated` (the test room headless, a temporary user folder). Its code-mode
+`python -m garage_game_companion.real_game --isolated` (the test room headless, a temporary user folder). Its code-mode
 host had to stay on: with it off, this Codex build refuses every MCP call. 38 seconds and 41,824 tokens; no money or
 GPU spent.
 

@@ -4,12 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Ui;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Ui;
 using Godot;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The names block served to the HUD (M10 of docs/runs/RUN-2-MECHANICS.md; docs/game/MECHANICS.md section 8): the kernel serves

@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The Gubble's answer to an order or a cast (the magic design's "What the player sees"): at once, a thought bubble over its name

@@ -2,10 +2,10 @@ using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using Godot;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The player's controls for the Gubble (RUN-2-GLOW.md section 4; the magic design's "The keys", step 2). Every order and cast is

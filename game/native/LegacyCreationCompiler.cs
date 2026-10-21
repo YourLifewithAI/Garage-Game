@@ -1,7 +1,7 @@
 using Godot;
 using Godot.Collections;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>Interop only. The existing compiler remains the source of rules and hashes.</summary>
 [GlobalClass]

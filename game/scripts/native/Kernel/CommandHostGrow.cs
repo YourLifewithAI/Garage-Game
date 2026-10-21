@@ -5,9 +5,9 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// Grow's numbers and the burning plants' (docs/game/MECHANICS.md decisions 52 and 67, docs/magic/README.md "Grow's first version"),

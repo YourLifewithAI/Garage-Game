@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The Gubble wheel (the magic design's "The wheel"; research 4, marking menus): hold the ask button and, after HoldOpenS, nine

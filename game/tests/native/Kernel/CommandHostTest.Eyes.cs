@@ -3,10 +3,10 @@ using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The Gubble's eyes (view.look) headless: the refusals in their order (actor, the player's setting, the rate, no renderer),

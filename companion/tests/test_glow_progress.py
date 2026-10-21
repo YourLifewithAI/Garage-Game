@@ -8,8 +8,8 @@ import unittest
 from support import (COMPANION, IN_THE_OPEN, NO_HOLDS, OUT_OF_REACH, PLAYER, REPO, FakeClock, cast, command,
                      contract_problems, glow, new_host, query)
 
-from enfractal_companion.glow_progress import GlowProgress
-from enfractal_companion.mock_host import rules_path
+from garage_game_companion.glow_progress import GlowProgress
+from garage_game_companion.mock_host import rules_path
 
 
 class GlowProgressBoundary(unittest.TestCase):

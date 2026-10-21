@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Ui;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Ui;
 using Godot;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The mechanics round's follow-up to the meters (the founder's answers of 15 October, docs/game/MECHANICS.md decisions 41 and 51),

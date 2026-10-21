@@ -2,11 +2,11 @@ using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
 using Godot;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The small in-play settings panel (M7; docs/game/MECHANICS.md section 3, decision 1): C, its button and Esc; the four switches that

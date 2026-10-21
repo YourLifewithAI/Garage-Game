@@ -5,12 +5,12 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Characters.Gaits;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Characters.Gaits;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>The budget, a real body walking a floor, and how bones compose.</summary>
 public partial class CharacterGaitsTest
@@ -117,7 +117,7 @@ public partial class CharacterGaitsTest
         var p95 = ticks > 0 ? both[(int)(ticks * 0.95)] : double.NaN;
         var layers = string.Join(", ", player.Inner.Stack.Count > 0 ? Enumerable.Range(0, player.Inner.Stack.Count).Select(i => player.Inner.Stack[i].GetType().Name) : Array.Empty<string>());
         GD.Print(F($"GAITS_BUDGET: every layer CharacterMotion installs ({layers}) on both real bodies, Stickbear walking, running, stopping and turning and the Gubble floating: median {median * 1000:0.0} µs a tick, 95th percentile {p95 * 1000:0.0} µs, over {ticks} ticks (headless, Debug build; the engine's modifier pass not included)"));
-        Check(ticks >= 550 && CharacterTumble.Find(player.Inner) != null && EnFractal.Native.Characters.Contact.CharacterContact.FindContact(gubble.Inner) != null,
+        Check(ticks >= 550 && CharacterTumble.Find(player.Inner) != null && GarageGame.Native.Characters.Contact.CharacterContact.FindContact(gubble.Inner) != null,
             $"both bodies were dressed as the room dresses them and timed every tick ({ticks} ticks)");
         if (!OS.GetCmdlineUserArgs().Contains("--skip-budget"))
             Check(median < 0.4, F($"both bodies' layers, all of CharacterMotion's, fit the 0.4 ms frame budget (median {median:0.000} ms a tick)"));

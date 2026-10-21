@@ -5,7 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// The Godot wrappers a piece of code leaves for the .NET finalizer: every StringName, NodePath, Godot collection, Variant and

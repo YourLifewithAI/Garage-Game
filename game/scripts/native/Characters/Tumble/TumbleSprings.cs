@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// The spring chains (K1's hair, hats, dangling legs, arms on springs, wands and sparkles) through a tumble: held still from the

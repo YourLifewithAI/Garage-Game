@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Saves;
-using EnFractal.Native.Ui;
+using GarageGame.Native;
+using GarageGame.Native.Saves;
+using GarageGame.Native.Ui;
 using Godot;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The player's character (the characters round, K6), now in the opening menu's New team panel (AvatarPicker, lifted out of the

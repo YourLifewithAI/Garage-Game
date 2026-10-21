@@ -6,10 +6,10 @@ using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using EnFractal.Native.Look;
-using EnFractal.Native.Room;
+using GarageGame.Native.Look;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// The living shore (Run 2, the first recorded play's mark 2: "the coastline is a perfect line where the water meets the land; this

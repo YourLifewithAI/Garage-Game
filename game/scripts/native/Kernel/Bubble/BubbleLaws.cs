@@ -1,4 +1,4 @@
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The Bubble's numbers (docs/game/MECHANICS.md section 5 and decisions 55 to 60 name none but the prices, which the rules pack

@@ -2,12 +2,12 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
-using EnFractal.Native.Saves;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
+using GarageGame.Native.Saves;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>Where the menu looks for the machine's teams: the same user folder the game's boot uses (TeamBoot), so a team made here is the one a boot opens.</summary>
 public static class MenuRoots

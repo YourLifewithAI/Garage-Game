@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// A drawn character's body, built by <see cref="CharacterRig.Build(CharacterDefinition)"/>: a <see cref="Skeleton3D"/>

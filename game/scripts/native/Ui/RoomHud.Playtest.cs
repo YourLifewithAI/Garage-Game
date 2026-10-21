@@ -1,8 +1,8 @@
 using Godot;
 using System.Collections.Generic;
-using EnFractal.Native.Playtest;
+using GarageGame.Native.Playtest;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// Text the screen showed the player, the moment it changed (the playtest record's notice): the HUD's notice line (hud), the Gubble's

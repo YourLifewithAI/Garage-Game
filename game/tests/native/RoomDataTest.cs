@@ -3,12 +3,12 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Look;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Look;
+using GarageGame.Native.Room;
 using FileAccess = Godot.FileAccess;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>Room contract consumption: loading, integrity, derived scene, collision, look and a full room boot.</summary>
 public partial class RoomDataTest : Node3D

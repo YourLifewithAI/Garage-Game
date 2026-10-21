@@ -5,9 +5,9 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Navigation;
+namespace GarageGame.Native.Navigation;
 
 /// <summary>
 /// Where the companion can walk: a navigation mesh baked at runtime from the room's static collision

@@ -2,11 +2,11 @@ using Godot;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Ui;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// Fire's camp on screen (RoomHud.Camp.cs): Fire shown locked until the first rest (decision 72), the rest key (Z) sits the player down by the starting campfire in the rest crouch and

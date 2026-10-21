@@ -4,11 +4,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The team's journal and map, host side (Run 2; docs/companion/JOURNAL.md), in the real test room with the real bodies:
@@ -314,7 +314,7 @@ public partial class JournalTest : Node3D
 
     private Dictionary<string, JsonObject> Summaries() => _host.Entities().ToDictionary(e => e["id"]!.GetValue<string>(), e => e);
 
-    private static Aabb SandboxBox(JsonObject entity) => EnFractal.Native.Sandbox.SandboxControls.Box(entity);
+    private static Aabb SandboxBox(JsonObject entity) => GarageGame.Native.Sandbox.SandboxControls.Box(entity);
 
     // ---- the journal writer: tasks ----
 

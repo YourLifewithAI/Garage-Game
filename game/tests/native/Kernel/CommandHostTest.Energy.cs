@@ -7,10 +7,10 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Seams;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Seams;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The mechanics round's energy and vitals (M1 of docs/runs/RUN-2-MECHANICS.md): the rules pack's six blocks read

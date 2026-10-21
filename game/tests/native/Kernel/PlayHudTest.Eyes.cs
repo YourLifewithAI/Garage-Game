@@ -1,10 +1,10 @@
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
 using Godot;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>The player's setting "Let my AI see through the Gubble's eyes": a switch in the settings panel, kept in the profile, obeyed by the host.</summary>
 public partial class PlayHudTest

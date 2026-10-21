@@ -8,7 +8,7 @@ function Get-EnfractalNativeToolchain {
     $repositoryPath = Split-Path -Parent $PSScriptRoot
     $projectPath = Join-Path $repositoryPath 'game'
     $requiredSdk = (Get-Content -LiteralPath (Join-Path $projectPath 'global.json') -Raw | ConvertFrom-Json).sdk.version
-    $requiredEngine = ([xml](Get-Content -LiteralPath (Join-Path $projectPath 'EnFractal.csproj') -Raw)).Project.Sdk.Split('/')[1]
+    $requiredEngine = ([xml](Get-Content -LiteralPath (Join-Path $projectPath 'GarageGame.csproj') -Raw)).Project.Sdk.Split('/')[1]
 
     if (-not $EnginePath) { $EnginePath = $env:ENFRACTAL_GODOT_DOTNET }
     if (-not $EnginePath) { $EnginePath = $env:ENFRACTAL_GODOT }
@@ -144,7 +144,7 @@ function Build-EnfractalNativeProject {
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)]$Toolchain)
     $result = Invoke-EnfractalNativeProcess -Toolchain $Toolchain -FilePath $Toolchain.DotnetPath `
-        -Arguments @('build', 'EnFractal.csproj', '--configuration', 'Debug', '--nologo') -TimeoutSeconds 180
+        -Arguments @('build', 'GarageGame.csproj', '--configuration', 'Debug', '--nologo') -TimeoutSeconds 180
     if (-not [string]::IsNullOrWhiteSpace($result.Stderr)) { Write-Warning $result.Stderr.Trim() }
     Write-Output $result.Stdout.Trim()
 }

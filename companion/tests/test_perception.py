@@ -12,7 +12,7 @@ import unittest
 
 from support import COMPANION, PLAYER, HostPolicy, command, contract_problems, contracts, example, new_host, query
 
-from enfractal_companion import perception
+from garage_game_companion import perception
 
 SAMPLE = example("command_creation_place_trigger_light")["args"]["source"]
 

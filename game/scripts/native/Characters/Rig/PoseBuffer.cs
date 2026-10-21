@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// One frame's pose: a bone-local position, rotation and scale per bone, keyed by bone index, exactly like

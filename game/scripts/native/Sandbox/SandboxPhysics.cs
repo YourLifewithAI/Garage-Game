@@ -1,9 +1,9 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Sandbox;
+namespace GarageGame.Native.Sandbox;
 
 /// <summary>A thing a verb moves: its body (excluded from its own queries), size and pose, the pivot at its bottom centre.</summary>
 public readonly record struct Thing(string Id, Rid Body, Vector3 Size, Vector3 Position, Quaternion Rotation);

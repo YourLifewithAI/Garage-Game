@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// Consequences, and what the Gubble's AI learns from them (docs/magic/README.md "Fire"). The founder, 13 October: "Let

@@ -3,9 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The Bubble (docs/game/MECHANICS.md section 5; decisions 14, 31, 42, 43 and the founder's redesign, 55 to 60): one player-sized

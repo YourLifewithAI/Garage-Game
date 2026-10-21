@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>Surface patterns the painterly shader knows; values match the constants in painterly_material.gdshader.</summary>
 public enum PaintPattern { None = 0, Wood = 1, Fabric = 2, Plaster = 3, Paper = 4, Cardboard = 5, Brushed = 6, Speckle = 7, Smooth = 8, Stone = 9 }

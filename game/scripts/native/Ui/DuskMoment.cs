@@ -1,6 +1,6 @@
 using System;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The dusk moment (RUN-2-GLOW.md section 4; the magic design's "Teaching at the moment of need"): the first time the light at the

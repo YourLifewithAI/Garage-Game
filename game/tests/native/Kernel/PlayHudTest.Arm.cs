@@ -2,9 +2,9 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// Mark 1 of the first recorded play (16 October), the arm's part: F2's arm hangs from the body's right shoulder, 2.2 radii out from its

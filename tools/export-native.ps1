@@ -9,7 +9,7 @@ if (-not (Test-Path -LiteralPath $template -PathType Leaf)) {
     throw 'Missing .NET export templates. Run tools/bootstrap-native.ps1 -IncludeExportTemplates.'
 }
 Build-EnfractalNativeProject -Toolchain $nativeToolchain
-$outputPath = Join-Path $nativeToolchain.RepositoryPath '.cache/releases/windows/EnFractal.exe'
+$outputPath = Join-Path $nativeToolchain.RepositoryPath '.cache/releases/windows/GarageGame.exe'
 New-Item -ItemType Directory -Force (Split-Path -Parent $outputPath) | Out-Null
 $export = Invoke-EnfractalNativeProcess -Toolchain $nativeToolchain -FilePath $nativeToolchain.EnginePath `
     -Arguments @('--headless', '--path', $nativeToolchain.ProjectPath, '--export-release', 'Windows Native', $outputPath) -TimeoutSeconds 240

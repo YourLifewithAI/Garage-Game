@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>One folder under a library root: loaded, or refused with a reason.</summary>
 public sealed class CharacterEntry

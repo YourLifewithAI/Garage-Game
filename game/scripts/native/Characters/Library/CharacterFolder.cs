@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// Reads one character folder the way the converter writes it (pipeline/characters/conv_a/FORMAT.md and convert.py):

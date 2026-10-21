@@ -5,9 +5,9 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>A rules pack that does not pass the loader's checks. The message names the field, never the pack's text.</summary>
 public sealed class IslandRulesException(string message) : Exception(message);

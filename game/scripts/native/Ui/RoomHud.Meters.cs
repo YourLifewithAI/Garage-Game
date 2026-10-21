@@ -1,9 +1,9 @@
 using System;
 using Godot;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The three meters (docs/game/MECHANICS.md sections 1, 4 and 5; the mechanics round's packet M2): hearts in quarters, the bar under

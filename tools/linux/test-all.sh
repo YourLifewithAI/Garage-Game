@@ -64,7 +64,7 @@ landscape_fixture() { # 1 or 10; prints the exported room's folder, built first 
 export GODOT_SILENCE_ROOT_WARNING=1
 
 echo "== C# build"
-if ! dotnet build "$P/EnFractal.csproj" -nologo -v:q -warnaserror > "$LOG/build.log" 2>&1; then cat "$LOG/build.log"; failed=1; else echo "PASS build (warnings are errors)"; fi
+if ! dotnet build "$P/GarageGame.csproj" -nologo -v:q -warnaserror > "$LOG/build.log" 2>&1; then cat "$LOG/build.log"; failed=1; else echo "PASS build (warnings are errors)"; fi
 echo "== import"
 timeout 300 "$GODOT" --headless --editor --path "$P" --import > "$LOG/import.out" 2> "$LOG/import.err" || true
 if grep -qE "ERROR|SCRIPT ERROR" "$LOG/import.err"; then grep -E "ERROR" "$LOG/import.err" | head -20; failed=1; else echo "PASS import"; fi

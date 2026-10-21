@@ -4,13 +4,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Playtest;
-using EnFractal.Native.Room;
-using EnFractal.Native.Saves;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Playtest;
+using GarageGame.Native.Room;
+using GarageGame.Native.Saves;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The first recorded play's HUD round (16 October, docs/runs/RUN-2-PLAYTEST-ROUND-1.md, P2; MECHANICS.md decision 66): the card at the

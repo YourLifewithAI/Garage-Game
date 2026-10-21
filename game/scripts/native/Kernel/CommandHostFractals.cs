@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Sandbox;
+using GarageGame.Native.Sandbox;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>One Fractal of the island (the manifest's extensions.x_fractals): its id, where it rests (bottom centre), and its kind when typed.</summary>
 public sealed record IslandFractal(string Id, Vector3 PositionM, string? Kind, int? ReachBand);

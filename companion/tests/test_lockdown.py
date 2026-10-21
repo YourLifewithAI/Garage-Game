@@ -21,7 +21,7 @@ PROBE = textwrap.dedent(r'''
     import asyncio, ctypes, json, os, socket, subprocess, sys, urllib.request
     from pathlib import Path
     sys.path.insert(0, sys.argv[1])
-    from enfractal_companion import lockdown
+    from garage_game_companion import lockdown
     allowed, outside, port = Path(sys.argv[2]), Path(sys.argv[3]), int(sys.argv[4])
     # Before the lockdown: this machine's own non-loopback address and a closed port on it. Connecting
     # there never leaves the machine (the local stack refuses it), so a let-through shows as a refusal.
@@ -108,7 +108,7 @@ class ServerStartup(unittest.TestCase):
         """The probes above test lockdown.py; this pins that the real entry point uses it, in order."""
         from unittest import mock
 
-        from enfractal_companion import server
+        from garage_game_companion import server
 
         calls: list[tuple] = []
         with mock.patch.object(server.lockdown, "scrub_environment", lambda: calls.append(("scrub",)) or []), \

@@ -1,8 +1,8 @@
 using Godot;
-using EnFractal.Native.Navigation;
-using EnFractal.Native.Room;
+using GarageGame.Native.Navigation;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// Deterministic, game-only companion body. Its goals arrive as enfractal.command goal.set /
@@ -32,9 +32,9 @@ public partial class CompanionAvatar : SmallPlayerController
     public void SetAuraColor(Color? color)
     {
         AuraColor = color;
-        if (color is { } c) SetMeta(EnFractal.Native.Look.LookDirector.AuraColorMeta, c);
-        else if (HasMeta(EnFractal.Native.Look.LookDirector.AuraColorMeta)) RemoveMeta(EnFractal.Native.Look.LookDirector.AuraColorMeta);
-        if (BodyVisual?.Root is { } drawn && GodotObject.IsInstanceValid(drawn)) EnFractal.Native.Look.CharacterLook.Recolor(drawn, this);
+        if (color is { } c) SetMeta(GarageGame.Native.Look.LookDirector.AuraColorMeta, c);
+        else if (HasMeta(GarageGame.Native.Look.LookDirector.AuraColorMeta)) RemoveMeta(GarageGame.Native.Look.LookDirector.AuraColorMeta);
+        if (BodyVisual?.Root is { } drawn && GodotObject.IsInstanceValid(drawn)) GarageGame.Native.Look.CharacterLook.Recolor(drawn, this);
     }
     public string CompanionName { get; private set; } = DefaultName;
     /// <summary>The name tag over the body: the name with a capital, as a name stands on its own ("The Gubble").</summary>
@@ -383,7 +383,7 @@ public partial class CompanionAvatar : SmallPlayerController
     }
 
     /// <summary>The Gubble's body is on its own layer, which its eye leaves out (the AI's pictures, the player's view through it).</summary>
-    protected override uint OwnBodyLayer => EnFractal.Native.Look.EyeView.GubbleBodyLayer;
+    protected override uint OwnBodyLayer => GarageGame.Native.Look.EyeView.GubbleBodyLayer;
 
     protected override void BuildVisual()
     {

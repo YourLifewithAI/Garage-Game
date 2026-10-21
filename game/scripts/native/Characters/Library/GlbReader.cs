@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// Reads a character GLB from its verified bytes, the way the converter writes it (pipeline/characters/conv_a/convert.py,

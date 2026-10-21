@@ -4,13 +4,13 @@ using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Companion;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Saves;
-using EnFractal.Native.Ui;
+using GarageGame.Native;
+using GarageGame.Native.Companion;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Saves;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// The walk from the menu to the room, headless: the menu opens over a user folder with no team, a team is made in the New team panel

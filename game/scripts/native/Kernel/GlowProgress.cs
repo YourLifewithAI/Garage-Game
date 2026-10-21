@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>A fixed, player-safe error: saved text and filesystem paths never become Gubble dialogue.</summary>
 public sealed class GlowProgressException(string message) : Exception(message);

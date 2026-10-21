@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Look.Charm;
+namespace GarageGame.Native.Look.Charm;
 
 /// <summary>
 /// The charm's cloth, built in code as the fish are (Run 2, L11): a bunting flag and a garment, each one unit wide and one unit

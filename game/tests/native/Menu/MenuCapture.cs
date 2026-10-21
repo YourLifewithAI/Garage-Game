@@ -3,12 +3,12 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Saves;
-using EnFractal.Native.Ui;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Saves;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// Pictures of the opening menu for the founder's eye (windowed; the GPU): the menu with two teams and the installed islands, the New
@@ -118,7 +118,7 @@ public partial class MenuCapture : Node
         GetTree().Quit();
     }
 
-    private const string ClientCode = "import asyncio, sys\nfrom pathlib import Path\nfrom enfractal_companion.link import LinkClient\nasync def main():\n    c = LinkClient.from_file(Path(sys.argv[1]))\n    await c.connect()\n    await asyncio.sleep(float(sys.argv[2]))\n    await c.close()\nasyncio.run(main())\n";
+    private const string ClientCode = "import asyncio, sys\nfrom pathlib import Path\nfrom garage_game_companion.link import LinkClient\nasync def main():\n    c = LinkClient.from_file(Path(sys.argv[1]))\n    await c.connect()\n    await asyncio.sleep(float(sys.argv[2]))\n    await c.close()\nasyncio.run(main())\n";
 
     private async Task Shot(string name)
     {

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// What a part is, inferred from its name by <see cref="PartRoles.Infer"/>. Nothing in the game branches on a

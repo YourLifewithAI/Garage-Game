@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// The dazed stars of a knockout tumble (docs/runs/RUN-2-CHARACTERS.md, "The tumble"): a few little glowing stars circling above

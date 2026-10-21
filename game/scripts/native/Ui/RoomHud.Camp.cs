@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using Godot;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// Fire's camp on screen (MECHANICS.md decisions 61 and 70; docs/runs/RUN-2-OPENING.md's chime and card):

@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// For GDScript suites run with --script that create C# objects (invention_runtime_smoke.gd's two bodies): collect the managed

@@ -15,14 +15,14 @@ from mcp.shared.exceptions import MCPError
 from support import CONTRACTS, COMPANION, PLAYER, SRC, ThreadedGame, contract_problems, new_host
 from support import contracts as load_contracts
 
-from enfractal_companion.server import RESULT_PREAMBLE
+from garage_game_companion.server import RESULT_PREAMBLE
 
 
 def server_parameters(*extra: str) -> StdioServerParameters:
     env = {"PYTHONPATH": str(SRC)}
     # The server reads the same contracts as the in-process game (ENFRACTAL_CONTRACTS_DIR may point at a
     # patched copy), so the two sides agree on what a valid result is.
-    return StdioServerParameters(command=sys.executable, args=["-m", "enfractal_companion", "--log-level", "ERROR",
+    return StdioServerParameters(command=sys.executable, args=["-m", "garage_game_companion", "--log-level", "ERROR",
                                                                "--contracts-dir", str(CONTRACTS), *extra], env=env)
 
 

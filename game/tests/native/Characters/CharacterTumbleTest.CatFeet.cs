@@ -3,11 +3,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Kernel;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>The tumble under a Cat feet safe drop (docs/runs/RUN-2-MECHANICS.md, M5; RUN-2-CHARACTERS.md, "What counts as a big fall").</summary>
 public partial class CharacterTumbleTest

@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>A campfire's spot (bottom centre, on the ground): the island's starting campfire, or a firepit the kernel chose.</summary>
 public sealed record CampSite(string Id, Vector3 PositionM, bool Starting);
@@ -766,7 +766,7 @@ public partial class CommandHost
     /// <summary>The island's clock record kept in the island save (M6's x_clock): believed only when the look's reader accepts it.</summary>
     private void LoadClockBlock(JsonNode? node)
     {
-        if (node is JsonObject clock && global::EnFractal.Native.Look.WorldClock.FromNode(clock, out var error) != null && error.Length == 0) ClockRecord = (JsonObject)clock.DeepClone();
+        if (node is JsonObject clock && global::GarageGame.Native.Look.WorldClock.FromNode(clock, out var error) != null && error.Length == 0) ClockRecord = (JsonObject)clock.DeepClone();
     }
 
     /// <summary>The team block with the camp and the clock, when there is any (CommandHostJournal.ExportTeam).</summary>

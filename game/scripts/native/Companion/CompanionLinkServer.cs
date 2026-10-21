@@ -11,16 +11,16 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Companion;
+namespace GarageGame.Native.Companion;
 
 /// <summary>A frame the link refuses: over its size limit, or not one strict JSON object.</summary>
 public sealed class LinkFrameException(string message) : Exception(message);
 
 /// <summary>
 /// The game's end of the companion link (docs/companion/TRANSPORT.md). The Python reference is
-/// companion/src/enfractal_companion/link.py's LinkServer, and companion/tests/test_real_host.py runs its cases
+/// companion/src/garage_game_companion/link.py's LinkServer, and companion/tests/test_real_host.py runs its cases
 /// against this end.
 /// - Listens on a loopback literal only (127.0.0.1 or ::1), on an ephemeral port, and serves loopback peers only.
 /// - A per-launch 256-bit token is proven by mutual HMAC-SHA256 over two fresh nonces; it never crosses the socket.

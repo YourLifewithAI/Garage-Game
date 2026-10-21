@@ -15,8 +15,8 @@ import unittest
 from mcp_harness import McpHarness
 from support import COMPANION, GUBBLE, IN_THE_OPEN, PLAYER, command, contract_problems, contracts, new_host, query
 
-from enfractal_companion import mock_host, refusals
-from enfractal_companion.mock_host import load_rules, rules_path
+from garage_game_companion import mock_host, refusals
+from garage_game_companion.mock_host import load_rules, rules_path
 
 NEW_PLAYER_OPS = {
     "item.pickup": {"target": "fractal:k3x9q2"},
@@ -421,7 +421,7 @@ class ThroughMcp(unittest.IsolatedAsyncioTestCase):
     async def test_the_tools_say_what_the_bubble_does_now(self):
         """The companion's tool texts describe the Bubble as redesigned (M9's change request): one bubble at a spot where the
         place decides, nature_cast's named forms and no bubble_lift cast, and goal_set's lead; nothing left of the stream."""
-        from enfractal_companion import server
+        from garage_game_companion import server
         async with McpHarness() as harness:
             tools = {tool.name: tool.description for tool in (await harness.client.list_tools()).tools}
         for words in ("bubble_carry", "bubble_boat", "bubble_lift is no cast", "goal_set lead", "One bubble at a time"):

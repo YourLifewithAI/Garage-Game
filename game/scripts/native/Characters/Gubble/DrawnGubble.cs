@@ -1,7 +1,7 @@
 using Godot;
-using EnFractal.Native.Look;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// The family's Gubble drawn on the companion (the characters round, K5): what <see cref="GubbleCharacter.Dress"/> made, kept as a

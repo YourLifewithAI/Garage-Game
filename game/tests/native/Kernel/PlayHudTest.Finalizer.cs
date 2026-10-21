@@ -1,8 +1,8 @@
 using Godot;
 using System.Threading.Tasks;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// S12: the HUD's frame and the host's focus leave no Godot value for the .NET finalizer. Every StringName, NodePath, Godot

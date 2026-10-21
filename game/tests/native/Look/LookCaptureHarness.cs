@@ -6,9 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using EnFractal.Native;
+using GarageGame.Native;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// Look review capture harness (Track L, packet L7 groundwork). Boots the room, drives the fixed review
@@ -126,7 +126,7 @@ public partial class LookCaptureHarness : Node
             // Let the avatars settle on the floor and the companion come to rest.
             for (var i = 0; i < 45; i++) await NextFrame();
             // An island's copies arrive over its first frames: every camera (and every camera worked out from the island) waits for them.
-            var copies = _world.Built.GetNodeOrNull<EnFractal.Native.Room.PlantCopiesView>(EnFractal.Native.Room.PlantCopiesView.ViewName);
+            var copies = _world.Built.GetNodeOrNull<GarageGame.Native.Room.PlantCopiesView>(GarageGame.Native.Room.PlantCopiesView.ViewName);
             for (var waited = System.Diagnostics.Stopwatch.StartNew(); copies != null && waited.Elapsed.TotalSeconds < 60 && !copies.Complete;) await NextFrame();
 
             var only = Arg("only", "").Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
@@ -191,7 +191,7 @@ public partial class LookCaptureHarness : Node
     private void AttachPondLife()
     {
         if (_world.FindChild("PondLife", true, false) != null) return;
-        var type = Type.GetType("EnFractal.Native.Look.Fauna.PondLife");
+        var type = Type.GetType("GarageGame.Native.Look.Fauna.PondLife");
         if (type?.GetMethod("Create")?.Invoke(null, new object[] { _world.Room.RoomId, _world.Built }) is not Node3D life) return;
         _world.AddChild(life);
         type.GetMethod("SetAvatars")?.Invoke(life, new object[] { new Node3D?[] { _world.Player, _world.Companion } });
@@ -240,7 +240,7 @@ public partial class LookCaptureHarness : Node
     private async Task PrepareStage(JsonElement entry)
     {
         if (!entry.TryGetProperty("stage", out var stage) || !stage.TryGetProperty("player_m", out var at)) return;
-        EnFractal.Native.Room.TerrainCollision.EnsureAround(_world, Vec(at), holdS: 3.0);
+        GarageGame.Native.Room.TerrainCollision.EnsureAround(_world, Vec(at), holdS: 3.0);
         for (var i = 0; i < 4; i++) await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
     }
 
@@ -250,7 +250,7 @@ public partial class LookCaptureHarness : Node
         var yaw = Mathf.DegToRad(stage.TryGetProperty("yaw_deg", out var yawElement) ? (float)yawElement.GetDouble() : 0f);
         if (stage.TryGetProperty("player_m", out var playerAt))
         {
-            EnFractal.Native.Room.TerrainCollision.EnsureAround(_world, Vec(playerAt), holdS: 0.5);
+            GarageGame.Native.Room.TerrainCollision.EnsureAround(_world, Vec(playerAt), holdS: 0.5);
             if (!_world.Player.TryTeleportTo(Vec(playerAt))) GD.Print($"LOOK_CAPTURE stage: the player could not be placed at {Vec(playerAt)} (no ground there yet?); the camera is wherever the player stood");
             _world.Player.Rotation = new Vector3(0, yaw, 0);
             _world.Player.ResetPhysicsInterpolation();
@@ -299,7 +299,7 @@ public partial class LookCaptureHarness : Node
     private Vector3 Ground(float x, float z)
     {
         var space = _world.GetWorld3D().DirectSpaceState;
-        using var query = PhysicsRayQueryParameters3D.Create(new Vector3(x, 5f, z), new Vector3(x, -5f, z), EnFractal.Native.Room.RoomBuilder.WorldLayer);
+        using var query = PhysicsRayQueryParameters3D.Create(new Vector3(x, 5f, z), new Vector3(x, -5f, z), GarageGame.Native.Room.RoomBuilder.WorldLayer);
         using var hit = space.IntersectRay(query);
         return hit.Count > 0 ? hit["position"].AsVector3() : new Vector3(x, 0f, z);
     }

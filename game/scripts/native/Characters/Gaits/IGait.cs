@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Characters.Gaits;
+namespace GarageGame.Native.Characters.Gaits;
 
 /// <summary>
 /// What the gait layer worked out from the body's state this tick, for the gait's shapes. Every weight is a critically

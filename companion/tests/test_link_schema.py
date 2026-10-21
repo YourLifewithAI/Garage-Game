@@ -13,8 +13,8 @@ from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
 from support import COMPANION_DIR, CONTRACTS, EXAMPLES, command, new_host, query
 
-from enfractal_companion import link
-from enfractal_companion.link import LinkClient, LinkServer
+from garage_game_companion import link
+from garage_game_companion.link import LinkClient, LinkServer
 
 SCHEMA_PATH = COMPANION_DIR / "schemas" / "companion-link.schema.json"
 

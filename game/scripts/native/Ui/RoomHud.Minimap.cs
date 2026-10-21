@@ -1,7 +1,7 @@
 using Godot;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The minimap in the top-right corner, from the first minute: the journal's map, drawn from what either avatar has seen

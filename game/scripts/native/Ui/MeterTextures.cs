@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// The meters' small pictures, drawn once in software the first time they are needed and kept: each heart (nought to four quarters

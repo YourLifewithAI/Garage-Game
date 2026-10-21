@@ -34,9 +34,9 @@ from support import (
 
 from mcp_harness import McpHarness
 
-from enfractal_companion.link import LinkClient
-from enfractal_companion.mock_host import HOVER_M, REMEMBERED_TARGET_GOALS
-from enfractal_companion.server import INSTRUCTIONS
+from garage_game_companion.link import LinkClient
+from garage_game_companion.mock_host import HOVER_M, REMEMBERED_TARGET_GOALS
+from garage_game_companion.server import INSTRUCTIONS
 
 SAMPLE = example("command_creation_place_trigger_light")["args"]["source"]
 
@@ -622,7 +622,7 @@ class StandInGameConsole(MemoryCase):
         import contextlib
         import io
 
-        from enfractal_companion import mock_game
+        from garage_game_companion import mock_game
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             mock_game._console(self.host, line)

@@ -3,10 +3,10 @@ using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// The Gubble's lead (goal.set lead, decisions 57, 58 and 60): arriving, popping short, the Gubble's own stop popping what it leads,

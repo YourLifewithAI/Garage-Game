@@ -33,7 +33,7 @@ from jsonschema import ValidationError, validators
 from . import canonical, textsafety
 
 PACKAGE_DIR = Path(__file__).resolve().parent
-# companion/src/enfractal_companion/contract.py -> repository root is three levels above the package.
+# companion/src/garage_game_companion/contract.py -> repository root is three levels above the package.
 DEFAULT_CONTRACTS_DIR = PACKAGE_DIR.parents[2] / "contracts"
 DEFAULT_REPO_ROOT = PACKAGE_DIR.parents[2]
 

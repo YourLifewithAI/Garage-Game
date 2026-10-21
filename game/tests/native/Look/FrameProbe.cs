@@ -5,10 +5,10 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json.Nodes;
-using EnFractal.Native;
-using EnFractal.Native.Look.Intro;
+using GarageGame.Native;
+using GarageGame.Native.Look.Intro;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// Where the game's slow frames go (Run 2, the first recorded play's hitches), in a real window as the game boots a room: every frame
@@ -63,7 +63,7 @@ public partial class FrameProbe : Node
         if (!_world.WorldReady) return "loading";
         var parts = new List<string> { "ready" };
         if (RoomIntro.Of(_world) is { } intro) parts.Add(intro.Playing ? $"intro {intro.Seconds:0.0}s" : "intro starting");
-        if (_world.GetChildren().OfType<EnFractal.Native.Look.Fauna.PondLife>().FirstOrDefault() is { } life && !life.Surveyed) parts.Add("fish not yet surveyed");
+        if (_world.GetChildren().OfType<GarageGame.Native.Look.Fauna.PondLife>().FirstOrDefault() is { } life && !life.Surveyed) parts.Add("fish not yet surveyed");
         return string.Join(", ", parts);
     }
 
@@ -77,7 +77,7 @@ public partial class FrameProbe : Node
         {
             var v = Arg("stage", "").Split(',').Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToArray();
             var at = new Vector3(v[0], v[1], v[2]);
-            EnFractal.Native.Room.TerrainCollision.EnsureAround(_world, at, holdS: 3.0);
+            GarageGame.Native.Room.TerrainCollision.EnsureAround(_world, at, holdS: 3.0);
             _world.Player.Rotation = new Vector3(0, Mathf.DegToRad(float.Parse(Arg("stage-yaw", "90"), CultureInfo.InvariantCulture)), 0);
             _stageFrames = 0;
             GD.Print($"FRAME_PROBE stage: asked for {at}; before the physics server has the tile: {_world.Player.TryTeleportTo(at)} at {_world.Player.GlobalPosition}");
@@ -96,7 +96,7 @@ public partial class FrameProbe : Node
     private void SurveyAtOnce()
     {
         if (_atOnceSet || _world == null || !OS.GetCmdlineUserArgs().Contains("--survey-at-once")) return;
-        if (_world.GetChildren().OfType<EnFractal.Native.Look.Fauna.PondLife>().FirstOrDefault() is not { } life) return;
+        if (_world.GetChildren().OfType<GarageGame.Native.Look.Fauna.PondLife>().FirstOrDefault() is not { } life) return;
         life.AtOnce();
         _atOnceSet = true;
     }

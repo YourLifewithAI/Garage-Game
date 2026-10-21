@@ -12,7 +12,7 @@ window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 
 [dotnet]
-project/assembly_name="EnFractal"
+project/assembly_name="GarageGame"
 
 [input]
 

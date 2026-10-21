@@ -1,6 +1,6 @@
 extends RefCounted
 ## The project's invisible-character rule for untrusted world text (names, labels, notes), in GDScript.
-## Kernel/KernelText.cs is the same rule in C#, line for line; companion/src/enfractal_companion/
+## Kernel/KernelText.cs is the same rule in C#, line for line; companion/src/garage_game_companion/
 ## textsafety.py is Lane A's. Requests that carry a hidden character are refused; text the host emits
 ## has every hidden character replaced by a space.
 ##

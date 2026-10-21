@@ -5,12 +5,12 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Navigation;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Navigation;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Scale;
+namespace GarageGame.Tests.Scale;
 
 /// <summary>
 /// The scale suite (packet S10 of the 10x world): the 10x garage booted as the game boots a room and measured, one line per

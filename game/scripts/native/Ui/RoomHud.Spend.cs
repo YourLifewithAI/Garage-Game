@@ -1,7 +1,7 @@
 using Godot;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// Spending Fractals in play (decision 41 of docs/game/MECHANICS.md; the host's fractal.spend, Ui/FractalSpend.cs): no key of its

@@ -6,10 +6,10 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Look.Intro;
+using GarageGame.Native;
+using GarageGame.Native.Look.Intro;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// The intro on a GPU (never headless: headless draws nothing and plays no intro): boots a room in a real 1920x1080 window with vsync

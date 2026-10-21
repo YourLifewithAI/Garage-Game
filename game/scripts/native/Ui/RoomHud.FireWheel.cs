@@ -1,9 +1,9 @@
 using System;
 using System.Text.Json.Nodes;
 using Godot;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// Fire on the wheel and key 6 (MECHANICS.md decision 77). Until the team holds first_fire the wedge and the key show a lock and

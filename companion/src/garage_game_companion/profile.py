@@ -6,11 +6,11 @@ in the room that talks a model into "doing something" has nothing to do it with 
 commands, which the game checks. The game cannot see or limit what else a client loads; this
 profile is the configuration that makes it true.
 
-    python -m enfractal_companion.profile                       # the running game's session file
-    python -m enfractal_companion.profile --mock                # the built-in mock game
-    python -m enfractal_companion.profile --session-file PATH   # another session file
-    python -m enfractal_companion.profile --client ID           # one client's own format (--list-clients)
-    python -m enfractal_companion.profile --write DIR           # every client's files, into DIR only
+    python -m garage_game_companion.profile                       # the running game's session file
+    python -m garage_game_companion.profile --mock                # the built-in mock game
+    python -m garage_game_companion.profile --session-file PATH   # another session file
+    python -m garage_game_companion.profile --client ID           # one client's own format (--list-clients)
+    python -m garage_game_companion.profile --write DIR           # every client's files, into DIR only
 
 prints the profile: by default in the widely used `mcpServers` JSON shape (one entry: a command line
 for a stdio server). The command is the interpreter running this module, so run it with the
@@ -36,7 +36,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
-SERVER_KEY = "enfractal-companion"
+SERVER_KEY = "garage-game-companion"
 CATALOGUE = Path(__file__).resolve().parent / "clients.json"
 DEFAULT_SYSTEMROOT = "C:\\Windows"
 
@@ -56,7 +56,7 @@ def server_launch(*, mock: bool = False, session_file: Path | None = None, pytho
     if mock and session_file is not None:
         raise ValueError("choose --mock or --session-file, not both")
     windows = os.name == "nt" if windows is None else windows
-    args = ["-m", "enfractal_companion"]
+    args = ["-m", "garage_game_companion"]
     if mock:
         args.append("--mock")
     elif session_file is not None:
@@ -269,7 +269,7 @@ def write_profiles(folder: Path, launch: ServerLaunch, *, force: bool = False) -
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="python -m enfractal_companion.profile",
+    parser = argparse.ArgumentParser(prog="python -m garage_game_companion.profile",
                                      description="Print or write the play-only MCP client profile for the Garage Game companion.")
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--mock", action="store_true", help="serve the built-in mock game (no game needed)")

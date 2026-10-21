@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace EnFractal.Native.Room;
+namespace GarageGame.Native.Room;
 
 /// <summary>
 /// The room's water, for play. Every water shell part (material role "water") carries a query-only collider on physics

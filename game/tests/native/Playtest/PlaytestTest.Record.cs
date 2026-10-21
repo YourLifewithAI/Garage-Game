@@ -5,11 +5,11 @@ using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
-using EnFractal.Native.Playtest;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
+using GarageGame.Native.Playtest;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>A play's record on the test room: the manifest, the commands, the keys and notices, the samples, the stills, the clean quit.</summary>
 public partial class PlaytestTest
@@ -33,7 +33,7 @@ public partial class PlaytestTest
             "the folder is named for the launch's date and time and the room, with its stills folder, never under the companion's: " + recorder.Id);
         Check(launch.Str("build") == "abc1234" && launch.Str("room_id") == "test_room" && launch.Str("room_sha256") == _host.Room.ManifestSha256 && launch.Str("team_id") == "local" &&
               launch.Str("mode") == "creative" && launch["difficulty"] == null && launch["beat_s"]!.GetValue<int>() == 10 && launch["ended_utc"] == null && launch["counts"] == null &&
-              launch["style"]!.Str("preset_id").Length > 0 && launch["rules"]!.Str("rules_id") == EnFractal.Native.RoomWorld.DefaultRulesId && launch.Str("log_file").Length > 0 &&
+              launch["style"]!.Str("preset_id").Length > 0 && launch["rules"]!.Str("rules_id") == GarageGame.Native.RoomWorld.DefaultRulesId && launch.Str("log_file").Length > 0 &&
               launch["window"]!["width"]!.GetValue<int>() >= 1 && launch["renderer"]!.Str("adapter").Length > 0,
             "the manifest at launch: the build, the room and its pin, the team, the mode, the style, the rules, the window, the renderer, the beat, and no end yet: " + launch.ToJsonString());
         await Seconds(0.4);
@@ -238,8 +238,8 @@ public partial class PlaytestTest
     /// </summary>
     private async Task TestLink(string folder)
     {
-        var bridge = EnFractal.Native.Companion.CompanionBridge.Of(_world);
-        var sessions = typeof(EnFractal.Native.Companion.CompanionBridge).GetField("_sessions", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var bridge = GarageGame.Native.Companion.CompanionBridge.Of(_world);
+        var sessions = typeof(GarageGame.Native.Companion.CompanionBridge).GetField("_sessions", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         Check(bridge != null && sessions != null, "the world's companion bridge, and its count of link sessions");
         if (bridge == null || sessions == null) return;
         sessions.SetValue(bridge, 1);
@@ -251,7 +251,7 @@ public partial class PlaytestTest
         var events = PlaytestRecords.Events(folder);
         var link = events.Where(e => e.Str("kind") == "session" || (e.Str("kind") == "notice" && e.Str("channel") == "status")).Select(e => e.Str("kind") == "session" ? "session " + e.Str("state") : "status " + e.Str("text")).ToList();
         Check(listening == "listening" && link.SequenceEqual(new[] { "session started", "status listening", "status ", "session ended" }) &&
-              events.Kind("session").All(e => e.Str("principal") == EnFractal.Native.Kernel.CommandHost.CompanionPrincipal),
+              events.Kind("session").All(e => e.Str("principal") == GarageGame.Native.Kernel.CommandHost.CompanionPrincipal),
             "an AI joining: a session started and the cue's word as a status notice; leaving: the cue cleared and the session ended: " + string.Join(", ", link));
     }
 

@@ -4,7 +4,7 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>EnFractal</RootNamespace>
-    <AssemblyName>EnFractal</AssemblyName>
+    <RootNamespace>GarageGame</RootNamespace>
+    <AssemblyName>GarageGame</AssemblyName>
   </PropertyGroup>
 </Project>

@@ -1,8 +1,8 @@
 using Godot;
 using System.Collections.Generic;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// The island's campfires drawn (Fire's camp): a ring of stones round two crossed logs at every campfire spot the host knows, and on a

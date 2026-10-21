@@ -1,6 +1,6 @@
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>What a landing does to a drawn body, by what it would cost in Challenge.</summary>
 public enum TumbleTier

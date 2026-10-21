@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// A line-of-sight ray with no garbage (S12): one RayCast3D under the host, moved to each ray and updated at once, in place of a

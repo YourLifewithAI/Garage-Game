@@ -3,13 +3,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look.Intro;
-using EnFractal.Native.Room;
-using EnFractal.Native.Saves;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look.Intro;
+using GarageGame.Native.Room;
+using GarageGame.Native.Saves;
 using FileAccess = Godot.FileAccess;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// One island the menu offers (docs/game/MECHANICS.md section 3, "Where to?"): a room whose folder holds a manifest. The menu reads

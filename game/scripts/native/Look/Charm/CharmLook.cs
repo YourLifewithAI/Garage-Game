@@ -2,9 +2,9 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Look.Charm;
+namespace GarageGame.Native.Look.Charm;
 
 /// <summary>
 /// The hamlet's charm (Run 2, L11: docs/runs/RUN-2-LOOK.md, docs/look/CHARM.md): the life details that make the generator's

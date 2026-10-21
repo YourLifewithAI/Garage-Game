@@ -104,7 +104,7 @@ def nvidia_smi_memory() -> tuple[int, int] | None:
 
 
 GAME_WINDOW_PREFIXES = ("Garage Game", "EnFractal")  # the game, and a build from before the rename
-GAME_PROGRAMS = ("godot", "enfractal")  # the editor/runner, or an exported build
+GAME_PROGRAMS = ("godot", "garagegame", "enfractal")  # the editor/runner, or an exported build
 
 
 def visible_windows() -> list[tuple[str, str]]:

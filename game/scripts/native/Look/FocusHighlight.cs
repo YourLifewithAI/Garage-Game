@@ -2,7 +2,7 @@ using Godot;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// How the focus is drawn: a warm rim of light on the thing and a soft two-tone line just outside it (a light line over a wider,

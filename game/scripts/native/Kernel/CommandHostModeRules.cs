@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The rules the player's body and the pool play by now (VitalsRules): the island's pack, the mode, the difficulty, the

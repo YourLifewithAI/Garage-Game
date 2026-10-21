@@ -1,9 +1,9 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using EnFractal.Native.Look;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Native.Room;
+namespace GarageGame.Native.Room;
 
 /// <summary>
 /// The island's waterpads in the scene (MECHANICS.md decision 75, Grow's Waterpad): each one large water lily leaf, floating at the

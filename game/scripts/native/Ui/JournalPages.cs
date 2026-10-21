@@ -4,9 +4,9 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json.Nodes;
 using Godot;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>How a line of the journal is written: the size and ink of its words, or a link, a button, or the map.</summary>
 public enum JournalInk { Heading, Title, Text, Faint, Smudge, Link, Map, Button }

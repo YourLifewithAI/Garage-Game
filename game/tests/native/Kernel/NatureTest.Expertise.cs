@@ -2,10 +2,10 @@ using Godot;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// A fire teaches nothing by burning (M11): Fire's expertise come from the camp (CommandHostCamps: the first rest teaches Fire, the first

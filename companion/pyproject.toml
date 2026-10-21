@@ -1,5 +1,5 @@
 [project]
-name = "enfractal-companion"
+name = "garage-game-companion"
 version = "0.1.0"
 description = "Model-neutral MCP command surface for the EnFractal AI companion, with a mock game host and boundary tests."
 requires-python = ">=3.11"
@@ -13,13 +13,13 @@ dependencies = [
 ]
 
 [project.scripts]
-enfractal-companion = "enfractal_companion.server:main"
-enfractal-companion-mock-game = "enfractal_companion.mock_game:main"
-enfractal-wish-runner = "enfractal_companion.wish_runner:main"
+garage-game-companion = "garage_game_companion.server:main"
+garage-game-companion-mock-game = "garage_game_companion.mock_game:main"
+garage-game-wish-runner = "garage_game_companion.wish_runner:main"
 
 [build-system]
 requires = ["hatchling==1.32.4"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/enfractal_companion"]
+packages = ["src/garage_game_companion"]

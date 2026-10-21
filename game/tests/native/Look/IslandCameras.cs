@@ -2,9 +2,9 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>Where a derived camera stands the avatars and which of the HUD's views frames them (1: F2, the shoulder).</summary>
 public sealed record DerivedCamera(string Id, string Label, string Purpose, Vector3 PlayerM, float YawDeg, Vector3 CompanionM, int HudView = 1)

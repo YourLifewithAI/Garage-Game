@@ -1,8 +1,8 @@
 using Godot;
 using System;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>The sun's shadows over open land: how far they reach, in how many splits, and where the splits fall (fractions of the reach).</summary>
 public readonly record struct LandShadows(float DistanceM, int Splits, float Split1, float Split2, float Split3);

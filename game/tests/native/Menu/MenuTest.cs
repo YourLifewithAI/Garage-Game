@@ -6,12 +6,12 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Saves;
-using EnFractal.Native.Ui;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Saves;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// The opening menu (docs/runs/RUN-2-MECHANICS.md, packet M7; docs/game/MECHANICS.md section 3 and decisions 1, 3, 4, 44, 49, 66):
@@ -152,7 +152,7 @@ public partial class MenuTest : Node
         Check(tutorial.Tutorial && tutorial.HasShape && tutorial.DisplayName == "Tutorial Isle" && islands[1].DisplayName == "Plain Isle" && !islands[1].Tutorial && !islands[1].HasShape && islands[2].Shipped,
             $"a name is cleaned the way the game cleans display text (\"{tutorial.DisplayName}\"), the tutorial flag and the shape data are read");
         var bytes = File.ReadAllBytes(Path.Combine(ProjectSettings.GlobalizePath(IslandsFolder()), "zz_tutorial", "room.json"));
-        Check(tutorial.ManifestPrefix == EnFractal.Native.Room.RoomData.Sha256Hex(bytes)[..16] && TeamLayout.ValidManifestPrefix(tutorial.ManifestPrefix),
+        Check(tutorial.ManifestPrefix == GarageGame.Native.Room.RoomData.Sha256Hex(bytes)[..16] && TeamLayout.ValidManifestPrefix(tutorial.ManifestPrefix),
             "the island's saves are named by the manifest's hash, as the game names them (CommandHost.SavePathFor)");
         var shape = tutorial.ReadShape();
         Check(shape != null && shape.Floors.Count == 1 && shape.Walls.Count == 1 && shape.Boxes.Count == 2 && islands[1].ReadShape() == null,

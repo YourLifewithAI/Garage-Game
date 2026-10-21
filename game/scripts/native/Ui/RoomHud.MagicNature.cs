@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 public partial class RoomHud
 {
@@ -114,7 +114,7 @@ public partial class RoomHud
         RefreshMagicPanel();
     }
 
-    private global::EnFractal.Native.Look.NatureLook? NatureVisual => GetParent()?.GetNodeOrNull<global::EnFractal.Native.Look.NatureLook>(NatureLookPath);
+    private global::GarageGame.Native.Look.NatureLook? NatureVisual => GetParent()?.GetNodeOrNull<global::GarageGame.Native.Look.NatureLook>(NatureLookPath);
     private static readonly NodePath NatureLookPath = "NatureLook";
 
     internal void BeginFireConfirmation()

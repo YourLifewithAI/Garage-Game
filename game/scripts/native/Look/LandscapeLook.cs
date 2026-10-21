@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>The marks painterly_land.gdshader knows; the values match its K_ constants.</summary>
 public enum LandKind

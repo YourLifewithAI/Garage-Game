@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// What the sky looks like at one moment, as the shader draws it behind a window (review M2: a window used to show the

@@ -1,10 +1,10 @@
 using Godot;
 using System.Linq;
 using System.Text;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 using FileAccess = Godot.FileAccess;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The canonical JSON golden fixture reproduced by C#, plus a cross-check that GDScript's kernel

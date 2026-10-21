@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// The felt (character_felt.gdshader): a soft wrapped terminator, a velvet sheen and a little rim from lights behind the figure,

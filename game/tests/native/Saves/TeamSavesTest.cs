@@ -7,11 +7,11 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Saves;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Saves;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// Teams and save paths (docs/runs/RUN-2-MECHANICS.md, packet M3; docs/game/MECHANICS.md sections 2, 3, 7 and 12): the team folder

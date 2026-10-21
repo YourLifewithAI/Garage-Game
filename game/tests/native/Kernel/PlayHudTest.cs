@@ -2,12 +2,12 @@ using Godot;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
-using EnFractal.Native.Sandbox;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
+using GarageGame.Native.Sandbox;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The second playtest's fix round, in the real room with the real look and HUD: the diorama and isometric views are shelved
@@ -1051,7 +1051,7 @@ public partial class PlayHudTest : Node
         _hud.SetViewMode(1);
         await Frames(2);
         Check(!_hud.Cue.Bubble.Visible && !_hud.Cue.ReasonLabel.Visible, "cleared, neither shows");
-        if (EnFractal.Native.Companion.CompanionBridge.Of(_world)?.Cue is { } status)
+        if (GarageGame.Native.Companion.CompanionBridge.Of(_world)?.Cue is { } status)
             Check(status.FontSize >= 30 && status.OutlineSize >= 8, $"the AI link's state line is as large as the name tag ({status.FontSize}) with a thick outline ({status.OutlineSize})");
         Check(companion.GetNode<Label3D>("CompanionLabel").OutlineSize >= 8, "and so is the name tag's outline");
     }
@@ -1351,7 +1351,7 @@ public partial class PlayHudTest : Node
         Check(ids.Length == 2 && ids.All(id => look.GlowLight(id)!.LightColor.IsEqualApprox(GlowLook.LightColor(before))) && companion.LastCastToward != null,
             "a halo on the Gubble and a wisp at a dark spot (1 aimed there) both take the Gubble's aura colour");
         // The Gubble's colour is the team's now (chosen in the menu's New team panel, worn through RoomHud.UseTeam).
-        var other = EnFractal.Native.Saves.TeamFile.Create("aura_team", new DateTime(2026, 10, 16, 8, 0, 0, DateTimeKind.Utc), "Mira", "prototype", companion.CompanionName, "#d28f63");
+        var other = GarageGame.Native.Saves.TeamFile.Create("aura_team", new DateTime(2026, 10, 16, 8, 0, 0, DateTimeKind.Utc), "Mira", "prototype", companion.CompanionName, "#d28f63");
         _hud.UseTeam(other);
         await Frames(2);
         var after = companion.AuraColor!.Value;

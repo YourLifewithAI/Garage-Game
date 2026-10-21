@@ -3,9 +3,9 @@ using System;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native.Look;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The Gubble's eyes for the connected AI (view.look; docs/companion/PERCEPTION.md, "The Gubble's eyes"): one small picture

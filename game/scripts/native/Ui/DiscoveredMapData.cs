@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using Godot;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// The team's discovered map as the host exports it (CommandHost.ExportDiscovered): discovered ground as strips of cells, each

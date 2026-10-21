@@ -4,11 +4,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Look;
-using EnFractal.Native.Room;
-using EnFractal.Native.Sandbox;
+using GarageGame.Native.Look;
+using GarageGame.Native.Room;
+using GarageGame.Native.Sandbox;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// P6, the world as data (Run 2): room state in the contract's form (contracts/room-state.schema.json), written from the

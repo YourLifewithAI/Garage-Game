@@ -6,7 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// The probe's "--parts" (S12): what the per-frame and periodic jobs of the HUD, the command host and the bodies cost one at a
@@ -18,8 +18,8 @@ public partial class IslandFrameProbe
 {
     private async Task MeasureParts()
     {
-        var hud = _world.GetNodeOrNull<EnFractal.Native.RoomHud>("RoomHud")!;
-        var host = EnFractal.Native.Kernel.CommandHost.Of(_world)!;
+        var hud = _world.GetNodeOrNull<GarageGame.Native.RoomHud>("RoomHud")!;
+        var host = GarageGame.Native.Kernel.CommandHost.Of(_world)!;
         var ids = host.Room.Shell.Select(p => p.Id).Concat(host.Room.Objects.Select(o => o.Id)).ToList();
         var parts = new List<(string Name, Action Call)>
         {
@@ -34,13 +34,13 @@ public partial class IslandFrameProbe
             ("RoomHud.ClockText", () => hud.ClockText()),
             ("CommandHost._Process", () => host._Process(1 / 60.0)),
             ("CommandHost.Entities", () => host.Entities()),
-            ("the authority's snapshot (1 call)", () => { using var snapshot = host.Authority.Call(SnapshotName, EnFractal.Native.Kernel.CommandHost.PlayerPrincipal); }),
+            ("the authority's snapshot (1 call)", () => { using var snapshot = host.Authority.Call(SnapshotName, GarageGame.Native.Kernel.CommandHost.PlayerPrincipal); }),
             ("CommandHost.EntityRevision (every room entity)", () => { foreach (var id in ids) host.EntityRevision(id); }),
             ("CommandHost.PlayerFocus", () => host.PlayerFocus()),
             ("CommandHost.SightSweep (a whole sweep, in one call)", WholeSweep(host)),
-            ("CommandHost.AdvanceNature (a step)", () => host.AdvanceNature(EnFractal.Native.Kernel.NatureLaws.StepS)),
+            ("CommandHost.AdvanceNature (a step)", () => host.AdvanceNature(GarageGame.Native.Kernel.NatureLaws.StepS)),
             ("CommandHost.AdvanceNature (a tick)", () => host.AdvanceNature(1 / 60.0)),
-            ("the pond survey (PondSurvey.Survey, once a boot)", () => EnFractal.Native.Look.Fauna.PondSurvey.Survey(_world.Built, EnFractal.Native.Look.Fauna.PondSurvey.RayProbe(_world.GetWorld3D().DirectSpaceState))),
+            ("the pond survey (PondSurvey.Survey, once a boot)", () => GarageGame.Native.Look.Fauna.PondSurvey.Survey(_world.Built, GarageGame.Native.Look.Fauna.PondSurvey.RayProbe(_world.GetWorld3D().DirectSpaceState))),
             ("Player._PhysicsProcess", () => _world.Player._PhysicsProcess(1 / 60.0)),
             ("Player.SampleWater", Private(_world.Player, "SampleWater", 1 / 60f)),
             ("Companion._PhysicsProcess", () => _world.Companion._PhysicsProcess(1 / 60.0)),
@@ -55,7 +55,7 @@ public partial class IslandFrameProbe
                 parts.Add(("OpenSea._Process (the sea's follow, the mist, the shore's clock)", () => sea._Process(1 / 60.0)));
                 if (sea.Life is { } fish) parts.Add(("SeaLife.Advance (the sea's fish)", () => fish.Advance(1 / 60f)));
             }
-            if (_world.GetChildren().OfType<EnFractal.Native.Look.Fauna.PondLife>().FirstOrDefault() is { } ponds)
+            if (_world.GetChildren().OfType<GarageGame.Native.Look.Fauna.PondLife>().FirstOrDefault() is { } ponds)
                 parts.Add(("PondLife.Advance (the ponds' fish)", () => ponds.Advance(1 / 60f)));
         }
         foreach (var (name, call) in parts)
@@ -96,14 +96,14 @@ public partial class IslandFrameProbe
 
     /// <summary>The host's sight rays cast so far (SightRay.Casts, S12), by reflection; 0 before S12.</summary>
     private static long SightRays() =>
-        typeof(EnFractal.Native.Kernel.CommandHost).Assembly.GetType("EnFractal.Native.Kernel.SightRay")?.GetProperty("Casts", BindingFlags.Static | BindingFlags.Public)?.GetValue(null) is long casts ? casts : 0;
+        typeof(GarageGame.Native.Kernel.CommandHost).Assembly.GetType("GarageGame.Native.Kernel.SightRay")?.GetProperty("Casts", BindingFlags.Static | BindingFlags.Public)?.GetValue(null) is long casts ? casts : 0;
 
     /// <summary>A sweep begun and finished at once: all its work, as the sweep did in one tick before S12 spread it.</summary>
-    private static Action WholeSweep(EnFractal.Native.Kernel.CommandHost host)
+    private static Action WholeSweep(GarageGame.Native.Kernel.CommandHost host)
     {
         var sweep = Private(host, "SightSweep", host.TeamSightIntervalS);
         // By reflection, so the probe measures commits from before S12 too (a sweep was then done in its tick).
-        var finish = typeof(EnFractal.Native.Kernel.CommandHost).GetMethod("FinishSweep", BindingFlags.Instance | BindingFlags.NonPublic);
+        var finish = typeof(GarageGame.Native.Kernel.CommandHost).GetMethod("FinishSweep", BindingFlags.Instance | BindingFlags.NonPublic);
         return () =>
         {
             sweep();

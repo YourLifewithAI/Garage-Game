@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// The closed journal in its dock at the lower right: the same leather cover the book shows in flight (DrawCover), with its key

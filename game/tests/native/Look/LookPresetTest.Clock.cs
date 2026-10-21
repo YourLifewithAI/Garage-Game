@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native.Look;
+using GarageGame.Native.Look;
 using FileAccess = Godot.FileAccess;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// The island's clock (the mechanics round, M6): WorldTime(utcNow, clock) and the x_clock record, tested as data. With no record, or
@@ -277,7 +277,7 @@ public partial class LookPresetTest
     }
 
     /// <summary>The director reads the island's clock instead of the machine's, and a pin or a missing record changes nothing about it.</summary>
-    private async Task CheckWorldClockInTheLook(StylePreset preset, EnFractal.Native.Room.RoomData room)
+    private async Task CheckWorldClockInTheLook(StylePreset preset, GarageGame.Native.Room.RoomData room)
     {
         var saved = LookClock.UtcClock;
         var savedClock = OS.GetEnvironment("ENFRACTAL_LOOK_CLOCK");

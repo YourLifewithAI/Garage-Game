@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// What the place made of the Bubble (decision 56, as Glow's variants): on the player a carry round them (Target names them), on

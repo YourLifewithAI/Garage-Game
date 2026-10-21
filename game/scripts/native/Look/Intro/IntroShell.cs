@@ -2,9 +2,9 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Look.Intro;
+namespace GarageGame.Native.Look.Intro;
 
 /// <summary>
 /// The source room's walls and ceiling for the intro, built from its polygons (the floor and the boxes are the island's own ground,

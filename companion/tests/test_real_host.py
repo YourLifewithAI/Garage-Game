@@ -1,7 +1,7 @@
 """The swap (A2): the boundary and embodiment tests against the real game host, not the mock.
 
 One Godot process runs the test room headless with the kernel's command host and the C# end of the companion link
-(game/scripts/native/Companion/), in a temporary user folder (enfractal_companion.real_game). The tests reach it the
+(game/scripts/native/Companion/), in a temporary user folder (garage_game_companion.real_game). The tests reach it the
 way the MCP server does: through the session file and the loopback link, as companion:local. They cover
 - the link's own cases (test_link.py's, now against the C# listener): the handshake, the token, busy, frame limits,
   frames that carry a principal or an approval, malformed frames;
@@ -31,9 +31,9 @@ from test_host_alignment import AlignmentScenarios
 from test_journal_boundary import JournalBoundaryCases
 from test_link import closed, raw_connect
 
-from enfractal_companion import link
-from enfractal_companion.link import LinkClient, LinkError, encode_frame, parse_session, read_frame
-from enfractal_companion.real_game import GameNotAvailable, RealGame
+from garage_game_companion import link
+from garage_game_companion.link import LinkClient, LinkError, encode_frame, parse_session, read_frame
+from garage_game_companion.real_game import GameNotAvailable, RealGame
 
 GAME: RealGame | None = None
 WHY_NOT = ""
@@ -739,7 +739,7 @@ class JournalOnTheRealHost(JournalBoundaryCases, RealHostCase):
 
 def server_parameters(*extra: str):
     from mcp import StdioServerParameters
-    return StdioServerParameters(command=sys.executable, args=["-m", "enfractal_companion", "--log-level", "ERROR",
+    return StdioServerParameters(command=sys.executable, args=["-m", "garage_game_companion", "--log-level", "ERROR",
                                                                "--contracts-dir", str(CONTRACTS), *extra],
                                  env={"PYTHONPATH": str(SRC)})
 

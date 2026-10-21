@@ -4,9 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native.Playtest;
+using GarageGame.Native.Playtest;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>The writer under strain: a killed game, the prune to thirty, the cap of 600 stills.</summary>
 public partial class PlaytestTest

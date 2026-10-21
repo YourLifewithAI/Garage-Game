@@ -1,11 +1,11 @@
 using Godot;
 using System.Collections.Generic;
 using System.Globalization;
-using EnFractal.Native.Characters.Gaits;
-using EnFractal.Native.Look;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Characters.Gaits;
+using GarageGame.Native.Look;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>Local controls and avatar preferences; no agent authority or world-save access.</summary>
 public partial class RoomHud : CanvasLayer
@@ -13,7 +13,7 @@ public partial class RoomHud : CanvasLayer
     public SmallPlayerController Player { get; set; } = null!;
     public CompanionAvatar Companion { get; set; } = null!;
     /// <summary>Set by RoomWorld so the L key can switch the room's lamps; null in fixtures without a look.</summary>
-    public global::EnFractal.Native.Look.LookDirector? Look { get; set; }
+    public global::GarageGame.Native.Look.LookDirector? Look { get; set; }
     public int ViewMode { get; private set; } = 1;
     public string RoomTitle { get; set; } = "ROOM";
     /// <summary>Set by RoomWorld: what the look and the style pin need the player to know (a renderer fallback, a style that did not verify).</summary>

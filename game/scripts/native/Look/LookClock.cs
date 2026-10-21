@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// The light and grade a preset calls for at one hour on one day of the year. KeyHour is the hour on the time keys'

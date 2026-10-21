@@ -15,7 +15,7 @@ from pathlib import Path
 
 from support import COMPANION, REPO, command, new_host
 
-from enfractal_companion import canonical
+from garage_game_companion import canonical
 
 GOLDEN_SHA256 = "a08519e8874d0895f7d9fded02fccb92ebf508101829de3db7c6ad9df2c85589"
 _SHARED = Path(os.environ.get("ENFRACTAL_KERNEL_FIXTURE_DIR") or REPO / "game" / "tests" / "fixtures" / "kernel")
@@ -35,7 +35,7 @@ class CanonicalJsonV1(unittest.TestCase):
         self.assertEqual(canonical.sha256_hex(document), digest)
 
     def test_a_link_frame_carries_the_golden_canonical_bytes_verbatim(self):
-        from enfractal_companion.link import encode_frame
+        from garage_game_companion.link import encode_frame
         document = canonical.loads_strict((FIXTURE / "canonical_input.json").read_bytes().decode("utf-8"))
         expected = (FIXTURE / "canonical_expected.json").read_bytes()
         body = encode_frame({"type": "request", "seq": 7, "message": document})[4:]

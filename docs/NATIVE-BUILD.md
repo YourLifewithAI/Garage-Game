@@ -20,7 +20,7 @@ pwsh -NoProfile -File tools/test-room.ps1
 pwsh -NoProfile -File tools/export-native.ps1
 ```
 
-`game/global.json` pins the SDK exactly; `game/EnFractal.csproj` pins `Godot.NET.Sdk/4.7.2` and targets `net8.0`. Upgrade them deliberately with the editor/package versions, then run the native and retained regression checks. `game/EnFractal.sln` is available to IDEs. The helpers print the verified tool versions and keep .NET CLI/NuGet caches inside the ignored `.cache/` directory; Godot's generated managed output stays in ignored `game/.godot/`.
+`game/global.json` pins the SDK exactly; `game/GarageGame.csproj` pins `Godot.NET.Sdk/4.7.2` and targets `net8.0`. Upgrade them deliberately with the editor/package versions, then run the native and retained regression checks. `game/GarageGame.sln` is available to IDEs. The helpers print the verified tool versions and keep .NET CLI/NuGet caches inside the ignored `.cache/` directory; Godot's generated managed output stays in ignored `game/.godot/`.
 
 Tools installed elsewhere can be selected per process:
 
@@ -50,7 +50,7 @@ Checked on 2026-10-02: the [official Windows download page](https://godotengine.
 
 Windows x64 is the verified bootstrap target. Other native platforms need their matching Godot .NET and SDK packages plus export validation; this file does not claim they were tested. The native-only platform decision does not change source-data license or asset attribution requirements.
 
-The Windows export writes `.cache/releases/windows/EnFractal.exe` and its companion data files. Keep that directory together. The exporter executes an actual release probe of compiled C#, the 0.10 m profile and the retained GDScript compiler with valid/invalid input, then loads the default placeholder room scene. Both run from an empty working directory with developer .NET variables/runtime search paths removed. This does not certify art or the minimum device. Builds are currently unsigned development artifacts.
+The Windows export writes `.cache/releases/windows/GarageGame.exe` and its companion data files. Keep that directory together. The exporter executes an actual release probe of compiled C#, the 0.10 m profile and the retained GDScript compiler with valid/invalid input, then loads the default placeholder room scene. Both run from an empty working directory with developer .NET variables/runtime search paths removed. This does not certify art or the minimum device. Builds are currently unsigned development artifacts.
 
 ## The room scene
 

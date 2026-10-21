@@ -1,10 +1,10 @@
 using System.Linq;
 using Godot;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// Through the Gubble's eyes (the founder, 13 October: "there should be a small icon the player can select that allows them to

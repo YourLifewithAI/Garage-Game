@@ -62,7 +62,7 @@ AppContainer or a separate account) is what would make this a containment bounda
 The game cannot see or limit what else a player's MCP client or harness has loaded. A harness that
 also holds a shell, file access or a browser turns a persuasive sign into a risk outside the game. So
 play uses a **play-only client profile**: a client configuration with this server and nothing else.
-`python -m enfractal_companion.profile` prints one in the common `mcpServers` JSON shape (README.md).
+`python -m garage_game_companion.profile` prints one in the common `mcpServers` JSON shape (README.md).
 `test_profile.py` checks it names exactly one stdio server running this package, sets no environment but
 `SYSTEMROOT` on Windows (this machine's value: some clients start servers with an almost empty environment, and
 without it Python cannot load Winsock, so the server exits with `WinError 10106`; the test shows both), never turns

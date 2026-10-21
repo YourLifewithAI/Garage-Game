@@ -1,9 +1,9 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// The living shore's numbers (Look, Run 2: the first recorded play's mark 2, "the coastline is a perfect line where the water meets

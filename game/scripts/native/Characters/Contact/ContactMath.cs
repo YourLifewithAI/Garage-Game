@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Characters.Contact;
+namespace GarageGame.Native.Characters.Contact;
 
 /// <summary>
 /// Small, allocation-free helpers for the contact and look layers. Godot's own quaternion helpers check normalisation in

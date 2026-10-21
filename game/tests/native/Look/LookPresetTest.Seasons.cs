@@ -5,10 +5,10 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using EnFractal.Native.Look;
-using EnFractal.Native.Room;
+using GarageGame.Native.Look;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// The seasons on the land (L10, LandSeason): the moment's four season weights are the grade's own cross-fade (one season alone at its

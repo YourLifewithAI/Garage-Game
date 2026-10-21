@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>Exact conversions between contract JSON and Godot Variants for the GDScript kernel.</summary>
 public static class KernelJson

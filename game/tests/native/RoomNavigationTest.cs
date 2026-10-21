@@ -2,10 +2,10 @@ using Godot;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Navigation;
+using GarageGame.Native;
+using GarageGame.Native.Navigation;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// The founder's report in the real test room: "If I walk behind the big box and summon my comp, it gets stuck on
@@ -40,7 +40,7 @@ public partial class RoomNavigationTest : Node3D
             var companion = world.Companion;
             var playerSpot = box + new Vector3(0, 0.003f, 0.43f);
             var farSide = box + new Vector3(0, 0.01f, -0.45f);
-            var host = EnFractal.Native.Kernel.CommandHost.Of(world)!;
+            var host = GarageGame.Native.Kernel.CommandHost.Of(world)!;
             host.PlayerGoal("stop");
             // No walkable floor inside the box (Lane P's finding, the open sea round): Recast rasterizes surfaces, not solids, so
             // the floor's top under a box taller than the agent kept a walkable polygon there, and the Gubble's place beside a
@@ -249,7 +249,7 @@ public partial class RoomNavigationTest : Node3D
         AddChild(field);
         StaticBody3D Block(string name, Vector3 size, Transform3D at)
         {
-            var body = new StaticBody3D { Name = name, CollisionLayer = EnFractal.Native.Room.RoomBuilder.WorldLayer, CollisionMask = 0, Transform = at };
+            var body = new StaticBody3D { Name = name, CollisionLayer = GarageGame.Native.Room.RoomBuilder.WorldLayer, CollisionMask = 0, Transform = at };
             body.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = size } });
             field.AddChild(body);
             return body;
@@ -275,7 +275,7 @@ public partial class RoomNavigationTest : Node3D
                     else { bumps.Add(a); bumps.Add(b); bumps.Add(c); }
                 }
             }
-        var rough = new StaticBody3D { Name = "Rough", CollisionLayer = EnFractal.Native.Room.RoomBuilder.WorldLayer, CollisionMask = 0 };
+        var rough = new StaticBody3D { Name = "Rough", CollisionLayer = GarageGame.Native.Room.RoomBuilder.WorldLayer, CollisionMask = 0 };
         rough.AddChild(new CollisionShape3D { Shape = new ConcavePolygonShape3D { Data = bumps.ToArray() } });
         field.AddChild(rough);
         // A 15-degree ramp rising westward out of the floor east of the second seam, over the seam, to a 44 cm top.
@@ -351,7 +351,7 @@ public partial class RoomNavigationTest : Node3D
         var revision = navigation.Revision;
         Check(before.IsDone && before.Revision == revision && before.TryTake(out var planned) && planned.Reaches && navigation.IsCurrent(planned),
             "a route searched on a worker thread is found, and is current, on the bake it was planned on");
-        var block = new StaticBody3D { Name = "Dropped", CollisionLayer = EnFractal.Native.Room.RoomBuilder.WorldLayer, CollisionMask = 0, Position = new Vector3(2.0f, 0.1f, -1.0f) };
+        var block = new StaticBody3D { Name = "Dropped", CollisionLayer = GarageGame.Native.Room.RoomBuilder.WorldLayer, CollisionMask = 0, Position = new Vector3(2.0f, 0.1f, -1.0f) };
         block.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(0.4f, 0.2f, 1.2f) } });
         field.AddChild(block);
         navigation.WorstTickMs = 0;
@@ -398,14 +398,14 @@ public partial class RoomNavigationTest : Node3D
     /// </summary>
     private async Task TestCompanionReplansOnNewBake(RoomWorld world, RoomNavigation navigation, Vector3 farSide, Vector3 box)
     {
-        var host = EnFractal.Native.Kernel.CommandHost.Of(world)!;
+        var host = GarageGame.Native.Kernel.CommandHost.Of(world)!;
         var companion = world.Companion;
         var player = world.Player;
         host.PlayerGoal("stop");
         Check(companion.TryTeleportTo(farSide), "the companion on the far side of the big box once more");
         await Frames(5);
         host.PlayerGoal("come");
-        var block = new StaticBody3D { Name = "SetDown", CollisionLayer = EnFractal.Native.Room.RoomBuilder.WorldLayer, CollisionMask = 0, Position = box + new Vector3(-0.45f, 0.06f, -0.45f) };
+        var block = new StaticBody3D { Name = "SetDown", CollisionLayer = GarageGame.Native.Room.RoomBuilder.WorldLayer, CollisionMask = 0, Position = box + new Vector3(-0.45f, 0.06f, -0.45f) };
         block.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(0.12f, 0.12f, 0.12f) } });
         world.Built.GetNode("Objects").AddChild(block);
         var revision = navigation.Revision;

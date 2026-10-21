@@ -1,8 +1,8 @@
 using System;
 using Godot;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// The journal as a small leather book docked at the lower right (the founder's brief: it expands and opens to the index, then

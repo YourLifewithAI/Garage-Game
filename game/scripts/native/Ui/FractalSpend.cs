@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Globalization;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// Spending Fractals at will (docs/game/MECHANICS.md section 6 and decision 41, the founder on 15 October): the player's own

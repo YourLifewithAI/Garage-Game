@@ -1,6 +1,6 @@
 """Stand-in for the running game: the mock host behind a real companion link, plus a player console.
 
-    enfractal-companion-mock-game [--session-file PATH] [--room DIR]
+    garage-game-companion-mock-game [--session-file PATH] [--room DIR]
 
 It listens on loopback, writes the session file the MCP server reads (by default the same user://
 folder the real game uses, which only this account can change), and prints every held
@@ -33,7 +33,7 @@ from .mock_host import MockHost
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="enfractal-companion-mock-game", description=__doc__,
+    parser = argparse.ArgumentParser(prog="garage-game-companion-mock-game", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--session-file", type=Path, default=None,
                         help="default: the game's own user:// session file, which only this account can change")

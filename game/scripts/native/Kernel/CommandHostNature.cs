@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>What fire does to a thing (the founder's rule, 13 October; CommandHost.FireRule).</summary>
 public enum FireOutcome { Fireproof, Scorches, BurnsDown }

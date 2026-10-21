@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>One look-at: a <see cref="LookAtModifier3D"/> turning one bone toward <see cref="LookRig.Target"/>.</summary>
 public sealed class LookAt

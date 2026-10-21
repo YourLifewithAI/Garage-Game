@@ -2,9 +2,9 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// The numbers of the Gubble's Fireworks (Run 2, Bubbles and Fireworks; docs/look/EFFECTS.md). Code constants for this round, like

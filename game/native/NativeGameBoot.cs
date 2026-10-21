@@ -1,8 +1,8 @@
 using Godot;
 using System.Linq;
-using EnFractal.Native.Look;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 public partial class NativeGameBoot : Node
 {

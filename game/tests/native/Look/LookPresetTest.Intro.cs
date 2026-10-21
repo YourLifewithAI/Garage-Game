@@ -5,14 +5,14 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
-using EnFractal.Native.Look.Intro;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
+using GarageGame.Native.Look.Intro;
+using GarageGame.Native.Room;
 using FileAccess = Godot.FileAccess;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// The room-to-island intro (Look/Intro), headless: the source room read fail closed, the start field from synthetic source boxes,
@@ -438,7 +438,7 @@ public partial class LookPresetTest
             lines.Add(line.ToString());
         }
         lines.Add($"copies visible={copies?.Visible}");
-        foreach (var node in new Node3D?[] { world.Player, world.Companion, world.Look?.OpenSea?.Life }.Concat(world.GetChildren().OfType<EnFractal.Native.Look.Fauna.PondLife>().Cast<Node3D?>()))
+        foreach (var node in new Node3D?[] { world.Player, world.Companion, world.Look?.OpenSea?.Life }.Concat(world.GetChildren().OfType<GarageGame.Native.Look.Fauna.PondLife>().Cast<Node3D?>()))
             if (node != null) lines.Add($"{node.Name} visible={node.Visible}");
         var hud = world.GetNode<RoomHud>("RoomHud");
         lines.Add($"camera={world.GetViewport().GetCamera3D()?.Name} hud visible={hud.Visible} intro={hud.IntroPlaying} children={hud.GetChildCount()} view={hud.ViewMode} input={world.Player.InputEnabled}");

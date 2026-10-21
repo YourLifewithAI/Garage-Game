@@ -1,10 +1,10 @@
 """Run the real game host, the kernel's command host in the room, with the companion link on.
 
-    python -m enfractal_companion.real_game [--room ID] [--isolated] [--window]
+    python -m garage_game_companion.real_game [--room ID] [--isolated] [--window]
 
 It starts Godot on `res://scripts/native/Companion/companion_room.tscn` (headless unless --window), waits until the
 game has written its companion session file, prints where that file is, and keeps the room running until Ctrl+C.
-Point an MCP client at it with the play-only profile (`python -m enfractal_companion.profile`), adding
+Point an MCP client at it with the play-only profile (`python -m garage_game_companion.profile`), adding
 `--session-file PATH` when the room runs --isolated.
 
 --isolated gives the game a fresh, temporary user folder (its saves and its session file), as the companion suite
@@ -39,9 +39,9 @@ class GameNotAvailable(RuntimeError):
 def toolchain(repo: Path = DEFAULT_REPO_ROOT) -> tuple[Path, Path]:
     """The pinned Godot .NET executable and the .NET folder for DOTNET_ROOT, as the runners find them."""
     project = repo / "game"
-    match = _ENGINE_VERSION.search((project / "EnFractal.csproj").read_text(encoding="utf-8"))
+    match = _ENGINE_VERSION.search((project / "GarageGame.csproj").read_text(encoding="utf-8"))
     if match is None:
-        raise GameNotAvailable("game/EnFractal.csproj names no Godot .NET version")
+        raise GameNotAvailable("game/GarageGame.csproj names no Godot .NET version")
     version = match.group(1)
     engine = os.environ.get("ENFRACTAL_GODOT_DOTNET") or os.environ.get("ENFRACTAL_GODOT")
     dotnet = os.environ.get("ENFRACTAL_DOTNET")
@@ -62,7 +62,7 @@ def toolchain(repo: Path = DEFAULT_REPO_ROOT) -> tuple[Path, Path]:
         raise GameNotAvailable(f"Godot .NET {version} is not installed in this checkout (tools/bootstrap-native.ps1)")
     if not dotnet_exe.is_file():
         raise GameNotAvailable("the pinned .NET SDK is not installed in this checkout")
-    if not (project / ".godot" / "mono" / "temp" / "bin" / "Debug" / "EnFractal.dll").is_file():
+    if not (project / ".godot" / "mono" / "temp" / "bin" / "Debug" / "GarageGame.dll").is_file():
         raise GameNotAvailable("the C# project is not built (run-engine-tests.ps1 builds it first)")
     return Path(engine), dotnet_root
 
@@ -252,7 +252,7 @@ def _kill_tree(process: subprocess.Popen) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="python -m enfractal_companion.real_game", description=__doc__,
+    parser = argparse.ArgumentParser(prog="python -m garage_game_companion.real_game", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--room", help="a room id or folder (default: the test room)")
     parser.add_argument("--isolated", action="store_true", help="use a fresh temporary user folder")
@@ -265,7 +265,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     with game:
         print(f"room running; session file: {game.session_path}", flush=True)
-        print("connect an MCP client with: python -m enfractal_companion.profile"
+        print("connect an MCP client with: python -m garage_game_companion.profile"
               + (f" --session-file \"{game.session_path}\"" if options.isolated else ""), flush=True)
         shown = 0
         try:

@@ -3,11 +3,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// "-- --grow-demo" (the Grow packet's windowed launch on a scratch profile, decisions 52 and 67; never part of a runner): on the
@@ -31,7 +31,7 @@ public partial class LandscapePlayTest
         _shots = OS.GetCmdlineUserArgs().FirstOrDefault(a => a.StartsWith("--shots=", StringComparison.Ordinal))?["--shots=".Length..];
         if (_shots != null) System.IO.Directory.CreateDirectory(_shots);
         // A windowed boot opens with the room's intro, which holds the player: skipped, as a key press would.
-        EnFractal.Native.Look.Intro.RoomIntro.Of(_world)?.Skip();
+        GarageGame.Native.Look.Intro.RoomIntro.Of(_world)?.Skip();
         await Frames(20);
         var player = _world.Player;
         var companion = _world.Companion;
@@ -132,7 +132,7 @@ public partial class LandscapePlayTest
         for (var booting = System.Diagnostics.Stopwatch.StartNew(); booting.Elapsed.TotalSeconds < 120 && !_world.WorldReady && _world.LoadError.Length == 0;) await Frames(1);
         _host = CommandHost.Of(_world)!;
         _world.Player.ReadKeyboard = false;
-        EnFractal.Native.Look.Intro.RoomIntro.Of(_world)?.Skip();
+        GarageGame.Native.Look.Intro.RoomIntro.Of(_world)?.Skip();
         var loadMs = _host.PlantsRefreshMs;
         var save = CommandHost.SavePathFor(_world.Room);
         var savedNature = Godot.FileAccess.FileExists(save) ? System.Text.Json.Nodes.JsonNode.Parse(Godot.FileAccess.GetFileAsString(save))?["nature"] : null;

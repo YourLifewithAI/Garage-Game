@@ -107,7 +107,7 @@ if ($Baseline) {
     Write-Output "Exported $commit to $projectPath"
 }
 
-Write-Output (Invoke-Checked $toolchain.DotnetPath @('build', 'EnFractal.csproj', '--configuration', 'Debug', '--nologo', '-v:q') $projectPath).Trim()
+Write-Output (Invoke-Checked $toolchain.DotnetPath @('build', 'GarageGame.csproj', '--configuration', 'Debug', '--nologo', '-v:q') $projectPath).Trim()
 $import = Invoke-EnfractalNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
     -Arguments @('--headless', '--editor', '--path', $projectPath, '--import') -TimeoutSeconds 180
 if ($import.Stderr -match 'SCRIPT ERROR:') { throw $import.Stderr }

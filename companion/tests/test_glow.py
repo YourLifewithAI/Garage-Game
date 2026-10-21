@@ -23,8 +23,8 @@ from support import (BEHIND_BOX, COMPANION, FAR_IN_SIGHT, GUBBLE, IN_THE_OPEN, N
 
 from mcp_harness import McpHarness
 
-from enfractal_companion.mock_host import RulesError, rules_path
-from enfractal_companion.server import INSTRUCTIONS
+from garage_game_companion.mock_host import RulesError, rules_path
+from garage_game_companion.server import INSTRUCTIONS
 
 PACK = json.loads(rules_path().read_bytes())
 SPOT_ONLY_THE_PLAYER_SEES = [0.6, 0.0, 0.2]  # with the companion behind the box (below), the box hides it from the companion

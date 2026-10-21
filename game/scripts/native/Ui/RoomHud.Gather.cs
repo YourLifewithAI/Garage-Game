@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
 using Godot;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The gather key (decision 26 of docs/game/MECHANICS.md; the mechanics round's packet M1 built the command): the key sends the

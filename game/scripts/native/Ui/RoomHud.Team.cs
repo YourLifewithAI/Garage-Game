@@ -1,8 +1,8 @@
 using System;
 using Godot;
-using EnFractal.Native.Saves;
+using GarageGame.Native.Saves;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The team's looks on the bodies (docs/game/MECHANICS.md sections 2 and 3): the team file the menu wrote names the costume the player

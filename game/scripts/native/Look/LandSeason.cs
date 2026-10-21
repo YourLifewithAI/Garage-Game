@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// What one season does to the island's land (L10), each change from 0 (summer, the land as the generator drew it) to 1 (all the

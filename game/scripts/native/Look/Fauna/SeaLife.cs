@@ -1,9 +1,9 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Look.Fauna;
+namespace GarageGame.Native.Look.Fauna;
 
 /// <summary>
 /// Fish in the sea's deeper water near the swimmer (Run 2, the sea's look). A few small schools, a fixed number of fish (so the

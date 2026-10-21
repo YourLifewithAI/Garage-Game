@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>Hearts, counted in quarters (the pack's traits.hearts).</summary>
 public sealed record HeartsRules(double HealthPerQuarter, int StartHearts, int CapHearts, double HealQuarterEveryS, double HealAfterUnharmedS);

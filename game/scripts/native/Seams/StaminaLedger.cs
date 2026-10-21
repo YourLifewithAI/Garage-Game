@@ -1,4 +1,4 @@
-namespace EnFractal.Native.Seams;
+namespace GarageGame.Native.Seams;
 
 // The ledger seam between the body and the kernel, fixed by the mechanics round's contract round (M0, 14 October 2026;
 // contracts/README.md "The stamina ledger"). The integrator owns this file: the kernel (M1, game/scripts/native/Kernel/**)

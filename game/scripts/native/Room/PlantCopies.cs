@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace EnFractal.Native.Room;
+namespace GarageGame.Native.Room;
 
 /// <summary>What a plant set's copies are (contracts/README.md, "Plant copies"); the values are the table header's kind codes.</summary>
 public enum PlantKind { Plant = 0, Tree = 1, Stone = 2 }

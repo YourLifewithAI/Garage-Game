@@ -6,7 +6,7 @@ import unittest
 
 from support import (COMPANION, IN_THE_OPEN, NO_HOLDS, PLAYER, FakeClock, cast, command,
                      contract_problems, glow, new_host, query)
-from enfractal_companion.glow_progress import GlowProgress
+from garage_game_companion.glow_progress import GlowProgress
 
 
 class GlowAndModes(unittest.TestCase):

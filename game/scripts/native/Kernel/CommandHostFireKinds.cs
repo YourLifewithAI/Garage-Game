@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>What a Fire cast is, by its place (decision 77): plain Fire (an unlit firepit lit on its path), a Fireline, Snuff or a Will-o'-wisp.</summary>
 public enum FireKind { Fire, Fireline, Snuff, Wisp }

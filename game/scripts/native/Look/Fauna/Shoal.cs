@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace EnFractal.Native.Look.Fauna;
+namespace GarageGame.Native.Look.Fauna;
 
 /// <summary>The kinds of fish: little olive minnows with a dark stripe, golden rudd, and the odd big bronze carp.</summary>
 public enum FishVariety { Minnow = 0, Golden = 1, Carp = 2 }

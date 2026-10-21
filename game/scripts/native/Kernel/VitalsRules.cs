@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using EnFractal.Native.Seams;
+using GarageGame.Native.Seams;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The island's rules for the player's body and the pool, resolved for one mode, difficulty, set of knacks and count of

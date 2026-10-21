@@ -10,8 +10,8 @@ From the repository, using the companion's existing Python environment:
 
 ```powershell
 $env:PYTHONPATH = "$PWD\companion\src"
-python -m enfractal_companion.wish_runner --write-demo-client "$PWD\.cache\wish-demo.json"
-python -m enfractal_companion.wish_runner --client "$PWD\.cache\wish-demo.json"
+python -m garage_game_companion.wish_runner --write-demo-client "$PWD\.cache\wish-demo.json"
+python -m garage_game_companion.wish_runner --client "$PWD\.cache\wish-demo.json"
 ```
 
 Start the game and submit **Make a light**. The deterministic demo starts one Lantern for 30 seconds. It recognizes `light`, `glow` and `lantern`; other requests are marked unsupported. This checks the queue, authenticated links, command host, journal and Stop without an account or provider call. It is explicitly a demonstration, not an AI.

@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// Hold the left button and drag to look around (the Glow playtest, 9 October: "we'll want to be able to move the mouse freely

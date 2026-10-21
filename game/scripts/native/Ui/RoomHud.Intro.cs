@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The HUD's part in the room-to-island intro (Look/Intro/RoomIntro.cs): while it plays the HUD is out of sight and blocked (the intro

@@ -2,9 +2,9 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Look.Fractals;
+namespace GarageGame.Native.Look.Fractals;
 
 /// <summary>Which body a Fractal is drawn with (the founder picks one from the sheet of three; docs/look/FRACTALS.md).</summary>
 public enum FractalForm { Crystal, Seed, Star }

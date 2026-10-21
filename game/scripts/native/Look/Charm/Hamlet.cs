@@ -2,9 +2,9 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Look.Charm;
+namespace GarageGame.Native.Look.Charm;
 
 /// <summary>The hamlet's things the charm hangs on or keeps clear of: the generator's kit (pipeline/landscape/harness/kit.py) and its own yard things.</summary>
 public enum HamletKind { Cottage, Tower, Fence, Lantern, DryingLine, Woodpile, Crate, Footbridge }

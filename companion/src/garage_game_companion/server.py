@@ -20,7 +20,7 @@ Every tool call goes through `Adapter.call`:
 One resource besides the tools: the team's journal (JOURNAL_URI), read through the same adapter call as the
 journal_read tool and presented the same way, for harnesses that read resources. No prompts, completions or logging.
 
-Run `enfractal-companion --help` for options; docs/companion/README.md has the setup steps.
+Run `garage-game-companion --help` for options; docs/companion/README.md has the setup steps.
 """
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ from .refusals import (FRACTAL_REFUSAL, HostError, base_result, effect_args_erro
 
 log = logging.getLogger("enfractal.companion")
 
-SERVER_NAME = "enfractal-companion"
+SERVER_NAME = "garage-game-companion"
 STOP_OPS = frozenset({"goal.stop", "effect.stop"})
 # The journal as an MCP resource (docs/companion/JOURNAL.md, "What the AI reads"): the same view as journal_read
 # with no filters. A name in the game's own scheme, never a location anything fetches.

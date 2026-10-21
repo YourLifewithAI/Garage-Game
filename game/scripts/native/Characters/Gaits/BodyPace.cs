@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Characters.Gaits;
+namespace GarageGame.Native.Characters.Gaits;
 
 /// <summary>
 /// A body's pace as the gaits and the contact layers measure it (docs/runs/RUN-2-MECHANICS.md, M5): against the walk and the run

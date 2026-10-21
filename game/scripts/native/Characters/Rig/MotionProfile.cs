@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Text;
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>A part that swings on a spring chain, with the pendulum it is tuned to.</summary>
 public readonly record struct HangingPart(int Chain, int RootBone, int EndBone, float LengthM, float PendulumHz, float FrequencyHz);

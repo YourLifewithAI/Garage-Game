@@ -5,9 +5,9 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>Depth-of-field distances for one camera, in metres from the camera.</summary>
 public readonly record struct DepthOfField(bool FarEnabled, float FarDistance, float FarTransition, bool NearEnabled, float NearDistance, float NearTransition, float Amount);

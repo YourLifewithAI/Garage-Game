@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// The open book's two pages, drawn at any resolution from nothing but code: a worn leather cover with stitching, layered deckled

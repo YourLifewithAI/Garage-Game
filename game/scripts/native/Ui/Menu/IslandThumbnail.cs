@@ -1,9 +1,9 @@
 using Godot;
 using System;
 using System.Linq;
-using EnFractal.Native.Look.Intro;
+using GarageGame.Native.Look.Intro;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// An island's picture on its card, drawn from its shape data (the manifest's <c>x_landscape_source</c>, the room the island grew

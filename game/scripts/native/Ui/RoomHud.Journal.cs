@@ -1,8 +1,8 @@
 using System.Linq;
 using Godot;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The game's one journal (the founder's brief: a small leather journal at the lower right, expanding and opening to the index,

@@ -9,9 +9,9 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Companion;
+namespace GarageGame.Native.Companion;
 
 /// <summary>
 /// The in-game end of the player's AI (A2): the companion link in front of the kernel's command host.

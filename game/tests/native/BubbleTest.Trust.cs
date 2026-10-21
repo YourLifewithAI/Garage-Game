@@ -3,9 +3,9 @@ using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// M8's receipt.mark on the Bubble's receipts (decisions 14 and 60: the player marks the result, which teaches the AI the wanted

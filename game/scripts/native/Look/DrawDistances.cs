@@ -1,7 +1,7 @@
 using System;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>One distance band of a plant set's copies: which of its meshes (0 full detail, then its lods) is drawn from BeginM to EndM (0: no end), and whether it casts shadows.</summary>
 public readonly record struct CopyBand(int Mesh, float BeginM, float EndM, bool CastsShadow);

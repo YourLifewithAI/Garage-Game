@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The swim and dive hint (the first recorded play's debrief, 16 October, Change 1: "There's no dive button that I'm aware of"; it is

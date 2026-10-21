@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// A disposable view of saved nature cells: ash, flames and rain, in fixed MultiMesh pools rather than thousands of scene nodes.

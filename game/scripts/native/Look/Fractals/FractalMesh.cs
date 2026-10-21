@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace EnFractal.Native.Look.Fractals;
+namespace GarageGame.Native.Look.Fractals;
 
 /// <summary>
 /// The bodies a Fractal can take (Run 2, L9: docs/look/FRACTALS.md), built once in code and drawn for every Fractal by one

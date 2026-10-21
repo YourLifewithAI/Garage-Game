@@ -1,13 +1,13 @@
 using System;
 using Godot;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Characters.Contact;
-using EnFractal.Native.Characters.Gaits;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Characters.Contact;
+using GarageGame.Native.Characters.Gaits;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// One character sheet tile's script (CharacterSheetMotion): it feeds the body's pose stack the <see cref="BodyState"/> its capsule

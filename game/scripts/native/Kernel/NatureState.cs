@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The island's nature laws in one place (docs/magic/README.md "The ground layer", "Weather patterns" and "Fire"). Every

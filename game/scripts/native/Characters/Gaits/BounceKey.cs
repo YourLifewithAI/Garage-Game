@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text;
 using Godot;
 
-namespace EnFractal.Native.Characters.Gaits;
+namespace GarageGame.Native.Characters.Gaits;
 
 /// <summary>
 /// The tuning keys' logic (docs/runs/RUN-2-CHARACTERS.md, "Tuning by playing"): one cycles the current character's overall

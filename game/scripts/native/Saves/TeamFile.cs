@@ -6,9 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Saves;
+namespace GarageGame.Native.Saves;
 
 /// <summary>A fixed, player-safe error: the team file's own words, never a path or saved text.</summary>
 public sealed class TeamFileException(string message) : Exception(message);

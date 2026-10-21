@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace EnFractal.Native.Look.Fauna;
+namespace GarageGame.Native.Look.Fauna;
 
 /// <summary>
 /// The living scenery of a room's water (Run 2, Lane L): fish that swim the ponds and dart away from the avatars, and the veil

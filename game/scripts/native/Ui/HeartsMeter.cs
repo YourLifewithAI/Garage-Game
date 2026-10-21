@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// The hearts: drawn, not written (docs/game/MECHANICS.md sections 1 and 4). A heart is four quarters, filled clockwise from its

@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace EnFractal.Native.Look.Fauna;
+namespace GarageGame.Native.Look.Fauna;
 
 public enum WaterKind { Still, Flowing }
 

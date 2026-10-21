@@ -4,11 +4,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Navigation;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Navigation;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Scale;
+namespace GarageGame.Tests.Scale;
 
 /// <summary>
 /// A long walk across the 10x island (the scale suite, S10): from the player's spawn to the farthest land a route reaches, the

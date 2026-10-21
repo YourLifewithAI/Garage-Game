@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 
-namespace EnFractal.Native.Room;
+namespace GarageGame.Native.Room;
 
 /// <summary>
 /// The tiled land's collision where the bodies are (the 10x world, packet S12b). Each colliding tiled part's 16 m tiles collide

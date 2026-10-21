@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Saves;
+using GarageGame.Native.Saves;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>Whose island save this is and how it plays (room state's extensions.x_team): the team, the mode, and in Challenge the difficulty.</summary>
 public sealed record SaveTeam(string TeamId, string Mode, string? Difficulty);

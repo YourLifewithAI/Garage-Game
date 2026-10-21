@@ -1,8 +1,8 @@
 using Godot;
-using EnFractal.Native.Room;
-using EnFractal.Native.Seams;
+using GarageGame.Native.Room;
+using GarageGame.Native.Seams;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The body's side of the mechanics round (docs/runs/RUN-2-MECHANICS.md, packet M5): the knacks that move its own numbers, what it

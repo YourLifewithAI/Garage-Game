@@ -3,10 +3,10 @@ using System;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 using FileAccess = Godot.FileAccess;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// Where a room stands, as far as the sun is concerned: the latitude, which way the room's -Z axis faces, and the clock

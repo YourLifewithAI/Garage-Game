@@ -378,7 +378,7 @@ class AlignmentScenarios:
     renders: bool = True
 
     async def test_the_gubbles_eyes_refuse_alike_and_look_when_they_can_draw(self):
-        from enfractal_companion import eyes
+        from garage_game_companion import eyes
 
         async def looked(args):
             result = await self.ask(query("view.look", {"actor": "avatar:companion", **args}, self.next_id("look")))

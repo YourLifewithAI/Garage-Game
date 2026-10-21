@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Characters.Gaits;
+namespace GarageGame.Native.Characters.Gaits;
 
 /// <summary>What happened under the body this tick, for a later sound packet (the plan's decision 8: sounds later).</summary>
 public enum GaitEventKind

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace EnFractal.Native.Sandbox;
+namespace GarageGame.Native.Sandbox;
 
 /// <summary>
 /// Moves carried things with their holders every physics tick, after the bodies have moved (a higher physics priority),

@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The journal book's two doors into the host (Ui/JournalPanel.cs): the player's note, written through journal.note like the

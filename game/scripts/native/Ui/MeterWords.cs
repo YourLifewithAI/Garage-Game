@@ -1,7 +1,7 @@
 using Godot;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// The words on screen for the things the mechanics round names (the pack's names block, docs/game/MECHANICS.md section 8): hearts,

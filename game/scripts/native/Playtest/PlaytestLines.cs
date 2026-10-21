@@ -6,9 +6,9 @@ using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Playtest;
+namespace GarageGame.Native.Playtest;
 
 /// <summary>
 /// The lines of a play's events.jsonl and its manifest, as bytes (contracts/playtest-record.schema.json): strict JSON, UTF-8 without a

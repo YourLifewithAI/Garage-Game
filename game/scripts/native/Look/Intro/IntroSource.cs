@@ -5,10 +5,10 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 using FileAccess = Godot.FileAccess;
 
-namespace EnFractal.Native.Look.Intro;
+namespace GarageGame.Native.Look.Intro;
 
 /// <summary>The source room could not be read for the intro. The message names the rule; the intro is then skipped, never the room.</summary>
 public sealed class IntroSourceException(string message) : Exception(message);

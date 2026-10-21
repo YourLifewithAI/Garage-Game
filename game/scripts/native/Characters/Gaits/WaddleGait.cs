@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Native.Characters.Gaits;
+namespace GarageGame.Native.Characters.Gaits;
 
 /// <summary>
 /// The waddle (Potato Man, and any legless drawing hinted <c>stride</c>): two steps per stride cycle, phased by distance.

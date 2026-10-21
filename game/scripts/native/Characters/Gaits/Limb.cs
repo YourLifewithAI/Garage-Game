@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Characters.Gaits;
+namespace GarageGame.Native.Characters.Gaits;
 
 /// <summary>
 /// A limb a gait swings itself (an arm with its hand, a leg with its foot), with the axes that move its tip back (+Z) and

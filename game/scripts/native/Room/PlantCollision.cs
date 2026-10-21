@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace EnFractal.Native.Room;
+namespace GarageGame.Native.Room;
 
 /// <summary>
 /// The collision a copy's row describes (contracts/README.md "Plant copies"; packet S6), as shapes the game builds itself rather

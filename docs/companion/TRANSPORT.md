@@ -1,7 +1,7 @@
 # The companion link
 
 How the companion's MCP server reaches the running game. The companion's end is
-`companion/src/enfractal_companion/link.py` (`LinkClient`), which also holds the Python game end the mock host uses
+`companion/src/garage_game_companion/link.py` (`LinkClient`), which also holds the Python game end the mock host uses
 (`LinkServer`). **The game's end is C#** (A2, 8 October 2026): `game/scripts/native/Companion/CompanionLinkServer.cs`,
 in front of the kernel's `CommandHost` through `CompanionBridge.cs` ([EMBODIMENT.md](EMBODIMENT.md)).
 `companion/tests/test_real_host.py` runs `test_link.py`'s cases against it in a headless game. The frame shapes are

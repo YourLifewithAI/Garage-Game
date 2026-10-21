@@ -11,8 +11,8 @@ from support import EXAMPLES, SRC, contracts, retarget, GARAGE_TO_TEST_ROOM
 
 from mcp_harness import McpHarness
 
-from enfractal_companion.contract import COMMAND_ENVELOPE_FIELDS
-from enfractal_companion.server import INSTRUCTIONS, SERVER_NAME
+from garage_game_companion.contract import COMMAND_ENVELOPE_FIELDS
+from garage_game_companion.server import INSTRUCTIONS, SERVER_NAME
 
 VENDOR_WORDS = re.compile(r"anthropic|claude|openai|chatgpt|\bgpt|gemini|google|mistral|llama|copilot|bedrock|vertex",
                           re.IGNORECASE)
@@ -140,7 +140,7 @@ class Surface(unittest.IsolatedAsyncioTestCase):
     async def test_nothing_in_the_surface_names_a_model_vendor(self):
         published = json.dumps([t.model_dump(mode="json", by_alias=True) for t in self.tools]) + INSTRUCTIONS + SERVER_NAME
         self.assertIsNone(VENDOR_WORDS.search(published))
-        for path in sorted((SRC / "enfractal_companion").glob("*.py")):
+        for path in sorted((SRC / "garage_game_companion").glob("*.py")):
             if path.name == "wish_runner.py":
                 # This explicitly started client has optional provider adapters. It is never
                 # imported or published by the provider-neutral MCP server checked above.

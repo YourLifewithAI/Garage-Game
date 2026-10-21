@@ -7,13 +7,13 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
-using EnFractal.Native.Seams;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
+using GarageGame.Native.Seams;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// The knacks and the body (docs/runs/RUN-2-MECHANICS.md, packet M5; docs/game/MECHANICS.md section 7, decisions 9 and 22). Every

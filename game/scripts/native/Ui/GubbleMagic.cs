@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using Godot;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// What the player can ask the Gubble without words (the magic design's "Directing the Gubble without words"; RUN-2-GLOW.md
