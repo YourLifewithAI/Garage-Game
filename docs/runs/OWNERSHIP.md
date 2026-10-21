@@ -42,7 +42,7 @@ Every run is built by parallel agent lanes. A lane **edits only the paths it own
 | `pipeline/roomscan/**` (Python package, MCP server, SKILL.md, tests) | C1 to C7 |
 | `docs/pipeline/**` | C design notes and compute costs |
 | `captures/` (local photos and intermediate data; **ignored by Git, never committed**) | C1 to C5 |
-| Captured room exports go to the player's user data, `user://rooms/<room_id>/` (on Windows under `%APPDATA%\Godot\app_userdata\EnFractal\rooms\`), never into the repository; Git ignores `game/rooms/*` except `test_room` | C6 |
+| Captured room exports go to the player's user data, `user://rooms/<room_id>/` (on Windows under `%APPDATA%\Godot\app_userdata\Garage-Game\rooms\`), never into the repository; Git ignores `game/rooms/*` except `test_room` | C6 |
 
 ## Track P: Play
 
