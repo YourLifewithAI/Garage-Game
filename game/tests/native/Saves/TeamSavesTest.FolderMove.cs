@@ -34,6 +34,7 @@ public partial class TeamSavesTest
             Write(old, "shader_cache/a/b.cache", "cache");
             Write(old, "vulkan/vulkan.cache", "pipeline cache");
             Write(old, "companion/session.json", "{\"port\":1}");
+            Write(old, "teams/local/team.json.lock", "");
             var before = Snapshot(old);
 
             // The engine has already made the new folder by the time the game runs (its logs and caches).
@@ -52,9 +53,9 @@ public partial class TeamSavesTest
                 && moved.Kept.Single().StartsWith("avatar_profile_v1.cfg", StringComparison.Ordinal),
                 "the folder move: a different file already in the new folder is never overwritten, and the report names it");
             Check(!File.Exists(Path.Combine(fresh, "shader_cache", "a", "b.cache")) && !File.Exists(Path.Combine(fresh, "vulkan", "vulkan.cache"))
-                && !File.Exists(Path.Combine(fresh, "companion", "session.json"))
+                && !File.Exists(Path.Combine(fresh, "companion", "session.json")) && !File.Exists(Path.Combine(fresh, "teams", "local", "team.json.lock"))
                 && File.ReadAllText(Path.Combine(fresh, "logs", "godot.log")) == "the new build's log",
-                "the folder move: the engine's caches, its logs and the companion's live session are not copied");
+                "the folder move: the engine's caches, its logs, the companion's live session and the stores' lease files are not copied");
             Check(Snapshot(old).SequenceEqual(before), "the folder move: the old folder is unchanged, every file and its bytes");
             Check(File.Exists(Path.Combine(fresh, UserFolderMove.LedgerName)) && !Directory.EnumerateFiles(fresh, "*.moving", SearchOption.AllDirectories).Any(),
                 "the folder move: the ledger is written and no temporary copy is left behind");

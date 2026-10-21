@@ -41,8 +41,9 @@ public sealed record UserFolderMoveReport
 /// <item>every file is copied to a temporary name, its SHA-256 compared with the original's, and only then given its real name;</item>
 /// <item>nothing in the new folder is ever overwritten: a file of the same name with the same bytes counts as already there, and one
 /// with different bytes is kept as it is (the old one stays in the old folder, and the report says so);</item>
-/// <item>the engine's own caches (logs, shader and Vulkan caches, object snapshots) and the companion's live session file are not
-/// game data and are not copied: the engine rewrites them;</item>
+/// <item>the engine's own caches (logs, shader and Vulkan caches, object snapshots), the companion's live session file and the
+/// stores' <c>.lock</c> lease files are not game data and are not copied: they are made again when needed (and a lease an older
+/// build holds open while it runs would otherwise fail the copy on every launch);</item>
 /// <item>the old folder is never changed, so the move can always be done again by hand;</item>
 /// <item>a ledger in the new folder, written last and only when every file was handled, marks the move done; a run that is
 /// interrupted, or that hits an error, writes none, and the next launch picks up where it stopped.</item>
@@ -96,7 +97,8 @@ public static class UserFolderMove
         {
             var relative = Path.GetRelativePath(from, file);
             var top = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0];
-            if (NotGameData.Contains(top, StringComparer.OrdinalIgnoreCase) || relative == LedgerName || relative.EndsWith(Partial, StringComparison.Ordinal))
+            if (NotGameData.Contains(top, StringComparer.OrdinalIgnoreCase) || relative == LedgerName || relative.EndsWith(Partial, StringComparison.Ordinal)
+                || relative.EndsWith(".lock", StringComparison.OrdinalIgnoreCase))
                 continue;
             found.Add(relative);
             try
