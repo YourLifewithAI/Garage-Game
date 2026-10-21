@@ -15,7 +15,7 @@ Three rules before anything else:
 
 ## 1. Find the play
 
-- The records live under the game's user folder: `%APPDATA%\Godot\app_userdata\EnFractal\playtests\<record_id>\` on Windows. A play under `run-room.ps1 -Profile <name>` lives under that profile's own user folder. The game keeps the newest thirty.
+- The records live under the game's user folder: `%APPDATA%\Godot\app_userdata\Garage-Game\playtests\<record_id>\` on Windows. A play under `run-room.ps1 -Profile <name>` lives under that profile's own user folder. The game keeps the newest thirty.
 - List them, newest first:
 
   ```powershell

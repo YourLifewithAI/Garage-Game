@@ -72,14 +72,14 @@ class LinkError(Exception):
 
 
 def default_session_path() -> Path:
-    """Where the game writes its session file: Godot's user:// folder for the EnFractal project."""
+    """Where the game writes its session file: Godot's user:// folder for the Garage-Game project."""
     if os.name == "nt":
         base = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming") / "Godot"
     elif os.uname().sysname == "Darwin":  # pragma: no cover - not exercised on the founder's machine
         base = Path.home() / "Library" / "Application Support" / "Godot"
     else:
         base = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "godot"
-    return base / "app_userdata" / "EnFractal" / "companion" / "session.json"
+    return base / "app_userdata" / "Garage-Game" / "companion" / "session.json"
 
 
 # ---------------------------------------------------------------------------- framing

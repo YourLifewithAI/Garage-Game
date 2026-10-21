@@ -13,7 +13,7 @@ try {
         & $pythonPath -m garage_game_companion.wish_runner --write-demo-client $Client
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
-    $sessionPath = Join-Path $PSScriptRoot '.cache/profiles/growth/roaming/Godot/app_userdata/EnFractal/companion/session.json'
+    $sessionPath = Join-Path $PSScriptRoot '.cache/profiles/growth/roaming/Godot/app_userdata/Garage-Game/companion/session.json'
     & $pythonPath -m garage_game_companion.wish_runner --client $Client --session $sessionPath
     exit $LASTEXITCODE
 } finally { $env:PYTHONPATH = $priorPython }

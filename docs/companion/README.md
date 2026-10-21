@@ -172,7 +172,7 @@ it on their own machine.
    thing arrives twice: `arrive` at the thing picks it up, `arrive` again brings it back to you.
 
 Without `--mock` or `--session-file`, the server reads the real game's session file from
-`%APPDATA%\Godot\app_userdata\EnFractal\companion\session.json` (Godot's `user://`). With no game running,
+`%APPDATA%\Godot\app_userdata\Garage-Game\companion\session.json` (Godot's `user://`). With no game running,
 every tool answers `not_ready`.
 
 ## Proposals for files this lane does not own

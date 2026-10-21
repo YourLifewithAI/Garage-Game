@@ -19,7 +19,7 @@ in `companion/schemas/companion-link.schema.json`, proposed for `contracts/`.
 ## Session file
 
 At startup the game listens on `127.0.0.1` (or `::1`) on an ephemeral port and writes
-`user://companion/session.json` (on Windows `%APPDATA%\Godot\app_userdata\EnFractal\companion\session.json`):
+`user://companion/session.json` (on Windows `%APPDATA%\Godot\app_userdata\Garage-Game\companion\session.json`):
 
 ```json
 {

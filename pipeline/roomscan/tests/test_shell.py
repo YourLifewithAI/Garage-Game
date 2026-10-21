@@ -192,10 +192,10 @@ def test_a_captured_room_is_never_written_into_the_repository(plan):
 def test_the_default_folder_is_the_games_user_data(monkeypatch, tmp_path):
     monkeypatch.setattr(mf.sys, "platform", "win32")
     monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
-    assert mf.default_rooms_dir() == tmp_path / "Roaming" / "Godot" / "app_userdata" / "EnFractal" / "rooms"
+    assert mf.default_rooms_dir() == tmp_path / "Roaming" / "Godot" / "app_userdata" / "Garage-Game" / "rooms"
     monkeypatch.setattr(mf.sys, "platform", "linux")
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "share"))
-    assert mf.default_rooms_dir() == tmp_path / "share" / "godot" / "app_userdata" / "EnFractal" / "rooms"
+    assert mf.default_rooms_dir() == tmp_path / "share" / "godot" / "app_userdata" / "Garage-Game" / "rooms"
 
 
 def test_spawns_are_on_clear_floor_away_from_walls_and_picked_objects():

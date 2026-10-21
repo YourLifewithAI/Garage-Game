@@ -104,7 +104,7 @@ if ($room.Stderr -or $room.Stdout -notmatch 'ROOM_WORLD_READY' -or $room.Stdout 
 Write-Output $room.Stdout.Trim()
 # The landscape as the player opens it: installed in the (runner's) user folder and booted by id through the main scene, which
 # reads --room, quitting by --quit-after-ready (a smoke boot of 13 October never quit; tools/smoke-boot.ps1).
-$installed = Join-Path $toolchain.RepositoryPath '.cache/native-test/appdata/Godot/app_userdata/EnFractal/rooms/landscape_garage_nominal'
+$installed = Join-Path $toolchain.RepositoryPath '.cache/native-test/appdata/Godot/app_userdata/Garage-Game/rooms/landscape_garage_nominal'
 if (Test-Path -LiteralPath $installed) { Remove-Item -LiteralPath $installed -Recurse -Force }
 New-Item -ItemType Directory -Force (Split-Path -Parent $installed) | Out-Null
 Copy-Item -LiteralPath $landscapeRoom -Destination $installed -Recurse
@@ -112,5 +112,5 @@ $boot = Invoke-GarageGameRoomBoot -Toolchain $toolchain -Room 'landscape_garage_
 Write-Output "$($boot.Ready)`n$($boot.Quit)"
 Write-Output ("MAIN_SCENE_BOOT landscape_garage_nominal from the user folder: ready, quit, exit 0 in {0:0.0} s" -f $boot.Seconds)
 # The playtest recorder (R1) is off in a boot check: no record may appear in the runner's own user folder.
-$records = Join-Path $toolchain.RepositoryPath '.cache/native-test/appdata/Godot/app_userdata/EnFractal/playtests'
+$records = Join-Path $toolchain.RepositoryPath '.cache/native-test/appdata/Godot/app_userdata/Garage-Game/playtests'
 if (Test-Path -LiteralPath $records) { throw "A boot check wrote a playtest record: $records" }

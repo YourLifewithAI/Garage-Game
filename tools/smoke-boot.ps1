@@ -52,9 +52,9 @@ if ($Room -in @('landscape', 'landscape10')) {
 } elseif ($Room -notmatch '[\\/]') {
     # An id: install a copy of the player's own room into the scratch profile, as the game finds it.
     $roomId = $Room
-    $installed = Join-Path ([Environment]::GetFolderPath('ApplicationData')) "Godot/app_userdata/EnFractal/rooms/$Room"
+    $installed = Join-Path ([Environment]::GetFolderPath('ApplicationData')) "Godot/app_userdata/Garage-Game/rooms/$Room"
     if (Test-Path -LiteralPath (Join-Path $installed 'room.json')) {
-        $copy = Join-Path $roaming "Godot/app_userdata/EnFractal/rooms/$Room"
+        $copy = Join-Path $roaming "Godot/app_userdata/Garage-Game/rooms/$Room"
         New-Item -ItemType Directory -Force (Split-Path -Parent $copy) | Out-Null
         Copy-Item -LiteralPath $installed -Destination $copy -Recurse
         Get-ChildItem -LiteralPath $copy -Recurse -File | Where-Object IsReadOnly | ForEach-Object { $_.IsReadOnly = $false }

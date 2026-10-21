@@ -1,8 +1,8 @@
-; Native EnFractal. The application name defines the user:// save directory.
+; Native Garage Game. The application name defines the user:// save directory (app_userdata/Garage-Game; the saves from before the rename are copied there once, Saves/UserFolderMove.cs).
 config_version=5
 
 [application]
-config/name="EnFractal"
+config/name="Garage-Game"
 run/main_scene="res://scenes/menu.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 

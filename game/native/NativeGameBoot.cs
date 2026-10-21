@@ -16,7 +16,9 @@ public partial class NativeGameBoot : Node
             AddChild(new NativeContractProbe());
             return;
         }
-        var world = GD.Load<PackedScene>("res://scenes/room.tscn").Instantiate<RoomWorld>();
+        // The saves made before the rename, copied once into this build's user:// folder before anything reads it (phase 3).
+        Saves.UserFolderMove.RunOnce();
+        var world =GD.Load<PackedScene>("res://scenes/room.tscn").Instantiate<RoomWorld>();
         var room = arguments.FirstOrDefault(a => a.StartsWith("--room="))?["--room=".Length..];
         if (!string.IsNullOrWhiteSpace(room)) world.RoomDirectory = RoomWorld.ResolveRoom(room);
         // A look preview: --style=v2 (the default style's version) or --style=<preset_id>/v<N>, overriding the room's pin.

@@ -70,7 +70,7 @@ def toolchain(repo: Path = DEFAULT_REPO_ROOT) -> tuple[Path, Path]:
 def session_file_under(user_root: Path) -> Path:
     """Where Godot's user:// puts the session file when APPDATA (Windows) or XDG_DATA_HOME (POSIX) is user_root."""
     godot = "Godot" if os.name == "nt" else "godot"
-    return user_root / godot / "app_userdata" / "EnFractal" / "companion" / "session.json"
+    return user_root / godot / "app_userdata" / "Garage-Game" / "companion" / "session.json"
 
 
 class RealGame:

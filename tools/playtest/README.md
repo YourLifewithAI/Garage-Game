@@ -7,7 +7,7 @@ python tools/playtest/report.py <play folder>     # writes REPORT.md and sheet.j
 python tools/playtest/report.py --list [<plays>]  # one line per play: date, room, minutes, marks, clean quit or not, report or not
 ```
 
-Without a folder, `--list` looks in the game's user folder (`%APPDATA%\Godot\app_userdata\EnFractal\playtests` on Windows; a play recorded under `-Profile` lives under that profile's own folder, so name it). `--list` puts the newest play first; its folder name is what `report.py` takes.
+Without a folder, `--list` looks in the game's user folder (`%APPDATA%\Godot\app_userdata\Garage-Game\playtests` on Windows; a play recorded under `-Profile` lives under that profile's own folder, so name it). `--list` puts the newest play first; its folder name is what `report.py` takes.
 
 ## What the report holds
 

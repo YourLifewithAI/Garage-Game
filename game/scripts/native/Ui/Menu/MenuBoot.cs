@@ -70,6 +70,8 @@ public partial class MenuBoot : NativeGameBoot
         if (!AutoOpen) return;
         var arguments = OS.GetCmdlineUserArgs();
         if (!ShowsMenu(arguments, DisplayServer.GetName())) { base._Ready(); return; }
+        // The saves made before the rename, copied once into this build's user:// folder before the menu reads the teams (phase 3).
+        global::GarageGame.Native.Saves.UserFolderMove.RunOnce();
         Open(arguments);
     }
 

@@ -118,7 +118,7 @@ run native_look_characters "NATIVE_LOOK_CHARACTERS: [0-9]+/[0-9]+ checks passed"
 run room_boot "ROOM_WORLD_QUIT" --headless --path "$P" --fixed-fps 60 res://scenes/room.tscn -- --quit-after-ready=240 --team=boot_probe --mode=challenge --difficulty=gentle
 # The landscape as the player opens it: installed in the user folder and booted by id through the main scene (which reads --room),
 # quitting by --quit-after-ready (a smoke boot of 13 October never quit: it ran an assembly built before the option existed).
-UR="$XDG_DATA_HOME/godot/app_userdata/EnFractal/rooms/landscape_garage_nominal"
+UR="$XDG_DATA_HOME/godot/app_userdata/Garage-Game/rooms/landscape_garage_nominal"
 rm -rf "$UR"; mkdir -p "$(dirname "$UR")"; cp -r "$LR" "$UR"; chmod -R u+w "$UR"
 run main_scene_landscape_boot "ROOM_WORLD_QUIT" --headless --path "$P" --fixed-fps 60 -- --room=landscape_garage_nominal --quit-after-ready=240
 if ! grep -q "^ROOM_WORLD_READY room=landscape_garage_nominal " "$LOG/main_scene_landscape_boot.out"; then echo "FAIL main_scene_landscape_boot did not open the landscape"; failed=1; fi
