@@ -1,6 +1,6 @@
 # Renaming EnFractal to the Garage Game inside the repository (planned 21 October)
 
-**Read with** [AGENTS.md](../../AGENTS.md) and [RUN-2-STATUS.md](RUN-2-STATUS.md), "The repository split". **Status: started 21 October 2026 on the first Windows machine at the founder's word ("Can we begin the process of correcting all the names in the repo? DiamondAge isn't working on this right now, and I will update it later.").** Phase 1 is built on `run2/rename-1`; phases 2 to 5 wait for the founder's choices below.
+**Read with** [AGENTS.md](../../AGENTS.md) and [RUN-2-STATUS.md](RUN-2-STATUS.md), "The repository split". **Status: started 21 October 2026 on the first Windows machine at the founder's word ("Can we begin the process of correcting all the names in the repo? DiamondAge isn't working on this right now, and I will update it later.").** Phase 1 is merged (`669d77c`); the founder's choices are below; phases 2, 3 and 4 follow in that order.
 
 The repository is `YourLifewithAI/Garage-Game` since the split, but the code still calls the game EnFractal about 3,000 times in 1,100 files. Those uses are of four kinds with very different risks, so the rename runs in phases, each tested and merged on its own. The name EnFractal now belongs to a different game (`YourLifewithAI/EnFractal`, the planetoids), so nothing here may keep it where a person or the AI reads it.
 
@@ -23,11 +23,11 @@ Plus the docs' local paths (`C:\dev\EnFractal`, `C:\dev\EnFractal-run2\...`): ri
 4. **Data-format identifiers** (decision C). Either keep them as file-format names, or rename them with readers that accept both for a release, a migration of installed rooms and saves, regenerated fixtures and pins, and both companion hosts in step.
 5. **The docs' local paths,** after DiamondAge's folder is renamed to `C:\dev\Garage-Game`: AGENTS.md's worktree section, the status page's paths, the briefs. History stays as written.
 
-## Decisions for the founder (recommended defaults)
+## Decisions (the founder, 21 October)
 
-- **A. The code name.** Recommended: `GarageGame` for the C# namespace and project, `garage_game_companion` for the Python package, `garage-game-companion` for its command. Costs one re-registration of each AI client.
-- **B. The save folder.** Recommended: keep it as `app_userdata\EnFractal` for now (the game sets its window title itself, so players never see the folder's name), and move it only together with C if C is ever done. The move is safe to build but touches the children's saves for no visible gain.
-- **C. The data-format ids.** Recommended: keep `enfractal.*` as file-format names, like a file extension that outlives a product's name. Renaming them is the costliest and riskiest phase and nobody sees them.
+- **A. The code name: `GarageGame`** (as recommended): the C# namespace, project, solution and assembly `GarageGame`, the Python package `garage_game_companion`, its commands `garage-game-companion*`. Each AI client is registered again once after phase 2.
+- **B. The save folder: moved to `Garage-Game`** (the founder, 21 October: "please update everything to Garage-Game. I don't want there being any confusion in the future"). `config/name` becomes `"Garage-Game"`, so `user://` is `%APPDATA%\Godot\app_userdata\Garage-Game`; the first launch of that build copies the whole old `EnFractal` folder there, verifies every file and leaves the old folder untouched; the companion, the playtest reader, roomscan and the Linux suite look in the new folder. Phase 3.
+- **C. The data-format ids: renamed with a migration** (against the recommendation to keep them). New ids `garage_game.<kind>` for all twenty kinds; readers accept both for a transition; installed rooms, saves and team files migrate; fixtures, examples and pins are regenerated; both companion hosts move in step. Phase 4, below.
 
 ## How each phase lands
 
