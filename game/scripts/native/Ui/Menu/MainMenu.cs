@@ -97,7 +97,7 @@ public partial class MainMenu : Control
         // The title, and the way out.
         var header = new HBoxContainer { Name = "Header" };
         column.AddChild(header);
-        var title = new Label { Name = "Title", Text = "EnFractal" };
+        var title = new Label { Name = "Title", Text = "Garage Game" };
         title.AddThemeFontSizeOverride("font_size", 34);
         header.AddChild(title);
         var tagline = MenuStyle.Text("   a room you photographed, grown into an island, and the Gubble who plays it with you", 16, MenuStyle.Muted, "Tagline");

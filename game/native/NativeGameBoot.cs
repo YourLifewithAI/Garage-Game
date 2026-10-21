@@ -23,7 +23,7 @@ public partial class NativeGameBoot : Node
         var style = arguments.FirstOrDefault(a => a.StartsWith("--style="))?["--style=".Length..];
         if (!string.IsNullOrWhiteSpace(style))
             world.StylePresetPath = $"{StylePreset.StylesRoot}/{(style.Contains('/') ? style : $"{RoomWorld.DefaultStyleId}/{style}")}.json";
-        DisplayServer.WindowSetTitle("EnFractal");
+        DisplayServer.WindowSetTitle("Garage Game");
         AddChild(world);
     }
 }

@@ -390,7 +390,7 @@ def claude_command(executable):
     return [executable, "--bare", "-p", "--tools", "", "--disallowedTools", "*", "--strict-mcp-config",
             "--disable-slash-commands", "--setting-sources", "", "--no-session-persistence", "--no-chrome",
             "--max-turns", "1", "--output-format", "stream-json", "--verbose", "--system-prompt",
-            'Choose one next EnFractal game action using only the supplied game tool schemas and typed results. '
+            'Choose one next Garage Game action using only the supplied game tool schemas and typed results. '
             'Return exactly one JSON object: {"type":"tool_call","id":"unique-short-id","name":"tool_name","arguments":{...}} '
             'or {"type":"done","status":"completed|failed|unsupported"}. Use one of those three status values. '
             'Never include action_id, note, prose, markdown, shell commands, files or URLs. '

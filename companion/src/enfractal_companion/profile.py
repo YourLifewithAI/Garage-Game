@@ -224,7 +224,7 @@ def client_files(entry: dict, launch: ServerLaunch) -> dict[str, str]:
 
 def readme(launch: ServerLaunch) -> str:
     lines = [
-        "EnFractal companion: MCP client configurations",
+        "Garage Game companion: MCP client configurations",
         "",
         "Each folder holds one client's configuration for the same server:",
         f"  command: {launch.command}",
@@ -270,7 +270,7 @@ def write_profiles(folder: Path, launch: ServerLaunch, *, force: bool = False) -
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m enfractal_companion.profile",
-                                     description="Print or write the play-only MCP client profile for the EnFractal companion.")
+                                     description="Print or write the play-only MCP client profile for the Garage Game companion.")
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--mock", action="store_true", help="serve the built-in mock game (no game needed)")
     source.add_argument("--session-file", type=Path, help="the game's companion session file (default: the game's own)")

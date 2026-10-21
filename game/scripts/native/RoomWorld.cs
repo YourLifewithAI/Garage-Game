@@ -217,7 +217,7 @@ public partial class RoomWorld : Node3D
             SetMeta("room_id", Room.RoomId);
             SetMeta("room_manifest_sha256", Room.ManifestSha256);
             SetMeta("style", $"{preset.PresetId}@{preset.PresetVersion}");
-            DisplayServer.WindowSetTitle($"EnFractal - {Room.DisplayName}");
+            DisplayServer.WindowSetTitle($"Garage Game - {Room.DisplayName}");
             WorldReady = true;
             GD.Print($"ROOM_WORLD_READY room={Room.RoomId} shell={Room.Shell.Count} objects={Room.Objects.Count} lights={Look.RoomLightCount} style={preset.PresetId}@{preset.PresetVersion} spawn={Player.Position}");
             if (QuitAfterReadyFrames() is { } frames) QuitAfter(frames);

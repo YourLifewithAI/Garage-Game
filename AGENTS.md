@@ -1,8 +1,8 @@
-# Instructions for agents working on EnFractal
+# Instructions for agents working on the Garage Game
 
-EnFractal is a single-player sandbox set inside a real room the player photographed. The player is a ~10 cm avatar; their AI has a separate avatar and acts as the player's magic through one shared ruleset. Native Godot .NET 4.7.2 with C#, plus a retained GDScript creation kernel. Multiplayer is a later phase and out of scope.
+The Garage Game (the room-era EnFractal) is a single-player sandbox set inside a real room the player photographed. The player is a ~10 cm avatar; their AI has a separate avatar and acts as the player's magic through one shared ruleset. Native Godot .NET 4.7.2 with C#, plus a retained GDScript creation kernel. Multiplayer is a later phase and out of scope.
 
-**The repository split (20 October 2026).** This repository is the Garage Game, the room-era EnFractal kept whole for the founder's children (GitHub: `YourLifewithAI/Garage-Game`). EnFractal's new direction is a separate repository, `YourLifewithAI/EnFractal`, with its own AGENTS.md; nothing from there applies here. The integrator's local checkout is still `C:\dev\EnFractal` until the founder renames it to `C:\dev\Garage-Game` (see `docs/runs/RUN-2-STATUS.md`, "The repository split"); after that rename, read `C:\dev\Garage-Game` wherever this file says `C:\dev\EnFractal`.
+**The repository split (20 October 2026).** This repository is the Garage Game, the room-era EnFractal kept whole for the founder's children (GitHub: `YourLifewithAI/Garage-Game`). EnFractal's new direction is a separate repository, `YourLifewithAI/EnFractal`, with its own AGENTS.md; nothing from there applies here. The integrator's local checkout is `C:\dev\Garage-Game` on the first Windows machine (renamed on 21 October, with its `-run1`, `-run2`, `-codex` and `-art` siblings) and still `C:\dev\EnFractal` on DiamondAge until the founder renames it there (see `docs/runs/RUN-2-STATUS.md`, "The repository split"); on a renamed machine, read `C:\dev\Garage-Game` wherever this file says `C:\dev\EnFractal`. The names inside the repository are being renamed in phases: [docs/runs/GARAGE-GAME-RENAME.md](docs/runs/GARAGE-GAME-RENAME.md).
 
 ## Start here
 
@@ -55,7 +55,7 @@ Lanes run side by side in `C:\dev\EnFractal-run<n>\<lane>` git worktrees (Run 2:
 - **Stay in your worktree.** Never build, run or write in the integrator's checkout or another lane's worktree.
 - **Absolute paths for .NET file APIs.** PowerShell `cd` does not move .NET's working directory, which stays at the integrator's checkout. A relative `[System.IO.File]` path writes there.
 - **Godot needs `DOTNET_ROOT`.** When you launch Godot directly instead of through the runners, first set `$env:DOTNET_ROOT` to your worktree's `.cache\dotnet` and prepend it to `PATH`. Otherwise a modal dialog blocks the founder's screen.
-- **GPU courtesy.** Before a windowed render, capture or timing, check for a window titled `EnFractal*`. If the founder is playing, don't render.
+- **GPU courtesy.** Before a windowed render, capture or timing, check for a window titled `Garage Game*` (or `EnFractal*` from a build before 21 October 2026). If the founder is playing, don't render.
 - **Leave other processes alone.** Never change another process's priority, affinity or state, and never stop one you did not start: other lanes and the founder share the machine.
 - **Lean testing.**
   - While iterating, run only the tests for what you change, and the full runners once at the end.

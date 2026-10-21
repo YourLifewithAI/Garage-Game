@@ -119,7 +119,7 @@ public partial class CompanionBridge : Node
         _ownership = TakeOwnership(sessionFile);
         if (_ownership == null)
         {
-            LinkNotice = "Another EnFractal window holds the companion link; this one runs without it.";
+            LinkNotice = "Another Garage Game window holds the companion link; this one runs without it.";
             GD.Print("COMPANION_LINK not started: another game holds the companion link");
             return;
         }

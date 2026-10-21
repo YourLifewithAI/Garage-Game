@@ -21,7 +21,7 @@ measures the bubble shader's render-mode variants (one skin, lit with and withou
 -MotionOnly renders nothing: it runs the same tiles headless (no window, no GPU) and checks that every tile reaches its moment
 and shows what its label names (the feet found the slope, the tumble flops, the cast's arm swings), printing one line a tile.
 
-As the look captures do (capture-look.ps1), it refuses to start while a game window titled "EnFractal..." is open (someone is
+As the look captures do (capture-look.ps1), it refuses to start while a game window titled "Garage Game..." (or "EnFractal..." from an older build) is open (someone is
 playing on this GPU; -AllowOpenGame overrides), waits until nvidia-smi shows the card quiet for six seconds, keeps the player's
 user:// data out of the run, and writes the engine's log to character_sheet.log beside the sheets.
 
@@ -62,9 +62,9 @@ if ($MotionOnly) {
 }
 
 # Someone playing the game on this GPU: never render over them.
-$openGame = Get-Process | Where-Object { $_.MainWindowTitle -like 'EnFractal*' }
+$openGame = Get-Process | Where-Object { $_.MainWindowTitle -like 'Garage Game*' -or $_.MainWindowTitle -like 'EnFractal*' }
 if ($openGame -and -not $AllowOpenGame) {
-    throw "An EnFractal game window is open ($(($openGame | ForEach-Object { "$($_.ProcessName) $($_.Id): $($_.MainWindowTitle)" }) -join '; ')). Character sheets wait for a quiet GPU; close the game or pass -AllowOpenGame."
+    throw "A game window is open ($(($openGame | ForEach-Object { "$($_.ProcessName) $($_.Id): $($_.MainWindowTitle)" }) -join '; ')). Character sheets wait for a quiet GPU; close the game or pass -AllowOpenGame."
 }
 $repository = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $repository 'tools/native-toolchain.ps1')

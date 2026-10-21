@@ -14,7 +14,7 @@ namespace EnFractal.Tests.Kernel;
 /// The meters packet's captures (docs/runs/RUN-2-MECHANICS.md, M2): the HUD as the player sees it, in the real window, a
 /// before set and an after set from the same script. It uses only what the HUD and the host have always offered, so the same
 /// scenarios run on the code before the meters and on the code after. Run it with a scratch profile (APPDATA elsewhere), never
-/// while someone plays: the window must not be open beside an "EnFractal*" window.
+/// while someone plays: the window must not be open beside a "Garage Game*" (or older "EnFractal*") window.
 ///
 /// User arguments (after "--"): --out=DIR [--tag=before|after] [--scenarios=play_challenge,play_creative,wheel,journal,marker,spend,pulse,probe]
 /// [--room=ID|DIR] [--hour=15] [--date=2026-10-06]. The probe scenario prints the team's discovered map after a walk (it needs

@@ -1,4 +1,4 @@
-"""EnFractal companion command surface (Run 1, packet A1).
+"""Garage Game companion command surface (Run 1, packet A1).
 
 A model-neutral MCP server whose tools map onto the game command contract
 (`contracts/game-command.schema.json`), a loopback transport with a per-session

@@ -187,6 +187,7 @@ def test_game_window_check_needs_the_game_program():
     playing = [("EnFractal (DEBUG)", "Godot_v4.7.2-stable_mono_win64.exe"), ("Inbox", "outlook.exe")]
     assert be.game_window_open(playing) is True
     assert be.game_window_open([("EnFractal", "EnFractal.exe")]) is True
+    assert be.game_window_open([("Garage Game - The garage", "Godot_v4.7.2-stable_mono_win64.exe")]) is True
     # A folder or an editor named after the project is not the game.
     assert be.game_window_open([("EnFractal", "explorer.exe"), ("EnFractal - VS Code", "Code.exe")]) is False
     if be.sys.platform.startswith("win"):

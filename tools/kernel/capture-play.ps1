@@ -8,8 +8,8 @@ Runs res://tests/native_kernel_play_capture.tscn windowed (never --headless: hea
 PNG crops and a JSON report into -OutDir, then quits. A Godot window appears briefly. See
 game/tests/native/Kernel/PlayCaptureHarness.cs for the scenarios and arguments.
 
-It refuses to start while a window titled "EnFractal..." is open (someone is playing on this GPU; -AllowOpenGame
-overrides), and records any such window in the report's note, because timings taken beside another EnFractal
+It refuses to start while a window titled "Garage Game..." (or "EnFractal..." from an older build) is open (someone is playing on this GPU; -AllowOpenGame
+overrides), and records any such window in the report's note, because timings taken beside another game
 window are noisy.
 
 .EXAMPLE
@@ -32,9 +32,9 @@ $toolchain = Get-EnfractalNativeToolchain
 $outPath = [System.IO.Path]::GetFullPath($OutDir, $repository)
 New-Item -ItemType Directory -Force $outPath | Out-Null
 
-$openGame = @(Get-Process | Where-Object { $_.MainWindowTitle -like 'EnFractal*' })
+$openGame = @(Get-Process | Where-Object { $_.MainWindowTitle -like 'Garage Game*' -or $_.MainWindowTitle -like 'EnFractal*' })
 if ($openGame.Count -gt 0 -and -not $AllowOpenGame) {
-    throw "An EnFractal game window is open ($(($openGame | ForEach-Object { "$($_.ProcessName) $($_.Id): $($_.MainWindowTitle)" }) -join '; ')). Close it or pass -AllowOpenGame."
+    throw "A game window is open ($(($openGame | ForEach-Object { "$($_.ProcessName) $($_.Id): $($_.MainWindowTitle)" }) -join '; ')). Close it or pass -AllowOpenGame."
 }
 
 $env:DOTNET_ROOT = Split-Path -Parent $toolchain.DotnetPath
@@ -76,5 +76,5 @@ if ($stdout -notmatch 'PLAY_CAPTURE_DONE') {
 }
 if ($process.ExitCode -ne 0) { Write-Output "NOTE: the engine exited with code $($process.ExitCode) after the report was written." }
 $stdout.Split("`n") | Where-Object { $_ -match '^PLAY_CAPTURE' } | ForEach-Object { Write-Output $_.TrimEnd() }
-if ($openGame.Count -gt 0) { Write-Output "NOTE: an EnFractal window was open during this capture; timings are noisy." }
+if ($openGame.Count -gt 0) { Write-Output "NOTE: a game window was open during this capture; timings are noisy." }
 if ($stderr.Trim()) { Write-Output '--- engine stderr (first lines) ---'; Write-Output (($stderr.Trim() -split "`n" | Select-Object -First 8) -join "`n") }

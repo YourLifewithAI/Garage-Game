@@ -9,7 +9,7 @@ writes one PNG per camera plus timings.json into -OutDir, then quits. A Godot wi
 With -Baseline <commit>, the game folder of that commit is exported under .cache/look-baseline/ and the
 current harness is copied into it, so "before" captures use exactly that commit's look code.
 
-Before launching, the script refuses to start while a game window titled "EnFractal..." is open (someone is
+Before launching, the script refuses to start while a game window titled "Garage Game..." (or "EnFractal..." from an older build) is open (someone is
 playing on this GPU; pass -AllowOpenGame to override), waits until nvidia-smi shows the GPU quiet for six
 seconds, samples GPU memory during the capture, records both in timings.json, and retries (twice by default)
 if another job (for example pose estimation) used the GPU meanwhile, so timings are not taken under contention.
@@ -57,9 +57,9 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # Someone playing the game on this GPU: never capture or time over them.
-$openGame = Get-Process | Where-Object { $_.MainWindowTitle -like 'EnFractal*' }
+$openGame = Get-Process | Where-Object { $_.MainWindowTitle -like 'Garage Game*' -or $_.MainWindowTitle -like 'EnFractal*' }
 if ($openGame -and -not $AllowOpenGame) {
-    throw "An EnFractal game window is open ($(($openGame | ForEach-Object { "$($_.ProcessName) $($_.Id): $($_.MainWindowTitle)" }) -join '; ')). Captures and timings wait for a quiet GPU; close the game or pass -AllowOpenGame."
+    throw "A game window is open ($(($openGame | ForEach-Object { "$($_.ProcessName) $($_.Id): $($_.MainWindowTitle)" }) -join '; ')). Captures and timings wait for a quiet GPU; close the game or pass -AllowOpenGame."
 }
 $repository = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $repository 'tools/native-toolchain.ps1')

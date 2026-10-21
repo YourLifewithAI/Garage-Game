@@ -133,7 +133,7 @@ def install(read_files: list[Path] = (), read_roots: list[Path] = ()) -> None:
     null_device = os.path.normcase(os.path.abspath(os.devnull))
 
     def deny(event: str) -> None:
-        raise SandboxViolation(f"blocked by the EnFractal companion sandbox: {event}")
+        raise SandboxViolation(f"blocked by the Garage Game companion sandbox: {event}")
 
     def hook(event: str, args: tuple) -> None:
         if event == "open":
@@ -182,17 +182,17 @@ def _guard_event_loop() -> None:
 
     def connect(self, conn, address):
         if not _address_is_loopback(address):
-            raise SandboxViolation("blocked by the EnFractal companion sandbox: event loop connect")
+            raise SandboxViolation("blocked by the Garage Game companion sandbox: event loop connect")
         return original_connect(self, conn, address)
 
     def sendto(self, conn, buf, flags=0, addr=None):
         if addr is not None and not _address_is_loopback(addr):
-            raise SandboxViolation("blocked by the EnFractal companion sandbox: event loop sendto")
+            raise SandboxViolation("blocked by the Garage Game companion sandbox: event loop sendto")
         return original_sendto(self, conn, buf, flags, addr)
 
     def connect_pipe(self, address):
         # A named pipe reaches other local services (agents, engines); the server needs none.
-        raise SandboxViolation("blocked by the EnFractal companion sandbox: event loop named pipe")
+        raise SandboxViolation("blocked by the Garage Game companion sandbox: event loop named pipe")
 
     proactor.connect = connect
     proactor.sendto = sendto

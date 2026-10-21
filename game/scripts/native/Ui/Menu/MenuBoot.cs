@@ -77,7 +77,7 @@ public partial class MenuBoot : NativeGameBoot
     public MainMenu Open(IReadOnlyList<string> arguments)
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        DisplayServer.WindowSetTitle("EnFractal");
+        DisplayServer.WindowSetTitle("Garage Game");
         if (RoomHud.StartsFullscreen(DisplayServer.GetName(), arguments.ToArray(), true, RoomHud.LoadFullscreen(RoomHud.ProfilePath)) && DisplayServer.GetName() != "headless")
         {
             DisplayServer.WindowSetCurrentScreen(DisplayServer.GetPrimaryScreen());
@@ -136,7 +136,7 @@ public partial class MenuBoot : NativeGameBoot
         if (Argument(arguments, "--style=") is { } style && !string.IsNullOrWhiteSpace(style))
             world.StylePresetPath = $"{StylePreset.StylesRoot}/{(style.Contains('/') ? style : $"{RoomWorld.DefaultStyleId}/{style}")}.json";
         GD.Print($"MENU_LAUNCH team={launch.TeamId} room={launch.Island.RoomId} mode={launch.Mode}{(launch.Difficulty != null ? " difficulty=" + launch.Difficulty : "")}");
-        DisplayServer.WindowSetTitle("EnFractal");
+        DisplayServer.WindowSetTitle("Garage Game");
         AddChild(world);
         World = world;
         return world;
