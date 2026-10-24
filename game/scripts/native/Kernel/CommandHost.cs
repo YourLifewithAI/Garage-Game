@@ -399,7 +399,9 @@ public partial class CommandHost : Node
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
         _perceived = null;
         JsonObject result;
-        try { result = HandleChecked(message, principal); }
+        // The command's own preview flag, as received (read where the host parses it): the tap's, since a refused result carries none.
+        var preview = false;
+        try { result = HandleChecked(message, principal, out preview); }
         catch (Exception error)
         {
             // The host always answers (Lane P review: a result that could not be serialised threw out of Handle).
@@ -410,18 +412,23 @@ public partial class CommandHost : Node
         // What the Gubble's actions did to the player rides on its next result, whatever it asked (CommandHostConsequences).
         if (principal == CompanionPrincipal) DeliverNotices(result);
         // The playtest record's tap, once the result is final: a copy of its envelope, so no listener can change the answer.
-        if (Handled != null) RaiseHandled(message, principal, result, started);
+        if (Handled != null) RaiseHandled(message, principal, result, preview, started);
         return result;
     }
 
-    private void RaiseHandled(string message, string principal, JsonObject result, long started)
+    /// <summary>
+    /// The tap's copy of an answer. Its preview flag is the command's as received, never the result's: a refused result carries no
+    /// preview (Fail), so a refused preview (a reticle's lead preview the pool cannot pay) would be recorded as a refused command, as
+    /// the second recorded play's reader found (17 October). A query, and a message that is no command object, is never a preview.
+    /// </summary>
+    private void RaiseHandled(string message, string principal, JsonObject result, bool preview, long started)
     {
         static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
         static bool Flag(JsonNode? node) => node is JsonValue value && value.TryGetValue<bool>(out var flag) && flag;
         var error = result["error"] as JsonObject;
         var handled = new CommandHandled(message, principal, Text(result["op"]) ?? "invalid", Flag(result["ok"]), Text(result["action_id"]),
             Text(error?["code"]), Text(error?["message"]), result["revision"] is JsonValue revision && revision.TryGetValue<int>(out var number) ? number : null,
-            Flag(result["replayed"]), Flag(result["preview"]), System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            Flag(result["replayed"]), preview, System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         foreach (var listener in Handled!.GetInvocationList())
         {
             try { ((Action<CommandHandled>)listener)(handled); }
@@ -429,8 +436,10 @@ public partial class CommandHost : Node
         }
     }
 
-    private JsonObject HandleChecked(string message, string principal)
+    /// <param name="preview">Whether the message, once parsed, is an enfractal.command whose preview is true (false before it parses).</param>
+    private JsonObject HandleChecked(string message, string principal, out bool preview)
     {
+        preview = false;
         // The companion's rate limit comes before parsing and every other check, so a flood of invalid messages
         // is limited too. Stops are exempt: when no token is left, only text that may be a stop is parsed at all.
         var companion = principal == CompanionPrincipal;
@@ -447,7 +456,9 @@ public partial class CommandHost : Node
         using (document)
         {
             var root = document.RootElement;
-            var stop = root.ValueKind == JsonValueKind.Object && Str(root, "schema") == "enfractal.command" && StopOps.Contains(Op(root));
+            var command = root.ValueKind == JsonValueKind.Object && Str(root, "schema") == "enfractal.command";
+            preview = command && root.TryGetProperty("preview", out var asked) && asked.ValueKind == JsonValueKind.True;
+            var stop = command && StopOps.Contains(Op(root));
             if (companion && !stop && !TakeToken()) return RateLimited(principal);
             if (root.ValueKind != JsonValueKind.Object)
                 return Fail("invalid", principal, null, null, new Refusal("request_invalid", "A message is a JSON object."));
