@@ -181,7 +181,8 @@ public partial class PlaytestTest : Node
 
     private static InputEventKey Press(Key key, bool shift = false) => new() { PhysicalKeycode = key, Pressed = true, ShiftPressed = shift };
 
-    private string NoticeLine() => _hud.GetNode<PanelContainer>("HelpFooter").GetChild<VBoxContainer>(0).GetNode<Label>("Notice").Text;
+    // The notice left the footer for its own card under the reticle (the second playtest round's P2, item 4).
+    private string NoticeLine() => _hud.NoticeText;
 
     private string HelpLine(string name) => _hud.GetNode<PanelContainer>("HelpFooter").GetChild<VBoxContainer>(0).GetNode<VBoxContainer>("KeyHelp").GetNode<Label>(name).Text;
 
