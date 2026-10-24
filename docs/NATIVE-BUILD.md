@@ -20,17 +20,17 @@ pwsh -NoProfile -File tools/test-room.ps1
 pwsh -NoProfile -File tools/export-native.ps1
 ```
 
-`game/global.json` pins the SDK exactly; `game/EnFractal.csproj` pins `Godot.NET.Sdk/4.7.2` and targets `net8.0`. Upgrade them deliberately with the editor/package versions, then run the native and retained regression checks. `game/EnFractal.sln` is available to IDEs. The helpers print the verified tool versions and keep .NET CLI/NuGet caches inside the ignored `.cache/` directory; Godot's generated managed output stays in ignored `game/.godot/`.
+`game/global.json` pins the SDK exactly; `game/GarageGame.csproj` pins `Godot.NET.Sdk/4.7.2` and targets `net8.0`. Upgrade them deliberately with the editor/package versions, then run the native and retained regression checks. `game/GarageGame.sln` is available to IDEs. The helpers print the verified tool versions and keep .NET CLI/NuGet caches inside the ignored `.cache/` directory; Godot's generated managed output stays in ignored `game/.godot/`.
 
 Tools installed elsewhere can be selected per process:
 
 ```powershell
-$env:ENFRACTAL_GODOT_DOTNET = 'C:\Tools\Godot\Godot_v4.7.2-stable_mono_win64_console.exe'
-$env:ENFRACTAL_DOTNET = 'C:\Tools\dotnet\dotnet.exe'
+$env:GARAGE_GAME_GODOT_DOTNET = 'C:\Tools\Godot\Godot_v4.7.2-stable_mono_win64_console.exe'
+$env:GARAGE_GAME_DOTNET = 'C:\Tools\dotnet\dotnet.exe'
 pwsh -NoProfile -File tools/test-native-interop.ps1
 ```
 
-An existing `ENFRACTAL_GODOT` is accepted only if it points to the correct .NET build. Explicit invalid selections fail instead of silently choosing another engine. Repository `.cache` candidates are considered before PATH; runtime-only `dotnet` installations fail with a SDK-specific message.
+An existing `GARAGE_GAME_GODOT` is accepted only if it points to the correct .NET build. Explicit invalid selections fail instead of silently choosing another engine. Repository `.cache` candidates are considered before PATH; runtime-only `dotnet` installations fail with a SDK-specific message.
 
 ## Calling the C# contract
 
@@ -42,7 +42,7 @@ assert(contract.call("ValidateProfile", dimensions))
 
 The version-1 dictionary includes `meters_per_world_unit`, `height_m`, `radius_m`, `eye_height_m` and `interaction_reach_m`. The default body is 0.10 m high, radius 0.02 m, eye height 0.087 m and interaction reach 0.15 m, with **one world unit equal to one meter**. It does not rescale geography or gravity. These are initial body parameters, not a claim that movement is already tuned. Unknown fields, unsupported schema versions, nonnumeric/nonfinite values and invalid body dimensions are rejected. Every returned dictionary is a fresh copy.
 
-The interop smoke test runs through the compiled Godot C# bindings rather than reproducing the C# code in another language. It verifies the GDScript round trip, units, malformed values, capsule/eye bounds and isolation from caller mutation. The discovery function in `tools/native-toolchain.ps1` is reusable by the main launcher and test runner. `Invoke-EnfractalNativeProcess` is intended for build/test automation: it uses an explicit argument list, a hidden child process, a timeout, checkout-local caches and isolated application-data paths under `.cache/native-test/`. It does not read or overwrite the player's normal saves.
+The interop smoke test runs through the compiled Godot C# bindings rather than reproducing the C# code in another language. It verifies the GDScript round trip, units, malformed values, capsule/eye bounds and isolation from caller mutation. The discovery function in `tools/native-toolchain.ps1` is reusable by the main launcher and test runner. `Invoke-GarageGameNativeProcess` is intended for build/test automation: it uses an explicit argument list, a hidden child process, a timeout, checkout-local caches and isolated application-data paths under `.cache/native-test/`. It does not read or overwrite the player's normal saves.
 
 ## Verified upstream requirements
 
@@ -50,7 +50,7 @@ Checked on 2026-10-02: the [official Windows download page](https://godotengine.
 
 Windows x64 is the verified bootstrap target. Other native platforms need their matching Godot .NET and SDK packages plus export validation; this file does not claim they were tested. The native-only platform decision does not change source-data license or asset attribution requirements.
 
-The Windows export writes `.cache/releases/windows/EnFractal.exe` and its companion data files. Keep that directory together. The exporter executes an actual release probe of compiled C#, the 0.10 m profile and the retained GDScript compiler with valid/invalid input, then loads the default placeholder room scene. Both run from an empty working directory with developer .NET variables/runtime search paths removed. This does not certify art or the minimum device. Builds are currently unsigned development artifacts.
+The Windows export writes `.cache/releases/windows/GarageGame.exe` and its companion data files. Keep that directory together. The exporter executes an actual release probe of compiled C#, the 0.10 m profile and the retained GDScript compiler with valid/invalid input, then loads the default placeholder room scene. Both run from an empty working directory with developer .NET variables/runtime search paths removed. This does not certify art or the minimum device. Builds are currently unsigned development artifacts.
 
 ## The room scene
 
@@ -58,7 +58,7 @@ Run `pwsh -NoProfile -File run-room.ps1`. The default Godot entry and the native
 
 `tools/test-room.ps1` runs the small-avatar physics fixture (`tests/native_small_avatar.tscn`, the 0.10 m body), the room navigation fixture (`tests/native_room_navigation.tscn`: the companion routes round the big box through the command host), the room data fixture (`tests/native_room_data.tscn`: contract loading, hash and path rejection, derived scene, collision, look seam and a full room boot), play on the 1x garage landscape, and then boots the default room headlessly and the landscape through the main scene, each quitting by `-- --quit-after-ready=N` (`ROOM_WORLD_READY`, then `ROOM_WORLD_QUIT` and exit 0).
 
-**The landscape fixtures.** The garage landscape is derived data, generated and exported at test time and never committed. Every worktree on a machine shares one cache, `.cache/landscape-fixtures` in the integrator's checkout (the main worktree, found through Git; `ENFRACTAL_FIXTURE_CACHE` names another folder): `x1/<key>/landscape_garage_nominal`, the quick fixture every run plays on, and `x10/<key>/landscape_garage_nominal`, the 10x island, built only for the scale suite. The key hashes the generator, the exporter, the harness and the corpus room, so a lane that changes none of them reuses the fixture, and one that changes them gets its own. A missing fixture is built by one process at a time under `<key>.lock` (about 35 s at 1x and 4 min at 10x; others wait for it), then moved into place whole; readers never write, and its files are read-only. `tools/landscape-fixture.ps1` does this for the Windows tools (`Get-EnfractalLandscapeFixture -Scale 1|10`), and `tools/linux/test-all.sh` the same with `flock`, on the same key.
+**The landscape fixtures.** The garage landscape is derived data, generated and exported at test time and never committed. Every worktree on a machine shares one cache, `.cache/landscape-fixtures` in the integrator's checkout (the main worktree, found through Git; `GARAGE_GAME_FIXTURE_CACHE` names another folder): `x1/<key>/landscape_garage_nominal`, the quick fixture every run plays on, and `x10/<key>/landscape_garage_nominal`, the 10x island, built only for the scale suite. The key hashes the generator, the exporter, the harness and the corpus room, so a lane that changes none of them reuses the fixture, and one that changes them gets its own. A missing fixture is built by one process at a time under `<key>.lock` (about 35 s at 1x and 4 min at 10x; others wait for it), then moved into place whole; readers never write, and its files are read-only. `tools/landscape-fixture.ps1` does this for the Windows tools (`Get-GarageGameLandscapeFixture -Scale 1|10`), and `tools/linux/test-all.sh` the same with `flock`, on the same key.
 
 **The scale suite.** `tools/test-room.ps1 -Scale` (or `tools/linux/test-all.sh --scale`) runs only `tests/native_scale_suite.tscn` on the 10x garage, never by default: the load to `ROOM_WORLD_READY` and the plant copies built, the navigation mesh ready, memory, a run across the island to the farthest land a route reaches (`ScaleWalkTest`), and the Gubble called from the far end, as the player calls it and travelled all the way. Each prints one `SCALE_*` line of `key=value` numbers, for comparing sessions; headless, its ticks are the simulation's cost, not a player's frame time.
 

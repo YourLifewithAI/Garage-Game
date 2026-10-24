@@ -2,9 +2,9 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Navigation;
+namespace GarageGame.Native.Navigation;
 
 /// <summary>
 /// The bake's source geometry, read off the collision shapes as triangle arrays: the main thread takes only references and

@@ -1,12 +1,12 @@
 using Godot;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Characters.Gaits;
-using EnFractal.Native.Look;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Characters.Gaits;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The characters round's wiring in the room (RoomWorld, CharacterVisual): the shipped library, the HUD's choices, and the

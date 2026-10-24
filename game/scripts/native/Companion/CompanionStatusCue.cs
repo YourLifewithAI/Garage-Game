@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-namespace EnFractal.Native.Companion;
+namespace GarageGame.Native.Companion;
 
 /// <summary>
 /// The companion's state, shown on its avatar while the player's AI is linked (A2; LIVE-VOICE.md's accessibility

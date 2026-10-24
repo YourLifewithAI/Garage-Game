@@ -23,13 +23,13 @@ from support import (BEHIND_BOX, COMPANION, FAR_IN_SIGHT, GUBBLE, IN_THE_OPEN, N
 
 from mcp_harness import McpHarness
 
-from enfractal_companion.mock_host import RulesError, rules_path
-from enfractal_companion.server import INSTRUCTIONS
+from garage_game_companion.mock_host import RulesError, rules_path
+from garage_game_companion.server import INSTRUCTIONS
 
 PACK = json.loads(rules_path().read_bytes())
 SPOT_ONLY_THE_PLAYER_SEES = [0.6, 0.0, 0.2]  # with the companion behind the box (below), the box hides it from the companion
 BEHIND_THE_BOX = [1.6, 0.0, 0.2]
-ABILITIES = ["bloom", "bubbles", "fire", "fireworks", "glow"]
+ABILITIES = ["bubbles", "fire", "fireworks", "glow", "grow"]
 EFFECT_ABILITIES = ["bubbles", "fireworks", "glow"]
 
 
@@ -98,7 +98,7 @@ class TheIslandsRules(GlowCase):
         self.assertEqual(too_bright["error"]["allowed"], [0.3, 0.5])
         listed = self.send(query("capabilities.list", {}))["data"]["items"]
         self.assertEqual([item["capability"] for item in listed], ABILITIES)
-        self.assertEqual(listed[-1], {"capability": "glow", "category": "light", "params": {"intensity": {"min": 0.3, "max": 0.5}},
+        self.assertEqual(listed[ABILITIES.index("glow")], {"capability": "glow", "category": "light", "params": {"intensity": {"min": 0.3, "max": 0.5}},
                                      "area_radius_max_m": 1.0, "duration_max_s": 400, "reach_m": 2.0,
                                      "max_active": 3, "command_op": "effect.start"})
         started = self.send(glow("c-4", params={}))
@@ -470,7 +470,7 @@ class BubblesAndFireworksThroughMcp(unittest.IsolatedAsyncioTestCase):
         async with self.harness() as h:
             listed = await h.call("capabilities_list", {})
             self.assertEqual([(i["capability"], i["category"]) for i in listed["data"]["items"]],
-                             [("bloom", "growth"), ("bubbles", "float"), ("fire", "fire"), ("fireworks", "burst"), ("glow", "light")])
+                             [("bubbles", "float"), ("fire", "fire"), ("fireworks", "burst"), ("glow", "light"), ("grow", "growth")])
             # The Bubble only at a spot (the place decides: here a bubble to walk into), never on the companion itself.
             on_itself = await h.call("effect_start", self.args("bubbles", "bubbles-1", params={}))
             self.assertRefused(on_itself, "invalid_args", "$.args.targets")

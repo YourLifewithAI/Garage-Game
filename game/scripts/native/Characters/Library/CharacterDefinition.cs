@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>A folder the library refused, or a sidecar it could not accept. The message is the reason, for people.</summary>
 public sealed class CharacterLoadException : Exception

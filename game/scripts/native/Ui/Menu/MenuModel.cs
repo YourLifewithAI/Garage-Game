@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Saves;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Saves;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// A game the menu is about to start: whose, where, in which mode and (Challenge) at what difficulty, and the command line the

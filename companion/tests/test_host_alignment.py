@@ -37,18 +37,20 @@ BUBBLES_SUMMARY = {"capability": "bubbles", "category": "float", "params": {"int
 FIREWORKS_SUMMARY = {"capability": "fireworks", "category": "burst", "params": {"intensity": {"min": 0.3, "max": 1.0}},
                      "area_radius_max_m": 2.0, "duration_max_s": 6, "reach_m": 4.0, "max_active": 3,
                      "command_op": "effect.start"}
-BLOOM_SUMMARY = {"capability": "bloom", "category": "growth", "params": {"intensity": {"min": 0.2, "max": 1.0}},
-                 "area_radius_max_m": 0.6, "duration_max_s": 600, "reach_m": 2.0, "max_active": 1,
-                 "command_op": "nature.cast"}
+GROW_SUMMARY = {"capability": "grow", "category": "growth", "params": {"intensity": {"min": 0.1, "max": 0.5}},
+                "area_radius_max_m": 1.0, "duration_max_s": 600, "reach_m": 2.0, "max_active": 1,
+                "command_op": "nature.cast"}
+# Fire is listed locked until the team's first rest by the starting campfire (decision 72): a fresh team on either host.
 FIRE_SUMMARY = {"capability": "fire", "category": "fire", "params": {"intensity": {"min": 0.2, "max": 1.0}},
                 "area_radius_max_m": 1.5, "duration_max_s": 60, "reach_m": 2.0, "max_active": 1,
-                "command_op": "nature.cast"}
+                "command_op": "nature.cast", "locked": True}
 LACKING = "teleport"
 # The one exception in these scenarios (the integrator, 13 October): the mock does not simulate nature yet. A nature command
 # that passes the kernel's checks runs on the kernel host, and the mock answers it unavailable; so does nature.describe.
 # Only these ops, and only once their checks have passed. The follow-up that models nature in the mock removes it
 # (contracts/README.md, "Known open points").
-NATURE_NOT_IN_THE_MOCK = frozenset({"nature.cast", "nature.trail", "nature.repair", "nature.describe"})
+# nature.trail went with Bloom (decision 52): both hosts refuse it alike (unsupported_capability), so it is no exception.
+NATURE_NOT_IN_THE_MOCK = frozenset({"nature.cast", "nature.repair", "nature.describe"})
 
 
 def refusal(result: dict):
@@ -167,7 +169,7 @@ class AlignmentScenarios:
         """Every check the kernel makes before its nature runs gives the same answer on both hosts. Past them, on the mock
         only, the excepted ops answer unavailable; the kernel host runs them (previews only here, so nothing changes)."""
         await self.companion_home()
-        bloom = {"capability": "bloom", "center_m": IN_THE_OPEN, "radius_m": 0.25, "duration_s": 30}
+        bloom = {"capability": "grow", "center_m": IN_THE_OPEN, "radius_m": 0.25, "duration_s": 30}
 
         async def sent(op, args, **options):
             return refusal(await self.ask(command(op, args, self.next_id("nature"), **options)))
@@ -182,6 +184,9 @@ class AlignmentScenarios:
             "a repair of an object": await sent("nature.repair", {"target": "obj:box"}),
             "a repair of something unseen": await sent("nature.repair", {"target": "creation:zz-not-here"}),
             "a stale revision": await sent("nature.trail", {"enabled": False}, expected_revision=10 ** 6, preview=True),
+            "the retired flower trail": await sent("nature.trail", {"enabled": False}, preview=True),
+            # Decision 72: a fresh team has not rested by the starting campfire yet, so the Gubble has no Fire on either host.
+            "Fire before the first rest": await sent("nature.cast", {**bloom, "capability": "fire"}, preview=True),
         }
         self.assertEqual(checked, {
             "an argument it does not know": ("field_unknown", "$.args.intensity"),
@@ -193,11 +198,11 @@ class AlignmentScenarios:
             "a repair of an object": ("request_invalid", "$.args.target"),
             "a repair of something unseen": ("target_not_found", "$.args.target"),
             "a stale revision": ("revision_conflict", "$.expected_revision"),
+            "the retired flower trail": ("unsupported_capability", "$.op"),
+            "Fire before the first rest": ("permission_denied", "$.args.capability"),
         })
         excepted = {
-            "nature.cast": [await sent("nature.cast", bloom, preview=True),
-                            await sent("nature.cast", {**bloom, "capability": "fire"}, preview=True)],
-            "nature.trail": [await sent("nature.trail", {"enabled": False}, preview=True)],
+            "nature.cast": [await sent("nature.cast", bloom, preview=True)],
             "nature.describe": [refusal(await self.ask(query("nature.describe", {}, self.next_id("q"))))],
         }
         self.assertLessEqual(set(excepted), NATURE_NOT_IN_THE_MOCK)
@@ -229,7 +234,7 @@ class AlignmentScenarios:
             "pick up a Fractal": await sent("item.pickup", {"target": "fractal:k3x9q2"}),
             "gather a log": await sent("item.gather", {"target": "obj:book"}),
             "set a knack": await sent("knack.set", {"slot": 1, "knack": "quick_feet"}),
-            "mark a receipt": await sent("receipt.mark", {"action_id": "bloom-0002", "mark": "yes"}),
+            "mark a receipt": await sent("receipt.mark", {"action_id": "grow-0002", "mark": "yes"}),
             "reset Trust": await sent("trust.reset", {}),
             "spend Fractals": await sent("fractal.spend", {"grow": "heart"}),
             "choose a difficulty": await sent("world.set_mode", {"mode": "challenge", "difficulty": "gentle"}),
@@ -243,7 +248,7 @@ class AlignmentScenarios:
             "a carry on the player, unpreviewed": await sent("nature.cast", carry),
             "a boat at a point": await sent("nature.cast", {"capability": "bubble_boat", "center_m": spot, "radius_m": 0.1,
                                                             "duration_s": 20}, preview=True),
-            "Bloom on the player": await sent("nature.cast", {"capability": "bloom", "center_m": spot, "radius_m": 0.25,
+            "Grow on the player": await sent("nature.cast", {"capability": "grow", "center_m": spot, "radius_m": 0.25,
                                                               "duration_s": 30, "target": "avatar:player"}, preview=True),
             "a carry of a thing": await sent("nature.cast", {**carry, "target": "obj:box"}, preview=True),
         }
@@ -264,7 +269,7 @@ class AlignmentScenarios:
             "a carry on the player, previewed": ("invalid_args", "$.args.center_m"),
             "a carry on the player, unpreviewed": ("request_invalid", "$"),
             "a boat at a point": ("invalid_args", "$.args.center_m"),
-            "Bloom on the player": ("request_invalid", "$.args.capability"),
+            "Grow on the player": ("request_invalid", "$.args.capability"),
             "a carry of a thing": ("request_invalid", "$.args.target"),
         })
 
@@ -373,7 +378,7 @@ class AlignmentScenarios:
     renders: bool = True
 
     async def test_the_gubbles_eyes_refuse_alike_and_look_when_they_can_draw(self):
-        from enfractal_companion import eyes
+        from garage_game_companion import eyes
 
         async def looked(args):
             result = await self.ask(query("view.look", {"actor": "avatar:companion", **args}, self.next_id("look")))
@@ -440,16 +445,16 @@ class AlignmentScenarios:
             "a cursor of words": await listed({"cursor": "next"}),
         }
         self.assertEqual(outcome, {
-            "all": {"items": [BLOOM_SUMMARY, BUBBLES_SUMMARY, FIRE_SUMMARY, FIREWORKS_SUMMARY, GLOW_SUMMARY]},
+            "all": {"items": [BUBBLES_SUMMARY, FIRE_SUMMARY, FIREWORKS_SUMMARY, GLOW_SUMMARY, GROW_SUMMARY]},
             "light": {"items": [GLOW_SUMMARY]},
             "float": {"items": [BUBBLES_SUMMARY]},
             "burst": {"items": [FIREWORKS_SUMMARY]},
             "air": {"items": []},
-            "first page of one": {"items": [BLOOM_SUMMARY], "next_cursor": "1"},
-            "the next page": {"items": [BUBBLES_SUMMARY], "next_cursor": "2"},
-            "the last page": {"items": [GLOW_SUMMARY]},
+            "first page of one": {"items": [BUBBLES_SUMMARY], "next_cursor": "1"},
+            "the next page": {"items": [FIRE_SUMMARY], "next_cursor": "2"},
+            "the last page": {"items": [GROW_SUMMARY]},
             "past the last": {"items": []},
-            "the rest from the second": {"items": [BUBBLES_SUMMARY, FIRE_SUMMARY, FIREWORKS_SUMMARY, GLOW_SUMMARY]},
+            "the rest from the second": {"items": [FIRE_SUMMARY, FIREWORKS_SUMMARY, GLOW_SUMMARY, GROW_SUMMARY]},
             "beyond the end": ("invalid_args", "$.args.cursor"),
             "a signed cursor": ("invalid_args", "$.args.cursor"),
             "a cursor of words": ("invalid_args", "$.args.cursor"),
@@ -755,6 +760,22 @@ class AlignmentOnTheMock(AlignmentScenarios, unittest.IsolatedAsyncioTestCase):
 
     async def wait(self, seconds: float) -> None:
         self.host.clock.advance(seconds)
+
+    async def test_fire_waits_for_the_first_rest_then_is_nature_again(self):
+        """Decision 72 on the mock: Fire is refused in the kernel's words until the team learns it (the host's own learn_fire,
+        the kernel's first rest), then it is nature again, which this mock answers unavailable; Fire stays listed meanwhile."""
+        fire = {"capability": "fire", "center_m": IN_THE_OPEN, "radius_m": 0.25, "duration_s": 30}
+        locked = await self.ask(command("nature.cast", fire, self.next_id("fire"), preview=True))
+        listed = await self.ask(query("capabilities.list", {}, self.next_id("q")))
+        self.host.learn_fire()
+        learned = await self.ask(command("nature.cast", fire, self.next_id("fire"), preview=True))
+        relisted = await self.ask(query("capabilities.list", {"category": "fire"}, self.next_id("q")))
+        self.assertEqual([item.get("locked") for item in listed["data"]["items"] if item["capability"] == "fire"], [True])
+        self.assertNotIn("locked", relisted["data"]["items"][0])
+        self.assertEqual((refusal(locked), locked["error"]["message"]), (("permission_denied", "$.args.capability"),
+                         "The Gubble has not learned Fire yet: rest by the starting campfire first."))
+        self.assertIn("fire", [item["capability"] for item in listed["data"]["items"]])
+        self.assertEqual(refusal(learned), ("unavailable", "$.op"))
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 public enum PlayerDamageSource { Fall, Fire, Critter, Player }
 public sealed class PlayerVitalsException(string message) : Exception(message);

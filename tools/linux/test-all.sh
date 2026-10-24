@@ -17,7 +17,7 @@ P="$REPO/game"; LOG="$LINUX/test-logs"; mkdir -p "$LOG"; failed=0
 SCALE=0; [ "${1:-}" = "--scale" ] && SCALE=1
 
 # The garage landscape fixture, shared by every worktree of this clone (tools/landscape-fixture.ps1 on Windows, the same key): derived
-# data never committed, under the main worktree's .cache/landscape-fixtures (or $ENFRACTAL_FIXTURE_CACHE), x1/<key> and x10/<key>,
+# data never committed, under the main worktree's .cache/landscape-fixtures (or $GARAGE_GAME_FIXTURE_CACHE), x1/<key> and x10/<key>,
 # keyed by the generator, the exporter, the harness and the corpus room (line endings normalised where Git converts them), built by
 # one checkout at a time under flock into <key>.partial and moved into place; its files are read-only for readers.
 landscape_key() {
@@ -28,7 +28,7 @@ landscape_key() {
     done | sha256sum | cut -c1-16)
 }
 fixture_cache() {
-  if [ -n "${ENFRACTAL_FIXTURE_CACHE:-}" ]; then echo "$ENFRACTAL_FIXTURE_CACHE"; return; fi
+  if [ -n "${GARAGE_GAME_FIXTURE_CACHE:-}" ]; then echo "$GARAGE_GAME_FIXTURE_CACHE"; return; fi
   local common; common=$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
   if [ -n "$common" ] && [ "$(basename "$common")" = .git ]; then echo "$(dirname "$common")/.cache/landscape-fixtures"; else echo "$REPO/.cache/landscape-fixtures"; fi
 }
@@ -60,11 +60,15 @@ landscape_fixture() { # 1 or 10; prints the exported room's folder, built first 
   fi
   echo "$final/landscape_garage_nominal"
 }
+# Godot's Jolt job system warns on stderr when its job queue fills under load and then waits (seen on a four-core cloud container,
+# 24 October, in the body knacks scene, with every check passing); the game wrote nothing, so those two lines alone are not a
+# failure. Anything else on stderr still is, exactly as in the Windows runners.
+stderr_counts() { grep -v -E 'Jolt Physics job system exceeded the maximum number of jobs|at: CreateJob \(modules/jolt_physics/spaces/jolt_job_system\.cpp' "$1" | grep -q '[^[:space:]]'; }
 # Containers and WSL often run as root, and Godot then warns on stderr, which every check here treats as a failure.
 export GODOT_SILENCE_ROOT_WARNING=1
 
 echo "== C# build"
-if ! dotnet build "$P/EnFractal.csproj" -nologo -v:q -warnaserror > "$LOG/build.log" 2>&1; then cat "$LOG/build.log"; failed=1; else echo "PASS build (warnings are errors)"; fi
+if ! dotnet build "$P/GarageGame.csproj" -nologo -v:q -warnaserror > "$LOG/build.log" 2>&1; then cat "$LOG/build.log"; failed=1; else echo "PASS build (warnings are errors)"; fi
 echo "== import"
 timeout 300 "$GODOT" --headless --editor --path "$P" --import > "$LOG/import.out" 2> "$LOG/import.err" || true
 if grep -qE "ERROR|SCRIPT ERROR" "$LOG/import.err"; then grep -E "ERROR" "$LOG/import.err" | head -20; failed=1; else echo "PASS import"; fi
@@ -73,7 +77,7 @@ if [ $SCALE -eq 1 ]; then
   echo "== scale suite (the 10x garage)"
   if ! LR10=$(landscape_fixture 10); then echo "FAIL 10x landscape fixture"; tail -15 "$LOG/landscape_fixture_x10.log"; echo "== RED"; exit 1; fi
   timeout 1500 "$GODOT" --headless --path "$P" --fixed-fps 60 res://tests/native_scale_suite.tscn -- --landscape="$LR10" > "$LOG/scale_suite.out" 2> "$LOG/scale_suite.err"; code=$?
-  if [ $code -ne 0 ] || grep -q '[^[:space:]]' "$LOG/scale_suite.err" || ! grep -qE 'NATIVE_SCALE_SUITE: [0-9]+/[0-9]+ checks passed' "$LOG/scale_suite.out"; then
+  if [ $code -ne 0 ] || stderr_counts "$LOG/scale_suite.err" || ! grep -qE 'NATIVE_SCALE_SUITE: [0-9]+/[0-9]+ checks passed' "$LOG/scale_suite.out"; then
     echo "FAIL scale suite (exit $code)"; tail -20 "$LOG/scale_suite.out"; echo "--- stderr"; head -30 "$LOG/scale_suite.err"; echo "== RED"; exit 1
   fi
   grep -E '^(SCALE_|NATIVE_SCALE_SUITE)' "$LOG/scale_suite.out"; echo "== GREEN"; exit 0
@@ -82,7 +86,7 @@ fi
 run() { # name, expected stdout regex, godot args...
   local name="$1" expect="$2"; shift 2
   timeout 180 "$GODOT" "$@" > "$LOG/$name.out" 2> "$LOG/$name.err"; local code=$?
-  if [ $code -ne 0 ] || grep -q '[^[:space:]]' "$LOG/$name.err" || ! grep -qE "$expect" "$LOG/$name.out"; then
+  if [ $code -ne 0 ] || stderr_counts "$LOG/$name.err" || ! grep -qE "$expect" "$LOG/$name.out"; then
     echo "FAIL $name (exit $code)"; tail -15 "$LOG/$name.out"; echo "--- stderr"; head -30 "$LOG/$name.err"; failed=1
   else echo "PASS $name: $(grep -E "$expect" "$LOG/$name.out" | tail -1 | cut -c1-150)"; fi
 }
@@ -118,7 +122,7 @@ run native_look_characters "NATIVE_LOOK_CHARACTERS: [0-9]+/[0-9]+ checks passed"
 run room_boot "ROOM_WORLD_QUIT" --headless --path "$P" --fixed-fps 60 res://scenes/room.tscn -- --quit-after-ready=240 --team=boot_probe --mode=challenge --difficulty=gentle
 # The landscape as the player opens it: installed in the user folder and booted by id through the main scene (which reads --room),
 # quitting by --quit-after-ready (a smoke boot of 13 October never quit: it ran an assembly built before the option existed).
-UR="$XDG_DATA_HOME/godot/app_userdata/EnFractal/rooms/landscape_garage_nominal"
+UR="$XDG_DATA_HOME/godot/app_userdata/Garage-Game/rooms/landscape_garage_nominal"
 rm -rf "$UR"; mkdir -p "$(dirname "$UR")"; cp -r "$LR" "$UR"; chmod -R u+w "$UR"
 run main_scene_landscape_boot "ROOM_WORLD_QUIT" --headless --path "$P" --fixed-fps 60 -- --room=landscape_garage_nominal --quit-after-ready=240
 if ! grep -q "^ROOM_WORLD_READY room=landscape_garage_nominal " "$LOG/main_scene_landscape_boot.out"; then echo "FAIL main_scene_landscape_boot did not open the landscape"; failed=1; fi

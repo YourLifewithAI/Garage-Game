@@ -6,7 +6,7 @@ import unittest
 
 from support import (COMPANION, IN_THE_OPEN, NO_HOLDS, PLAYER, FakeClock, cast, command,
                      contract_problems, glow, new_host, query)
-from enfractal_companion.glow_progress import GlowProgress
+from garage_game_companion.glow_progress import GlowProgress
 
 
 class GlowAndModes(unittest.TestCase):
@@ -151,8 +151,7 @@ class GlowAndModes(unittest.TestCase):
                 self.assertEqual(result["error"]["code"], "unavailable")
                 self.assertIn("needs the game itself", result["error"]["message"])
         messages = [
-            ("nature.cast", {"capability": "bloom", "center_m": IN_THE_OPEN, "radius_m": 0.25, "duration_s": 30}),
-            ("nature.trail", {"enabled": True}),
+            ("nature.cast", {"capability": "grow", "center_m": IN_THE_OPEN, "radius_m": 0.25, "duration_s": 30}),
             ("nature.repair", {"target": "creation:unbuilt"}),
             ("wish.submit", {"text": "Help me make a garden"}),
             ("wish.stop", {}),
@@ -171,7 +170,7 @@ class GlowAndModes(unittest.TestCase):
         self.assertEqual(self.host.glow_progress.discoveries, set())
         items = self.host.handle(COMPANION, query("capabilities.list", {}))["data"]["items"]
         for item in items:
-            nature = item["capability"] in {"bloom", "fire"}
+            nature = item["capability"] in {"grow", "fire"}
             self.assertNotIn("native_required", item)
             self.assertEqual(item["command_op"], "nature.cast" if nature else "effect.start")
 
@@ -185,7 +184,7 @@ class NatureInTheMock(unittest.TestCase):
     before its nature runs (CommandHostNature.CheckNatureArgs; the expectations; a companion's repair target in sight), then
     answers unavailable. room.undo, with no nature change to take back, answers as the kernel does for any other change."""
 
-    BLOOM = {"capability": "bloom", "center_m": IN_THE_OPEN, "radius_m": 0.25, "duration_s": 30}
+    BLOOM = {"capability": "grow", "center_m": IN_THE_OPEN, "radius_m": 0.25, "duration_s": 30}
 
     def setUp(self):
         self.clock = FakeClock()
@@ -222,6 +221,8 @@ class NatureInTheMock(unittest.TestCase):
                 self.assertEqual(self.send(op, args, **options), expected)
 
     def test_valid_nature_commands_are_unavailable_and_change_nothing(self):
+        # Decision 72: Fire is valid only once the team has learned it (the kernel's first rest; the mock host's own learn_fire).
+        self.host.learn_fire()
         before = (self.host.revision, len(self.host.receipts), len(self.host.transient))
         fire = {**self.BLOOM, "capability": "fire"}
         for op, args, options in (("nature.cast", self.BLOOM, {}), ("nature.cast", fire, {"preview": True}),
@@ -229,8 +230,10 @@ class NatureInTheMock(unittest.TestCase):
             for principal in (PLAYER, COMPANION):
                 with self.subTest(op=op, principal=principal, **options):
                     unseen = op == "nature.repair" and principal == COMPANION
-                    self.assertEqual(self.send(op, args, principal, **options),
-                                     ("target_not_found", "$.args.target") if unseen else ("unavailable", "$.op"))
+                    # The flower trail went with Bloom (decision 52): refused in the kernel's words, never unavailable.
+                    expected = (("target_not_found", "$.args.target") if unseen else ("unsupported_capability", "$.op") if op == "nature.trail"
+                                else ("unavailable", "$.op"))
+                    self.assertEqual(self.send(op, args, principal, **options), expected)
         self.assertEqual(outcome(self.host.handle(COMPANION, query("nature.describe", {}))), ("unavailable", "$.op"))
         self.assertEqual((self.host.revision, len(self.host.receipts), len(self.host.transient)), before)
 

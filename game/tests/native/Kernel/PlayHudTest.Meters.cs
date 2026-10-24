@@ -5,13 +5,13 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Sandbox;
-using EnFractal.Native.Ui;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Sandbox;
+using GarageGame.Native.Ui;
 using Godot;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The three meters and the minimap (the mechanics round's packet M2, docs/game/MECHANICS.md sections 1, 4, 5, 6 and 8), in the
@@ -245,8 +245,8 @@ public partial class PlayHudTest
         Check(_hud.PipsRow.Shadow && _hud.PipsRow.MaxPips == 8 && _hud.PipsRow.Pips == 8 && host.BodyRules.ShadowPool,
             "in Creative the pool is drawn as a shadow pool: eight pips, none spent");
         Check(slotPrice.Visible && slotPrice.Text == Dots(2) && _hud.SlotPrice(0) == 2 && _hud.SlotPrice(1) == 4 && _hud.SlotPrice(2) == 2 && _hud.SlotPrice(3) == 2 && _hud.SlotPrice(4) == 0,
-            $"the key by Glow's button says what it costs, two dots (Bloom four, Bubbles and Fireworks two, Build nothing): \"{slotPrice.Text}\"");
-        Check(HelpLines().Any(line => line.StartsWith($"1 Glow {Dots(2)}, 2 Bloom {Dots(4)}, 3 Bubbles {Dots(2)}, 4 Fireworks {Dots(2)} where you point", StringComparison.Ordinal)),
+            $"the key by Glow's button says what it costs, two dots (Grow four, Bubbles and Fireworks two, Build nothing): \"{slotPrice.Text}\"");
+        Check(HelpLines().Any(line => line.StartsWith($"1 Glow {Dots(2)}, 2 Grow {Dots(4)}, 3 Bubbles {Dots(2)}, 4 Fireworks {Dots(2)}", StringComparison.Ordinal)),
             "and so does the help's line for the ability keys: " + HelpLines()[8]);
         var spot = FloorNearGubble(0.3f);
         for (var i = 0; i < 4; i++)
@@ -256,7 +256,7 @@ public partial class PlayHudTest
         }
         await Frames(4);
         Check(host.Vitals.Pips == 0 && _hud.PipsRow.Pips == 0 && slotPrice.Text == "needs 2" && Math.Abs(slotPrice.Modulate.A - 0.5f) < 0.01f &&
-              HelpLines().Any(line => line.Contains("1 Glow needs 2, 2 Bloom needs 4", StringComparison.Ordinal)),
+              HelpLines().Any(line => line.Contains("1 Glow needs 2, 2 Grow needs 4", StringComparison.Ordinal)),
             $"four Glows drain the shadow pool: the key now says \"{slotPrice.Text}\", faint, and the help line says it too");
         var fifth = CastGlow(host, spot + new Vector3(0.1f, 0, 0));
         await Frames(2);
@@ -265,9 +265,9 @@ public partial class PlayHudTest
         _hud._UnhandledInput(RightButton(true));
         await Frames(20);
         var prices = _hud.Wheel.PriceLabels;
-        Check(prices[0].Visible && prices[0].Text == "needs 2" && Math.Abs(prices[0].Modulate.A - 0.5f) < 0.01f && prices[3].Text == "needs 4" && Math.Abs(prices[3].Modulate.A - 0.5f) < 0.01f &&
-              !prices[2].Visible && !prices[5].Visible && !prices[6].Visible && !prices[4].Visible,
-            "on the wheel, Glow says \"needs 2\" and Bloom \"needs 4\", faint in Creative; the orders and Build (the island has none) say nothing");
+        Check(prices[0].Visible && prices[0].Text == "needs 2" && Math.Abs(prices[0].Modulate.A - 0.5f) < 0.01f && prices[4].Text == "needs 4" && Math.Abs(prices[4].Modulate.A - 0.5f) < 0.01f &&
+              !prices[3].Visible && !prices[6].Visible && !prices[7].Visible && !prices[5].Visible,
+            "on the wheel, Glow says \"needs 2\" and Grow \"needs 4\", faint in Creative; the orders and Build (the island has none) say nothing");
         _hud._UnhandledInput(Press(Key.Escape));
         _hud._UnhandledInput(RightButton(false));
         _hud.StopGubble();
@@ -280,18 +280,18 @@ public partial class PlayHudTest
         Check(!_hud.PipsRow.Shadow && _hud.PipsRow.Pips == 8 && _hud.PipsRow.MaxPips == 8 && !host.BodyRules.ShadowPool && slotPrice.Text == Dots(2) && Math.Abs(slotPrice.Modulate.A - 1f) < 0.01f,
             "in Challenge the pool is real: eight pips drawn as dots, the key says two dots");
         Check(_hud.SlotPrice(0) == host.PriceFor("glow", CommandHost.PlayerPrincipal) && _hud.SlotPrice(0) == 2 && host.PriceFor("glow", CommandHost.CompanionPrincipal) == 1 &&
-              _hud.SlotPrice(1) == 4 && host.PriceFor("bloom", CommandHost.CompanionPrincipal) == 2,
-            "the HUD shows what the player pays, the ordered price (Glow 2, Bloom 4), never the Gubble's own-idea half");
+              _hud.SlotPrice(1) == 4 && host.PriceFor("grow", CommandHost.CompanionPrincipal) == 2,
+            "the HUD shows what the player pays, the ordered price (Glow 2, Grow 4), never the Gubble's own-idea half");
         for (var i = 0; i < 3; i++) CastGlow(host, spot + new Vector3(0.02f * i, 0, 0));
         await Frames(4);
         Check(host.Vitals.Pips == 2 && _hud.PipsRow.Pips == 2 && _hud.PipsRow.MaxPips == 8,
             "three Glows spend six pips: two of eight are left on the dots");
-        var needs4 = HelpLines().Any(line => line.Contains($"1 Glow {Dots(2)}, 2 Bloom needs 4, 3 Bubbles {Dots(2)}, 4 Fireworks {Dots(2)} where you point", StringComparison.Ordinal));
-        Check(needs4 && slotPrice.Text == Dots(2), "with two pips left Bloom's hint says \"needs 4\" and the others still read as their price: " + HelpLines()[8]);
+        var needs4 = HelpLines().Any(line => line.Contains($"1 Glow {Dots(2)}, 2 Grow needs 4, 3 Bubbles {Dots(2)}, 4 Fireworks {Dots(2)}", StringComparison.Ordinal));
+        Check(needs4 && slotPrice.Text == Dots(2), "with two pips left Grow's hint says \"needs 4\" and the others still read as their price: " + HelpLines()[8]);
         _hud._UnhandledInput(RightButton(true));
         await Frames(20);
-        Check(prices[0].Text == Dots(2) && prices[1].Text == Dots(2) && prices[7].Text == Dots(2) && prices[3].Text == "needs 4" && Math.Abs(prices[3].Modulate.A - 1f) < 0.01f && !prices[4].Visible,
-            "on the wheel Bloom says \"needs 4\" at full strength (the pool is real) and the cheaper abilities show their dots");
+        Check(prices[0].Text == Dots(2) && prices[1].Text == Dots(2) && prices[8].Text == Dots(2) && prices[4].Text == "needs 4" && Math.Abs(prices[4].Modulate.A - 1f) < 0.01f && !prices[5].Visible,
+            "on the wheel Grow says \"needs 4\" at full strength (the pool is real) and the cheaper abilities show their dots");
         _hud._UnhandledInput(Press(Key.Escape));
         _hud._UnhandledInput(RightButton(false));
         CastGlow(host, spot + new Vector3(0.1f, 0, 0));
@@ -314,7 +314,7 @@ public partial class PlayHudTest
         _hud.Journal.OpenPage(JournalPages.Abilities);
         var abilities = _hud.Journal.PageText;
         Check(abilities.Contains("Costs 2 pips", StringComparison.Ordinal) && abilities.Contains("Costs 4 pips", StringComparison.Ordinal) && abilities.Contains("Costs 6 pips", StringComparison.Ordinal),
-            "the journal's Abilities page names each ability's cost in pips (Glow 2, Bloom 4, Fire 6)");
+            "the journal's Abilities page names each ability's cost in pips (Glow 2, Grow 4, Fire 6)");
         _hud.Journal.OpenPage(JournalPages.Character);
         var sheet = _hud.Journal.PageText;
         Check(sheet.Contains("Pips 0/8", StringComparison.Ordinal) && sheet.Contains("In your wallet: ", StringComparison.Ordinal) && sheet.Contains("Health ", StringComparison.Ordinal),

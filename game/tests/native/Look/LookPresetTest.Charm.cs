@@ -9,12 +9,12 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Look;
-using EnFractal.Native.Look.Charm;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Look;
+using GarageGame.Native.Look.Charm;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// Run 2, L11: the hamlet's charm (docs/look/CHARM.md). The shaders take exactly what the look sets; the survey reads the kit's
@@ -427,7 +427,7 @@ public partial class LookPresetTest
         Check(CharmLook.Pin(new[] { CharmLook.PinArgument + "off" }, null) == false && CharmLook.Pin(Array.Empty<string>(), "OFF ") == false
               && CharmLook.Pin(new[] { CharmLook.PinArgument + "on" }, "off") == true && CharmLook.Pin(Array.Empty<string>(), null) == null
               && CharmLook.Pin(new[] { CharmLook.PinArgument + "maybe" }, null) == null,
-            "a capture pins the charm off by --look-charm=off (first) or ENFRACTAL_LOOK_CHARM=off; on, or nothing, leaves the default");
+            "a capture pins the charm off by --look-charm=off (first) or GARAGE_GAME_LOOK_CHARM=off; on, or nothing, leaves the default");
         var holder = new Node3D { Name = "CharmPinHolder" };
         AddChild(holder);
         var built = RoomBuilder.Build(hamlet);

@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 public partial class RoomHud
 {
@@ -12,13 +12,18 @@ public partial class RoomHud
     private Label _modeName = null!;
     private Label _modeHelp = null!;
     private Label _weatherHelp = null!;
-    private CheckButton _flowerTrail = null!;
     private Label _natureMaterials = null!;
     private OptionButton _repairChoice = null!;
     private Label _repairCost = null!;
     private Button _undoNature = null!;
     private CheckButton? _gubbleFire;
     private Label _firePreviewWords = null!;
+    private Label _fireLocked = null!;
+    private Button _firePreview = null!;
+    /// <summary>The Magic panel's words while Fire is locked (decision 72); the host's refusal says the same if it is asked anyway.</summary>
+    public const string FireLockedWords = "Locked: the Gubble learns Fire when you first rest by the starting campfire (Z beside it).";
+    /// <summary>Whether the Magic panel shows Fire locked now (its preview button off, the locked line shown).</summary>
+    public bool FireShownLocked => _fireLocked is { Visible: true } && _firePreview is { Disabled: true };
     private Button _fireConfirm = null!;
     private ProgressBar _fireHoldBar = null!;
     private readonly List<string> _repairIds = new();
@@ -38,17 +43,18 @@ public partial class RoomHud
         _modeName = WrapMagicLabel(""); _modeName.Name = "ModeName"; page.AddChild(_modeName);
         _modeHelp = WrapMagicLabel(""); _modeHelp.Name = "ModeHelp"; page.AddChild(_modeHelp);
         _weatherHelp = WrapMagicLabel(""); _weatherHelp.Name = "WeatherReadout"; page.AddChild(_weatherHelp);
-        MagicHeading(page, "FLOWERS");
-        _flowerTrail = new CheckButton { Name = "FlowerTrailToggle", Text = "Leave a flower trail" };
-        _flowerTrail.Toggled += enabled => { if (Host is { } host) MagicResult(host.PlayerNatureTrail(enabled), enabled ? "The flower trail is on." : "The flower trail is off."); };
-        page.AddChild(_flowerTrail);
-        AddButton(page, "Bloom at the selected spot", CastBloom, 32);
-        page.AddChild(WrapMagicLabel("Rain, light and the ground shape how flowers grow."));
+        MagicHeading(page, "GROW");
+        AddButton(page, "Grow the plants at the selected spot", CastGrow, 32);
+        page.AddChild(WrapMagicLabel("Grass, flowers, ferns, shrubs and trees grow a little each time, up to twice their size, and stay grown. A grown tree can be climbed."));
         MagicHeading(page, "FIRE");
         page.AddChild(WrapMagicLabel("Fire can spread inside the previewed area. Creations become scorched and repairable; other things can burn away."));
         // "Let the Gubble use fire" is one of the player's settings (RoomHud.Settings.cs): the switch moved there from this page.
         page.AddChild(WrapMagicLabel("Whether the Gubble may light fires is one of your settings."));
-        AddButton(page, "Preview Fire at this spot", PreviewFire, 32);
+        // Decision 72: Fire is locked until the first rest by the starting campfire; the section says so and its button waits.
+        _fireLocked = WrapMagicLabel(FireLockedWords); _fireLocked.Name = "FireLocked"; page.AddChild(_fireLocked);
+        _firePreview = new Button { Name = "PreviewFireButton", Text = "Preview Fire at this spot", CustomMinimumSize = new Vector2(0, 32), FocusMode = Control.FocusModeEnum.All };
+        _firePreview.Pressed += PreviewFire;
+        page.AddChild(_firePreview);
         _firePreviewWords = WrapMagicLabel("Choose a spot and preview it before lighting a fire.");
         _firePreviewWords.Name = "FirePreviewWords"; page.AddChild(_firePreviewWords);
         _fireConfirm = new Button { Name = "ConfirmFireButton", Text = "Hold to light this fire", Disabled = true };
@@ -75,10 +81,10 @@ public partial class RoomHud
         page.AddChild(_undoNature);
     }
 
-    private void CastBloom()
+    private void CastGrow()
     {
-        if (!_magicAim.Hit || _magicAim.AtGubble) { _magicMessageText = "Choose a spot on the ground for Bloom."; RefreshMagicPanel(); return; }
-        if (Host is { } host) { CancelFirePreview(); MagicResult(host.PlayerNatureCast("bloom", _magicAim.Point), "Flowers are taking root."); }
+        if (!_magicAim.Hit || _magicAim.AtGubble) { _magicMessageText = "Choose a spot among the plants for Grow."; RefreshMagicPanel(); return; }
+        if (Host is { } host) { CancelFirePreview(); MagicResult(host.PlayerNatureCast("grow", _magicAim.Point), "The plants are growing."); }
     }
 
     private void PreviewFire()
@@ -94,17 +100,21 @@ public partial class RoomHud
         var cells = result["data"]?["cell_count"]?.GetValue<int>() ?? 0;
         var affected = result["data"]?["affected_ids"]?.AsArray().Count ?? 0;
         var approval = result["data"]?["requires_approval"]?.GetValue<bool>() == true;
+        // The place decides (decision 77): a firepit, Snuff or a Will-o'-wisp says what it will do, as the wheel's preview does.
+        var kind = result["data"]?["kind"]?.GetValue<string>() ?? Kernel.FireKindWords.Fire;
+        var plain = kind == Kernel.FireKindWords.Fire;
         // The one ask about builds is the host's card after the hold (Creative only); the preview only says it will come.
-        _firePreviewWords.Text = $"Fire stays within the outlined {_fireRadius:0.##} m radius. {affected} {(affected == 1 ? "thing may" : "things may")} be affected. " +
+        _firePreviewWords.Text = !plain ? WheelFireWords(kind, cells, affected, _fireRadius, approval).Split(" Hold ")[0] + " Release the button to cancel before the hold finishes." :
+            $"Fire stays within the outlined {_fireRadius:0.##} m radius. {affected} {(affected == 1 ? "thing may" : "things may")} be affected. " +
             (cells == 0 ? "There is no suitable ground here." : "Release the button to cancel before the hold finishes.") +
             (approval ? " Your builds are in reach: you will be asked once whether they may burn." : "");
-        _fireConfirm.Disabled = _firePreviewId == null || cells == 0;
+        _fireConfirm.Disabled = _firePreviewId == null || (plain && cells == 0);
         NatureVisual?.ShowFirePreview(_firePoint, _fireRadius);
         _magicMessageText = "Review the outlined area, then hold the button if you want this fire.";
         RefreshMagicPanel();
     }
 
-    private global::EnFractal.Native.Look.NatureLook? NatureVisual => GetParent()?.GetNodeOrNull<global::EnFractal.Native.Look.NatureLook>(NatureLookPath);
+    private global::GarageGame.Native.Look.NatureLook? NatureVisual => GetParent()?.GetNodeOrNull<global::GarageGame.Native.Look.NatureLook>(NatureLookPath);
     private static readonly NodePath NatureLookPath = "NatureLook";
 
     internal void BeginFireConfirmation()
@@ -158,8 +168,6 @@ public partial class RoomHud
             if (host.VitalsNotice.Length > 0) _modeHelp.Text += "\n" + host.VitalsNotice;
         }
         _weatherHelp.Text = $"{WeatherWords(host.NatureWeather.Pattern)} · Wind {host.NatureWeather.WindMps.Length():0.00} m/s\nThe weather changes naturally across the island.";
-        _flowerTrail.SetPressedNoSignal(host.Nature.TrailEnabled);
-        _flowerTrail.Disabled = !host.NatureConfigured;
         // The wallet's counts, in every mode (a gathered log or stone is in it): repairs spend it outside Creative.
         _natureMaterials.Text = (host.Mode == "creative" && !held ? "Repairs are free in Creative mode.\n" : "") + "In your wallet: " + MaterialWords(host.Nature.Wallet);
         var previous = _repairChoice.Selected >= 0 && _repairChoice.Selected < _repairIds.Count ? _repairIds[_repairChoice.Selected] : null;
@@ -176,6 +184,8 @@ public partial class RoomHud
         _undoNature.Visible = host.Mode == "creative";
         _undoNature.Disabled = !host.NatureCanUndo;
         _gubbleFire?.SetPressedNoSignal(host.GubbleFireAllowed);
+        _fireLocked.Visible = !host.FireLearned;
+        _firePreview.Disabled = !host.FireLearned;
         RefreshRepairCost();
     }
 

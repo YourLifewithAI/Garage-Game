@@ -4,15 +4,15 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// Glow, the Gubble's first ability (docs/runs/RUN-2-GLOW.md section 2): the island's rules pack the game ships
-/// (RoomWorld.DefaultRulesVersion, storybook_wild v4 or v5: the same abilities, Bloom and Fire beside the effects; ShippedRules), loaded fail-closed;
+/// (RoomWorld.DefaultRulesVersion, storybook_wild v4 or v5: the same abilities, Grow (v4's Bloom read as Grow) and Fire beside the effects; ShippedRules), loaded fail-closed;
 /// capabilities.list from it; effect.start for glow on the Gubble (self) and at a spot (point), with its bounds, who may
 /// cast it, its targets, the caps, preview, replay and expiry; effect.stop by id and all; PlayerEffect for the HUD; the
 /// look hook (a real LookDirector shows each glow drawn and released) and the aura colour.
@@ -80,17 +80,20 @@ public partial class CommandHostTest
         var glow = shipped.Ability("glow");
         var bubbles = shipped.Ability("bubbles");
         var fireworks = shipped.Ability("fireworks");
-        var bloom = shipped.Ability("bloom");
+        var bloom = shipped.Ability("grow");
         var fire = shipped.Ability("fire");
         Check(shipped.RulesVersion == ShippedRules.Version && shipped.RulesVersion >= 4 && bubbles is { Category: "float", Primitive: "particles.float", ReachM: 2.0, AreaRadiusDefaultM: 0.5, AreaRadiusMaxM: 1.0, DurationDefaultS: 20, DurationMaxS: 60, MaxActive: 2 } &&
               fireworks is { Category: "burst", Primitive: "particles.burst", ReachM: 4.0, AreaRadiusDefaultM: 1.0, AreaRadiusMaxM: 2.0, DurationDefaultS: 4, DurationMaxS: 6, MaxActive: 3 } &&
               fireworks.Params["intensity"] == new AbilityParam(0.3, 1.0, 0.8) && bubbles.Params["intensity"] == new AbilityParam(0.2, 1.0, 0.6),
             "the game reads storybook_wild v4 or later: Bubbles (particles.float) and Fireworks (particles.burst) with their bounds, beside Glow");
-        Check(bloom is { Category: "growth", Primitive: "growth.seed", Tier: "auto_undo", ReachM: 2.0, AreaRadiusDefaultM: 0.25, AreaRadiusMaxM: 0.6, DurationDefaultS: 180, DurationMaxS: 600, MaxActive: 1 } &&
+        Check(bloom is { Category: "growth", Primitive: "growth.grow", DisplayName: "Grow", Tier: "auto_undo", ReachM: 2.0, AreaRadiusDefaultM: 0.5, AreaRadiusMaxM: 1.0, DurationDefaultS: 1, DurationMaxS: 600, MaxActive: 1 } &&
               fire is { Category: "fire", Primitive: "element.ignite", Tier: "preview_commit", ReachM: 2.0, AreaRadiusDefaultM: 1.5, AreaRadiusMaxM: 1.5, DurationDefaultS: 30, DurationMaxS: 60, MaxActive: 1 } &&
-              bloom.Params["intensity"] == new AbilityParam(0.2, 1.0, 0.6) && fire.Params["intensity"] == new AbilityParam(0.2, 1.0, 0.6) &&
+              bloom.Params["intensity"] == new AbilityParam(0.1, 0.5, 0.25) && fire.Params["intensity"] == new AbilityParam(0.2, 1.0, 0.6) &&
               bloom.CastBy.SetEquals(new[] { "player", "companion" }) && fire.CastBy.SetEquals(new[] { "player", "companion" }),
-            "and the nature abilities: Bloom (growth.seed) and Fire (element.ignite, previewed before it commits) with their bounds and intensity");
+            "and the nature abilities: Grow (growth.grow, a quarter of a plant's size a cast, a 0.5 m circle to 1 m) and Fire (element.ignite, previewed before it commits) with their bounds and intensity");
+        var v4 = IslandRules.Load("storybook_wild", 4).Ability("grow");
+        Check(v4 is { Category: "growth", Primitive: "growth.seed", DisplayName: "Grow" } && IslandRules.Load("storybook_wild", 4).Ability("bloom") == null,
+            "the pinned v4 stays byte-exact, and its Bloom (growth.seed) is read as Grow (decision 52)");
         Check(shipped.MagicWord == "magic" && shipped.Abilities.Count == 5 && glow != null && glow.Category == "light" && glow.Primitive == "light.emit" &&
             glow.CastBy.SetEquals(new[] { "player", "companion" }) && glow.Targets.SetEquals(new[] { "self", "point" }) && glow.Tier == "auto" && glow.ReachM == 2.0 &&
             glow.Params["intensity"] == new AbilityParam(0.2, 1.0, 0.6) && glow.AreaRadiusDefaultM == 0.6 && glow.AreaRadiusMaxM == 1.5 &&
@@ -177,11 +180,11 @@ public partial class CommandHostTest
         var listed = Query("capabilities.list", new JsonObject(), Companion);
         var items = listed["data"]!["items"]!.AsArray();
         var glow = items.FirstOrDefault(i => i!["capability"]!.GetValue<string>() == "glow")?.AsObject();
-        Check(Ok(listed) && items.Select(i => i!["capability"]!.GetValue<string>()).SequenceEqual(new[] { "bloom", "bubbles", "fire", "fireworks", "glow" }) &&
-              items.Select(i => i!["category"]!.GetValue<string>()).SequenceEqual(new[] { "growth", "float", "fire", "burst", "light" }),
-            "capabilities.list answers every ability of the pack, by capability: bloom (growth), bubbles (float), fire (fire), fireworks (burst), glow (light)");
-        Check(items.Where(i => i!["capability"]!.GetValue<string>() is "bloom" or "fire").All(i => i!["command_op"]!.GetValue<string>() == "nature.cast"),
-            "Bloom and Fire are cast through nature.cast");
+        Check(Ok(listed) && items.Select(i => i!["capability"]!.GetValue<string>()).SequenceEqual(new[] { "bubbles", "fire", "fireworks", "glow", "grow" }) &&
+              items.Select(i => i!["category"]!.GetValue<string>()).SequenceEqual(new[] { "float", "fire", "burst", "light", "growth" }),
+            "capabilities.list answers every ability of the pack, by capability: bubbles (float), fire (fire), fireworks (burst), glow (light), grow (growth)");
+        Check(items.Where(i => i!["capability"]!.GetValue<string>() is "grow" or "fire").All(i => i!["command_op"]!.GetValue<string>() == "nature.cast"),
+            "Grow and Fire are cast through nature.cast");
         Check(Ok(listed) && items.Count == 5 && glow != null && glow["capability"]!.GetValue<string>() == "glow" && glow["category"]!.GetValue<string>() == "light" &&
             glow["params"]!["intensity"]!["min"]!.GetValue<double>() == 0.2 && glow["params"]!["intensity"]!["max"]!.GetValue<double>() == 1.0 &&
             glow["params"]!["intensity"]!.AsObject().Count == 2 && glow["area_radius_max_m"]!.GetValue<double>() == 1.5 && glow["duration_max_s"]!.GetValue<double>() == 600 &&
@@ -192,8 +195,8 @@ public partial class CommandHostTest
             Query("capabilities.list", new JsonObject { ["category"] = "air" }, Companion)["data"]!["items"]!.AsArray().Count == 0, "capabilities.list filters by category");
         var paged = Query("capabilities.list", new JsonObject { ["limit"] = 1, ["cursor"] = "3" }, Player);
         var last = Query("capabilities.list", new JsonObject { ["limit"] = 1, ["cursor"] = "4" }, Player);
-        Check(Ok(paged) && paged["data"]!["items"]!.AsArray().Single()!["capability"]!.GetValue<string>() == "fireworks" && paged["data"]!["next_cursor"]!.GetValue<string>() == "4" &&
-            Ok(last) && last["data"]!["items"]!.AsArray().Single()!["capability"]!.GetValue<string>() == "glow" && last["data"]!["next_cursor"] == null &&
+        Check(Ok(paged) && paged["data"]!["items"]!.AsArray().Single()!["capability"]!.GetValue<string>() == "glow" && paged["data"]!["next_cursor"]!.GetValue<string>() == "4" &&
+            Ok(last) && last["data"]!["items"]!.AsArray().Single()!["capability"]!.GetValue<string>() == "grow" && last["data"]!["next_cursor"] == null &&
             Code(Query("capabilities.list", new JsonObject { ["cursor"] = "6" }, Player)) == "invalid_args" &&
             Code(Query("capabilities.list", new JsonObject { ["cursor"] = "+0" }, Player)) == "invalid_args", "capabilities.list honours its limit and refuses a cursor it did not give");
     }
@@ -210,7 +213,7 @@ public partial class CommandHostTest
 
     private void TestGlowRefusals()
     {
-        Check(Code(Send(Glow("glow-r1", SelfArgs(capability: "bloom")), Companion)) == "unsupported_capability", "an ability the island lacks (v2 has no growth) is unsupported_capability");
+        Check(Code(Send(Glow("glow-r1", SelfArgs(capability: "grow")), Companion)) == "unsupported_capability", "an ability the island lacks (v2 has no growth) is unsupported_capability");
         var unknown = Send(Glow("glow-r2", SelfArgs(new JsonObject { ["speed"] = 1 })), Companion);
         Check(Code(unknown) == "invalid_args" && unknown["error"]!["field_path"]!.GetValue<string>() == "$.args.params.speed", "a param the ability does not take is invalid_args");
         Check(Code(Send(Glow("glow-r3", SelfArgs(new JsonObject { ["owner"] = "player:local" })), Companion, contractValid: false)) == "request_invalid", "a reserved param name is refused");
@@ -326,7 +329,7 @@ public partial class CommandHostTest
             hud["data"]!["duration_s"]!.GetValue<double>() == 300 && look.HasGlow(Effect(hud)), "PlayerEffect casts the Gubble's own glow with the pack's defaults");
         var hudPoint = _host.PlayerEffect("glow", InTheOpen);
         Check(Ok(hudPoint) && hudPoint["data"]!["target"]!.GetValue<string>() == "point" && look.HasGlow(Effect(hudPoint)), "PlayerEffect with a point lights that spot");
-        Check(Code(_host.PlayerEffect("bloom")) == "unsupported_capability", "PlayerEffect of an ability the island lacks answers why");
+        Check(Code(_host.PlayerEffect("grow")) == "unsupported_capability", "PlayerEffect of an ability the island lacks answers why");
         // Fireworks go to the look's own call, never StartGlow; Bubbles is one bubble at a spot (Kernel/Bubble), no stream the look blows.
         var onTheGubble = _host.PlayerEffect("bubbles");
         var blown = _host.PlayerEffect("bubbles", InTheOpen);

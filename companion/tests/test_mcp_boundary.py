@@ -13,7 +13,7 @@ from support import COMPANION, PLAYER, command, contract_problems, example, new_
 
 from mcp_harness import McpHarness
 
-from enfractal_companion.textsafety import hidden_characters
+from garage_game_companion.textsafety import hidden_characters
 
 SAMPLE = example("command_creation_place_trigger_light")["args"]["source"]
 

@@ -4,12 +4,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
-using EnFractal.Native.Sandbox;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
+using GarageGame.Native.Sandbox;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The sandbox verbs (Run 2, P3) through enfractal.command in the real test room, with the real bodies and Jolt: the
@@ -467,7 +467,7 @@ public partial class SandboxVerbsTest : Node3D
         var job = JobStatus(fetch, Companion);
         Check(held && job?["state"]?.GetValue<string>() == "succeeded", "it picked the doorstop up on the way and the job succeeds back at the player: " + job?.ToJsonString());
         var planar = new Vector2(_companion.GlobalPosition.X - _player.GlobalPosition.X, _companion.GlobalPosition.Z - _player.GlobalPosition.Z).Length();
-        Check(planar <= EnFractal.Native.CompanionAvatar.ComeArrivalM + 0.02f && _host.HeldBy(CompanionAvatar) == "obj:doorstop" && Inspect("obj:doorstop", Companion)["held_by"]?.GetValue<string>() == CompanionAvatar,
+        Check(planar <= GarageGame.Native.CompanionAvatar.ComeArrivalM + 0.02f && _host.HeldBy(CompanionAvatar) == "obj:doorstop" && Inspect("obj:doorstop", Companion)["held_by"]?.GetValue<string>() == CompanionAvatar,
             $"the companion stands {planar:0.00} m from the player, still holding the doorstop (entity.inspect says so)");
         var down = Send(Command(NextId("down"), "entity.release", new JsonObject { ["actor"] = CompanionAvatar }), Companion);
         var box = SandboxControls.Box(Inspect("obj:doorstop", Player));
@@ -534,7 +534,7 @@ public partial class SandboxVerbsTest : Node3D
         var job = JobStatus(fetch, Player);
         var planar = new Vector2(_companion.GlobalPosition.X - _player.GlobalPosition.X, _companion.GlobalPosition.Z - _player.GlobalPosition.Z).Length();
         Check(Ok(fetch) && held && job?["state"]?.GetValue<string>() == "succeeded" && _companion.FloatStarts > starts && highest > box.End.Y - 0.01f &&
-            planar <= EnFractal.Native.CompanionAvatar.ComeArrivalM + 0.02f && _host.HeldBy(CompanionAvatar) == "obj:doorstop",
+            planar <= GarageGame.Native.CompanionAvatar.ComeArrivalM + 0.02f && _host.HeldBy(CompanionAvatar) == "obj:doorstop",
             $"the Gubble floats up onto the box (highest feet {highest:0.000} m, the top at {box.End.Y:0.000} m), picks the doorstop up and floats back to the player holding it ({planar:0.00} m away): " + job?.ToJsonString());
         Check(Ok(Send(Command(NextId("down"), "entity.release", new JsonObject { ["actor"] = CompanionAvatar }), Player)), "and puts it down beside the player");
     }
@@ -573,7 +573,7 @@ public partial class SandboxVerbsTest : Node3D
         Check(Ok(fetch) && held && job?["state"]?.GetValue<string>() == "succeeded" && _companion.CatchUps == caught,
             "a fetch carried back to a player facing away, past even a 5 cm catch-up distance, never catches up: it travels the whole way: " + job?.ToJsonString());
         Check(Ok(Send(Command(NextId("down"), "entity.release", new JsonObject { ["actor"] = CompanionAvatar }), Player)), "and puts the doorstop down");
-        _companion.CatchUpBeyondM = EnFractal.Native.CompanionAvatar.CatchUpM;
+        _companion.CatchUpBeyondM = GarageGame.Native.CompanionAvatar.CatchUpM;
         previous?.MakeCurrent();
     }
 

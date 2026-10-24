@@ -2,9 +2,9 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Look;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Native.Room;
+namespace GarageGame.Native.Room;
 
 /// <summary>
 /// Builds scene nodes from RoomData. The scene is derived: nothing here is authoritative state.

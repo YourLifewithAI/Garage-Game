@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>A fixed, player-safe error: saved text and filesystem paths never become Gubble dialogue.</summary>
 public sealed class GlowProgressException(string message) : Exception(message);
@@ -97,6 +97,17 @@ public sealed class GlowProgress
         var before = Of(ability)!;
         var after = before.WithLearned(id);
         return ReferenceEquals(after, before) ? this : WithRecord(after);
+    }
+
+    /// <summary>
+    /// A committed cast of another ability the host verified (Grow's): its record counts the cast, learns what it showed once each and
+    /// delivers its hints as Glow's do (ExpertiseRecord.AfterCast). A candidate to save, like any change.
+    /// </summary>
+    public GlowProgress AfterAbilityCast(string ability, IEnumerable<string> learned)
+    {
+        var list = ExpertiseLists.Find(ability);
+        if (list == null || ability == ExpertiseLists.Glow) throw new GlowProgressException("Expertise has an unknown ability.");
+        return WithRecord(Of(ability)!.AfterCast(learned));
     }
 
     private GlowProgress WithRecord(ExpertiseRecord record)
@@ -390,9 +401,14 @@ public sealed class LocalGlowProgressStore : IGlowProgressStore
                 if (abilities.ValueKind != JsonValueKind.Object || abilities.EnumerateObject().Count() == 0 ||
                     abilities.EnumerateObject().Any(property => ExpertiseLists.Find(property.Name) == null))
                     throw new GlowProgressException("Glow progress has unsupported abilities.");
+                // Bloom became Grow (decision 52): an older store's "bloom" is Grow's record, written as "grow" with the next save;
+                // a store holding both is refused whole, as anything ambiguous is.
+                if (abilities.TryGetProperty(ExpertiseLists.LegacyBloom, out _) && abilities.TryGetProperty(ExpertiseLists.Grow, out _))
+                    throw new GlowProgressException("Glow progress holds both Bloom's and Grow's records.");
                 foreach (var list in ExpertiseLists.All.Where(list => list.Ability != GlowAbility))
                 {
-                    if (!abilities.TryGetProperty(list.Ability, out var other)) continue;
+                    if (!abilities.TryGetProperty(list.Ability, out var other) &&
+                        !(list.Ability == ExpertiseLists.Grow && abilities.TryGetProperty(ExpertiseLists.LegacyBloom, out other))) continue;
                     ExactFields(other, AbilityFields);
                     others.Add(ExpertiseRecord.Restore(list, UseCount(other), Ids(other.GetProperty("discoveries"), 5), Ids(other.GetProperty("delivered_hints"), 5)));
                 }

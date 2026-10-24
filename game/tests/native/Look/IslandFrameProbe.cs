@@ -5,10 +5,10 @@ using System.Diagnostics;
 using System.Diagnostics.Tracing;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// Where an island's frame time and garbage go (S9, the 10x world's worst frames), headless so it can run as often as needed:
@@ -90,7 +90,7 @@ public partial class IslandFrameProbe : Node
             for (var waited = Stopwatch.StartNew(); waited.Elapsed.TotalSeconds < 120 && !_world.WorldReady && _world.LoadError.Length == 0;) await Frame();
             if (!_world.WorldReady) throw new InvalidOperationException(_world.LoadError);
             var view = _world.Built.GetNodeOrNull<PlantCopiesView>(PlantCopiesView.ViewName);
-            var navigation = _world.GetNodeOrNull<EnFractal.Native.Navigation.RoomNavigation>("RoomNavigation");
+            var navigation = _world.GetNodeOrNull<GarageGame.Native.Navigation.RoomNavigation>("RoomNavigation");
             for (var waited = Stopwatch.StartNew(); waited.Elapsed.TotalSeconds < 120 && (view is { Complete: false } || navigation is { IsReady: false });) await Frame();
             for (var i = 0; i < 120; i++) await Frame();
             if (_world.Room.Copies is { } copies)
@@ -103,7 +103,7 @@ public partial class IslandFrameProbe : Node
                     var n = 0;
                     for (var row = 0; row < set.Count; row += step, n++) sum += set.Scale(row).Y;
                     var typical = set.MeshHeightM * (float)(sum / Math.Max(1, n));
-                    var bands = EnFractal.Native.Look.DrawDistances.CopyBands(set.Kind, typical, set.MeshPaths.Count);
+                    var bands = GarageGame.Native.Look.DrawDistances.CopyBands(set.Kind, typical, set.MeshPaths.Count);
                     instanceBands += (long)set.Count * bands.Length;
                     GD.Print(string.Create(System.Globalization.CultureInfo.InvariantCulture,
                         $"ISLAND_PROBE set {set.Name} ({set.Kind}, {set.Count} copies, typical height {typical * 100f:0.#} cm, {set.MeshPaths.Count} meshes): {string.Join("; ", bands.Select(b => $"mesh {b.Mesh} {b.BeginM:0.#}-{b.EndM:0.#} m{(b.CastsShadow ? " shadow" : "")}"))}"));
@@ -189,7 +189,7 @@ public partial class IslandFrameProbe : Node
             }
             GD.Print($"ISLAND_PROBE the clock's update (the light, sky and grade moving on, 20 times): longest call {longestCall:0.00} ms, longest frame after it {longestFrame:0.0} ms, {moment.Elapsed.TotalMilliseconds:0} ms in all, {_world.Look.GradeBuilds} grade LUTs built");
             // Two periodic jobs outside the look, timed on their own: the HUD's focus query (every 0.5 s) and one nature step (every 0.5 s).
-            if (_world.FindChild("CommandHost", true, false) is EnFractal.Native.Kernel.CommandHost host)
+            if (_world.FindChild("CommandHost", true, false) is GarageGame.Native.Kernel.CommandHost host)
             {
                 double focusMs = 0, natureMs = 0;
                 for (var i = 0; i < 10; i++)
@@ -198,7 +198,7 @@ public partial class IslandFrameProbe : Node
                     host.PlayerFocus();
                     focusMs = Math.Max(focusMs, timer.Elapsed.TotalMilliseconds);
                     timer.Restart();
-                    host.AdvanceNature(EnFractal.Native.Kernel.NatureLaws.StepS);
+                    host.AdvanceNature(GarageGame.Native.Kernel.NatureLaws.StepS);
                     natureMs = Math.Max(natureMs, timer.Elapsed.TotalMilliseconds);
                     await Frame();
                 }

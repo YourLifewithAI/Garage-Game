@@ -1,11 +1,11 @@
 using System;
 using System.Diagnostics;
 using Godot;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
-using EnFractal.Native.Room;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// The minimap in the HUD's top-right corner, from the first minute (docs/game/MECHANICS.md section 6, "The minimap and the

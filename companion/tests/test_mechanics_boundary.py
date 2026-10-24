@@ -15,14 +15,14 @@ import unittest
 from mcp_harness import McpHarness
 from support import COMPANION, GUBBLE, IN_THE_OPEN, PLAYER, command, contract_problems, contracts, new_host, query
 
-from enfractal_companion import mock_host, refusals
-from enfractal_companion.mock_host import load_rules, rules_path
+from garage_game_companion import mock_host, refusals
+from garage_game_companion.mock_host import load_rules, rules_path
 
 NEW_PLAYER_OPS = {
     "item.pickup": {"target": "fractal:k3x9q2"},
     "item.gather": {"target": "obj:book"},
     "knack.set": {"slot": 1, "knack": "quick_feet"},
-    "receipt.mark": {"action_id": "bloom-0002", "mark": "not_that"},
+    "receipt.mark": {"action_id": "grow-0002", "mark": "not_that"},
     "trust.reset": {},
     "fractal.spend": {"grow": "heart"},
 }
@@ -95,7 +95,7 @@ class OnTheMock(unittest.TestCase):
         self.assertTrue(previewed["ok"] and len(previewed["data"]["preview_id"]) == 32, previewed)
         self.assertEqual(refusal(self.send(COMPANION, "nature.cast", {**on_them, "preview_id": "a" * 32})),
                          ("revision_conflict", "$.args.preview_id", mock_host.BUBBLE_PREVIEW_AGAIN))
-        for capability in ("bloom", "fire", "bubble_boat"):
+        for capability in ("grow", "fire", "bubble_boat"):
             with self.subTest(capability=capability):
                 self.assertEqual(refusal(self.send(COMPANION, "nature.cast", {**CARRY, "capability": capability}, preview=True))[:2],
                                  ("request_invalid", "$.args.capability"))
@@ -114,7 +114,7 @@ class OnTheMock(unittest.TestCase):
         self.assertEqual((rules.price("fire", PLAYER), rules.price("fire", COMPANION)), (6, 3))
         for smuggled in ("price", "cost", "ordered", "own_idea_factor", "directed_by", "ordered_by"):
             with self.subTest(field=smuggled):
-                result = self.send(COMPANION, "nature.cast", {"capability": "bloom", "center_m": IN_THE_OPEN, "radius_m": 0.25,
+                result = self.send(COMPANION, "nature.cast", {"capability": "grow", "center_m": IN_THE_OPEN, "radius_m": 0.25,
                                                               "duration_s": 30, smuggled: 0}, preview=True)
                 self.assertEqual(refusal(result)[0], "field_unknown")
 
@@ -277,12 +277,12 @@ class TheBubbleOnTheMock(unittest.TestCase):
 
     def test_every_other_ability_still_refuses_the_players_avatar(self):
         outcome = {}
-        for capability in ("bloom", "fire", "bubble_boat"):
+        for capability in ("grow", "fire", "bubble_boat"):
             outcome[capability] = refusal(self.send(COMPANION, "nature.cast", {**self.carry_args(), "capability": capability}, preview=True))[:2]
         outcome["bubbles"] = refusal(self.send(COMPANION, "effect.start", self.the_bubble(self.feet, targets=["avatar:player"])))[:2]
         outcome["directing"] = refusal(self.send(COMPANION, "goal.set", {"actor": "avatar:player", "goal": "go_to", "position_m": IN_THE_OPEN}))[:2]
         outcome["the Gubble"] = refusal(self.send(COMPANION, "nature.cast", {**self.carry_args(), "target": GUBBLE}, preview=True))[:2]
-        self.assertEqual(outcome, {"bloom": ("request_invalid", "$.args.capability"), "fire": ("request_invalid", "$.args.capability"),
+        self.assertEqual(outcome, {"grow": ("request_invalid", "$.args.capability"), "fire": ("request_invalid", "$.args.capability"),
                                    "bubble_boat": ("request_invalid", "$.args.capability"), "bubbles": ("permission_denied", "$.args.targets"),
                                    "directing": ("actor_denied", "$.args.actor"), "the Gubble": ("invalid_args", "$.args.target")})
 
@@ -421,7 +421,7 @@ class ThroughMcp(unittest.IsolatedAsyncioTestCase):
     async def test_the_tools_say_what_the_bubble_does_now(self):
         """The companion's tool texts describe the Bubble as redesigned (M9's change request): one bubble at a spot where the
         place decides, nature_cast's named forms and no bubble_lift cast, and goal_set's lead; nothing left of the stream."""
-        from enfractal_companion import server
+        from garage_game_companion import server
         async with McpHarness() as harness:
             tools = {tool.name: tool.description for tool in (await harness.client.list_tools()).tools}
         for words in ("bubble_carry", "bubble_boat", "bubble_lift is no cast", "goal_set lead", "One bubble at a time"):

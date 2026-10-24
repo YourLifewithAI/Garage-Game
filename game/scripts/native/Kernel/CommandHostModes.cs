@@ -5,9 +5,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Seams;
+using GarageGame.Native.Seams;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>What one hurt did: the player's health before and after it, and whether it put them down (an injury recovery at the spawn).</summary>
 public readonly record struct PlayerHarm(float Before, float After, bool Recovered);
@@ -286,7 +286,8 @@ public partial class CommandHost
             // In quarters the heal lands whole: one quarter every heal_quarter_every_s.
             if (heal && _vitalsRules.InQuarters)
             {
-                _healS += seconds;
+                // At a camp (the starting one or any lit campfire) hearts refill faster (decision 62; CampLaws.CampHeartsFactor).
+                _healS += seconds * CampHeartsFactorNow();
                 while (_healS >= _vitalsRules.HealQuarterEveryS && vitals.Health < vitals.MaxHealth)
                 {
                     _healS -= _vitalsRules.HealQuarterEveryS;

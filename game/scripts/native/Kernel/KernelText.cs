@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The project's invisible-character rule for untrusted world text (names, labels, notes), in C#.
 /// scripts/creation_text.gd is the same rule in GDScript, line for line; Lane A's is
-/// companion/src/enfractal_companion/textsafety.py. Requests that carry a hidden character are refused;
+/// companion/src/garage_game_companion/textsafety.py. Requests that carry a hidden character are refused;
 /// text the host emits has every hidden character replaced by a space.
 ///
 /// Hidden, judged one code point at a time: controls (U+0000-U+001F, U+007F-U+009F), lone surrogates,

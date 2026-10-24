@@ -4,12 +4,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
-using RoomStateOutcome = EnFractal.Native.Kernel.CommandHost.RoomStateOutcome;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
+using RoomStateOutcome = GarageGame.Native.Kernel.CommandHost.RoomStateOutcome;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// P6, the world as data (Run 2): play changes the test room (objects moved, creations built, locks, a note, a fetch's
@@ -79,12 +79,11 @@ public partial class RebuildTest : Node3D
         Check(Ok(east) && Ok(west), "two creations turned half round, one each way");
         Check(Ok(Send(Command(NextId("lock"), "protect.lock", new JsonObject { ["targets"] = new JsonArray(lampId, "obj:rug") }, expectedRevision: _host.Revision), Player)), "the player protects the lamp and the rug");
         Check(Ok(Send(Command(NextId("note"), "journal.note", new JsonObject { ["text"] = "The lamp lights the reading corner." }), Companion)), "the companion writes a note");
-        // The island's nature (the review of 13 October: RebuildTest never configured it): the trail off, the table burned down,
+        // The island's nature (the review of 13 October: RebuildTest never configured it): the table burned down,
         // and in Challenge a fire the player approves scorches the Gubble's arch and a half-turned creation.
         NatureOn(challenge: true);
         var archId = arch["created"]?[0]?.GetValue<string>() ?? "";
         var westId = west["created"]?[0]?.GetValue<string>() ?? "";
-        Check(Ok(Send(Command(NextId("trail"), "nature.trail", new JsonObject { ["enabled"] = false }), Player)), "the player turns the flower trail off");
         Check(Burn(new Vector3(-0.5f, 0.01f, -0.4f), 0.3, 8, 20) && _host.Nature.Objects.TryGetValue("obj:table", out var ash) && ash.BurnedDown, "a fire burns the table down");
         Check(Burn(new Vector3(-1.3f, 0.01f, 0.35f), 0.3, 8, 16) && _host.IsNatureUnavailable(archId) && _host.IsNatureUnavailable(westId),
             "a fire the player approves scorches the arch and a half-turned creation: " + Canonical(_lastFire["error"]) + " " + string.Join(",", _host.Nature.Objects.Keys));
@@ -414,6 +413,8 @@ public partial class RebuildTest : Node3D
         var args = new JsonObject { ["capability"] = "fire", ["center_m"] = new JsonArray(center.X, center.Y, center.Z), ["radius_m"] = radius, ["duration_s"] = duration };
         // A pack with connection energy charges each Fire: the player rests first, so the pool is full (nothing else here moves).
         _player.VitalsTick?.Invoke(120f, true);
+        // Decision 72: the team knows Fire, as after the first rest (the one helper every suite that lights fires uses).
+        _host.LearnFireForTests();
         var preview = Command(NextId("fire-preview"), "nature.cast", (JsonObject)args.DeepClone());
         preview["preview"] = true;
         var previewed = Send(preview, Player);

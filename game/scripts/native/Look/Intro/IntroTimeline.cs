@@ -1,6 +1,6 @@
 using System;
 
-namespace EnFractal.Native.Look.Intro;
+namespace GarageGame.Native.Look.Intro;
 
 /// <summary>Everything the intro shows at one moment: each part's progress from the room (0) to the island (1).</summary>
 public readonly record struct IntroMoment(

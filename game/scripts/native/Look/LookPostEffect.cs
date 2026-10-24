@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// The preset's post.grain and post.vignette, and the focus pass, as a Forward+ compositor effect, so every camera in

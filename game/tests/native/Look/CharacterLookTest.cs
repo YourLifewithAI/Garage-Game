@@ -3,10 +3,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using EnFractal.Native.Look;
+using GarageGame.Native.Look;
 using FileAccess = Godot.FileAccess;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// The characters' look, headless (Run 2, characters round, L8): each of the five GLBs under assets/characters is loaded from its

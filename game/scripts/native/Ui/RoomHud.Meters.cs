@@ -1,9 +1,9 @@
 using System;
 using Godot;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The three meters (docs/game/MECHANICS.md sections 1, 4 and 5; the mechanics round's packet M2): hearts in quarters, the bar under
@@ -163,6 +163,8 @@ public partial class RoomHud
     /// <summary>A slot's price for the wheel: the words, whether the pool is short of it, and whether this is Creative's shadow pool (faint).</summary>
     private GubbleWheel.Price? WheelPrice(int slot)
     {
+        // A locked wedge (Fire before the first rest) shows its reason, not a price it cannot be cast for.
+        if (SlotLockedWords(slot) != null) return null;
         var tag = SlotTag(slot);
         return tag.Shown ? new GubbleWheel.Price(tag.Text, tag.Needs, Host?.BodyRules.ShadowPool == true) : null;
     }

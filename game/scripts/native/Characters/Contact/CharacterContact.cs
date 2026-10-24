@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Native.Characters.Contact;
+namespace GarageGame.Native.Characters.Contact;
 
 /// <summary>
 /// K4's installer: how a drawn character meets the land (docs/runs/RUN-2-CHARACTERS.md, "Contact"). The integrator calls

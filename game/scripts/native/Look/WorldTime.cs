@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// The island's clock record: the room state's extensions.x_clock (contracts/room-state.schema.json, $defs/x_clock;

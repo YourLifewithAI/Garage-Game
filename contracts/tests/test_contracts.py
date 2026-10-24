@@ -43,12 +43,14 @@ PRIMITIVE_LIMITS = {
     # Host-simulated nature (13 October), cast through nature.cast with the pack's intensity: the same limits as the kernel's
     # IslandRules.Primitives, which nature.cast and the saved fire read.
     "growth.seed": {"category": "growth", "intensity": (0.05, 2.0), "reach_m": 5, "radius_m": 0.6, "duration_s": 600, "max_active": 1},
+    # Grow (decision 52): Bloom's successor shares its category; intensity is the share of a plant's natural size a cast grows it.
+    "growth.grow": {"category": "growth", "intensity": (0.05, 1.0), "reach_m": 5, "radius_m": 1.0, "duration_s": 600, "max_active": 1},
     "element.ignite": {"category": "fire", "intensity": (0.05, 2.0), "reach_m": 5, "radius_m": 1.5, "duration_s": 60, "max_active": 1},
 }
-# The pack the game ships (RoomWorld.DefaultRulesVersion): Glow, Bubbles, Fireworks, Bloom and Fire.
+# The pinned pack v4: Glow, Bubbles, Fireworks, Bloom (which hosts read as Grow, decision 52) and Fire.
 STORYBOOK_WILD_V4 = RULES / "storybook_wild" / "v4.json"
 # The primitives the host simulates as room state, cast through nature.cast rather than effect.start.
-NATURE_PRIMITIVES = ("growth.seed", "element.ignite")
+NATURE_PRIMITIVES = ("growth.seed", "growth.grow", "element.ignite")
 # The host's cap on active effects in a room (CommandHost.MaxActiveEffects); no primitive may grant more.
 ROOM_EFFECT_CAP = 8
 # Island rules packs are pinned like presets: a candidate, approved or retired version never changes. None is yet.
@@ -106,12 +108,16 @@ EXPECTED_FAILURES = {
     "result_capabilities_list_with_native_required": "('native_required' was unexpected)",
     # Nature (13 October): the engine's bounds, the preview's handle, a creation to repair, closed result data.
     "command_fire_past_the_engines_radius": "2 is greater than the maximum of 1.5",
-    "command_nature_cast_of_an_effect": "'glow' is not one of ['bloom', 'fire', 'bubble_carry', 'bubble_boat', 'bubble_lift']",
+    "command_nature_cast_of_an_effect": "'glow' is not one of ['grow', 'fire', 'bubble_carry', 'bubble_boat', 'bubble_lift']",
     "command_fire_with_a_made_up_preview_id": "'preview-1' does not match '^[a-f0-9]{32}$'",
     "command_repair_an_object": "'obj:bean_bag' does not match '^creation:",
     "result_nature_describe_with_an_unknown_material": "'gold' is not one of ['stone', 'wood', 'copper', 'leaf']",
     "result_fire_cast_keeping_its_preview_cells": "('cells' was unexpected)",
     "result_fire_preview_without_what_it_reaches": "'affected_ids' is a dependency of 'preview_id'",
+    # Fire's behaviours (decisions 77 to 80): only Fire names an end; Snuff burns nothing, so its preview names nothing it would reach.
+    "command_grow_with_an_end": "'fire' was expected",
+    "result_snuff_preview_naming_what_it_would_burn": "False schema does not allow",
+    "result_wisp_naming_a_thing": "does not match",
     "result_flower_trail_without_its_data": "'data' is a required property",
     "result_undo_without_what_it_undid": "'data' is a required property",
     # The player's settings and wishes, and Glow's constellation.
@@ -160,7 +166,7 @@ EXPECTED_FAILURES = {
     "result_spend_with_data": "False schema does not allow {'hearts': 6}",
     "command_difficulty_in_creative": "$.args.mode: 'challenge' was expected",
     "command_carry_on_the_player_without_its_preview": "is not valid under any of the given schemas (closest: $: 'preview' is a required property)",
-    "command_bloom_on_the_player": "$.args.capability: 'bloom' is not one of ['bubble_carry', 'bubble_lift']",
+    "command_grow_on_the_player": "$.args.capability: 'grow' is not one of ['bubble_carry', 'bubble_lift']",
     "command_carry_of_a_thing": "'obj:bean_bag' does not match '^avatar:",
     "result_energy_exhausted_without_its_price": "'price' is a required property",
     "result_balance_on_another_refusal": "$.error: False schema does not allow 1",
@@ -494,7 +500,8 @@ def free_form_objects(node, where, defs, seen=None, base=None) -> list[str]:
 KERNEL = ROOT / "game" / "scripts" / "native" / "Kernel"
 # The ops this round added, and how their receipts are kept (README "Receipts").
 ROUND_TRANSIENT = {"effect.adjust", "glow.configure", "world.set_mode", "wish.stop"}
-ROUND_DURABLE = {"nature.cast", "nature.trail", "nature.repair", "room.undo", "wish.submit"}
+# nature.trail went with Bloom (decision 52): both hosts refuse it, so it has no committed example any more.
+ROUND_DURABLE = {"nature.cast", "nature.repair", "room.undo", "wish.submit"}
 ROUND_QUERIES = {"player.status", "nature.describe", "wishes.read", "view.look"}
 
 
@@ -534,8 +541,10 @@ class MagicModesWishesAndNatureTests(unittest.TestCase):
             with self.subTest(op=op):
                 self.assertIn(op, results)
                 for document in results[op]:
-                    # A committed bubble (M9) is the one transient nature.cast: it lives for the session, as an effect.
-                    bubble = op == "nature.cast" and document.get("data", {}).get("capability") in ("bubble_carry", "bubble_boat", "bubble_lift")
+                    # A committed bubble (M9) is a transient nature.cast: it lives for the session, as an effect; so are Fire's Snuff and
+                    # Will-o'-wisp (decisions 79 and 80), which change no room revision.
+                    bubble = op == "nature.cast" and (document.get("data", {}).get("capability") in ("bubble_carry", "bubble_boat", "bubble_lift") or
+                                                      document.get("data", {}).get("kind") in ("snuff", "will_o_wisp"))
                     self.assertEqual(document.get("transient"), None if op in ROUND_QUERIES else op in ROUND_TRANSIENT or bubble)
 
     def test_every_new_op_has_an_example_it_refuses(self):
@@ -568,8 +577,11 @@ class MagicModesWishesAndNatureTests(unittest.TestCase):
         for op, names in fields.items():
             with self.subTest(op=op):
                 # nature.cast's data is Bloom's and Fire's durable receipt or a Bubble's transient one (M9); room state keeps only the first.
+                # Fire's kinds (decisions 77 to 80) add kind and end_m, which the durable Fireline receipt keeps once the kernel's reader
+                # knows them (until then it keeps the plain shape), and wisp, which only a transient Will-o'-wisp receipt carries.
                 data = self.defs["data"][op]
-                self.assertEqual(set((data["else"] if "else" in data else data)["properties"]), names)
+                extra = {"kind", "end_m", "wisp"} if op == "nature.cast" else set()
+                self.assertEqual(set((data["else"] if "else" in data else data)["properties"]), names | extra)
 
     def test_a_saved_nature_change_is_durable_with_its_data(self):
         state = validate.load_strict(RUN2_STATE)
@@ -597,7 +609,7 @@ class MagicModesWishesAndNatureTests(unittest.TestCase):
             self.assertEqual(validate.schema_errors({**cast, "args": {**cast["args"], "preview_id": secrets.token_hex(16)}}), [])
         # No request carries an approval: the preview's own handle is all a cast may name of it (and, since the mechanics round,
         # the avatar a Bubbles carry or lift envelops; MechanicsRoundTests.test_the_targets_rule).
-        self.assertEqual(set(self.defs["args"]["nature.cast"]["properties"]), {"capability", "center_m", "radius_m", "duration_s", "preview_id", "target"})
+        self.assertEqual(set(self.defs["args"]["nature.cast"]["properties"]), {"capability", "center_m", "radius_m", "duration_s", "preview_id", "target", "end_m"})
 
     @unittest.skipUnless((ROOT / "game" / "scripts" / "creation_compiler.gd").is_file(), "the creation compiler is not in this checkout")
     def test_the_wallet_counts_the_creation_compilers_materials(self):
@@ -636,7 +648,7 @@ class MagicModesWishesAndNatureTests(unittest.TestCase):
         host = (KERNEL / "CommandHost.cs").read_text(encoding="utf-8")
         self.assertIn('data["fires_put_out"] = 1', host)
         self.assertIn('new JsonObject { ["effects_stopped"] = stopped }', host)
-        self.assertIn('data["avatars_in_area"] = AvatarsInArea(cast, principal);', (KERNEL / "CommandHostNature.cs").read_text(encoding="utf-8"))
+        self.assertIn('data["avatars_in_area"] = AvatarsInArea(area, principal);', (KERNEL / "CommandHostNature.cs").read_text(encoding="utf-8"))
 
     def test_a_catch_up_is_told_in_a_fixed_form_and_near_reaches_across_the_island(self):
         """Play distances (S8): the Gubble caught up with the player (the founder's decision 4), and its AI is told in the game's
@@ -1458,8 +1470,9 @@ class IslandRulesTests(unittest.TestCase):
         self.assertEqual(sorted(rules), sorted(primitives), "one if/then rule per primitive, and no rule for a primitive the enum lacks")
         self.assertEqual(len(ability["allOf"]), len(primitives))
         self.assertEqual(sorted(rules), sorted(PRIMITIVE_LIMITS))
-        categories = [limits["category"]["const"] for limits in rules.values()]
-        self.assertEqual(len(set(categories)), len(categories), "each primitive fixes its own category")
+        categories = [limits["category"]["const"] for primitive, limits in rules.items() if primitive != "growth.seed"]
+        self.assertEqual(len(set(categories)), len(categories), "each primitive fixes its own category (Bloom's retired growth.seed shares Grow's)")
+        self.assertEqual(rules["growth.seed"]["category"]["const"], rules["growth.grow"]["category"]["const"])
         for primitive, limits in rules.items():
             expected = PRIMITIVE_LIMITS[primitive]
             with self.subTest(primitive):
@@ -1607,7 +1620,7 @@ class IslandRulesTests(unittest.TestCase):
             "max_active written as 3.0": (self.glow(lambda a: a.__setitem__("max_active", 3.0)), "is not of type 'integer'"),
             "light in another category": (self.glow(lambda a: a.__setitem__("category", "growth")), "'light' was expected"),
             "an unknown primitive": (self.glow(lambda a: a.__setitem__("primitive", "fire.spread")),
-                                     "is not one of ['light.emit', 'particles.float', 'particles.burst', 'growth.seed', 'element.ignite']"),
+                                     "is not one of ['light.emit', 'particles.float', 'particles.burst', 'growth.seed', 'growth.grow', 'element.ignite']"),
             # field values
             "an empty targets": (self.glow(lambda a: a.__setitem__("targets", [])), "should be non-empty"),
             "an unknown target": (self.glow(lambda a: a.__setitem__("targets", ["self", "player"])), "is not one of ['self', 'point']"),
@@ -1683,6 +1696,9 @@ class IslandRulesTests(unittest.TestCase):
         summaries, commands = [], []
         for ability in pack["abilities"]:
             nature = ability["primitive"] in NATURE_PRIMITIVES
+            # A pinned pack's Bloom (growth.seed) is read as Grow by both hosts (decision 52), and cast as Grow.
+            if ability["primitive"] == "growth.seed":
+                ability = {**ability, "capability": "grow"}
             summaries.append({"capability": ability["capability"], "category": ability["category"],
                               "params": {k: {"min": v["min"], "max": v["max"]} for k, v in ability["params"].items()},
                               "area_radius_max_m": ability["area_radius_max_m"], "duration_max_s": ability["duration_max_s"],
@@ -1798,7 +1814,12 @@ class MechanicsRoundTests(unittest.TestCase):
 
     def test_storybook_wild_v5_ships_the_designs_starting_numbers(self):
         v4 = validate.load_strict(STORYBOOK_WILD_V4)
-        self.assertEqual((self.v5["status"], self.v5["abilities"]), ("draft", v4["abilities"]), "v5 is v4's abilities and the blocks")
+        grow = {"capability": "grow", "category": "growth", "primitive": "growth.grow", "display_name": "Grow", "cast_by": ["player", "companion"],
+                "tier": "auto_undo", "targets": ["point"], "reach_m": 2.0, "params": {"intensity": {"min": 0.1, "max": 0.5, "default": 0.25}},
+                "area_radius_default_m": 0.5, "area_radius_max_m": 1.0, "duration_default_s": 1, "duration_max_s": 600, "max_active": 1}
+        expected = [grow if a["capability"] == "bloom" else a for a in v4["abilities"]]
+        self.assertEqual((self.v5["status"], self.v5["abilities"]), ("draft", expected),
+                         "v5 is v4's abilities with Grow in Bloom's place (decision 52: a quarter of a plant's size a cast, a 0.5 m circle to 1 m), and the blocks")
         self.assertEqual({k: self.v5[k] for k in MECHANICS_BLOCKS}, {k: self.example[k] for k in MECHANICS_BLOCKS},
                          "v5 carries the example pack's blocks (contracts/examples/build_examples.py MECHANICS)")
         traits = self.v5["traits"]
@@ -1816,8 +1837,9 @@ class MechanicsRoundTests(unittest.TestCase):
         self.assertEqual(traits["pips"], {"start": 8, "expertise_per_pip": 5, "ceiling": 40, "refill_near_every_s": 5,
                                           "refill_near_within_m": 2, "refill_far_every_s": 15, "camp_fraction": 0.5})
         prices = {name: (p["ordered"], round(p["ordered"] * p["own_idea_factor"])) for name, p in self.v5["cost"]["prices"].items()}
-        self.assertEqual(prices, {"glow": (2, 1), "bubbles": (2, 1), "fireworks": (2, 1), "bloom": (4, 2), "fire": (6, 3),
-                                  "bubble_carry": (4, 2), "bubble_boat": (4, 2), "bubble_lift": (6, 3)})
+        self.assertEqual(prices, {"glow": (2, 1), "bubbles": (2, 1), "fireworks": (2, 1), "grow": (4, 2), "fire": (6, 3),
+                                  "bubble_carry": (4, 2), "bubble_boat": (4, 2), "bubble_lift": (6, 3),
+                              "fireline": (8, 4), "snuff": (2, 1), "will_o_wisp": (4, 2)})
         self.assertEqual(self.v5["cost"]["torch_fire"], 0, "decision O")
         rows = {(r["mode"], r.get("difficulty") or r.get("variant")): (r["damage_multiplier"], r["refill_multiplier"], r["available"])
                 for r in self.v5["modes"]["rows"]}
@@ -1947,7 +1969,7 @@ class MechanicsRoundTests(unittest.TestCase):
         self.assertEqual(validate.schema_errors(lift), [])
         preview = {**{k: v for k, v in carry.items()}, "preview": True, "args": {k: v for k, v in carry["args"].items() if k != "preview_id"}}
         self.assertEqual(validate.schema_errors(preview), [])
-        for capability in ("bubble_boat", "bloom", "fire"):
+        for capability in ("bubble_boat", "grow", "fire"):
             with self.subTest(capability=capability):
                 self.assertTrue(validate.schema_errors({**carry, "args": {**carry["args"], "capability": capability}}))
         no_preview = {**carry, "args": {k: v for k, v in carry["args"].items() if k != "preview_id"}}
@@ -2001,10 +2023,10 @@ class MechanicsRoundTests(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertTrue(validate.schema_errors({**carry, "data": {**carry["data"], field: value}}))
         self.assertTrue(validate.schema_errors({**carry, "data": {**carry["data"], "bubble": "bubble:1"}}))
-        # Bloom's committed cast still names no capability, as before the mechanics round.
-        bloom = valid_example("result_bloom_patch")
+        # Grow's committed cast names no capability, as Bloom's did before the mechanics round.
+        bloom = valid_example("result_grow_plants")
         self.assertEqual(validate.schema_errors(bloom), [])
-        self.assertTrue(validate.schema_errors({**bloom, "data": {**bloom["data"], "capability": "bloom"}}))
+        self.assertTrue(validate.schema_errors({**bloom, "data": {**bloom["data"], "capability": "grow"}}))
         self.assertEqual(valid_example("result_bubble_carry_before_its_ghost")["error"]["code"], "not_ready")
 
     def test_energy_exhausted_carries_the_balance_and_the_price_and_nothing_else_does(self):

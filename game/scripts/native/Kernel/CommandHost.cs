@@ -6,10 +6,10 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using EnFractal.Native.Look;
-using EnFractal.Native.Room;
+using GarageGame.Native.Look;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>A command the host is holding for the player's click. Never created from a request field.</summary>
 public sealed class PendingApproval

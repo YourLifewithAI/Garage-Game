@@ -93,10 +93,10 @@
       "max_active": 3
     },
     {
-      "capability": "bloom",
+      "capability": "grow",
       "category": "growth",
-      "primitive": "growth.seed",
-      "display_name": "Bloom",
+      "primitive": "growth.grow",
+      "display_name": "Grow",
       "cast_by": [
         "player",
         "companion"
@@ -108,14 +108,14 @@
       "reach_m": 2.0,
       "params": {
         "intensity": {
-          "min": 0.2,
-          "max": 1.0,
-          "default": 0.6
+          "min": 0.1,
+          "max": 0.5,
+          "default": 0.25
         }
       },
-      "area_radius_default_m": 0.25,
-      "area_radius_max_m": 0.6,
-      "duration_default_s": 180,
+      "area_radius_default_m": 0.5,
+      "area_radius_max_m": 1.0,
+      "duration_default_s": 1,
       "duration_max_s": 600,
       "max_active": 1
     },
@@ -203,7 +203,7 @@
         "ordered": 2,
         "own_idea_factor": 0.5
       },
-      "bloom": {
+      "grow": {
         "ordered": 4,
         "own_idea_factor": 0.5
       },
@@ -221,6 +221,18 @@
       },
       "bubble_lift": {
         "ordered": 6,
+        "own_idea_factor": 0.5
+      },
+      "fireline": {
+        "ordered": 8,
+        "own_idea_factor": 0.5
+      },
+      "snuff": {
+        "ordered": 2,
+        "own_idea_factor": 0.5
+      },
+      "will_o_wisp": {
+        "ordered": 4,
         "own_idea_factor": 0.5
       }
     },

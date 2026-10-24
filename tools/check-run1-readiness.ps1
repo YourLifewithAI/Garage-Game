@@ -57,7 +57,7 @@ if ($git) {
 $toolchainOk = $false
 try {
     . (Join-Path $PSScriptRoot 'native-toolchain.ps1')
-    $toolchain = Get-EnfractalNativeToolchain
+    $toolchain = Get-GarageGameNativeToolchain
     $toolchainOk = $true
     Add-Result 'PASS' 'Godot .NET 4.7.2' 'L P' "$($toolchain.EngineVersion) at $($toolchain.EnginePath)"
     Add-Result 'PASS' '.NET SDK 8.0.425' 'L P' "$($toolchain.DotnetPath)"
@@ -82,7 +82,7 @@ foreach ($exe in $candidates | Sort-Object FullName -Unique) {
         $version = Invoke-Quiet $exe.FullName @('--version')
         if ($version.Text -match '^4\.7\.2\.stable\.mono') {
             $status = if ($toolchainOk) { 'INFO' } else { 'PASS' }
-            Add-Result $status "Desktop Godot: $($exe.Name)" 'L P' "Usable. To use it instead of the .cache copy: `$env:ENFRACTAL_GODOT_DOTNET = '$($exe.FullName)'"
+            Add-Result $status "Desktop Godot: $($exe.Name)" 'L P' "Usable. To use it instead of the .cache copy: `$env:GARAGE_GAME_GODOT_DOTNET = '$($exe.FullName)'"
         } else {
             Add-Result 'WARN' "Desktop Godot: $($exe.Name)" 'L P' "Reports '$($version.Text)'; the project pins 4.7.2 .NET."
         }

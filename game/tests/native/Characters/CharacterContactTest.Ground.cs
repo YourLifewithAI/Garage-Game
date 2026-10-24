@@ -3,11 +3,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Characters.Contact;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Characters.Contact;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>Feet on flat ground and slopes, the step, and the landing tiers from real drops.</summary>
 public partial class CharacterContactTest

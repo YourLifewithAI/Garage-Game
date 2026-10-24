@@ -6,10 +6,10 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native;
+using GarageGame.Native;
 using FileAccess = Godot.FileAccess;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// Rooms written at test time under user://look_fixtures, each the test room with one thing changed, so the look can be

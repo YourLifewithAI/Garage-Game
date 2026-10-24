@@ -2,12 +2,12 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
-using EnFractal.Native.Saves;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
+using GarageGame.Native.Saves;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>Where the menu looks for the machine's teams: the same user folder the game's boot uses (TeamBoot), so a team made here is the one a boot opens.</summary>
 public static class MenuRoots
@@ -70,6 +70,8 @@ public partial class MenuBoot : NativeGameBoot
         if (!AutoOpen) return;
         var arguments = OS.GetCmdlineUserArgs();
         if (!ShowsMenu(arguments, DisplayServer.GetName())) { base._Ready(); return; }
+        // The saves made before the rename, copied once into this build's user:// folder before the menu reads the teams (phase 3).
+        global::GarageGame.Native.Saves.UserFolderMove.RunOnce();
         Open(arguments);
     }
 
@@ -77,7 +79,7 @@ public partial class MenuBoot : NativeGameBoot
     public MainMenu Open(IReadOnlyList<string> arguments)
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        DisplayServer.WindowSetTitle("EnFractal");
+        DisplayServer.WindowSetTitle("Garage Game");
         if (RoomHud.StartsFullscreen(DisplayServer.GetName(), arguments.ToArray(), true, RoomHud.LoadFullscreen(RoomHud.ProfilePath)) && DisplayServer.GetName() != "headless")
         {
             DisplayServer.WindowSetCurrentScreen(DisplayServer.GetPrimaryScreen());
@@ -136,7 +138,7 @@ public partial class MenuBoot : NativeGameBoot
         if (Argument(arguments, "--style=") is { } style && !string.IsNullOrWhiteSpace(style))
             world.StylePresetPath = $"{StylePreset.StylesRoot}/{(style.Contains('/') ? style : $"{RoomWorld.DefaultStyleId}/{style}")}.json";
         GD.Print($"MENU_LAUNCH team={launch.TeamId} room={launch.Island.RoomId} mode={launch.Mode}{(launch.Difficulty != null ? " difficulty=" + launch.Difficulty : "")}");
-        DisplayServer.WindowSetTitle("EnFractal");
+        DisplayServer.WindowSetTitle("Garage Game");
         AddChild(world);
         World = world;
         return world;

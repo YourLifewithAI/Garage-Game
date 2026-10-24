@@ -1,7 +1,7 @@
 using Godot;
 using Godot.Collections;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>A narrow Variant boundary for existing GDScript callers.</summary>
 [GlobalClass]

@@ -2,9 +2,9 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// The numbers of the Gubble's glow and of the light-level estimate (Run 2, Glow; docs/look/GLOW.md). They are code constants for

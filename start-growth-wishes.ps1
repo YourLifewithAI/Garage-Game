@@ -10,10 +10,10 @@ try {
     $env:PYTHONPATH = Join-Path $PSScriptRoot 'companion/src'
     if ($Demo) {
         $Client = Join-Path $PSScriptRoot '.cache/profiles/growth/wish-demo.json'
-        & $pythonPath -m enfractal_companion.wish_runner --write-demo-client $Client
+        & $pythonPath -m garage_game_companion.wish_runner --write-demo-client $Client
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
-    $sessionPath = Join-Path $PSScriptRoot '.cache/profiles/growth/roaming/Godot/app_userdata/EnFractal/companion/session.json'
-    & $pythonPath -m enfractal_companion.wish_runner --client $Client --session $sessionPath
+    $sessionPath = Join-Path $PSScriptRoot '.cache/profiles/growth/roaming/Godot/app_userdata/Garage-Game/companion/session.json'
+    & $pythonPath -m garage_game_companion.wish_runner --client $Client --session $sessionPath
     exit $LASTEXITCODE
 } finally { $env:PYTHONPATH = $priorPython }

@@ -301,7 +301,7 @@ Run `pwsh -NoProfile -File run-room.ps1`; hold the left button and drag to look 
 
 ## Carry playtest (Run 2, P3)
 
-Run `pwsh -NoProfile -File run-room.ps1`; hold the left button and drag to look around. The room remembers where things are put (`%APPDATA%\Godot\app_userdata\EnFractal\saves\rooms\test_room\`); delete that folder to start over.
+Run `pwsh -NoProfile -File run-room.ps1`; hold the left button and drag to look around. The room remembers where things are put (`%APPDATA%\Godot\app_userdata\Garage-Game\saves\rooms\test_room\`); delete that folder to start over.
 
 | Key | Does |
 |---|---|

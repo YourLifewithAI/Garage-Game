@@ -9,7 +9,7 @@ writes one PNG per camera plus timings.json into -OutDir, then quits. A Godot wi
 With -Baseline <commit>, the game folder of that commit is exported under .cache/look-baseline/ and the
 current harness is copied into it, so "before" captures use exactly that commit's look code.
 
-Before launching, the script refuses to start while a game window titled "EnFractal..." is open (someone is
+Before launching, the script refuses to start while a game window titled "Garage Game..." (or "EnFractal..." from an older build) is open (someone is
 playing on this GPU; pass -AllowOpenGame to override), waits until nvidia-smi shows the GPU quiet for six
 seconds, samples GPU memory during the capture, records both in timings.json, and retries (twice by default)
 if another job (for example pose estimation) used the GPU meanwhile, so timings are not taken under contention.
@@ -57,13 +57,13 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # Someone playing the game on this GPU: never capture or time over them.
-$openGame = Get-Process | Where-Object { $_.MainWindowTitle -like 'EnFractal*' }
+$openGame = Get-Process | Where-Object { $_.MainWindowTitle -like 'Garage Game*' -or $_.MainWindowTitle -like 'EnFractal*' }
 if ($openGame -and -not $AllowOpenGame) {
-    throw "An EnFractal game window is open ($(($openGame | ForEach-Object { "$($_.ProcessName) $($_.Id): $($_.MainWindowTitle)" }) -join '; ')). Captures and timings wait for a quiet GPU; close the game or pass -AllowOpenGame."
+    throw "A game window is open ($(($openGame | ForEach-Object { "$($_.ProcessName) $($_.Id): $($_.MainWindowTitle)" }) -join '; ')). Captures and timings wait for a quiet GPU; close the game or pass -AllowOpenGame."
 }
 $repository = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $repository 'tools/native-toolchain.ps1')
-$toolchain = Get-EnfractalNativeToolchain
+$toolchain = Get-GarageGameNativeToolchain
 $camerasPath = (Resolve-Path -LiteralPath (Join-Path $repository $Cameras)).Path
 $outPath = [System.IO.Path]::GetFullPath($OutDir, $repository)
 New-Item -ItemType Directory -Force $outPath | Out-Null
@@ -107,8 +107,8 @@ if ($Baseline) {
     Write-Output "Exported $commit to $projectPath"
 }
 
-Write-Output (Invoke-Checked $toolchain.DotnetPath @('build', 'EnFractal.csproj', '--configuration', 'Debug', '--nologo', '-v:q') $projectPath).Trim()
-$import = Invoke-EnfractalNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
+Write-Output (Invoke-Checked $toolchain.DotnetPath @('build', 'GarageGame.csproj', '--configuration', 'Debug', '--nologo', '-v:q') $projectPath).Trim()
+$import = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
     -Arguments @('--headless', '--editor', '--path', $projectPath, '--import') -TimeoutSeconds 180
 if ($import.Stderr -match 'SCRIPT ERROR:') { throw $import.Stderr }
 
@@ -152,7 +152,7 @@ if ($Style) { $userArgs += "--style=$(([System.IO.Path]::GetFullPath($Style, $re
 if ($Room) {
     if ($Room -in @('landscape', 'landscape10')) {
         . (Join-Path $repository 'tools/landscape-fixture.ps1')
-        $Room = (Get-EnfractalLandscapeFixture -Toolchain $toolchain -Scale ($Room -eq 'landscape10' ? 10 : 1)).Room
+        $Room = (Get-GarageGameLandscapeFixture -Toolchain $toolchain -Scale ($Room -eq 'landscape10' ? 10 : 1)).Room
     }
     $userArgs += "--room=$(([System.IO.Path]::GetFullPath($Room, $repository)) -replace '\\', '/')"
 }

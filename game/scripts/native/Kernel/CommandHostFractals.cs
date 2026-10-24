@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Sandbox;
+using GarageGame.Native.Sandbox;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>One Fractal of the island (the manifest's extensions.x_fractals): its id, where it rests (bottom centre), and its kind when typed.</summary>
 public sealed record IslandFractal(string Id, Vector3 PositionM, string? Kind, int? ReachBand);
@@ -36,6 +36,16 @@ public partial class CommandHost
 
     /// <summary>Every Fractal the manifest places, picked up or not, in id order.</summary>
     public IReadOnlyList<IslandFractal> AllFractals => _fractals ??= LoadFractals();
+
+    /// <summary>Test seam: the island's Fractals in place of the manifest's (the play HUD's room places none), untyped.</summary>
+    internal IReadOnlyList<IslandFractal> FractalsForTests
+    {
+        set
+        {
+            _fractals = value.OrderBy(f => f.Id, StringComparer.Ordinal).ToList();
+            _fractalsTyped = false;
+        }
+    }
 
     /// <summary>The Fractals still on the island (not picked up in this save).</summary>
     public IEnumerable<IslandFractal> Fractals => AllFractals.Where(f => !Nature.FractalsPicked.Contains(f.Id));

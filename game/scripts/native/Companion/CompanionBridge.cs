@@ -9,9 +9,9 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Companion;
+namespace GarageGame.Native.Companion;
 
 /// <summary>
 /// The in-game end of the player's AI (A2): the companion link in front of the kernel's command host.
@@ -119,7 +119,7 @@ public partial class CompanionBridge : Node
         _ownership = TakeOwnership(sessionFile);
         if (_ownership == null)
         {
-            LinkNotice = "Another EnFractal window holds the companion link; this one runs without it.";
+            LinkNotice = "Another Garage Game window holds the companion link; this one runs without it.";
             GD.Print("COMPANION_LINK not started: another game holds the companion link");
             return;
         }

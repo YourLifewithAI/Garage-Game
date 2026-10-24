@@ -3,9 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using EnFractal.Native.Look;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Native.Room;
+namespace GarageGame.Native.Room;
 
 /// <summary>
 /// The room's plant copies in the scene (the 10x world, packets S6 and S12b): per set and 8 m tile, one MultiMesh drawing the set's
@@ -18,7 +18,8 @@ namespace EnFractal.Native.Room;
 /// DrawDistances.NearCollisionM of the spawns is built when the view enters the scene, before the bodies are placed.
 ///
 /// Nothing here is authoritative: the copies are the manifest's, and a copy is the entity plant:&lt;set&gt;-&lt;row&gt;, never a
-/// node. A hit on a copy's collision names its copy through EntityAt (the holder node the body reports and the shape's index).
+/// node. What Grow and fire did to a copy is the island's nature (the command host's): SetPlantFactors hands the view each changed
+/// copy's factor of its natural size (0 for one burnt down), and the tiles holding them are filled and collided again. A hit on a copy's collision names its copy through EntityAt (the holder node the body reports and the shape's index).
 /// Layers: a tree's trunk and a solid stone are on the world layer (they block sight, reach and the camera, and navigation
 /// avoids them); a tree's pole and caps are on the hidden layer, which bodies climb and stand on and nothing else sees.
 /// </summary>
@@ -44,6 +45,14 @@ public partial class PlantCopiesView : Node3D
     private bool _reported;
     /// <summary>One buffer for every tile's instances, grown to the largest tile: a tile filled again allocates nothing.</summary>
     private float[] _scratch = Array.Empty<float>();
+    /// <summary>Per set (by index), the rows not at their natural size: grown (above 1) or burnt down (0). Absent: natural.</summary>
+    private Dictionary<int, float>[] _factors = Array.Empty<Dictionary<int, float>>();
+    private readonly Dictionary<PlantSet, int> _setIndex = new();
+    private readonly Dictionary<(int Set, int Tile), TileDraw> _drawAt = new();
+    /// <summary>Each tile's collision as built: its bodies and their holder nodes, so a tile whose copies changed is built again alone.</summary>
+    private readonly Dictionary<(int Set, int Tile), (List<Rid> Bodies, List<Node3D> Holders)> _collided = new();
+    /// <summary>The tile whose collision is being built now (BuildCollision): its holders and bodies are recorded as they are made.</summary>
+    private (List<Rid> Bodies, List<Node3D> Holders)? _building;
 
     /// <summary>Tiles drawn now (their MultiMesh filled), of VisualTiles in all; tiles whose collision is built so far, of CollisionTiles.</summary>
     public int VisualTilesBuilt { get; private set; }
@@ -150,6 +159,9 @@ public partial class PlantCopiesView : Node3D
             draw.Centre = TileBounds(set, first, count, bounds[draw.Set]).GetCenter();
         });
         view._draws = draws.ToArray();
+        foreach (var draw in view._draws) view._drawAt[(draw.Set, draw.Tile)] = draw;
+        view._factors = view._sets.Select(_ => new Dictionary<int, float>()).ToArray();
+        for (var s = 0; s < view._sets.Length; s++) view._setIndex[view._sets[s].Set] = s;
         return view;
     }
 
@@ -412,7 +424,7 @@ public partial class PlantCopiesView : Node3D
         multimesh.Mesh = view.Meshes[drawn.Mesh];
         multimesh.InstanceCount = count;
         if (_scratch.Length < count * 16) _scratch = new float[Math.Max(count * 16, _scratch.Length * 3 / 2)];
-        FillInstances(set, first, count, _scratch);
+        FillInstances(set, first, count, _scratch, factors: _factors[draw.Set]);
         RenderingServer.MultimeshSetBuffer(multimesh.GetRid(), new ReadOnlySpan<float>(_scratch, 0, count * 16));
         var instance = draw.Instance!;
         // Drawn to the set's range as its last band was, whichever band it holds: the band is this view's choice, so another
@@ -455,7 +467,7 @@ public partial class PlantCopiesView : Node3D
         multimesh.InstanceCount = 0;
         multimesh.Mesh = view.PartsMeshes![mesh];
         multimesh.InstanceCount = parts;
-        FillInstances(view.Set, first, parts, _scratch, every);
+        FillInstances(view.Set, first, parts, _scratch, every, _factors[draw.Set]);
         RenderingServer.MultimeshSetBuffer(multimesh.GetRid(), new ReadOnlySpan<float>(_scratch, 0, parts * 16));
     }
 
@@ -485,14 +497,18 @@ public partial class PlantCopiesView : Node3D
         return buffer;
     }
 
-    private static void FillInstances(PlantSet set, int first, int count, Span<float> buffer, int stride = 1)
+    private static void FillInstances(PlantSet set, int first, int count, Span<float> buffer, int stride = 1, Dictionary<int, float>? factors = null)
     {
         var data = set.Data;
+        var sized = factors is { Count: > 0 };
         for (var i = 0; i < count; i++)
         {
-            var row = data.AsSpan(set.RowsAt + (first + i * stride) * set.RowBytes, PlantSet.RowBytesBase);
+            var index = first + i * stride;
+            var row = data.AsSpan(set.RowsAt + index * set.RowBytes, PlantSet.RowBytesBase);
             var (sin, cos) = MathF.SinCos(Field(row, 3) * (MathF.PI / 180f));
-            float sx = Field(row, 4), sy = Field(row, 5), sz = Field(row, 6);
+            // A grown copy is scaled about its pivot (its root, the bottom centre); one burnt down is scaled to nothing, drawing nothing.
+            var factor = sized && factors!.TryGetValue(index, out var f) ? f : 1f;
+            float sx = Field(row, 4) * factor, sy = Field(row, 5) * factor, sz = Field(row, 6) * factor;
             // The basis is yaw about +Y times the scale: its columns sx (cos, 0, -sin), sy (0, 1, 0) and sz (sin, 0, cos).
             var o = i * 16;
             buffer[o] = sx * cos; buffer[o + 1] = 0f; buffer[o + 2] = sz * sin; buffer[o + 3] = Field(row, 0);
@@ -527,13 +543,21 @@ public partial class PlantCopiesView : Node3D
         var set = _sets[setIndex].Set;
         var (_, _, first, count) = set.Tile(tile);
         var node = TileNodeFor(setIndex, tile);
+        var factors = _factors[setIndex];
+        var built = (new List<Rid>(), new List<Node3D>());
+        _collided[(setIndex, tile)] = built;
+        _building = built;
         if (set.Kind == PlantKind.Tree)
         {
             var trunks = new List<(Rid, Transform3D, int)>(count);
             var climb = new List<(Rid, Transform3D, int)>(count * 3);
             for (var row = first; row < first + count; row++)
             {
-                var tree = set.Tree(row);
+                // A grown tree's trunk, pole and perches grow with it (the same unit shapes, placed grown); one burnt down has none.
+                var factor = factors.TryGetValue(row, out var f) ? f : 1f;
+                if (factor <= 0) continue;
+                var root = set.Position(row);
+                var tree = PlantCollision.Grown(set.Tree(row), root.X, root.Z, factor);
                 var taper = PlantCollision.TaperSteps(tree);
                 trunks.Add((Shared($"trunk {taper}", () => Convex(PlantCollision.UnitTrunk(taper))), PlantCollision.TrunkPlace(tree), row));
                 climb.Add((Shared("pole", () => Convex(PlantCollision.UnitPole())), PlantCollision.PolePlace(tree), row));
@@ -550,9 +574,16 @@ public partial class PlantCopiesView : Node3D
         {
             var hull = Shared("solid " + set.Name, () => Convex(set.SolidPoints.ToArray()));
             var solids = new List<(Rid, Transform3D, int)>(count);
-            for (var row = first; row < first + count; row++) solids.Add((hull, set.Transform(row), row));
+            for (var row = first; row < first + count; row++)
+            {
+                var factor = factors.TryGetValue(row, out var f) ? f : 1f;
+                if (factor <= 0) continue;
+                var place = set.Transform(row);
+                solids.Add((hull, new Transform3D(place.Basis * Basis.FromScale(Vector3.One * factor), place.Origin), row));
+            }
             Body(Holder(node, "Solids", set.Name, set.Kind == PlantKind.Stone ? "rock" : "foliage", true), RoomBuilder.WorldLayer, solids);
         }
+        _building = null;
         CollisionTilesBuilt++;
     }
 
@@ -565,9 +596,10 @@ public partial class PlantCopiesView : Node3D
     }
 
     /// <summary>The node a body reports as its collider: what it is (the set, a material role for nature's surface rule, drawn or collision only) and its shapes' rows.</summary>
-    private static Node3D Holder(Node3D tile, string name, string set, string materialRole, bool drawn)
+    private Node3D Holder(Node3D tile, string name, string set, string materialRole, bool drawn)
     {
         var holder = new Node3D { Name = name };
+        _building?.Holders.Add(holder);
         holder.SetMeta(PlantSetMeta, set);
         holder.SetMeta("material_role", materialRole);
         holder.SetMeta("drawn", drawn);
@@ -587,7 +619,47 @@ public partial class PlantCopiesView : Node3D
         PhysicsServer3D.BodyAttachObjectInstanceId(body, holder.GetInstanceId());
         PhysicsServer3D.BodySetSpace(body, GetWorld3D().Space);
         _bodies.Add(body);
+        _building?.Bodies.Add(body);
     }
+
+    /// <summary>
+    /// What Grow and fire did to the copies (the island's nature): each changed copy's factor of its natural size, 1 natural, above 1
+    /// grown, 0 burnt down (drawn as nothing, with no collision). Only the tiles holding a changed copy are touched: a drawn one is
+    /// filled again in its band, a collided one has its bodies built again; a tile not drawn or collided yet takes the factors when
+    /// it is. Ids that are not this room's copies are ignored. Returns the tiles touched.
+    /// </summary>
+    public int SetPlantFactors(IEnumerable<(string Id, float Factor)> changes)
+    {
+        var copies = _room.Copies!;
+        var touched = new HashSet<(int Set, int Tile)>();
+        foreach (var (id, factor) in changes)
+        {
+            if (!copies.TryResolve(id, out var set, out var row) || !_setIndex.TryGetValue(set, out var index)) continue;
+            if (factor == 1) _factors[index].Remove(row);
+            else _factors[index][row] = Math.Max(0, factor);
+            touched.Add((index, set.TileOfRow(row)));
+        }
+        foreach (var key in touched)
+        {
+            if (_drawAt.TryGetValue(key, out var draw) && draw.Band >= 0) Fill(draw, draw.Band);
+            if (_collided.Remove(key, out var built))
+            {
+                foreach (var body in built.Bodies)
+                {
+                    _bodies.Remove(body);
+                    PhysicsServer3D.FreeRid(body);
+                }
+                foreach (var holder in built.Holders) holder.Free();
+                CollisionTilesBuilt--;
+                BuildCollision(key.Set, key.Tile);
+            }
+        }
+        return touched.Count;
+    }
+
+    /// <summary>A copy's factor of its natural size as the view has it (1 natural, 0 burnt down), for tests.</summary>
+    public float FactorOf(string id) =>
+        _room.Copies!.TryResolve(id, out var set, out var row) && _setIndex.TryGetValue(set, out var index) && _factors[index].TryGetValue(row, out var factor) ? factor : 1f;
 
     private Rid Convex(Vector3[] points)
     {

@@ -2,13 +2,13 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
-/// The ground field's laws on their own (NatureState, no host): Bloom plants only where the sampler finds fertile ground
-/// and inside its circle; flowers grow in moist light and fade in the dark and after their life; fire spreads within its
+/// The ground field's laws on their own (NatureState, no host): flowers (an older island's, as Bloom left them before decision 52
+/// retired it) grow in moist light and fade in the dark and after their life, and DropFlowers takes them all; fire spreads within its
 /// radius and budget, leaves ash, stops at rain, wet ground, gaps and fireproof ground; ash regrows; the weather is a
 /// function of the saved clock. Then the undo steps: a chain of nature changes taken back to any revision before them,
 /// a newer change of another kind cutting the chain, the bounds, and an undo standing for the state it restored.
@@ -16,6 +16,28 @@ namespace EnFractal.Tests.Kernel;
 public partial class NatureTest
 {
     private static NatureState FreshNature() => new();
+
+    /// <summary>
+    /// Flower cells as an older island's save held them (Bloom's, retired by decision 52; NatureState.DropFlowers drops them when a save
+    /// loads): fertile ground the sampler finds inside the circle, at growth 0.2 for lifeS, each remembered in step.
+    /// </summary>
+    private static int Flowers(NatureState state, Vector3 center, float radius, float lifeS, NatureUndoStep? step, Func<int, int, NatureCell?>? sample = null)
+    {
+        var planted = 0;
+        foreach (var (x, z) in NatureState.Disk(center, radius))
+        {
+            var ground = (sample ?? Soil)(x, z);
+            if (ground is not { Fertile: true }) continue;
+            NatureState.RememberCell(step, state.Cells, ground.Key);
+            var cell = state.Cells.GetValueOrDefault(ground.Key) ?? ground;
+            cell.Growth = Math.Max(0.2f, cell.Growth);
+            cell.LifeS = Math.Max(cell.LifeS, lifeS);
+            cell.Fuel = Math.Max(cell.Fuel, NatureLaws.FlowerFuel);
+            state.Cells[ground.Key] = cell;
+            planted++;
+        }
+        return planted;
+    }
 
     /// <summary>Simulation steps of NatureLaws.StepS on a bare state, all cells active.</summary>
     private static void Tick(NatureState state, int count, Func<int, int, NatureCell?>? sample = null, Func<NatureCell, bool>? fireproof = null, float light = 1)
@@ -31,11 +53,16 @@ public partial class NatureTest
     {
         var at = new Vector3(0.025f, 0, 0.025f);
         var bloom = FreshNature();
-        var step = bloom.BeginUndo("Bloom", 1, Player);
-        var planted = bloom.Bloom(at, 0.25f, 30, 0.6f, (x, z) => x < 0 ? null : x == 0 ? new NatureCell { X = x, Z = z, Material = "stone" } : Soil(x, z), step);
-        Check(planted > 0 && bloom.Cells.Values.All(c => c.X > 0 && c.Fertile), "Bloom respects sampled gaps and ground that is not soil");
-        Check(bloom.Cells.Values.All(c => new Vector2(c.Position.X - at.X, c.Position.Z - at.Z).Length() <= 0.25f), "and stays inside its circle");
-        Check(bloom.Cells.Values.All(c => Math.Abs(c.Growth - 0.2f) < 1e-4f), "the pack's intensity 0.6 starts the flowers at growth 0.2");
+        Flowers(bloom, at, 0.25f, 30, null);
+        var older = FreshNature();
+        Flowers(older, at, 0.1f, 30, older.BeginUndo("Bloom", 1, Player));
+        var charred = Soil(40, 40)!;
+        charred.Ash = 0.5f;
+        older.Cells[charred.Key] = charred;
+        Flowers(older, charred.Position, 0.01f, 30, older.BeginUndo("Bloom", 2, Player));
+        Check(older.DropFlowers() && older.Cells.Count == 1 && older.Cells[charred.Key].Growth == 0 && older.Cells[charred.Key].Ash == 0.5f &&
+              older.Undo.All(s => s.Cells.Values.All(c => c == null || c.Growth == 0 && c.LifeS == 0)) && !older.DropFlowers(),
+            "an older island's flowers are all dropped (decision 52), in its cells and its undo steps: a flower-only cell goes, an ashen one keeps its ash");
         var first = bloom.Cells.Values.First();
         var initial = first.Growth;
         Tick(bloom, 10);
@@ -46,7 +73,7 @@ public partial class NatureTest
         Tick(bloom, 160);
         Check(bloom.Cells.Count == 0, "flowers fade away after their life, and their cells go");
         var resting = FreshNature();
-        resting.Bloom(at, 0.1f, 30, 0.6f, Soil, null);
+        Flowers(resting, at, 0.1f, 30, null);
         var frozen = resting.Cells.Values.First().Copy();
         resting.Step(NatureLaws.StepS, Soil, _ => false, _ => false);
         Check(resting.WeatherS == NatureLaws.StepS && resting.Cells.Values.First().Growth == frozen.Growth && resting.Cells.Values.First().LifeS == frozen.LifeS &&
@@ -107,7 +134,7 @@ public partial class NatureTest
     {
         var at = new Vector3(0.025f, 0, 0.025f);
         var stayed = FreshNature();
-        stayed.Bloom(at, 0.15f, 120, 0.6f, Soil, null);
+        Flowers(stayed, at, 0.15f, 120, null);
         var left = stayed.Copy();
         for (var i = 0; i < 100; i++)
         {
@@ -121,7 +148,7 @@ public partial class NatureTest
             "on return it catches up in one step to exactly where it would be had it been simulated all along");
 
         var faded = FreshNature();
-        faded.Bloom(at, 0.15f, 30, 0.6f, Soil, null);
+        Flowers(faded, at, 0.15f, 30, null);
         var planted = faded.Cells.Count;
         for (var i = 0; i < 3600; i++) faded.Step(NatureLaws.StepS, Soil, _ => false, _ => false);
         Check(planted > 0 && faded.Cells.Count == planted, "left alone for half an hour, the patch is still there while no one looks");
@@ -168,19 +195,19 @@ public partial class NatureTest
     {
         var at = new Vector3(0.025f, 0, 0.025f);
         var state = FreshNature();
-        state.Bloom(at, 0.1f, 30, 0.6f, Soil, state.BeginUndo("Bloom", 3, Player));
-        state.Bloom(at + new Vector3(0.5f, 0, 0), 0.1f, 30, 0.6f, Soil, state.BeginUndo("Bloom", 4, Companion));
+        Flowers(state, at, 0.1f, 30, state.BeginUndo("Bloom", 3, Player));
+        Flowers(state, at + new Vector3(0.5f, 0, 0), 0.1f, 30, state.BeginUndo("Bloom", 4, Companion));
         Check(state.Undo.Count == 2 && state.UndoTarget(4) == 3 && state.StepsBackTo(2, 4)?.Count == 2 && state.StepsBackTo(3, 4)?.Count == 1,
             "two principals' changes in a row are one chain: back to 3 takes one, back to 2 takes both");
         Check(state.StepsBackTo(1, 4) == null && state.StepsBackTo(2, 5) == null, "nothing reaches past the chain, nor from a newer revision of another kind");
         state.UndoSteps(state.StepsBackTo(2, 4)!, 5, 2);
         Check(state.Cells.Count == 0 && state.Undo.Count == 0 && state.Effective(5) == 2, "both are taken back; revision 5 stands for revision 2's state");
-        state.Bloom(at, 0.1f, 30, 0.6f, Soil, state.BeginUndo("Bloom", 6, Player));
+        Flowers(state, at, 0.1f, 30, state.BeginUndo("Bloom", 6, Player));
         Check(state.Undo[^1].Base == 2 && state.UndoTarget(6) == 2, "a change after an undo starts from the state the undo restored");
-        state.Bloom(at, 0.1f, 30, 0.6f, Soil, state.BeginUndo("Bloom", 9, Player));
+        Flowers(state, at, 0.1f, 30, state.BeginUndo("Bloom", 9, Player));
         Check(state.Undo.Count == 1 && state.Undo[0].Revision == 9, "a newer change of another kind in between (revisions 7 and 8) cuts the older steps off");
         for (var revision = 10; revision < 10 + NatureState.MaxUndoSteps + 3; revision++)
-            state.Bloom(at, 0.05f, 30, 0.6f, Soil, state.BeginUndo("Bloom", revision, Player));
+            Flowers(state, at, 0.05f, 30, state.BeginUndo("Bloom", revision, Player));
         Check(state.Undo.Count == NatureState.MaxUndoSteps, "at most MaxUndoSteps steps are kept, the oldest dropped first");
     }
 }

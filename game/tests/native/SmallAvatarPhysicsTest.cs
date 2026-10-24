@@ -4,12 +4,12 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Navigation;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Navigation;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// Actual physics-world checks for the 10 cm player and the companion body. No rooms or saves are changed.
@@ -2574,7 +2574,7 @@ public partial class SmallAvatarPhysicsTest : Node3D
     private async Task TestWrap(RoomSea sea, float surface, Vector3 b)
     {
         var bounds = new Aabb(b + new Vector3(-3, -1, -3), new Vector3(6, 3, 6));
-        var seam = EnFractal.Native.Look.OpenSea.SeamFor(sea, bounds);
+        var seam = GarageGame.Native.Look.OpenSea.SeamFor(sea, bounds);
         Check(Mathf.IsEqualApprox(_player.WrapM, seam + SmallPlayerController.WrapPastSeamM) && _player.WrapM > seam,
             $"the wrap lies {SmallPlayerController.WrapPastSeamM} m past the look's seam ({seam:0.00} m from the island's centre): {_player.WrapM:0.00} m");
         var centre = sea.OpenSeaCentreM;
@@ -2938,7 +2938,7 @@ public partial class SmallAvatarPhysicsTest : Node3D
         var prototypeParts = prototype.GetChildren().OfType<Node3D>().Where(n => n != visual.Root).ToList();
         Check(visual.Root.GetParent() == prototype && prototypeParts.Count > 0 && prototypeParts.All(n => !n.Visible),
             "a visual set before the body is ready takes the prototype's place at _Ready; the prototype's parts stay, hidden");
-        Check(visual.Mesh.Layers == EnFractal.Native.Look.EyeView.PlayerBodyLayer, "the drawn body is on the body's own layer, so its own eye leaves it out");
+        Check(visual.Mesh.Layers == GarageGame.Native.Look.EyeView.PlayerBodyLayer, "the drawn body is on the body's own layer, so its own eye leaves it out");
         var landing = default(BodyState);
         for (var i = 0; i < 180 && !landing.Landed; i++)
         {

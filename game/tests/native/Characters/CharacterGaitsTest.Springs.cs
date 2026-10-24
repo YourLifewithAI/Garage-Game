@@ -2,11 +2,11 @@ using Godot;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Characters.Gaits;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Characters.Gaits;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>The engine's springs under the gaits, in the tree (RIG-API.md section 4 asked K3 to check them under the squash).</summary>
 public partial class CharacterGaitsTest

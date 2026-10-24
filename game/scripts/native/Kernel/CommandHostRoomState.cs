@@ -4,11 +4,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Look;
-using EnFractal.Native.Room;
-using EnFractal.Native.Sandbox;
+using GarageGame.Native.Look;
+using GarageGame.Native.Room;
+using GarageGame.Native.Sandbox;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// P6, the world as data (Run 2): room state in the contract's form (contracts/room-state.schema.json), written from the
@@ -30,7 +30,7 @@ public partial class CommandHost
     /// <summary>
     /// The island's clock record (room state's extensions.x_clock, M6): kept as read from an imported room state and written back
     /// on export; the look's WorldTime reads it in place of the machine's clock (LookDirector.SetWorldClockFrom). Null: the machine's
-    /// clock, today's behaviour. The island save does not carry it yet.
+    /// clock, today's behaviour. The island save keeps it too, in its team block's "clock" (CommandHostCamps).
     /// </summary>
     public JsonObject? ClockRecord { get; set; }
 
@@ -119,6 +119,8 @@ public partial class CommandHost
         if (NatureConfigured || envelope["nature"] is JsonObject { Count: > 0 }) extensions["x_play_nature"] = NatureBlock.Pack(Nature);
         // The island's clock (M6), where it has one.
         if (ClockRecord != null) extensions["x_clock"] = ClockRecord.DeepClone();
+        // Fire's camp: the start spots, the lit campfires and the camp the player wakes at (CommandHostCamps), where there are any.
+        if (CampBlock() is { } camp) extensions["x_play_camp"] = camp;
         // Whose island save this is and how it plays (M3: the save's team block).
         if (XTeam() is { } whose) extensions["x_team"] = whose;
         return new JsonObject
@@ -374,7 +376,7 @@ public partial class CommandHost
         if (node is not JsonObject data) return true;
         var fields = op switch
         {
-            "nature.cast" => new[] { "center_m", "radius_m", "duration_s", "cell_count", "requires_approval", "started_cells", "max_burning_cells" },
+            "nature.cast" => new[] { "center_m", "radius_m", "duration_s", "cell_count", "requires_approval", "started_cells", "max_burning_cells", "grown_plants", "kind", "end_m" },
             "nature.trail" => new[] { "enabled", "requires_approval" },
             "nature.repair" => new[] { "cost" },
             _ => new[] { "undone", "undone_steps", "requires_approval" },
@@ -384,11 +386,14 @@ public partial class CommandHost
         {
             var fine = name switch
             {
-                "center_m" => Vec3(value),
+                "center_m" or "end_m" => Vec3(value),
+                // Fire's kinds (decisions 77 to 80): a durable receipt names a Fireline; the others' receipts are transient or plain.
+                "kind" => value?.GetValueKind() == JsonValueKind.String && value.GetValue<string>() is "fire" or "firepit" or "fireline" or "snuff" or "will_o_wisp",
                 "radius_m" => Number(value, NatureBlock.MaxFireRadiusM) && value!.GetValue<double>() > 0,
                 "duration_s" => Number(value, 600) && value!.GetValue<double>() > 0,
                 "cell_count" or "started_cells" or "max_burning_cells" => Whole(value, NatureState.MaxCells),
                 "undone_steps" => Whole(value, NatureState.MaxUndoSteps),
+                "grown_plants" => Whole(value, NatureState.MaxGrownPlants),
                 "requires_approval" or "enabled" => Bool(value),
                 "undone" => Text(value, 200),
                 _ => value is JsonObject cost && cost.Count <= NatureState.MaxWalletKinds &&
@@ -419,6 +424,7 @@ public partial class CommandHost
             KernelText.CodePoints(label).Length > 80 || KernelText.HasHidden(label)))) return "a checkpoint";
         if (x["x_play_task_goals"] is { } goals && (goals is not JsonObject g || g.Any(p => !EntryIdPattern.IsMatch(p.Key) || !TaskGoals.Contains(StrOf(p.Value) ?? "")))) return "an open task's goal";
         if (x["x_team"] is { } whose && XTeamProblem(whose) is { } who) return who;
+        if (x["x_play_camp"] is { } camp && CampBlockProblem(camp) is { } campfires) return campfires;
         // x_play_nature is checked whole before the entities (RoomStateProblem).
         return null;
     }
@@ -509,6 +515,9 @@ public partial class CommandHost
         };
         // Whose save it is (x_team) goes into the save's team block (M3).
         CopyXTeam(extensions, team);
+        // Fire's camp and the island's clock go there too (CommandHostCamps): the island save keeps them.
+        if (extensions["x_play_camp"] is JsonObject camp) team["camp"] = camp.DeepClone();
+        if (extensions["x_clock"] is JsonObject clock) team["clock"] = clock.DeepClone();
         return new JsonObject
         {
             ["schema"] = "enfractal.creation-world", ["version"] = 6, ["compiler_version"] = 1, ["style_version"] = "painterly_v1",

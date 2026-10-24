@@ -4,7 +4,7 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Threading;
 
-namespace EnFractal.Native.Playtest;
+namespace GarageGame.Native.Playtest;
 
 /// <summary>
 /// The record's own thread: it appends the events the main thread hands it to events.jsonl at least every FlushEveryMs (one write

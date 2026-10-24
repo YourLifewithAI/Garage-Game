@@ -6,7 +6,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using FileAccess = Godot.FileAccess;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 internal static class JsonFields
 {

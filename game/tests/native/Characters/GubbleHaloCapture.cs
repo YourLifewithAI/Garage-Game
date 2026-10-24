@@ -2,18 +2,18 @@ using System;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
 using Godot;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>
 /// A manual windowed look at the drawn Gubble's glow (the characters round, K5): what the headless checks cannot see. Its behaviour
 /// is tested headless in the play HUD suite (PlayHudTest.Gubble.cs); this is in no runner. Run it windowed on a GPU, when nobody is
-/// playing (no window titled EnFractal*):
+/// playing (no window titled Garage Game* or EnFractal*):
 ///   Godot --path game --resolution 1280x720 res://tests/native_character_gubble.tscn -- --out=ABSOLUTE_DIR [--distance=0.24]
 /// In the default room it frames the companion, the drawn Gubble, from 24 cm in front (or --distance), with the HUD hidden, and saves four frames:
 /// by day with no glow (gubble_day.png), with its own glow at dusk (gubble_halo_dusk.png) and at night (gubble_halo_night.png):

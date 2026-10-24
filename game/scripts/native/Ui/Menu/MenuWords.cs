@@ -1,8 +1,8 @@
 using System;
 using System.Globalization;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// The island's words for the things the mechanics round names, for the menu, which runs before any room and so before any command

@@ -9,7 +9,7 @@ remember is in [PERCEPTION.md](PERCEPTION.md); its goals, its visible state and 
 [EMBODIMENT.md](EMBODIMENT.md).
 
 ```
-any MCP client or harness --stdio--> enfractal-companion --loopback link--> game host
+any MCP client or harness --stdio--> garage-game-companion --loopback link--> game host
    tools/list, tools/call            adapter: contract messages            the kernel's CommandHost in the room (A2),
                                      locked-down process                   behind the C# link end; the mock host
                                                                            (Python) as the test double
@@ -21,10 +21,10 @@ any MCP client or harness --stdio--> enfractal-companion --loopback link--> game
 |---|---|
 | `companion/pyproject.toml`, `companion/uv.lock` | Pinned environment (Python 3.11 or newer; the founder's machine uses 3.14.2) |
 | `companion/requirements.lock.txt` | The same pins with hashes, exported for runners without uv (`uv export --frozen --no-dev --no-emit-project --format requirements-txt -o requirements.lock.txt`) |
-| `companion/src/enfractal_companion/contract.py` | Loads `contracts/` and `contracts/validate.py` (with ECMA-262 patterns); derives the tool catalogue |
+| `companion/src/garage_game_companion/contract.py` | Loads `contracts/` and `contracts/validate.py` (with ECMA-262 patterns); derives the tool catalogue |
 | `.../server.py` | The MCP server (official Python SDK `mcp==2.2.0`, low-level API) and the adapter |
 | `.../profile.py`, `.../clients.json` | The play-only client profile, in the common `mcpServers` shape or in six clients' own formats (`--client`, `--write`); `SYSTEMROOT` on Windows. `clients.json` is the client catalogue (data, from brief 04) |
-| `.../real_game.py` | Starts the real game host (the room with the kernel's command host and the companion link) headless, for an AI client or the suite: `python -m enfractal_companion.real_game` |
+| `.../real_game.py` | Starts the real game host (the room with the kernel's command host and the companion link) headless, for an AI client or the suite: `python -m garage_game_companion.real_game` |
 | `.../link.py` | The loopback link: session file, mutual HMAC handshake, canonical frames |
 | `.../canonical.py` | Canonical JSON v1, byte for byte as Lane P defined it: fingerprints, size limits, frames |
 | `.../mock_host.py`, `.../mock_game.py` | The mock game host (with perception memory and goal jobs), and a console that runs it as a stand-in game |
@@ -83,8 +83,8 @@ fetch, which run once the host walks to things and fetches. `test_real_host.py` 
 pinned Godot .NET and .NET SDK and the C# project built (the runners build it first), and skips with the reason
 otherwise.
 The canonical JSON test uses the kernel's golden fixture in `game/tests/fixtures/kernel/` when the
-checkout has it (or the folder `ENFRACTAL_KERNEL_FIXTURE_DIR` names), and this lane's byte-identical copy
-otherwise. `ENFRACTAL_CONTRACTS_DIR` points the whole suite, the stdio server included, at another copy of
+checkout has it (or the folder `GARAGE_GAME_KERNEL_FIXTURE_DIR` names), and this lane's byte-identical copy
+otherwise. `GARAGE_GAME_CONTRACTS_DIR` points the whole suite, the stdio server included, at another copy of
 `contracts/`, to check a proposed change.
 
 ## Connect an MCP client or agent harness
@@ -104,17 +104,17 @@ it on their own machine.
    JSON shape.
 
    ```powershell
-   companion\.venv\Scripts\python.exe -m enfractal_companion.profile           # the running game
-   companion\.venv\Scripts\python.exe -m enfractal_companion.profile --mock    # the built-in mock game
+   companion\.venv\Scripts\python.exe -m garage_game_companion.profile           # the running game
+   companion\.venv\Scripts\python.exe -m garage_game_companion.profile --mock    # the built-in mock game
    ```
 
    ```json
    {
      "mcpServers": {
-       "enfractal-companion": {
+       "garage-game-companion": {
          "type": "stdio",
          "command": "C:\\dev\\EnFractal\\companion\\.venv\\Scripts\\python.exe",
-         "args": ["-m", "enfractal_companion", "--mock"],
+         "args": ["-m", "garage_game_companion", "--mock"],
          "env": {"SYSTEMROOT": "C:\\Windows"}
        }
      }
@@ -147,8 +147,8 @@ it on their own machine.
    profile without `--mock` connects to it. Until then, or with no GPU to spare, run the room headless with the link:
 
    ```powershell
-   companion\.venv\Scripts\python.exe -m enfractal_companion.real_game              # the player's own user folder
-   companion\.venv\Scripts\python.exe -m enfractal_companion.real_game --isolated   # a temporary one; prints the session file to pass with --session-file
+   companion\.venv\Scripts\python.exe -m garage_game_companion.real_game              # the player's own user folder
+   companion\.venv\Scripts\python.exe -m garage_game_companion.real_game --isolated   # a temporary one; prints the session file to pass with --session-file
    ```
 
    Ask the companion to come, look at the book, point at the box, follow you; ask `jobs_status` how each ended. The
@@ -159,7 +159,7 @@ it on their own machine.
    without `--mock`, which reads the game's session file:
 
    ```powershell
-   companion\.venv\Scripts\python.exe -m enfractal_companion.mock_game
+   companion\.venv\Scripts\python.exe -m garage_game_companion.mock_game
    ```
 
    With the recommended policy, ask the companion to remove the book. The console prints
@@ -172,7 +172,7 @@ it on their own machine.
    thing arrives twice: `arrive` at the thing picks it up, `arrive` again brings it back to you.
 
 Without `--mock` or `--session-file`, the server reads the real game's session file from
-`%APPDATA%\Godot\app_userdata\EnFractal\companion\session.json` (Godot's `user://`). With no game running,
+`%APPDATA%\Godot\app_userdata\Garage-Game\companion\session.json` (Godot's `user://`). With no game running,
 every tool answers `not_ready`.
 
 ## Proposals for files this lane does not own

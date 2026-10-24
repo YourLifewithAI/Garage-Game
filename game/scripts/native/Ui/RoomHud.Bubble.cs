@@ -1,11 +1,11 @@
 using System;
 using System.Text.Json.Nodes;
 using Godot;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// Steering the Bubble by the smart ask (MECHANICS.md decisions 57, 58 and 60; Kernel/Bubble/CommandHostBubbleLead.cs):

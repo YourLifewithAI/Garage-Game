@@ -5,11 +5,11 @@ using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
-using EnFractal.Native.Playtest;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
+using GarageGame.Native.Playtest;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The playtest record's one tap (CommandHost.Handled, docs/runs/RUN-2-PLAYTEST-LOOP.md R1): one event for every message HandleObject

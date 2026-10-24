@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// The stamina bar under the hearts, always visible (docs/game/MECHANICS.md sections 1 and 4). Its length is what the body can

@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>Where a tumble is.</summary>
 public enum TumblePhase

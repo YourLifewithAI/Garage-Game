@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Native.Characters.Gaits;
+namespace GarageGame.Native.Characters.Gaits;
 
 /// <summary>
 /// Layer 1 of the pose stack (docs/runs/RUN-2-CHARACTERS.md, "The gaits"): the base pose from what the capsule did. The

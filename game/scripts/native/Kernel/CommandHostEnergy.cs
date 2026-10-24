@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Text.Json.Nodes;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// Connection energy (docs/game/MECHANICS.md section 5; contracts/README.md "Price by principal"): whole pips round the

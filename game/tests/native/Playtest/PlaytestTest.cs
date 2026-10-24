@@ -5,11 +5,11 @@ using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Playtest;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Playtest;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// The playtest recorder (docs/runs/RUN-2-PLAYTEST-LOOP.md, R1; Playtest/PlaytestRecorder) on the game's own room world, booted from

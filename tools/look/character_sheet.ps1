@@ -21,7 +21,7 @@ measures the bubble shader's render-mode variants (one skin, lit with and withou
 -MotionOnly renders nothing: it runs the same tiles headless (no window, no GPU) and checks that every tile reaches its moment
 and shows what its label names (the feet found the slope, the tumble flops, the cast's arm swings), printing one line a tile.
 
-As the look captures do (capture-look.ps1), it refuses to start while a game window titled "EnFractal..." is open (someone is
+As the look captures do (capture-look.ps1), it refuses to start while a game window titled "Garage Game..." (or "EnFractal..." from an older build) is open (someone is
 playing on this GPU; -AllowOpenGame overrides), waits until nvidia-smi shows the card quiet for six seconds, keeps the player's
 user:// data out of the run, and writes the engine's log to character_sheet.log beside the sheets.
 
@@ -49,26 +49,26 @@ if ($MotionOnly) {
     # Headless: nothing is drawn, so neither a game window nor the GPU's load matters.
     $repository = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
     . (Join-Path $repository 'tools/native-toolchain.ps1')
-    $toolchain = Get-EnfractalNativeToolchain
-    Build-EnfractalNativeProject -Toolchain $toolchain | Out-Null
+    $toolchain = Get-GarageGameNativeToolchain
+    Build-GarageGameNativeProject -Toolchain $toolchain | Out-Null
     $assets = (Join-Path $repository 'assets/characters') -replace '\\', '/'
     $motionArgs = @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native/Look/character_sheet_capture.tscn', '--',
         '--motion-only=true', "--assets=$assets")
     if ($Characters) { $motionArgs += "--characters=$Characters" }
-    $motion = Invoke-EnfractalNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath -Arguments $motionArgs -TimeoutSeconds $TimeoutSeconds
+    $motion = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath -Arguments $motionArgs -TimeoutSeconds $TimeoutSeconds
     if ($motion.Stderr -or $motion.Stdout -notmatch 'CHARACTER_SHEET_MOTION: (\d+)/\1 tiles show their motion') { throw "$($motion.Stdout)`n$($motion.Stderr)" }
     $motion.Stdout.Split("`n") | Where-Object { $_ -match '^CHARACTER_SHEET_MOTION' } | ForEach-Object { Write-Output $_.TrimEnd() }
     return
 }
 
 # Someone playing the game on this GPU: never render over them.
-$openGame = Get-Process | Where-Object { $_.MainWindowTitle -like 'EnFractal*' }
+$openGame = Get-Process | Where-Object { $_.MainWindowTitle -like 'Garage Game*' -or $_.MainWindowTitle -like 'EnFractal*' }
 if ($openGame -and -not $AllowOpenGame) {
-    throw "An EnFractal game window is open ($(($openGame | ForEach-Object { "$($_.ProcessName) $($_.Id): $($_.MainWindowTitle)" }) -join '; ')). Character sheets wait for a quiet GPU; close the game or pass -AllowOpenGame."
+    throw "A game window is open ($(($openGame | ForEach-Object { "$($_.ProcessName) $($_.Id): $($_.MainWindowTitle)" }) -join '; ')). Character sheets wait for a quiet GPU; close the game or pass -AllowOpenGame."
 }
 $repository = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $repository 'tools/native-toolchain.ps1')
-$toolchain = Get-EnfractalNativeToolchain
+$toolchain = Get-GarageGameNativeToolchain
 if (-not $OutDir) { $OutDir = ".cache/character-sheets/$Label" }
 $outPath = [System.IO.Path]::GetFullPath($OutDir, $repository)
 New-Item -ItemType Directory -Force $outPath | Out-Null
@@ -83,8 +83,8 @@ $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
 $projectPath = $toolchain.ProjectPath
 $commit = (git -C $repository rev-parse --short HEAD).Trim()
 $dirty = [bool](git -C $repository status --porcelain -- game tools/look assets/characters)
-Build-EnfractalNativeProject -Toolchain $toolchain | Out-Null
-$import = Invoke-EnfractalNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
+Build-GarageGameNativeProject -Toolchain $toolchain | Out-Null
+$import = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
     -Arguments @('--headless', '--editor', '--path', $projectPath, '--import') -TimeoutSeconds 180
 if ($import.Stderr -match 'SCRIPT ERROR:') { throw $import.Stderr }
 

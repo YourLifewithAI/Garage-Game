@@ -3,11 +3,11 @@ using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The founder's decision of 13 October: "Let things like fire or other actions that might hurt a player, hurt the player.
@@ -107,7 +107,7 @@ public partial class NatureTest
         var mine = Send(Command(NextId("mine"), "nature.cast", Cast("fire", NearGubble, 0.15, 6), preview: true), Player);
         Check(Code(refused) == "permission_denied" && refused["error"]?["message"]?.GetValue<string>() == CommandHost.FireOffMessage && Ok(mine),
             "with \"Let the Gubble use fire\" off the Gubble's Fire is refused with permission_denied; the player's own is not");
-        var bloom = Send(Command(NextId("bloom"), "nature.cast", Cast("bloom", NearGubble, 0.15, 60)), Companion);
+        var bloom = Send(Command(NextId("bloom"), "nature.cast", Cast("grow", NearGubble, 0.15, 1)), Companion);
         Check(Ok(bloom), "its other magic is untouched");
         _host.SetGubbleFire(true);
     }
@@ -165,18 +165,18 @@ public partial class NatureTest
     private async Task TestUndoOnlyInCreative()
     {
         await NewWorld(SavePath("undo-modes"), challenge: true);
-        var bloom = Send(Command(NextId("challenge-bloom"), "nature.cast", Cast("bloom", NearGubble, 0.15, 120)), Player);
+        var bloom = Send(Command(NextId("challenge-bloom"), "nature.cast", Cast("grow", NearGubble, 0.15, 1)), Player);
         JsonObject Undo(string principal) =>
             Send(Command(NextId("undo"), "room.undo", new JsonObject { ["to_revision"] = Math.Max(0, _host.Revision - 1) }, expectedRevision: _host.Revision), principal);
         var mine = Undo(Player);
         var gubble = Undo(Companion);
-        Check(Ok(bloom) && Code(mine) == "unsupported_capability" && Code(gubble) == "unsupported_capability" && _host.Nature.Cells.Count > 0 && !_host.NatureCanUndo,
+        Check(Ok(bloom) && Code(mine) == "unsupported_capability" && Code(gubble) == "unsupported_capability" && _host.Nature.Plants.Count > 0 && !_host.NatureCanUndo,
             "in Challenge there is no undo, for the player or the Gubble: " + mine["error"]?["message"]);
         Check(Code(Send(Command(NextId("undo-build"), "room.undo", new JsonObject { ["to_revision"] = 0 }, expectedRevision: _host.Revision), Player)) == "unsupported_capability",
             "whatever it names");
         Check(Ok(_host.PlayerMode("creative")), "the player switches to Creative");
         var after = Undo(Player);
-        Check(Code(after) == "unsupported_capability" && _host.Nature.Cells.Count > 0 && !_host.NatureCanUndo,
+        Check(Code(after) == "unsupported_capability" && _host.Nature.Plants.Count > 0 && !_host.NatureCanUndo,
             "a change made in Challenge cannot be undone after switching to Creative: " + after["error"]?["message"]);
         var fire = Fire(Player, new Vector3(0.9f, 0.01f, 1.2f), 0.2, 10, out _);
         Check(Ok(fire) && _host.NatureCanUndo, "a fire lit in Creative can be undone there");

@@ -2,9 +2,9 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// Procedural grass (a prototype for the founder, 15 October; branch run2/look-grass-proto). The island's grass copies (the plant set
@@ -27,7 +27,7 @@ namespace EnFractal.Native.Look;
 /// near a bare patch); the rest fold into a point and draw nothing. Stones are their own surface (grass_stones.gdshader).</item>
 /// </list>
 /// grass_blades.gdshader lights a blade as the ground it grows from, colours it from root to tip in the land's own greens, bends it in
-/// the wind and takes the season (LandSeason's globals). --look-grass=kit after "--" (or ENFRACTAL_LOOK_GRASS=kit) brings back the kit's
+/// the wind and takes the season (LandSeason's globals). --look-grass=kit after "--" (or GARAGE_GAME_LOOK_GRASS=kit) brings back the kit's
 /// tuft and leaves the meadow floor as it was, for a before and after in one build. Every number is in Tuning.
 /// </summary>
 public static class GrassLook
@@ -193,12 +193,12 @@ public static class GrassLook
     /// <summary>Whether the procedural grass (and the canopy on the meadow floor) is on: unless pinned to the kit's tuft.</summary>
     public static bool On => Mode() != "kit";
 
-    /// <summary>The pin: --look-grass=kit|blades after "--", or ENFRACTAL_LOOK_GRASS.</summary>
+    /// <summary>The pin: --look-grass=kit|blades after "--", or GARAGE_GAME_LOOK_GRASS.</summary>
     public static string Mode()
     {
         foreach (var argument in OS.GetCmdlineUserArgs())
             if (argument.StartsWith("--look-grass=", StringComparison.Ordinal)) return argument["--look-grass=".Length..];
-        var value = OS.GetEnvironment("ENFRACTAL_LOOK_GRASS");
+        var value = OS.GetEnvironment("GARAGE_GAME_LOOK_GRASS");
         return string.IsNullOrWhiteSpace(value) ? "blades" : value.Trim();
     }
 

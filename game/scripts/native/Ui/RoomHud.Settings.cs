@@ -1,9 +1,9 @@
 using Godot;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Companion;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Companion;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The small in-play settings panel (docs/game/MECHANICS.md sections 2 and 3, decision 1): the player's switches that left the

@@ -4,14 +4,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
-/// The island's nature (Bloom, the flower trail, weather and Fire on the ground field), in the real test room with the
+/// The island's nature (Grow, weather and Fire on the ground field; Bloom and its trail went with decision 52), in the test room (with plants, NatureTest.Grow) with the
 /// real bodies and the real authority: the simulation's laws and bounds (NatureTest.Simulation), nature as room state and
 /// its saved block (NatureTest.Persistence), the review's blockers and majors through the command path
 /// (NatureTest.Review), and what the scene and the verbs make of fire (NatureTest.Scene). The ground under each cell is
@@ -45,7 +45,7 @@ public partial class NatureTest : Node3D
             _dump = OS.GetCmdlineUserArgs().FirstOrDefault(a => a.StartsWith("--dump=", StringComparison.Ordinal))?["--dump=".Length..];
             if (_dump != null) System.IO.Directory.CreateDirectory(_dump);
             RemoveAll();
-            _room = RoomData.Load(RoomWorld.DefaultRoom);
+            _room = PlantedRoom();
             TestSimulation();
             TestBlock();
             await TestReview();
@@ -55,12 +55,17 @@ public partial class NatureTest : Node3D
             await TestEnergy();
             await TestExpertise();
             await TestTrust();
+            await TestCamps();
+            await TestGrow();
+            await TestGrowExpertise();
+            // Fire's behaviours (NatureTest.FireKinds.cs): Fireline, Snuff, Will-o'-wisp, the place deciding.
+            await TestFireKinds();
             await FreeWorld();
             OS.RemoveLogger(_errors);
             Check(_errors.Count == 0, $"no script or engine error while the suite ran ({_errors.Count}; first: {_errors.First})");
             GD.Print($"NATIVE_KERNEL_NATURE: {_checks - _failures}/{_checks} checks passed; the ground field's laws and bounds, time away, nature as room state (saved block, " +
                 "throttle, rebuild, migration), receipts and undo by room revision (Creative only), the authority's checks, what a companion learns, the fire rule and its one ask, " +
-                $"the trail's consent, carried and burnt things, the Gubble's fire: consequences, guardrails and feedback, Trust (initiative, marks, burnt builds, bands, lessons){(_dump != null ? $"; {_dumped} messages dumped" : "")}");
+                $"Grow (plants grown, saved, climbed and burnt), carried and burnt things, the Gubble's fire: consequences, guardrails and feedback, Trust (initiative, marks, burnt builds, bands, lessons), Fire's camp (start spots, resting, firepits; no Fire until the first rest, rain putting campfires out, firepits spread evenly), Grow's five expertise and the waterpad{(_dump != null ? $"; {_dumped} messages dumped" : "")}");
             RemoveAll();
             GetTree().Quit(_failures == 0 ? 0 : 1);
         }
@@ -90,7 +95,8 @@ public partial class NatureTest : Node3D
     /// </summary>
     /// <param name="beforeRules">Runs as the host exists, before its rules load (a launch's vitals store: RoomWorld's order).</param>
     /// <param name="afterRules">Runs once the rules loaded, before nature and before any frame (a launch's knacks and set-mode).</param>
-    private async Task NewWorld(string savePath, bool challenge = false, RoomData? roomOverride = null, Action? beforeRules = null, Action? afterRules = null)
+    /// <param name="learnFire">The team knows Fire, as after the first rest (decision 72), through the one helper every suite that lights fires uses.</param>
+    private async Task NewWorld(string savePath, bool challenge = false, RoomData? roomOverride = null, Action? beforeRules = null, Action? afterRules = null, bool learnFire = true)
     {
         await FreeWorld();
         var room = roomOverride ?? _room;
@@ -114,6 +120,7 @@ public partial class NatureTest : Node3D
         _host.LoadRules(RoomWorld.DefaultRulesId, ShippedRules.Version);
         afterRules?.Invoke();
         _host.ConfigureNature();
+        if (learnFire) _host.LearnFireForTests();
         _host.NatureSampleForTests = Soil;
         // The player's own "Let the Gubble use fire" (on by default), whatever a profile on this machine says.
         _host.SetGubbleFire(true);

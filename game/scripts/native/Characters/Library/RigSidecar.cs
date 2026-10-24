@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// The named multipliers a character's rig.json may set on its measured motion profile (all 1 by default).

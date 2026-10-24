@@ -174,15 +174,15 @@ None is locked: the price (4, 4 and 6 ordered; 2, 2 and 3 as the Gubble's own id
 
 Each needs its behaviour built first (the island's firepits from the generator, resting, the fire line's drag, snuffing, the wisp), so the Fire packet builds the list with them.
 
-**Grow** (`grow`; built after the Grow packet, decision 52), in hint order; each is a committed Grow cast unless said:
+**Grow** (`grow`; the founder's list of 16 October, night, MECHANICS.md decisions 75 and 76, which changed the fifth and the unlocks), in hint order; each is a committed Grow cast unless said, and each behaviour works from the start, the first time it works teaching it:
 
 1. `tall_plant`, **Tall plant**: one plant grown to Grow's full size (its cap).
 2. `thicket`, **Thicket**: three plants at full size within 1 m of one another (the constellation's idea).
 3. `green_ash`, **Green ash**: Grow cast on burnt ground; the ash greens at once instead of over minutes.
 4. `rain_garden`, **Rain garden**: Grow cast while it rains; the plants grow twice as much.
-5. `waterside`, **Waterside**: Grow cast within 0.3 m of water; plants by water grow fuller.
+5. `waterpad`, **Waterpad**: Grow cast on water grows a large water lily leaf that the player can step onto (it replaced Waterside, "plants by water grow fuller").
 
-**Grow's unlocks** follow its count, as Glow's lights do: two Grow expertise open growing without seeds (flowers and grass on bare soil, what Bloom painted); three open plants across gaps; five open crops that grow faster. The last two wait for their behaviours, since a discovery that promises a behaviour waits until it works.
+**Grow's unlocks** follow its count, as Glow's lights do: two Grow expertise open growing without seeds (flowers and grass on bare soil, what Bloom painted); three open plants that grow across a gap like a bridge, horizontal only for now; five open ivy grown up a wall that the player can climb, for a limited distance (it replaced crops that grow faster). Each waits for its behaviour, since a discovery that promises a behaviour waits until it works.
 
 **Grow's first version (proposed by the integrator on 16 October; agreed by the founder the same morning with one change, fire, as [MECHANICS.md](../game/MECHANICS.md) decision 67).** Facts it rests on: the island's scattered plants are rows in the manifest's plant tables (`plant:<set>-n`), drawn in 8 m tiles, and only trees have collision (a trunk, a hidden pole and one-sided perches); plants do not burn yet (the fire rebuild is the Fire packet's).
 

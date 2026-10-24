@@ -21,7 +21,7 @@ PROBE = textwrap.dedent(r'''
     import asyncio, ctypes, json, os, socket, subprocess, sys, urllib.request
     from pathlib import Path
     sys.path.insert(0, sys.argv[1])
-    from enfractal_companion import lockdown
+    from garage_game_companion import lockdown
     allowed, outside, port = Path(sys.argv[2]), Path(sys.argv[3]), int(sys.argv[4])
     # Before the lockdown: this machine's own non-loopback address and a closed port on it. Connecting
     # there never leaves the machine (the local stack refuses it), so a let-through shows as a refusal.
@@ -41,7 +41,7 @@ PROBE = textwrap.dedent(r'''
     pywin32_loaded = "win32api" in sys.modules
     removed = lockdown.scrub_environment()
     lockdown.install(read_files=[allowed], read_roots=[Path(sys.argv[1])])
-    report = {"env": sorted(os.environ), "removed_secret": "ENFRACTAL_CANARY_API_KEY" in removed}
+    report = {"env": sorted(os.environ), "removed_secret": "GARAGE_GAME_CANARY_API_KEY" in removed}
 
     def attempt(name, fn):
         try:
@@ -108,7 +108,7 @@ class ServerStartup(unittest.TestCase):
         """The probes above test lockdown.py; this pins that the real entry point uses it, in order."""
         from unittest import mock
 
-        from enfractal_companion import server
+        from garage_game_companion import server
 
         calls: list[tuple] = []
         with mock.patch.object(server.lockdown, "scrub_environment", lambda: calls.append(("scrub",)) or []), \
@@ -137,7 +137,7 @@ class Lockdown(unittest.TestCase):
         listener.bind(("127.0.0.1", 0))
         listener.listen(1)
         env = {k: v for k, v in os.environ.items()}
-        env["ENFRACTAL_CANARY_API_KEY"] = "sk-canary-0000"
+        env["GARAGE_GAME_CANARY_API_KEY"] = "sk-canary-0000"
         try:
             completed = subprocess.run(
                 [sys.executable, "-c", PROBE, str(SRC), str(cls.session), str(cls.outside),

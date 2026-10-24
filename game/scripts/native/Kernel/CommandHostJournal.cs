@@ -5,9 +5,9 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The team's journal and map, host side (docs/companion/JOURNAL.md; contracts/README.md "The journal and the map").
@@ -544,13 +544,13 @@ public partial class CommandHost
     }
 
     /// <summary>The team block as the save keeps it: room state's journal and discovered, plus the open tasks' goals, and whose save it is (M3).</summary>
-    private JsonObject ExportTeam(List<JsonObject> notes, List<JsonObject>? history = null) => WithSaveTeam(new()
+    private JsonObject ExportTeam(List<JsonObject> notes, List<JsonObject>? history = null) => WithCamp(WithSaveTeam(new()
     {
         ["journal"] = ExportJournal(notes, history),
         ["discovered"] = ExportDiscovered(),
         ["task_goals"] = new JsonObject(_taskGoals.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => KeyValuePair.Create(p.Key, (JsonNode?)JsonValue.Create(p.Value)))),
         ["avatars"] = AvatarIdentities(),
-    });
+    }));
 
     /// <summary>The avatars' identities as the save keeps them: the player's colour, the companion's name and colour.</summary>
     private JsonObject AvatarIdentities()
@@ -672,8 +672,10 @@ public partial class CommandHost
     private string? TeamProblemUnchecked(JsonObject? team, int revision)
     {
         if (team == null) return "not an object";
-        if (team.Any(p => p.Key is not ("journal" or "discovered" or "task_goals" or "avatars") && !IsSaveTeamKey(p.Key))) return "an unknown block";
+        if (team.Any(p => p.Key is not ("journal" or "discovered" or "task_goals" or "avatars") && !IsSaveTeamKey(p.Key) && !IsCampKey(p.Key))) return "an unknown block";
         if (SaveTeamProblem(team) is { } whose) return whose;
+        // Fire's camp: the start spots, the lit campfires and the island's clock (CommandHostCamps).
+        if (CampKeysProblem(team) is { } camp) return camp;
         if (team["avatars"] is { } avatars && (avatars is not JsonObject identities || identities.Any(p => p.Key is not (PlayerAvatar or CompanionAvatarId) ||
             p.Value is not JsonObject identity || identity.Count != (identity.ContainsKey("body") ? 3 : 2) || !BodyIsValid(identity) || !Text(identity["display_name"], 40) ||
             identity["color"]?.GetValueKind() != JsonValueKind.String || !System.Text.RegularExpressions.Regex.IsMatch(identity["color"]!.GetValue<string>(), @"\A#[0-9a-fA-F]{6}\z") ||
@@ -799,9 +801,13 @@ public partial class CommandHost
         var memory = TeamMemory();
         memory.Clear();
         _savedTeam = null;
+        LoadCampBlock(null);
         if (team == null || team.Count == 0 || TeamProblem(team, Revision) != null) return;
         // Whose save it is and how it plays (M3): the boot's choice of difficulty defers to it.
         _savedTeam = ReadSaveTeam(team);
+        // Fire's camp: the start spots and the lit campfires, and the island's clock (CommandHostCamps).
+        LoadCampBlock(team["camp"] as JsonObject);
+        LoadClockBlock(team["clock"]);
         if (team["journal"] is JsonObject journal)
         {
             _openTasks = journal["open_tasks"]!.AsArray().Select(n => (JsonObject)n!.DeepClone()).ToList();

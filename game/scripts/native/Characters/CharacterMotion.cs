@@ -1,9 +1,9 @@
 using System;
 using Godot;
-using EnFractal.Native.Characters.Contact;
-using EnFractal.Native.Characters.Gaits;
+using GarageGame.Native.Characters.Contact;
+using GarageGame.Native.Characters.Gaits;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// Every packet's pose layers on a drawn body, in one place (the integrator's; docs/runs/RUN-2-CHARACTERS.md): the gaits and

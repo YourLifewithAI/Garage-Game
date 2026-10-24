@@ -4,11 +4,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Kernel;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The modes block in play (M10 of docs/runs/RUN-2-MECHANICS.md; docs/game/MECHANICS.md section 8). What each row of the pack

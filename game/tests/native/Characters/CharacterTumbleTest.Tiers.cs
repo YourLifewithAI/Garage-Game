@@ -3,12 +3,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>The tiers, from PlayerVitals.FallDamage on real falls; the installer; deep water, a glide and a floating body.</summary>
 public partial class CharacterTumbleTest
@@ -19,7 +19,7 @@ public partial class CharacterTumbleTest
     private void TestTierTable()
     {
         Check(TumbleTiers.StumbleHealth == 0 && TumbleTiers.TumbleHealth == 25 && TumbleTiers.TumbleHealth == PlayerVitals.MaximumHealth / 4 && TumbleTiers.KnockoutHealth == PlayerVitals.MaximumHealth &&
-              TumbleTiers.KnockoutHealth == 100 && EnFractal.Native.Characters.Contact.ContactLayer.TumbleFromHealth == TumbleTiers.TumbleHealth,
+              TumbleTiers.KnockoutHealth == 100 && GarageGame.Native.Characters.Contact.ContactLayer.TumbleFromHealth == TumbleTiers.TumbleHealth,
             "the tiers are three numbers in one place, health points read from the vitals: past the safe drop, 25 and 100 (the contact layer's is the same number)");
         Check(Mathf.IsEqualApprox(TumbleTiers.Seconds(TumbleTier.Tumble), 1.2f) && Mathf.IsEqualApprox(TumbleTiers.Seconds(TumbleTier.Knockout), 2.0f) &&
               TumbleTiers.Seconds(TumbleTier.Stumble) == 0 && TumbleTiers.Seconds(TumbleTier.None) == 0,

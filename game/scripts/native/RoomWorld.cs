@@ -2,14 +2,14 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Companion;
-using EnFractal.Native.Look;
-using EnFractal.Native.Look.Fauna;
-using EnFractal.Native.Room;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Companion;
+using GarageGame.Native.Look;
+using GarageGame.Native.Look.Fauna;
+using GarageGame.Native.Room;
 using FileAccess = Godot.FileAccess;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// Composition root for one room: load the room data and style preset, build the derived scene,
@@ -191,15 +191,19 @@ public partial class RoomWorld : Node3D
             // appearance profile the HUD read first. A fixture's room has no team file and keeps the profile's, as before.
             if (team.GameBoot && commandHost.Team is { } teamFile) hud.UseTeam(teamFile);
             commandHost.ConfigureNature();
+            // Fire's camp (decision 49): the two bodies where this mode's island save last saw them, else at the starting campfire.
+            commandHost.PlaceAtStartSpot();
             // The island's clock record once the save is read (M6): none, the machine's clock, as before.
             Look.SetWorldClockFrom(commandHost.ClockRecord);
             var natureLook = new NatureLook { Name = "NatureLook" };
             AddChild(natureLook);
             natureLook.Configure(commandHost, Built);
+            // The campfires: the starting one and the firepits, unlit or lit (Fire's camp).
+            AddChild(global::GarageGame.Native.Look.CampfireLook.Create(commandHost));
             // The Fractals still on the island, drawn with their glints (Run 2, L9: docs/look/FRACTALS.md).
-            AddChild(global::EnFractal.Native.Look.Fractals.FractalLook.Create(commandHost, Look));
+            AddChild(global::GarageGame.Native.Look.Fractals.FractalLook.Create(commandHost, Look));
             // The hamlet's charm: smoke, warm windows, bunting, washing, lantern glow and fairy lights (Run 2, L11: docs/look/CHARM.md).
-            AddChild(global::EnFractal.Native.Look.Charm.CharmLook.Create(Room, Built, Look));
+            AddChild(global::GarageGame.Native.Look.Charm.CharmLook.Create(Room, Built, Look));
             // The player's AI: the companion link in front of the command host (A2).
             CompanionBridge.Attach(this);
             // "Gubble: connected" or "waiting for your AI", for the room's first seconds (Ui/Menu/GubbleLinkNote.cs).
@@ -213,12 +217,12 @@ public partial class RoomWorld : Node3D
             SetMeta("room_id", Room.RoomId);
             SetMeta("room_manifest_sha256", Room.ManifestSha256);
             SetMeta("style", $"{preset.PresetId}@{preset.PresetVersion}");
-            DisplayServer.WindowSetTitle($"EnFractal - {Room.DisplayName}");
+            DisplayServer.WindowSetTitle($"Garage Game - {Room.DisplayName}");
             WorldReady = true;
             GD.Print($"ROOM_WORLD_READY room={Room.RoomId} shell={Room.Shell.Count} objects={Room.Objects.Count} lights={Look.RoomLightCount} style={preset.PresetId}@{preset.PresetVersion} spawn={Player.Position}");
             if (QuitAfterReadyFrames() is { } frames) QuitAfter(frames);
             // The room becoming its island (Lane L), after ready: never in a headless run, a boot check or with the player's setting off.
-            else global::EnFractal.Native.Look.Intro.RoomIntro.TryStart(this);
+            else global::GarageGame.Native.Look.Intro.RoomIntro.TryStart(this);
         }
         catch (Exception exception)
         {

@@ -5,9 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Characters;
+using GarageGame.Native.Characters;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>Malformed folders, written to a temporary root, each refused with a reason; and synthetic converter output that loads.</summary>
 public partial class CharacterRigTest

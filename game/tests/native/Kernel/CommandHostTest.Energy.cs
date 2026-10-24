@@ -7,10 +7,10 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Seams;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Seams;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The mechanics round's energy and vitals (M1 of docs/runs/RUN-2-MECHANICS.md): the rules pack's six blocks read
@@ -53,9 +53,10 @@ public partial class CommandHostTest
               traits.Pips == new PipsRules(8, 5, 40, 5, 2, 15, 0.5) && traits.Wallet == new WalletRules(0, 0, 0, 0),
             "v5's traits: 5 hearts of 5 health a quarter to 30, healing a quarter every 2.5 s after 10 s, fire a quarter a second and no fall cap, the bar 0.4 m in ten bands of 0.4 m, running and deep water 0.02 m/s, diving 0.04 m/s, the refill 0.1 m/s, no running from empty until the first bar is full, a metre of bar buying 1.5 m of climb and hanging still free (decisions 64 and 65), 8 pips to 40, an empty wallet (decision 26)");
         var prices = v5.Cost!.Prices;
-        Check(prices.Count == 8 && prices["glow"] is { Ordered: 2, OwnIdea: 1 } && prices["bloom"] is { Ordered: 4, OwnIdea: 2 } && prices["fire"] is { Ordered: 6, OwnIdea: 3 } &&
-              prices["bubble_carry"] is { Ordered: 4, OwnIdea: 2 } && prices["bubble_boat"] is { Ordered: 4, OwnIdea: 2 } && prices["bubble_lift"] is { Ordered: 6, OwnIdea: 3 } && v5.Cost.TorchFire == 0,
-            "v5's prices: Glow, Bubbles and Fireworks 2 and 1, Bloom 4 and 2, Fire 6 and 3, the carry and the boat 4 and 2, the lift 6 and 3, a torch's fire free");
+        Check(prices.Count == 11 && prices["glow"] is { Ordered: 2, OwnIdea: 1 } && prices["grow"] is { Ordered: 4, OwnIdea: 2 } && prices["fire"] is { Ordered: 6, OwnIdea: 3 } &&
+              prices["bubble_carry"] is { Ordered: 4, OwnIdea: 2 } && prices["bubble_boat"] is { Ordered: 4, OwnIdea: 2 } && prices["bubble_lift"] is { Ordered: 6, OwnIdea: 3 } &&
+              prices["fireline"] is { Ordered: 8, OwnIdea: 4 } && prices["snuff"] is { Ordered: 2, OwnIdea: 1 } && prices["will_o_wisp"] is { Ordered: 4, OwnIdea: 2 } && v5.Cost.TorchFire == 0,
+            "v5's prices: Glow, Bubbles and Fireworks 2 and 1, Grow 4 and 2, Fire 6 and 3, the carry and the boat 4 and 2, the lift 6 and 3, Fire's kinds (decisions 78 to 80) Fireline 8 and 4, Snuff 2 and 1, Will-o'-wisp 4 and 2, a torch's fire free");
         var modes = v5.Modes!;
         Check(modes.Rows.Count == 6 && modes.Row("creative", null) is { ShadowPool: true, DamageMultiplier: 0, Undo: true } &&
               modes.Row("challenge", "gentle") is { DamageMultiplier: 0.5, RefillMultiplier: 1.5 } && modes.Row("challenge", "brave") is { DamageMultiplier: 1.5, RefillMultiplier: 0.75 } &&
@@ -163,10 +164,10 @@ public partial class CommandHostTest
         TestClimbPrices(v5, standard, steady);
         // Prices by principal: the ordered price for the player, half for the Gubble's own idea, ordered again while a wish runs.
         Check(standard.Price("glow", false, false) == 2 && standard.Price("glow", true, false) == 1 && standard.Price("glow", true, true) == 2 &&
-              standard.Price("bloom", false, false) == 4 && standard.Price("bloom", true, false) == 2 && standard.Price("fire", true, false) == 3 &&
+              standard.Price("grow", false, false) == 4 && standard.Price("grow", true, false) == 2 && standard.Price("fire", true, false) == 3 &&
               standard.Price("bubble_boat", false, false) == 4 && standard.Price("bubble_boat", true, false) == 2 &&
               standard.Price("teleport", true, false) == 0 && VitalsRules.For(IslandRules.Load("storybook_wild", 4), "challenge").Price("fire", false, false) == 0,
-            "the price follows the principal alone: Glow 2 or 1, Bloom 4 or 2, Fire 6 or 3, the boat 4 or 2; a wish running makes the Gubble's ordered; unpriced and v4 abilities cost nothing");
+            "the price follows the principal alone: Glow 2 or 1, Grow 4 or 2, Fire 6 or 3, the boat 4 or 2; a wish running makes the Gubble's ordered; unpriced and v4 abilities cost nothing");
         Check(standard.RefillEveryS(1) == 5 && standard.RefillEveryS(2) == 5 && standard.RefillEveryS(2.5f) == 15 && Math.Abs(gentle.RefillEveryS(1) - 5 / 1.5) < 1e-9 &&
               Math.Abs(brave.RefillEveryS(3) - 20) < 1e-9 && VitalsRules.For(v5, "creative").RefillEveryS(1) == 5,
             "a pip every 5 s within 2 m, every 15 s apart; Gentle 1.5 times as fast, Brave 0.75; Creative's shadow pool at the Standard pace");
@@ -315,7 +316,7 @@ public partial class CommandHostTest
         var total = 0;
         var before = GC.GetAllocatedBytesForCurrentThread();
         var started = Stopwatch.GetTimestamp();
-        for (var i = 0; i < calls; i++) total += _host.GuardEnergy("glow", Companion) + _host.GuardEnergy("bloom", Player);
+        for (var i = 0; i < calls; i++) total += _host.GuardEnergy("glow", Companion) + _host.GuardEnergy("grow", Player);
         var ended = Stopwatch.GetTimestamp();
         var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         var perCallMs = (ended - started) * 1000.0 / Stopwatch.Frequency / (2.0 * calls);

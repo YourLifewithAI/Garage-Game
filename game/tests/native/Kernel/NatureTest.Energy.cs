@@ -6,11 +6,11 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The mechanics round's energy and vitals through the command path (M1 of docs/runs/RUN-2-MECHANICS.md), under storybook_wild
@@ -114,12 +114,12 @@ public partial class NatureTest
         Check(Ok(ordered) && Pips == 5, $"the player's order of the same Glow pays the ordered price, two pips ({Pips} left)");
         var stop = Send(Command(NextId("stop"), "effect.stop", new JsonObject { ["effect"] = "all" }), Player);
         Check(Ok(stop) && Pips == 5, "a stop costs nothing");
-        var bloom = Send(Command(NextId("bloom"), "nature.cast", Cast("bloom", NearGubble, 0.15, 60)), Companion);
-        Check(Ok(bloom) && Pips == 3 && bloom["transient"]?.GetValue<bool>() == false, $"the Gubble's own Bloom costs two pips at commit, a durable change ({Pips} left)");
+        var bloom = Send(Command(NextId("bloom"), "nature.cast", Cast("grow", NearGubble, 0.15, 1)), Companion);
+        Check(Ok(bloom) && Pips == 3 && bloom["transient"]?.GetValue<bool>() == false, $"the Gubble's own Grow costs two pips at commit, a durable change ({Pips} left)");
         var revision = _host.Revision;
-        var blocked = Send(Command(NextId("bloom-player"), "nature.cast", Cast("bloom", NearGubble + new Vector3(0.2f, 0, 0), 0.15, 60)), Player);
+        var blocked = Send(Command(NextId("bloom-player"), "nature.cast", Cast("grow", NearGubble + new Vector3(0.2f, 0, 0), 0.15, 1)), Player);
         Check(Exhausted(blocked, 3, 4) && _host.Revision == revision && Pips == 3,
-            "the player's Bloom at four pips with three in the pool is refused energy_exhausted, carrying the balance and the price, and nothing changes: " + Canonical(blocked["error"]));
+            "the player's Grow at four pips with three in the pool is refused energy_exhausted, carrying the balance and the price, and nothing changes: " + Canonical(blocked["error"]));
         var lit = Fire(Companion, new Vector3(0.9f, 0.01f, 1.2f), 0.15, 6, out var firePreview);
         Check(Ok(firePreview) && Ok(lit) && Pips == 0, $"the Gubble's Fire is previewed free and costs three pips when it is lit ({Pips} left)");
         var effects = _host.ActiveEffectIds.Count;
@@ -225,6 +225,9 @@ public partial class NatureTest
         Steps(1);
         Check(gentleEarly == 100 && _host.Vitals.Health == 95, $"Gentle halves fire and removes none: one quarter every 2 s ({gentleEarly}, then {_host.Vitals.Health})");
         await EnergyWorld("energy-heal");
+        // Away from the camp, the pack's own pace: at a camp hearts refill CampLaws.CampHeartsFactor times faster (Fire's camp, below).
+        var camp = _room.SpawnFor("player").PositionM;
+        Check(_player.TryTeleportTo(camp + new Vector3(0.8f, 0, 0)) && !_host.PlayerAtCamp(), "(the player stands away from the camp)");
         _host.ApplyPlayerDamage(14, PlayerDamageSource.Fall);
         var hurt = _host.Vitals.Health;
         _player.VitalsTick!(9.9f, true);
@@ -235,6 +238,12 @@ public partial class NatureTest
         _player.VitalsTick!(5.1f, true);
         Check(hurt == 85 && waiting == 85 && healed == 90 && _host.Vitals.Health == 100,
             $"a hurt of 14 health takes three quarters (85); nothing heals for 10 s, then a whole quarter every 2.5 s on safe ground ({waiting}, {healed}, {_host.Vitals.Health})");
+        Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp(), "(the player stands at the camp, by the starting campfire)");
+        _host.ApplyPlayerDamage(14, PlayerDamageSource.Fall);
+        _player.VitalsTick!(9.9f, true);
+        _player.VitalsTick!(0.2f, true);
+        _player.VitalsTick!(2.4f, true);
+        Check(_host.Vitals.Health == 95, $"at a camp the same 2.6 s heal twice as much: two quarters, not one (Fire's camp, decision 62; {_host.Vitals.Health})");
         _host.ApplyPlayerDamage(PlayerVitals.ContractMaxHealth, PlayerDamageSource.Fall);
         var status = Send(Query("player.status", new JsonObject()), Companion)["data"];
         Check(_host.Vitals.Recoveries == 1 && _host.Vitals.Health == 50 && Pips >= 4 && status?["hearts"]?["quarters"]?.GetValue<int>() == 10,

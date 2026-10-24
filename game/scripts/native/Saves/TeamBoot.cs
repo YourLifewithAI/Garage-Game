@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Godot;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Saves;
+namespace GarageGame.Native.Saves;
 
 /// <summary>
 /// The game's boot of a team (the opening menu's stand-in until M7): <c>--team=</c>, <c>--mode=</c> and <c>--difficulty=</c>

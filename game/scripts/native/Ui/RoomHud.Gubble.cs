@@ -2,10 +2,10 @@ using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using Godot;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The player's controls for the Gubble (RUN-2-GLOW.md section 4; the magic design's "The keys", step 2). Every order and cast is
@@ -93,7 +93,7 @@ public partial class RoomHud
 
     /// <summary>The ability the island has in a slot (by its category), or null: the slot shows "?" and shrugs.</summary>
     public IslandAbility? SlotAbility(int slot) =>
-        slot is < 0 or >= 5 ? null : Host?.Rules?.Abilities.Where(a => a.Category == GubbleMagic.SlotCategories[slot]).OrderBy(a => a.Capability, StringComparer.Ordinal).FirstOrDefault();
+        slot < 0 || slot >= GubbleMagic.SlotCategories.Length ? null : Host?.Rules?.Abilities.Where(a => a.Category == GubbleMagic.SlotCategories[slot]).OrderBy(a => a.Capability, StringComparer.Ordinal).FirstOrDefault();
 
     /// <summary>
     /// The help's line for the ability keys, from the island's pack: the slots it has, each with what it costs you in pips ("needs 4"
@@ -102,10 +102,15 @@ public partial class RoomHud
     /// </summary>
     private string MagicKeysLine()
     {
-        var known = Enumerable.Range(0, Act.GubbleSlots.Length).Where(i => SlotAbility(i) != null).Select(i => $"{K(Act.GubbleSlots[i])} {SlotName(i)}{SlotPriceSuffix(i)}").ToArray();
+        var known = Enumerable.Range(0, Act.GubbleSlots.Length).Where(i => SlotAbility(i) != null)
+            .Select(i => $"{K(Act.GubbleSlots[i])} {SlotName(i)}" + (SlotLockedWords(i) is { } locked ? $" (locked: {locked.TrimEnd('.').ToLowerInvariant()})" : SlotPriceSuffix(i))).ToArray();
         var later = Enumerable.Range(0, Act.GubbleSlots.Length).Where(i => SlotAbility(i) == null).Select(i => K(Act.GubbleSlots[i])).ToArray();
         var parts = new System.Collections.Generic.List<string>();
         if (known.Length > 0) parts.Add($"{string.Join(", ", known)} where you point (it comes closer first if it must; at the sky, on itself)");
+        // Fire's key (decision 77): a tap previews, a hold of the ask lights it, a drag is a Fireline once learned.
+        if (SlotAbility(GubbleMagic.FireSlot) != null && SlotLockedWords(GubbleMagic.FireSlot) == null)
+            parts.Add($"{K(Act.GubbleSlot6)} previews {SlotName(GubbleMagic.FireSlot)} where you point and holding {K(Act.GubbleAsk)} lights it" +
+                (Host?.FirelineLearned == true ? $"; hold {K(Act.GubbleSlot6)} and sweep the aim for a Fireline" : ""));
         if (later.Length > 0) parts.Add($"{string.Join("/", later)} magic still to come");
         parts.Add("it floats after you, over water and up cliffs");
         return string.Join(" · ", parts);
@@ -242,7 +247,9 @@ public partial class RoomHud
             _askTag.Visible = false;
             return;
         }
-        if (_askAge >= FocusQueryS)
+        // A wheel or key-6 Fire preview waits for the hold (RoomHud.FireWheel.cs): the tag says so, and how far the hold has come.
+        if (WheelFireArmed) _askTag.Text = WheelFireTag();
+        else if (_askAge >= FocusQueryS)
         {
             _askAge = 0;
             AskPreview = DecideAsk(AimNow());
@@ -276,7 +283,9 @@ public partial class RoomHud
                 // While the Gubble holds something, Fetch is Put down (at the spot the press froze, or here).
                 GubbleMagic.WedgeKind.Fetch when GubbleHolds => $"{GubbleMagic.PutDownIcon}\n{GubbleMagic.PutDownName}",
                 _ => $"{wedge.Icon}\n{wedge.Name}",
-            });
+            },
+            // Fire until the first rest (decision 77): its lock mark and the reason.
+            SlotLockedWords);
         // What each ability costs the player: the ordered price in dots, or "needs N" while the pool is short of it.
         _wheel.SetPrices(WheelPrice);
         _wheel.Begin(AimScreenPoint());
@@ -307,7 +316,7 @@ public partial class RoomHud
     {
         // A release the window never sees (it lost focus) must not leave the game paused under the wheel, or a drag held.
         if (what == NotificationApplicationFocusOut && _wheel != null && _wheel.Held) CancelAsk();
-        if (what == NotificationApplicationFocusOut) EndDrag();
+        if (what == NotificationApplicationFocusOut) { EndDrag(); EndWheelFireHold(); _fireKeyStart = null; }
     }
 
     /// <summary>The smart ask's rule, carried out.</summary>
@@ -365,6 +374,19 @@ public partial class RoomHud
             _cue.Shrug(icon);
             return;
         }
+        // Fire (decision 77): locked until the first rest, the HUD's own words and no command; then a preview, lit by the hold of the ask.
+        if (SlotLockedWords(slot) is { } locked)
+        {
+            _cue.Shrug(icon, locked);
+            _noticeText = locked;
+            return;
+        }
+        if (ability.Capability == "fire")
+        {
+            if (!aim.Hit || aim.AtGubble) { _cue.Shrug(icon, GubbleMagic.NothingThere); return; }
+            CastFireAt(aim.Point, null);
+            return;
+        }
         ClearChains();
         _cue.Think(icon);
         Vector3? point = aim.Hit && !aim.AtGubble && ability.Targets.Contains("point") ? aim.Point : null;
@@ -383,8 +405,17 @@ public partial class RoomHud
         var host = Host;
         if (host == null) return;
         _cue.Think(GubbleMagic.SlotIcons[slot]);
-        if (ability.Capability == "bloom" && point == null) { _cue.Shrug(GubbleMagic.SlotIcons[slot], "choose a spot for flowers"); return; }
-        var result = ability.Capability == "bloom" ? host.PlayerNatureCast("bloom", point!.Value) : host.PlayerEffect(ability.Capability, point);
+        // Fire after the Gubble came closer (UpdateCastAfter): the preview, its line if it was a drag.
+        if (ability.Capability == "fire")
+        {
+            var line = _castAfterLine;
+            _castAfterLine = null;
+            if (line is { } drag) PreviewWheelFire(drag.Start, drag.End);
+            else if (point is { } fireAt) PreviewWheelFire(fireAt);
+            return;
+        }
+        if (ability.Capability == "grow" && point == null) { _cue.Shrug(GubbleMagic.SlotIcons[slot], "choose a spot to grow"); return; }
+        var result = ability.Capability == "grow" ? host.PlayerNatureCast("grow", point!.Value) : host.PlayerEffect(ability.Capability, point);
         if (!Answer(result, wiggle: false)) return;
         // The look's spark leaves the Gubble now (StartGlow, inside the cast): the gesture starts with it.
         Companion.CastGesture(point, ability.Category);
@@ -476,6 +507,7 @@ public partial class RoomHud
         _fetchJob = null;
         _leadJob = null;
         _castAfter = null;
+        _castAfterLine = null;
         _putAfter = null;
     }
 

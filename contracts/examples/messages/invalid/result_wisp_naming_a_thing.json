@@ -1,0 +1,34 @@
+{
+  "schema": "enfractal.result",
+  "version": 1,
+  "ok": true,
+  "op": "nature.cast",
+  "action_id": "wisp-0001",
+  "principal": "companion:local",
+  "room_id": "garage_example",
+  "revision": 10,
+  "replayed": false,
+  "preview": false,
+  "at_utc": "2026-10-06T00:05:00Z",
+  "transient": true,
+  "affected": [
+    "effect:a298dd179d9dcc56f48ee70f73"
+  ],
+  "created": [
+    "effect:a298dd179d9dcc56f48ee70f73"
+  ],
+  "data": {
+    "center_m": [
+      1.2,
+      0.02,
+      0.4
+    ],
+    "radius_m": 0.25,
+    "duration_s": 300,
+    "cell_count": 0,
+    "requires_approval": false,
+    "started_cells": 0,
+    "kind": "will_o_wisp",
+    "wisp": "obj:pond"
+  }
+}

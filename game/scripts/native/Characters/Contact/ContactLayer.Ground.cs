@@ -1,8 +1,8 @@
 using Godot;
-using EnFractal.Native.Characters.Gaits;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Characters.Gaits;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Characters.Contact;
+namespace GarageGame.Native.Characters.Contact;
 
 /// <summary>The ground: landings, feet on the floor and on slopes, steps, the climb's lean and press, the root.</summary>
 public sealed partial class ContactLayer

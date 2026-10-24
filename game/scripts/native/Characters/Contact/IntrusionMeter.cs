@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using Godot;
 
-namespace EnFractal.Native.Characters.Contact;
+namespace GarageGame.Native.Characters.Contact;
 
 /// <summary>
 /// The intrusion metric (docs/runs/RUN-2-CHARACTERS.md, "Later: wide poses meet the world", item 1): a measurement only. Each

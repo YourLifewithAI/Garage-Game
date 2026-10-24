@@ -4,10 +4,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// The body and the bubble: the ride, the deflate (no harm, no tumble, a slow drift down wherever a bubble pops in the air), the
@@ -237,7 +237,7 @@ public partial class BubbleTest
         var feet = _player.GlobalPosition;
         var bloom = Send(Command(NextId("bloom"), "nature.cast", new JsonObject
         {
-            ["capability"] = "bloom", ["center_m"] = Vec(feet), ["radius_m"] = 0.25, ["duration_s"] = 30, ["target"] = CommandHost.PlayerAvatar,
+            ["capability"] = "grow", ["center_m"] = Vec(feet), ["radius_m"] = 0.25, ["duration_s"] = 30, ["target"] = CommandHost.PlayerAvatar,
         }, preview: true), Companion, contractValid: false);
         var fire = Send(Command(NextId("fire"), "nature.cast", new JsonObject
         {
@@ -258,7 +258,7 @@ public partial class BubbleTest
         var outcome = string.Join(" ", new[] { bloom, fire, boat, bubbles, glow, directed }.Select(r => $"{Code(r)}@{Path(r)}"));
         Check(outcome == "request_invalid@$.args.capability request_invalid@$.args.capability request_invalid@$.args.capability permission_denied@$.args.targets " +
                          "permission_denied@$.args.targets actor_denied@$.args.actor" && _player.Ride == SmallPlayerController.BubbleRide.None && _host.ActiveBubbles.Count == 0,
-            "every other ability still refuses the player's avatar (Bloom, Fire, the boat, the Bubble naming them, Glow) and the companion never directs it: " + outcome);
+            "every other ability still refuses the player's avatar (Grow, Fire, the boat, the Bubble naming them, Glow) and the companion never directs it: " + outcome);
     }
 
     private async Task TheCompanionCannotKeepAPlayerInABubbleThePlayerWantsOutOf()

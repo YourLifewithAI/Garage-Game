@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native.Look;
+using GarageGame.Native.Look;
 using FileAccess = Godot.FileAccess;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// The island's clock (the mechanics round, M6): WorldTime(utcNow, clock) and the x_clock record, tested as data. With no record, or
@@ -277,13 +277,13 @@ public partial class LookPresetTest
     }
 
     /// <summary>The director reads the island's clock instead of the machine's, and a pin or a missing record changes nothing about it.</summary>
-    private async Task CheckWorldClockInTheLook(StylePreset preset, EnFractal.Native.Room.RoomData room)
+    private async Task CheckWorldClockInTheLook(StylePreset preset, GarageGame.Native.Room.RoomData room)
     {
         var saved = LookClock.UtcClock;
-        var savedClock = OS.GetEnvironment("ENFRACTAL_LOOK_CLOCK");
-        var savedDate = OS.GetEnvironment("ENFRACTAL_LOOK_DATE");
-        OS.UnsetEnvironment("ENFRACTAL_LOOK_CLOCK");
-        OS.UnsetEnvironment("ENFRACTAL_LOOK_DATE");
+        var savedClock = OS.GetEnvironment("GARAGE_GAME_LOOK_CLOCK");
+        var savedDate = OS.GetEnvironment("GARAGE_GAME_LOOK_DATE");
+        OS.UnsetEnvironment("GARAGE_GAME_LOOK_CLOCK");
+        OS.UnsetEnvironment("GARAGE_GAME_LOOK_DATE");
         try
         {
             var instant = Utc(2026, 4, 15, 18);
@@ -353,8 +353,8 @@ public partial class LookPresetTest
         finally
         {
             LookClock.UtcClock = saved;
-            if (savedClock.Length > 0) OS.SetEnvironment("ENFRACTAL_LOOK_CLOCK", savedClock);
-            if (savedDate.Length > 0) OS.SetEnvironment("ENFRACTAL_LOOK_DATE", savedDate);
+            if (savedClock.Length > 0) OS.SetEnvironment("GARAGE_GAME_LOOK_CLOCK", savedClock);
+            if (savedDate.Length > 0) OS.SetEnvironment("GARAGE_GAME_LOOK_DATE", savedDate);
         }
         await Frames(1);
     }

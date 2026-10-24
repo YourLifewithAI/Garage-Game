@@ -17,8 +17,8 @@ from support import COMPANION, HostPolicy, command, contract_problems, contracts
 
 from mcp_harness import McpHarness
 
-from enfractal_companion import textsafety
-from enfractal_companion.contract import MARKER_PROBES, _ecma_regex, value_problems
+from garage_game_companion import textsafety
+from garage_game_companion.contract import MARKER_PROBES, _ecma_regex, value_problems
 
 TAGS_ENGLAND = "\U0001f3f4" + "".join(chr(0xE0000 + ord(c)) for c in "gbeng") + "\U000e007f"
 

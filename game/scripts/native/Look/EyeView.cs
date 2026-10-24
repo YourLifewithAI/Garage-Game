@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Threading.Tasks;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>One still picture an eye took: the encoded bytes and what they are.</summary>
 public sealed record EyePicture(byte[] Bytes, string MediaType, int WidthPx, int HeightPx);

@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The GDScript kernel's method and property names (the creation authority, the invention runtime), each a StringName made once

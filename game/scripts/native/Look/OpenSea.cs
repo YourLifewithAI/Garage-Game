@@ -2,10 +2,10 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native.Look.Fauna;
-using EnFractal.Native.Room;
+using GarageGame.Native.Look.Fauna;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// The endless sea (Run 2, the founder's playtest: "the kids want to be able to swim forever"). The room's own meshes stop:

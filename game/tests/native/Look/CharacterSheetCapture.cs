@@ -5,12 +5,12 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Look;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Look;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// The character sheets (Run 2, characters round, L8): one contact sheet per character, nine tiles, rendered on the GPU in the

@@ -1,12 +1,12 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
 using Godot;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// A manual windowed check of the view through the Gubble's eyes (its behaviour is tested headless in the play HUD suite,

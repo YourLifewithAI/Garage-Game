@@ -1,10 +1,10 @@
 using Godot;
 using System;
 using System.Linq;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Saves;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Saves;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// "New team" (docs/game/MECHANICS.md section 3, the Customization panel lifted out of the in-room HUD): the person's name and avatar

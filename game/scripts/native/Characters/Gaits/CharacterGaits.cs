@@ -1,4 +1,4 @@
-namespace EnFractal.Native.Characters.Gaits;
+namespace GarageGame.Native.Characters.Gaits;
 
 /// <summary>The two layers K3 adds to a body's pose stack.</summary>
 public readonly record struct GaitLayers(GaitLayer Gait, LifeLayer Life);

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 
-namespace EnFractal.Native.Saves;
+namespace GarageGame.Native.Saves;
 
 /// <summary>
 /// Where a team's saves live (contracts/README.md "Teams and the save layout"; docs/game/MECHANICS.md section 2), under one user

@@ -3,10 +3,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native.Look.Fauna;
-using EnFractal.Native.Room;
+using GarageGame.Native.Look.Fauna;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Look.Intro;
+namespace GarageGame.Native.Look.Intro;
 
 /// <summary>
 /// The room-to-island intro (the founder, 8 October; the walls become the coast, the ninth session): on every load, about 15 s of the

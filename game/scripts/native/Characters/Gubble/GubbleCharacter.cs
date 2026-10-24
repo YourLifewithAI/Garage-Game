@@ -1,7 +1,7 @@
 using Godot;
-using EnFractal.Native.Look;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// The companion's drawn body: the family's Gubble for every player (decided, docs/runs/RUN-2-CHARACTERS.md, "The Gubble"; the

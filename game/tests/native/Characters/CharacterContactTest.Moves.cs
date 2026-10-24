@@ -3,10 +3,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Characters.Contact;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Characters.Contact;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>Water, climbing, carrying, wind and the look targets.</summary>
 public partial class CharacterContactTest

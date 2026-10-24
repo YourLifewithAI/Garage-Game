@@ -5,10 +5,10 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Look;
-using EnFractal.Native.Room;
+using GarageGame.Native.Look;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The island's abilities (Run 2, Glow; docs/runs/RUN-2-GLOW.md section 2). The island's rules pack (IslandRules) says
@@ -149,7 +149,7 @@ public partial class CommandHost
         if (Rules == null)
             throw new Refusal("unsupported_capability", "This island's rules did not load, so it grants no abilities.", "$.args.capability");
         var capability = Str(args, "capability")!;
-        if (capability is "bloom" or "fire")
+        if (capability is "grow" or "fire")
             throw new Refusal("unsupported_capability", "Use nature.cast for this ability; preview Fire first.", "$.args.capability");
         var ability = Rules.Ability(capability)
             ?? throw new Refusal("unsupported_capability", "This island has no ability by that name. Call capabilities.list.", "$.args.capability");
@@ -480,14 +480,20 @@ public partial class CommandHost
             throw new Refusal("invalid_args", "That cursor is not from this list.", "$.args.cursor");
         var limit = args.TryGetProperty("limit", out var l) ? l.GetInt32() : CapabilitiesDefaultLimit;
         var page = all.Skip(start).Take(limit).ToList();
-        var items = page.Select(a => (JsonNode?)new JsonObject
+        var items = page.Select(a =>
         {
-            ["capability"] = a.Capability, ["category"] = a.Category,
-            ["params"] = new JsonObject(a.Params.Select(p => KeyValuePair.Create(p.Key, (JsonNode?)new JsonObject { ["min"] = p.Value.Min, ["max"] = p.Value.Max }))),
-            ["area_radius_max_m"] = a.AreaRadiusMaxM, ["duration_max_s"] = a.DurationMaxS,
-            ["command_op"] = a.Primitive is "growth.seed" or "element.ignite" ? "nature.cast" : "effect.start",
-            ["max_active"] = a.Primitive == "particles.float" ? Math.Min(EffectiveEffectLimit(a.Capability), BubbleLaws.MaxBubbles) : EffectiveEffectLimit(a.Capability),
-            ["reach_m"] = a.ReachM,
+            var item = new JsonObject
+            {
+                ["capability"] = a.Capability, ["category"] = a.Category,
+                ["params"] = new JsonObject(a.Params.Select(p => KeyValuePair.Create(p.Key, (JsonNode?)new JsonObject { ["min"] = p.Value.Min, ["max"] = p.Value.Max }))),
+                ["area_radius_max_m"] = a.AreaRadiusMaxM, ["duration_max_s"] = a.DurationMaxS,
+                ["command_op"] = a.Primitive is "growth.seed" or "growth.grow" or "element.ignite" ? "nature.cast" : "effect.start",
+                ["max_active"] = a.Primitive == "particles.float" ? Math.Min(EffectiveEffectLimit(a.Capability), BubbleLaws.MaxBubbles) : EffectiveEffectLimit(a.Capability),
+                ["reach_m"] = a.ReachM,
+            };
+            // Decision 72: Fire is listed, locked, until the first rest by the starting campfire teaches it (CommandHostCamps.RequireFireLearned).
+            if (a.Primitive == "element.ignite" && !FireLearned) item["locked"] = true;
+            return (JsonNode?)item;
         }).ToArray();
         var data = new JsonObject { ["items"] = new JsonArray(items) };
         if (start + page.Count < all.Count) data["next_cursor"] = (start + page.Count).ToString(CultureInfo.InvariantCulture);

@@ -1,9 +1,9 @@
 using Godot;
 using Godot.Collections;
-using EnFractal.Native.Look;
-using EnFractal.Native.Room;
+using GarageGame.Native.Look;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>Runs unchanged in editor and exported release; never opens a user save.</summary>
 public partial class NativeContractProbe : Node

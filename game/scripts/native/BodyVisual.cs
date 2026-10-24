@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// What a body did in one physics tick, for whatever draws it (the characters round, docs/runs/RUN-2-CHARACTERS.md). The capsule

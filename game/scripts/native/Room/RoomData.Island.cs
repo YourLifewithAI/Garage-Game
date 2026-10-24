@@ -8,7 +8,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace EnFractal.Native.Room;
+namespace GarageGame.Native.Room;
 
 /// <summary>
 /// The 10x world's two manifest blocks (contract round S2; packet S6): plant_copies and terrain_tiles, read and checked at load,

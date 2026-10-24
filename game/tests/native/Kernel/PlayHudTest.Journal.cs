@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Ui;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Ui;
 using Godot;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The journal book (Codex's leather journal of 12 October, ported as the game's one journal), headless in the real room: it

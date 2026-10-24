@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.Json.Nodes;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The host's sight sweep, spread over physics ticks (S12). On the 10x island one sweep casts some 1,300 rays at about 20 µs each,

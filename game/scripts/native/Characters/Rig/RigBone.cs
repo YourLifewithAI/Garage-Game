@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// One bone of a character's rig. Bone 0 is the character's root (<c>character_root</c>, at root_pivot_m on the

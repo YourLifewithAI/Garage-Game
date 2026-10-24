@@ -18,8 +18,8 @@ from mcp_harness import McpHarness
 from support import (COMPANION, PLAYER, FakeClock, HostPolicy, ThreadedGame, contract_problems, contracts, new_host,
                      query)
 
-from enfractal_companion import eyes
-from enfractal_companion.server import LOOK_PREAMBLE, RESULT_PREAMBLE
+from garage_game_companion import eyes
+from garage_game_companion.server import LOOK_PREAMBLE, RESULT_PREAMBLE
 
 LOOK = {"actor": "avatar:companion"}
 

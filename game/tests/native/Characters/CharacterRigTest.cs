@@ -6,9 +6,9 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using EnFractal.Native.Characters;
+using GarageGame.Native.Characters;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>
 /// K1's suite (docs/runs/RUN-2-CHARACTERS.md, acceptance item 1, the rig's part): the library loads the five shipped

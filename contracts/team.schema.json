@@ -371,7 +371,7 @@
       }
     },
     "expertise_store": {
-      "description": "The expertise store (expertise.json): one per team, across modes (expertise travels; it cannot be farmed, each a one-time condition the host verifies). Version 3 of the kernel's enfractal.glow_progress, whose version 2 kept one record per mode (user://single_player/progression/glow_trial_v1.json and its .challenge and .live siblings, merged as their union). Keyed by ability, so Bloom's, Bubbles' and Fire's lists join Glow's without a new version. Only the host writes it.",
+      "description": "The expertise store (expertise.json): one per team, across modes (expertise travels; it cannot be farmed, each a one-time condition the host verifies). Version 3 of the kernel's enfractal.glow_progress, whose version 2 kept one record per mode (user://single_player/progression/glow_trial_v1.json and its .challenge and .live siblings, merged as their union). Keyed by ability, so Bubbles', Fire's and Grow's lists join Glow's without a new version (a store holding Bloom's record, from before decision 52, is read as Grow's and written as grow). Only the host writes it.",
       "type": "object",
       "additionalProperties": false,
       "required": [

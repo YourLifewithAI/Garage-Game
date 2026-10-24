@@ -5,7 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace EnFractal.Native.Room;
+namespace GarageGame.Native.Room;
 
 /// <summary>
 /// One tiled shell part of the room manifest's terrain_tiles: its GLB holds one node per 16 m tile and level of detail, named

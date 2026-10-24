@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Native.Characters.Contact;
+namespace GarageGame.Native.Characters.Contact;
 
 /// <summary>
 /// The look targets (K4's part of layer 3, Life): turns the rig's look-ats on and moves their target. A walking body looks

@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using Godot;
-using EnFractal.Native.Look;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// A drawn character as a body's visual (IBodyVisual, the characters round's Wave 0 hook): the rig (K1, CharacterBody) under

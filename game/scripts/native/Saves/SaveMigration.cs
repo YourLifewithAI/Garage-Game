@@ -7,9 +7,9 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Saves;
+namespace GarageGame.Native.Saves;
 
 /// <summary>What a migration run did, for the boot's line and the tests: every path relative to the user folder.</summary>
 public sealed record MigrationReport

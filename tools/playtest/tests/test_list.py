@@ -158,12 +158,26 @@ class CommandLine(unittest.TestCase):
         with mock.patch.dict(os.environ, env):
             where = report.default_plays_folder()
             if os.name == "nt":
-                self.assertEqual(where, base / "Godot" / "app_userdata" / "EnFractal" / "playtests")
+                self.assertEqual(where, base / "Godot" / "app_userdata" / "Garage-Game" / "playtests")
             elif sys.platform != "darwin":
-                self.assertEqual(where, base / "godot" / "app_userdata" / "EnFractal" / "playtests")
+                self.assertEqual(where, base / "godot" / "app_userdata" / "Garage-Game" / "playtests")
             code, out, err = self.run_main("--list")
         self.assertEqual(code, 2)  # nothing recorded there yet
         self.assertIn("no folder of plays", err)
+
+    def test_list_reads_the_old_folder_until_the_renamed_game_has_run(self):
+        base = self.root / "appdata-before-the-rename"
+        env = {"APPDATA": str(base), "XDG_DATA_HOME": str(base)}
+        godot = "Godot" if os.name == "nt" else "godot"
+        if sys.platform == "darwin":
+            self.skipTest("the user folder is under the home folder on macOS")
+        old = base / godot / "app_userdata" / "EnFractal" / "playtests"
+        old.mkdir(parents=True)
+        with mock.patch.dict(os.environ, env):
+            self.assertEqual(report.default_plays_folder(), old)
+            new = base / godot / "app_userdata" / "Garage-Game" / "playtests"
+            new.mkdir(parents=True)
+            self.assertEqual(report.default_plays_folder(), new)
 
     def test_usage_errors_are_messages(self):
         code, _out, err = self.run_main()

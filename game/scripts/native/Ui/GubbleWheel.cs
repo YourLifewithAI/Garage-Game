@@ -1,10 +1,11 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
-/// The Gubble wheel (the magic design's "The wheel"; research 4, marking menus): hold the ask button and, after HoldOpenS, eight
+/// The Gubble wheel (the magic design's "The wheel"; research 4, marking menus): hold the ask button and, after HoldOpenS, nine
 /// fixed wedges open around the pointer and the game pauses. Moving the mouse picks a wedge; letting go chooses it. A flick and
 /// release chooses one before the wheel is drawn (an expert never waits for it), and letting go in the centre cancels. A release
 /// before HoldOpenS with no flick is a tap: the smart ask. The wheel only says what was chosen; RoomHud carries it out.
@@ -29,6 +30,10 @@ public partial class GubbleWheel : Control
     public const float LackingAlpha = 0.45f;
     /// <summary>The words under a lacking slot's name.</summary>
     public const string LackingWords = "not yet";
+    /// <summary>A locked wedge (Fire until the first rest) is drawn at this opacity, its lock mark beside its icon.</summary>
+    public const float LockedAlpha = 0.6f;
+    public const float LockOffsetPx = 20f;
+    public static readonly Color LockColour = new("f2d39b");
 
     public enum Outcome { None, Tap, Wedge, Cancel }
 
@@ -55,6 +60,10 @@ public partial class GubbleWheel : Control
     private Label _centreLabel = null!;
     private Label _title = null!;
     private Color _rim = new("eec471");
+    private readonly List<int> _locked = new();
+
+    /// <summary>The wedges drawn locked now (their lock mark and reason), by index (tests).</summary>
+    public IReadOnlyList<int> LockedWedges => _locked;
 
     /// <summary>The title over the wheel: whose magic it is.</summary>
     public Label Title => _title;
@@ -111,18 +120,23 @@ public partial class GubbleWheel : Control
     /// The wedges' words: an ability slot shows its icon and the island's display_name, or a dim "?" when the island has none in
     /// that category; an order shows its icon, name and key where it has one.
     /// </summary>
-    public void SetWedges(System.Func<int, string?> abilityName, System.Func<GubbleMagic.Wedge, string> orderWords)
+    public void SetWedges(System.Func<int, string?> abilityName, System.Func<GubbleMagic.Wedge, string> orderWords, System.Func<int, string?>? lockedWords = null)
     {
+        _locked.Clear();
         for (var i = 0; i < _wedgeLabels.Count; i++)
         {
             var wedge = GubbleMagic.Wedges[i];
             var label = _wedgeLabels[i];
             var name = wedge.Kind == GubbleMagic.WedgeKind.Ability ? abilityName(wedge.Slot) : orderWords(wedge);
             var known = name != null;
-            var text = known ? (wedge.Kind == GubbleMagic.WedgeKind.Ability ? $"{wedge.Icon}\n{wedge.Slot + 1} {name}" : name!)
+            // A slot the island has but the team has not learned (Fire before the first rest): its name, the lock mark and the reason.
+            var locked = known && wedge.Kind == GubbleMagic.WedgeKind.Ability ? lockedWords?.Invoke(wedge.Slot) : null;
+            var text = locked != null ? $"{wedge.Icon}\n{wedge.Slot + 1} {name}\n{WrapWords(locked)}"
+                : known ? (wedge.Kind == GubbleMagic.WedgeKind.Ability ? $"{wedge.Icon}\n{wedge.Slot + 1} {name}" : name!)
                 : $"{wedge.Icon}\n{wedge.Slot + 1} {wedge.Name}\n{LackingWords}";
             if (label.Text != text) label.Text = text;
-            label.Modulate = new Color(1, 1, 1, known ? 1f : LackingAlpha);
+            label.Modulate = new Color(1, 1, 1, locked != null ? LockedAlpha : known ? 1f : LackingAlpha);
+            if (locked != null) _locked.Add(i);
         }
     }
 
@@ -143,6 +157,17 @@ public partial class GubbleWheel : Control
             label.AddThemeColorOverride("font_color", shown.Needs ? new Color("f2b46b") : new Color("fff3d6"));
             label.Modulate = new Color(1, 1, 1, shown.Faint && shown.Needs ? 0.5f : 1f);
         }
+    }
+
+    /// <summary>A wedge's longer words in two lines, broken at the space nearest their middle (the first window capture: one line ran across the wheel).</summary>
+    public static string WrapWords(string text, int longest = 20)
+    {
+        if (text.Length <= longest) return text;
+        var middle = text.Length / 2;
+        var best = -1;
+        for (var i = 0; i < text.Length; i++)
+            if (text[i] == ' ' && (best < 0 || Math.Abs(i - middle) < Math.Abs(best - middle))) best = i;
+        return best < 0 ? text : text[..best] + "\n" + text[(best + 1)..];
     }
 
     /// <summary>The ask button went down at this screen point: the hold starts.</summary>
@@ -217,8 +242,7 @@ public partial class GubbleWheel : Control
         _centre = new Vector2(Mathf.Clamp(_centre.X, margin, Mathf.Max(margin, screen.X - margin)), Mathf.Clamp(_centre.Y, margin, Mathf.Max(margin, screen.Y - margin)));
         for (var i = 0; i < _wedgeLabels.Count; i++)
         {
-            var angle = i * Mathf.Pi / 4;
-            var at = _centre + new Vector2(Mathf.Sin(angle), -Mathf.Cos(angle)) * RadiusPx;
+            var at = _centre + GubbleMagic.WedgeDirection(i) * RadiusPx;
             var size = _wedgeLabels[i].GetCombinedMinimumSize();
             _wedgeLabels[i].Position = at - size / 2;
             // The price hangs just under its wedge's words.
@@ -237,10 +261,13 @@ public partial class GubbleWheel : Control
         // The rim in the Gubble's aura: the wheel is its.
         DrawArc(_centre, RadiusPx + DiscMarginPx - RimPx * 0.5f, 0, Mathf.Tau, 96, _rim, RimPx, true);
         DrawCircle(_centre, CentrePx, new Color(0.16f, 0.24f, 0.23f, 0.95f));
-        if (Hovered is { } hovered)
+        if (Hovered is { } hovered) DrawCircle(_centre + GubbleMagic.WedgeDirection(hovered) * RadiusPx, 40f, new Color(0.95f, 0.84f, 0.54f, 0.35f));
+        // A locked wedge carries a small padlock drawn beside its icon (decision 77: Fire until the first rest), whatever the font has.
+        foreach (var locked in _locked)
         {
-            var angle = hovered * Mathf.Pi / 4;
-            DrawCircle(_centre + new Vector2(Mathf.Sin(angle), -Mathf.Cos(angle)) * RadiusPx, 40f, new Color(0.95f, 0.84f, 0.54f, 0.35f));
+            var at = _centre + GubbleMagic.WedgeDirection(locked) * RadiusPx + new Vector2(LockOffsetPx, -LockOffsetPx);
+            DrawArc(at + new Vector2(0, -3f), 4f, Mathf.Pi, Mathf.Tau, 12, LockColour, 2f, true);
+            DrawRect(new Rect2(at + new Vector2(-6f, -3f), new Vector2(12f, 9f)), LockColour);
         }
         DrawLine(_centre, _centre + Offset, new Color(0.95f, 0.84f, 0.54f, 0.8f), 2f);
     }

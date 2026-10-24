@@ -14,7 +14,7 @@ from support import (
     COMPANION, GARAGE_TO_TEST_ROOM, PLAYER, REPO, HostPolicy, command, contracts, example, glow, new_host, query, retarget,
 )
 
-from enfractal_companion.textsafety import hidden_characters
+from garage_game_companion.textsafety import hidden_characters
 
 FAST = dict(companion_messages_per_s=1_000_000)
 SAMPLE = example("command_creation_place_trigger_light")["args"]["source"]
@@ -242,7 +242,7 @@ class Numbers(FixCase):
                 result = self.host.handle_bytes(COMPANION, raw.encode("utf-8"))
                 self.assertRefused(result, "request_invalid")
                 self.host.emitted.append(result)
-        from enfractal_companion import canonical
+        from garage_game_companion import canonical
         for raw in ('{"a": ' + "9" * 5000 + "}", "[" * 100_000 + "]" * 100_000):
             with self.subTest(canonical=raw[:20]), self.assertRaises(canonical.CanonicalJsonError):
                 canonical.loads_strict(raw)
@@ -319,7 +319,7 @@ class Text(FixCase):
                            "action_id_invalid", "$.action_id")
 
     def test_ecma_dollar_means_end_of_input_wherever_it_appears(self):
-        from enfractal_companion.contract import ecma_to_python
+        from garage_game_companion.contract import ecma_to_python
         self.assertEqual(ecma_to_python("^a$"), r"^a\Z")
         self.assertEqual(ecma_to_python("^(a|b$)|^c$"), r"^(a|b\Z)|^c\Z")
         self.assertEqual(ecma_to_python("(?!.*(?:^|/)x(?:/|$))y$"), r"(?!.*(?:^|/)x(?:/|\Z))y\Z")

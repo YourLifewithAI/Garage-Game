@@ -3,7 +3,7 @@
 **Status:** frozen for Wave 2 of the characters round ([RUN-2-CHARACTERS.md](../runs/RUN-2-CHARACTERS.md)). K1 owns
 `game/scripts/native/Characters/{PartRole.cs,Library/**,Rig/**}`, `game/characters/**`, `tools/characters/**`,
 `assets/characters/*/rig.json`, `game/tests/native/Characters/**` and this page. Everything is in the namespace
-`EnFractal.Native.Characters`. A change to anything named here goes through the integrator.
+`GarageGame.Native.Characters`. A change to anything named here goes through the integrator.
 
 Nothing in this code knows a character's name. Every behaviour comes from the part names, the converter's hints and
 the geometry, so any folder the converter writes moves, and `rig.json` tunes it by hand.

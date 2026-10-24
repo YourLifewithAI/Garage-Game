@@ -1,12 +1,12 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Ui;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Ui;
 using Godot;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// A manual capture script for the journal book's look (Codex's GPU fixture of 12 October, kept for the founder's eye). It is in

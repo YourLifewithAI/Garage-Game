@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace EnFractal.Native.Look.Fauna;
+namespace GarageGame.Native.Look.Fauna;
 
 /// <summary>
 /// One small fish, one unit long, nose toward -Z (Godot's forward), built once and drawn for every fish by a MultiMesh: a

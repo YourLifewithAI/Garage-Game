@@ -26,7 +26,7 @@ from pathlib import Path
 from mcp import Client, StdioServerParameters
 from support import contract_problems, contracts
 
-from enfractal_companion import profile
+from garage_game_companion import profile
 
 VENDOR_WORDS = re.compile(r"anthropic|claude|openai|chatgpt|\bgpt|gemini|google|mistral|llama|copilot|bedrock|vertex",
                           re.IGNORECASE)
@@ -151,23 +151,23 @@ class Profile(unittest.TestCase):
             with self.subTest(argv=argv):
                 document = printed(*argv)
                 self.assertEqual(list(document), ["mcpServers"])
-                self.assertEqual(list(document["mcpServers"]), ["enfractal-companion"])
-                server = document["mcpServers"]["enfractal-companion"]
+                self.assertEqual(list(document["mcpServers"]), ["garage-game-companion"])
+                server = document["mcpServers"]["garage-game-companion"]
                 # No environment but SYSTEMROOT on Windows: the server needs no keys, and clears the rest anyway.
                 self.assertEqual(set(server), {"type", "command", "args"} | ({"env"} if ON_WINDOWS else set()))
                 self.assertEqual(server["type"], "stdio")
                 self.assertTrue(Path(server["command"]).is_absolute())
-                self.assertEqual(server["args"], ["-m", "enfractal_companion", *extra])
+                self.assertEqual(server["args"], ["-m", "garage_game_companion", *extra])
                 if ON_WINDOWS:
                     self.assertEqual(server["env"], {"SYSTEMROOT": os.environ["SYSTEMROOT"]})
 
     def test_the_command_is_the_companions_own_interpreter_not_what_it_links_to(self):
-        self.assertEqual(profile.play_only_profile()["mcpServers"]["enfractal-companion"]["command"],
+        self.assertEqual(profile.play_only_profile()["mcpServers"]["garage-game-companion"]["command"],
                          str(Path(sys.executable).absolute()))
 
     def test_offers_nothing_but_the_game_and_names_no_vendor(self):
         document = printed("--mock")
-        server = document["mcpServers"]["enfractal-companion"]
+        server = document["mcpServers"]["garage-game-companion"]
         self.assertEqual(list(server.get("env", {})), ["SYSTEMROOT"] if ON_WINDOWS else [])
         server.pop("env", None)
         text = json.dumps(document)
@@ -188,7 +188,7 @@ class SystemRoot(unittest.TestCase):
         here = profile.server_launch(windows=True)
         self.assertEqual(here.env, {"SYSTEMROOT": os.environ.get("SYSTEMROOT") or profile.DEFAULT_SYSTEMROOT})
         self.assertEqual(profile.server_launch(windows=False).env, {})
-        posix = profile.play_only_profile(windows=False)["mcpServers"]["enfractal-companion"]
+        posix = profile.play_only_profile(windows=False)["mcpServers"]["garage-game-companion"]
         self.assertNotIn("env", posix)
 
     def run_server(self, env: dict) -> tuple[int | None, list[dict], str]:
@@ -250,7 +250,7 @@ class SystemRoot(unittest.TestCase):
 
     @unittest.skipUnless(ON_WINDOWS, "SYSTEMROOT is a Windows variable")
     def test_the_server_serves_with_only_the_environment_the_profile_gives_it(self):
-        server = printed("--mock")["mcpServers"]["enfractal-companion"]
+        server = printed("--mock")["mcpServers"]["garage-game-companion"]
         code, replies, err = self.run_server(dict(server["env"]))
         tools = next(r for r in replies if r.get("id") == 2)["result"]["tools"]
         self.assertEqual(len(tools), len(contracts().tool_specs()), err)
@@ -314,19 +314,19 @@ class ClientFormats(unittest.TestCase):
 
     def test_the_documented_shapes_hold(self):
         codex = profile.render_text("mcp_servers-toml", self.launch, profile.client("codex"))
-        self.assertTrue(codex.startswith("[mcp_servers.enfractal-companion]\n"))
+        self.assertTrue(codex.startswith("[mcp_servers.garage-game-companion]\n"))
         self.assertIn("env = { SYSTEMROOT = 'C:\\Windows' }", codex)
         self.assertIn("required = true", codex)
         plain = profile.server_launch(python="C:\\Games\\EnFractal Dev\\python.exe", windows=True, systemroot="C:\\Windows")
         self.assertIn("command = 'C:\\Games\\EnFractal Dev\\python.exe'", profile.render_text("mcp_servers-toml", plain))
         hermes = parse_yaml_subset(profile.render_text("mcp_servers-yaml", self.launch, profile.client("hermes")))
-        self.assertEqual(hermes["mcp_servers"]["enfractal-companion"]["tools"], {"resources": False, "prompts": False})
+        self.assertEqual(hermes["mcp_servers"]["garage-game-companion"]["tools"], {"resources": False, "prompts": False})
         cont = parse_yaml_subset(profile.render_text("mcpServers-yaml-list", self.launch, profile.client("continue")))
         self.assertEqual((cont["schema"], cont["mcpServers"][0]["type"]), ("v1", "stdio"))
         vscode = json.loads(profile.render_text("servers-json", self.launch, profile.client("vscode")))
         self.assertEqual(list(vscode), ["servers"])
         openclaw = json.loads(profile.render_text("mcp.servers-json", self.launch, profile.client("openclaw")))
-        self.assertNotIn("type", openclaw["mcp"]["servers"]["enfractal-companion"])
+        self.assertNotIn("type", openclaw["mcp"]["servers"]["garage-game-companion"])
 
     def test_write_puts_every_file_in_the_folder_and_nowhere_else(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -340,8 +340,8 @@ class ClientFormats(unittest.TestCase):
             for entry in profile.clients():
                 self.assertIn(entry["file"], readme)
                 self.assertIn(entry["play_only"], readme)
-            agent = (folder / "vscode/.github/agents/enfractal.agent.md").read_text(encoding="utf-8")
-            self.assertIn("tools: ['enfractal-companion/*']", agent)
+            agent = (folder / "vscode/.github/agents/garage-game.agent.md").read_text(encoding="utf-8")
+            self.assertIn("tools: ['garage-game-companion/*']", agent)
             self.assertEqual(profile.write_profiles(folder, self.launch), written)  # the same files again: fine
             other = profile.server_launch(python="C:\\Other\\python.exe", windows=True, systemroot="C:\\Windows")
             with self.assertRaises(FileExistsError):
@@ -353,7 +353,7 @@ class ClientFormats(unittest.TestCase):
         out = io.StringIO()
         with redirect_stdout(out):
             self.assertEqual(profile.main(["--mock", "--client", "codex"]), 0)
-        self.assertTrue(out.getvalue().startswith("[mcp_servers.enfractal-companion]"))
+        self.assertTrue(out.getvalue().startswith("[mcp_servers.garage-game-companion]"))
         self.assertIn("'--mock'", out.getvalue())
         with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             profile.main(["--client", "nobody"])
@@ -367,7 +367,7 @@ class ClientFormats(unittest.TestCase):
 
 class LaunchedFromTheProfile(unittest.IsolatedAsyncioTestCase):
     async def test_a_client_launched_from_the_profile_sees_the_game_and_nothing_else(self):
-        server = printed("--mock")["mcpServers"]["enfractal-companion"]
+        server = printed("--mock")["mcpServers"]["garage-game-companion"]
         parameters = StdioServerParameters(command=server["command"], args=server["args"], env=server.get("env"))
         async with Client(parameters, mode="legacy") as client:
             capabilities = client.server_capabilities

@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The player's own setting "Let my AI see through the Gubble's eyes" (view.look; docs/companion/PERCEPTION.md). It lives in

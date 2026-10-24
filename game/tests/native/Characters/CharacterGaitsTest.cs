@@ -4,11 +4,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Characters.Gaits;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Characters.Gaits;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>
 /// K3's suite (docs/runs/RUN-2-CHARACTERS.md, acceptance item 1, the gaits' part): every character's gait and life layers

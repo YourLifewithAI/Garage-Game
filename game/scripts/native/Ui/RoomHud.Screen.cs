@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The screen the game is played on (docs/game/MECHANICS.md decision 66, 16 October: "I tend to want to play at full screen"). The

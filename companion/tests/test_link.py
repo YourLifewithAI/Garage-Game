@@ -12,8 +12,8 @@ from pathlib import Path
 
 from support import COMPANION, command, contract_problems, example, new_host, query
 
-from enfractal_companion import canonical, link
-from enfractal_companion.link import (
+from garage_game_companion import canonical, link
+from garage_game_companion.link import (
     LinkClient, LinkError, LinkServer, SessionInfo, encode_frame, parse_session, read_frame, write_session_file,
 )
 

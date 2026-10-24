@@ -4,11 +4,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// The Bubble as the founder redesigned it (decisions 55 to 60; M9 and its follow-up of docs/runs/RUN-2-MECHANICS.md; Kernel/Bubble,
@@ -492,9 +492,9 @@ public partial class BubbleTest : Node3D
             ["a carry beyond the Gubble's reach"] = Pair(Carry(Companion, BubbleArgs("bubble_carry", new Vector3(-1.6f, 0, -1.2f)))),
             ["a carry outside the island"] = Pair(Carry(Companion, BubbleArgs("bubble_carry", new Vector3(0.6f, 0, 1.6f)))),
             ["a boat on the player"] = Pair(Carry(Companion, BubbleArgs("bubble_boat", feet, CommandHost.PlayerAvatar, radius: 0.12), valid: false)),
-            ["Bloom on the player"] = Pair(Send(Command(NextId("bloom"), "nature.cast", new JsonObject
+            ["Grow on the player"] = Pair(Send(Command(NextId("bloom"), "nature.cast", new JsonObject
             {
-                ["capability"] = "bloom", ["center_m"] = Vec(feet), ["radius_m"] = 0.25, ["duration_s"] = 30, ["target"] = CommandHost.PlayerAvatar,
+                ["capability"] = "grow", ["center_m"] = Vec(feet), ["radius_m"] = 0.25, ["duration_s"] = 30, ["target"] = CommandHost.PlayerAvatar,
             }, preview: true), Companion, contractValid: false)),
             ["the Bubble beyond the Gubble's reach"] = Pair(CastTheBubble(Companion, new Vector3(-1.6f, 0, -1.2f), preview: true)),
             ["the Bubble past the island's duration"] = Pair(CastTheBubble(Companion, feet + new Vector3(0.3f, 0, 0), duration: 90, preview: true)),
@@ -515,7 +515,7 @@ public partial class BubbleTest : Node3D
             ["a carry beyond the Gubble's reach"] = ("out_of_bounds", "$.args.center_m"),
             ["a carry outside the island"] = ("out_of_bounds", "$.args.center_m"),
             ["a boat on the player"] = ("request_invalid", "$.args.capability"),
-            ["Bloom on the player"] = ("request_invalid", "$.args.capability"),
+            ["Grow on the player"] = ("request_invalid", "$.args.capability"),
             ["the Bubble beyond the Gubble's reach"] = ("out_of_bounds", "$.args.area.center_m"),
             ["the Bubble past the island's duration"] = ("invalid_args", "$.args.duration_s"),
         };

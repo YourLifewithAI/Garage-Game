@@ -1,17 +1,17 @@
 # Shared discovery/process helpers. Dot-source this file; it does not install tools.
 # Native tools and their caches stay inside the checkout unless explicitly supplied.
 
-function Get-EnfractalNativeToolchain {
+function Get-GarageGameNativeToolchain {
     [CmdletBinding()]
     param([string]$EnginePath, [string]$DotnetPath)
 
     $repositoryPath = Split-Path -Parent $PSScriptRoot
     $projectPath = Join-Path $repositoryPath 'game'
     $requiredSdk = (Get-Content -LiteralPath (Join-Path $projectPath 'global.json') -Raw | ConvertFrom-Json).sdk.version
-    $requiredEngine = ([xml](Get-Content -LiteralPath (Join-Path $projectPath 'EnFractal.csproj') -Raw)).Project.Sdk.Split('/')[1]
+    $requiredEngine = ([xml](Get-Content -LiteralPath (Join-Path $projectPath 'GarageGame.csproj') -Raw)).Project.Sdk.Split('/')[1]
 
-    if (-not $EnginePath) { $EnginePath = $env:ENFRACTAL_GODOT_DOTNET }
-    if (-not $EnginePath) { $EnginePath = $env:ENFRACTAL_GODOT }
+    if (-not $EnginePath) { $EnginePath = $env:GARAGE_GAME_GODOT_DOTNET }
+    if (-not $EnginePath) { $EnginePath = $env:GARAGE_GAME_GODOT }
     if (-not $EnginePath) {
         foreach ($cacheName in @('godot', 'godot-dotnet')) {
             $cachePath = Join-Path $repositoryPath ".cache/$cacheName"
@@ -28,7 +28,7 @@ function Get-EnfractalNativeToolchain {
         if ($candidate) { $EnginePath = $candidate.Source }
     }
     if (-not $EnginePath -or -not (Test-Path -LiteralPath $EnginePath -PathType Leaf)) {
-        throw "Godot .NET $requiredEngine is missing. Extract its full mono archive under .cache/godot or set ENFRACTAL_GODOT_DOTNET. See docs/NATIVE-BUILD.md."
+        throw "Godot .NET $requiredEngine is missing. Extract its full mono archive under .cache/godot or set GARAGE_GAME_GODOT_DOTNET. See docs/NATIVE-BUILD.md."
     }
     $EnginePath = (Resolve-Path -LiteralPath $EnginePath).Path
     $engineVersion = (& $EnginePath --version | Out-String).Trim()
@@ -39,7 +39,7 @@ function Get-EnfractalNativeToolchain {
         throw 'GodotSharp is missing beside the .NET executable. Extract the complete archive, not only the executable.'
     }
 
-    if (-not $DotnetPath) { $DotnetPath = $env:ENFRACTAL_DOTNET }
+    if (-not $DotnetPath) { $DotnetPath = $env:GARAGE_GAME_DOTNET }
     if (-not $DotnetPath) {
         $portableDotnet = Join-Path $repositoryPath '.cache/dotnet/dotnet.exe'
         if (Test-Path -LiteralPath $portableDotnet -PathType Leaf) { $DotnetPath = $portableDotnet }
@@ -49,7 +49,7 @@ function Get-EnfractalNativeToolchain {
         if ($candidate) { $DotnetPath = $candidate.Source }
     }
     if (-not $DotnetPath -or -not (Test-Path -LiteralPath $DotnetPath -PathType Leaf)) {
-        throw ".NET SDK $requiredSdk is missing. Extract it under .cache/dotnet or set ENFRACTAL_DOTNET. A runtime-only installation is insufficient."
+        throw ".NET SDK $requiredSdk is missing. Extract it under .cache/dotnet or set GARAGE_GAME_DOTNET. A runtime-only installation is insufficient."
     }
     $DotnetPath = (Resolve-Path -LiteralPath $DotnetPath).Path
     $installedSdks = (& $DotnetPath --list-sdks | Out-String)
@@ -66,7 +66,7 @@ function Get-EnfractalNativeToolchain {
     }
 }
 
-function Invoke-EnfractalNativeProcess {
+function Invoke-GarageGameNativeProcess {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]$Toolchain,
@@ -96,7 +96,7 @@ function Invoke-EnfractalNativeProcess {
         # Release probes must find their own bundled runtime, not developer tools.
         # This removes inherited host configuration as well as our normal SDK setup.
         foreach ($key in @($start.Environment.Keys)) {
-            if ($key -match '^(DOTNET_|COREHOST_|COMPlus_|MSBUILD)' -or $key -in @('NUGET_PACKAGES', 'ENFRACTAL_DOTNET')) {
+            if ($key -match '^(DOTNET_|COREHOST_|COMPlus_|MSBUILD)' -or $key -in @('NUGET_PACKAGES', 'GARAGE_GAME_DOTNET')) {
                 [void]$start.Environment.Remove($key)
             }
         }
@@ -140,16 +140,16 @@ function Invoke-EnfractalNativeProcess {
     }
 }
 
-function Build-EnfractalNativeProject {
+function Build-GarageGameNativeProject {
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)]$Toolchain)
-    $result = Invoke-EnfractalNativeProcess -Toolchain $Toolchain -FilePath $Toolchain.DotnetPath `
-        -Arguments @('build', 'EnFractal.csproj', '--configuration', 'Debug', '--nologo') -TimeoutSeconds 180
+    $result = Invoke-GarageGameNativeProcess -Toolchain $Toolchain -FilePath $Toolchain.DotnetPath `
+        -Arguments @('build', 'GarageGame.csproj', '--configuration', 'Debug', '--nologo') -TimeoutSeconds 180
     if (-not [string]::IsNullOrWhiteSpace($result.Stderr)) { Write-Warning $result.Stderr.Trim() }
     Write-Output $result.Stdout.Trim()
 }
 
-function Invoke-EnfractalRoomBoot {
+function Invoke-GarageGameRoomBoot {
     <#
     .SYNOPSIS
     Boots a room through the game's main scene (scenes/native_boot.tscn reads --room) and quits by RoomWorld's
@@ -182,7 +182,7 @@ function Invoke-EnfractalRoomBoot {
     $arguments += @('--fixed-fps', '60', '--', "--room=$($Room.Replace('\', '/'))", "--quit-after-ready=$Frames")
     if (-not $RoomId) { $RoomId = Split-Path -Leaf $Room.TrimEnd('\', '/') }
     $clock = [System.Diagnostics.Stopwatch]::StartNew()
-    $run = Invoke-EnfractalNativeProcess -Toolchain $Toolchain -FilePath $FilePath -Arguments $arguments -TimeoutSeconds $TimeoutSeconds `
+    $run = Invoke-GarageGameNativeProcess -Toolchain $Toolchain -FilePath $FilePath -Arguments $arguments -TimeoutSeconds $TimeoutSeconds `
         -WorkingDirectory $WorkingDirectory -WithoutDotnetRuntime:$WithoutDotnetRuntime -Environment $Environment
     $ready = $run.Stdout -split "`r?`n" | Where-Object { $_ -match "^ROOM_WORLD_READY room=$([regex]::Escape($RoomId))\b" } | Select-Object -First 1
     $quit = $run.Stdout -split "`r?`n" | Where-Object { $_ -match '^ROOM_WORLD_QUIT ' } | Select-Object -First 1

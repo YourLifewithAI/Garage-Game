@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// Trust's provisional numbers (docs/game/MECHANICS.md section 5, "Trust, the later dial"), named in one place until the rules

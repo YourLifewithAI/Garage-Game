@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>How a tumble sets off: the velocity and spin its body starts with.</summary>
 public readonly record struct TumbleKick(Vector3 Linear, Vector3 Angular);

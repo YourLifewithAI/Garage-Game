@@ -3,12 +3,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Characters.Contact;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Characters.Contact;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// Mark 1 of the first recorded play (16 October, docs/runs/playtests/2026-10-16-landscape_garage_nominal.md): "the Stickbear character

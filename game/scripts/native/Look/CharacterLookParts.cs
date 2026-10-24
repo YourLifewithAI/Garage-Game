@@ -5,7 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>How a surface of a drawn character is drawn (docs/look/CHARACTERS.md).</summary>
 public enum CharacterSurfaceRole

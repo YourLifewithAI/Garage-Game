@@ -114,7 +114,7 @@ function Get-PendingArtImport {
     }
 }
 
-$settingsStampPath = Join-Path $ProjectPath '.godot\enfractal-art-import-settings.json'
+$settingsStampPath = Join-Path $ProjectPath '.godot\garage-game-art-import-settings.json'
 $settingsHashes = @{}
 if (Test-Path -LiteralPath $settingsStampPath -PathType Leaf) {
     try {
@@ -136,8 +136,8 @@ if ($pending.Count -eq 0) {
 }
 
 Write-Output "Preparing $($pending.Count) new or changed painterly assets for Godot."
-$stdoutPath = Join-Path $env:TEMP "enfractal-art-import-$PID.out.txt"
-$stderrPath = Join-Path $env:TEMP "enfractal-art-import-$PID.err.txt"
+$stdoutPath = Join-Path $env:TEMP "garage-game-art-import-$PID.out.txt"
+$stderrPath = Join-Path $env:TEMP "garage-game-art-import-$PID.err.txt"
 $process = Start-Process -FilePath $EnginePath -ArgumentList @('--headless', '--editor', '--path', ('"' + $ProjectPath + '"'), '--import') -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
 if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
     Stop-Process -Id $process.Id -Force

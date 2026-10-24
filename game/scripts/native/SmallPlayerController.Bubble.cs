@@ -1,7 +1,7 @@
 using Godot;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// The body's side of the Bubble (docs/game/MECHANICS.md section 5, decision 43; Kernel/Bubble/CommandHostBubble.cs): the ride.

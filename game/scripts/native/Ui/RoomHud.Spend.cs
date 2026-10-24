@@ -1,7 +1,7 @@
 using Godot;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// Spending Fractals in play (decision 41 of docs/game/MECHANICS.md; the host's fractal.spend, Ui/FractalSpend.cs): no key of its
@@ -22,8 +22,6 @@ public partial class RoomHud
     private double _pulseAge;
     private bool _pulseArmed;
     private bool _fiveInHand;
-    private object? _campRoom;
-    private Vector3 _campAt;
 
     /// <summary>Whether the journal's book is pulsing in its dock now (decision 53: five Fractals in hand and a spend possible, the book not yet opened).</summary>
     public bool JournalPulsing => _book != null && _book.Dock.Pulsing;
@@ -55,20 +53,11 @@ public partial class RoomHud
     }
 
     /// <summary>
-    /// Whether the player stands at the camp, as the host decides it (the room's player spawn, within CommandHost.CampRadiusM), asked
-    /// without building anything: the host's own question builds a small object every time (about 128 bytes), and this one is asked
-    /// a few times a second for as long as the player holds enough Fractals to spend. The suite holds the two to the same answer.
+    /// Whether the player stands at a camp, as the host decides it (the room's player spawn or any lit campfire, within
+    /// CommandHost.CampRadiusM; Fire's camp). The host's question allocates nothing once its camps are known, so the HUD asks it
+    /// directly, a few times a second for as long as the player holds enough Fractals to spend.
     /// </summary>
-    public bool AtCamp(Kernel.CommandHost host)
-    {
-        if (host.Player is not { } body || !IsInstanceValid(body) || host.Room == null) return false;
-        if (!ReferenceEquals(_campRoom, host.Room))
-        {
-            _campRoom = host.Room;
-            _campAt = host.Room.SpawnFor("player").PositionM;
-        }
-        return body.GlobalPosition.DistanceTo(_campAt) <= Kernel.CommandHost.CampRadiusM;
-    }
+    public bool AtCamp(Kernel.CommandHost host) => host.PlayerAtCamp();
 
     /// <summary>
     /// Each frame (from the meters' update): a few times a second, the hint when the player has just got to the camp with enough

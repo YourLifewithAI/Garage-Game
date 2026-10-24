@@ -4,11 +4,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Kernel;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>Control held and released (early by moving, within the bound), the knockout, the hazard entry point, the capsule, the cost.</summary>
 public partial class CharacterTumbleTest

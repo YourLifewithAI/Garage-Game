@@ -2,11 +2,11 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Characters.Gaits;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Characters.Gaits;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>The phase, each gait's own shapes, the life layer, the yield, the events and the bounce key.</summary>
 public partial class CharacterGaitsTest

@@ -1,8 +1,8 @@
 using Godot;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// The character sheets' motion (Run 2, characters round): every tile shows the real pose stack instead of the rest pose. Each tile

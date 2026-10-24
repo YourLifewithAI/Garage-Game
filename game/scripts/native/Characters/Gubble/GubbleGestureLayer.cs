@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// The Gubble's gestures on its drawn body (the characters round, K5; docs/runs/RUN-2-CHARACTERS.md, "The Gubble" and "The pose

@@ -1,7 +1,7 @@
 # The companion link
 
 How the companion's MCP server reaches the running game. The companion's end is
-`companion/src/enfractal_companion/link.py` (`LinkClient`), which also holds the Python game end the mock host uses
+`companion/src/garage_game_companion/link.py` (`LinkClient`), which also holds the Python game end the mock host uses
 (`LinkServer`). **The game's end is C#** (A2, 8 October 2026): `game/scripts/native/Companion/CompanionLinkServer.cs`,
 in front of the kernel's `CommandHost` through `CompanionBridge.cs` ([EMBODIMENT.md](EMBODIMENT.md)).
 `companion/tests/test_real_host.py` runs `test_link.py`'s cases against it in a headless game. The frame shapes are
@@ -19,7 +19,7 @@ in `companion/schemas/companion-link.schema.json`, proposed for `contracts/`.
 ## Session file
 
 At startup the game listens on `127.0.0.1` (or `::1`) on an ephemeral port and writes
-`user://companion/session.json` (on Windows `%APPDATA%\Godot\app_userdata\EnFractal\companion\session.json`):
+`user://companion/session.json` (on Windows `%APPDATA%\Godot\app_userdata\Garage-Game\companion\session.json`):
 
 ```json
 {
@@ -154,4 +154,4 @@ registers every `*.schema.json`. The Run 1 fix round regenerated the patch for t
 (canonical frames, no `locked` code, a real process id range). It was checked by applying it, alone and
 together with `contracts-text-rules.diff` in either order, to a copy of `contracts/`, and running the
 contract tests there (34 pass alone, 39 with both) and the companion suite against that copy
-(`ENFRACTAL_CONTRACTS_DIR=<copy>`).
+(`GARAGE_GAME_CONTRACTS_DIR=<copy>`).

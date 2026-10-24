@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// The small eye at the lower right, just above the journal's book (the founder, 13 October: "a small icon the player can select

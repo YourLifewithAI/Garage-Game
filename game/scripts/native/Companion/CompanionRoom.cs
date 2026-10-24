@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Linq;
 
-namespace EnFractal.Native.Companion;
+namespace GarageGame.Native.Companion;
 
 /// <summary>
 /// The room as the game builds it (scenes/room.tscn), with the companion link on: the real game host for an AI client

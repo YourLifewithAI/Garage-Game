@@ -6,9 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using EnFractal.Native;
+using GarageGame.Native;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// GPU probes of the capture harness (--probe=NAME): measurements that need a real renderer and are not review captures.

@@ -11,7 +11,7 @@ import unittest
 
 from support import COMPANION, PLAYER, REPO, FakeClock, HostPolicy, command, new_host, query
 
-from enfractal_companion.mock_host import Receipt
+from garage_game_companion.mock_host import Receipt
 
 COMMAND_HOST = REPO / "game" / "scripts" / "native" / "Kernel" / "CommandHost.cs"
 AUTHORITY = REPO / "game" / "scripts" / "creation_authority.gd"
@@ -27,7 +27,7 @@ def _constant(path, pattern: str) -> int:
 @unittest.skipUnless(COMMAND_HOST.is_file() and AUTHORITY.is_file(), "the kernel host is not in this checkout")
 class PolicyMatchesTheKernel(unittest.TestCase):
     def test_the_mock_hover_and_default_name_match_the_real_gubble(self):
-        from enfractal_companion.mock_host import HOVER_M
+        from garage_game_companion.mock_host import HOVER_M
         body = (REPO / "game/scripts/native/SmallPlayerController.cs").read_text(encoding="utf-8")
         avatar = (REPO / "game/scripts/native/CompanionAvatar.cs").read_text(encoding="utf-8")
         hover = re.search(r"\bfloat HoverHeightM \{ get; set; \} = ([0-9.]+)f;", body)
@@ -61,10 +61,10 @@ class PolicyMatchesTheKernel(unittest.TestCase):
                          float(_constant(COMMAND_HOST, r"\bconst double UnreachableAfterS = (\d+)\.0;")))
         self.assertIn("public static bool DefaultSharedSight { get; set; } = true;", COMMAND_HOST.read_text(encoding="utf-8"))
         self.assertTrue(policy.shared_sight)
-        from enfractal_companion import mock_journal
+        from garage_game_companion import mock_journal
         self.assertEqual((mock_journal.MAX_OPEN_TASKS, mock_journal.MAX_HISTORY, mock_journal.MAX_NOTES),
                          tuple(_constant(journal, rf"\bconst int {name} = (\d+);") for name in ("MaxOpenTasks", "MaxHistory", "MaxNotes")))
-        from enfractal_companion.mock_host import WALKING_GOALS
+        from garage_game_companion.mock_host import WALKING_GOALS
         self.assertIn('WalkingGoals = new() { "come", "go_to", "fetch" }', COMMAND_HOST.read_text(encoding="utf-8"))
         self.assertEqual(WALKING_GOALS, {"come", "go_to", "fetch"})
         # The activation receipts the authority keeps are bounded the same way as the host's transient ones.
@@ -143,7 +143,7 @@ class GlowMatchesTheKernel(unittest.TestCase):
     """The island's abilities (Run 2, Glow): the mock's effect.start and capabilities.list against the kernel's."""
 
     def test_the_effect_numbers_are_the_kernels(self):
-        from enfractal_companion import mock_host as m
+        from garage_game_companion import mock_host as m
         expected = {
             "max_active_effects": _constant(COMMAND_HOST, r"\bconst int MaxActiveEffects = (\d+);"),
             "CAPABILITIES_DEFAULT_LIMIT": _constant(COMMAND_HOST, r"\bconst int CapabilitiesDefaultLimit = (\d+);"),
@@ -162,7 +162,7 @@ class GlowMatchesTheKernel(unittest.TestCase):
 
     def test_the_mock_reads_the_pack_the_kernel_loads(self):
         import hashlib
-        from enfractal_companion.mock_host import rules_path
+        from garage_game_companion.mock_host import rules_path
         self.assertIn('=> $"res://rules/{rulesId}/v{rulesVersion}.json";', _text(RULES))
         # The kernel's default (RoomWorld.DefaultRulesVersion; v4, then v5 once the mechanics round's M1 lands it).
         version = _constant(KERNEL / "RoomWorld.cs", r"\bconst int DefaultRulesVersion = (\d+);")
@@ -173,7 +173,7 @@ class GlowMatchesTheKernel(unittest.TestCase):
                          ("storybook_wild", version, hashlib.sha256(path.read_bytes()).hexdigest()))
         self.assertEqual([(a.capability, a.primitive) for a in host.rules.abilities],
                          [("glow", "light.emit"), ("bubbles", "particles.float"), ("fireworks", "particles.burst"),
-                          ("bloom", "growth.seed"), ("fire", "element.ignite")])
+                          ("grow", "growth.grow"), ("fire", "element.ignite")])
 
     def test_the_mock_loads_the_primitives_the_kernel_carries_out(self):
         """The mock checks a pack against the island-rules schema; the kernel against its own table of primitives
@@ -203,7 +203,7 @@ class GlowMatchesTheKernel(unittest.TestCase):
                                          float(entry.group(6)), int(entry.group(7)))
         self.assertEqual(len(in_kernel), table.count("] = new("), "a kernel primitive this test could not read")
         self.assertEqual(in_kernel, in_schema)
-        self.assertEqual(sorted(in_kernel), ["element.ignite", "growth.seed", "light.emit", "particles.burst", "particles.float"])
+        self.assertEqual(sorted(in_kernel), ["element.ignite", "growth.grow", "growth.seed", "light.emit", "particles.burst", "particles.float"])
         start_look = _method(_text(EFFECTS), "private bool StartLook(")
         self.assertEqual(sorted(re.findall(r'"([a-z]+\.[a-z]+)" => look\.Start\w+\(', start_look)),
                          ["light.emit", "particles.burst"])
@@ -214,7 +214,7 @@ class GlowMatchesTheKernel(unittest.TestCase):
         self.assertLess(start.index("BubbleEffectStart("), start.index("StartLook("))
         # Persistent terrain primitives use their own authority path, never a cosmetic effect receipt.
         plan = _method(_text(EFFECTS), "private EffectPlan PlanEffect(")
-        self.assertIn('capability is "bloom" or "fire"', plan)
+        self.assertIn('capability is "grow" or "fire"', plan)
         self.assertIn("Use nature.cast for this ability; preview Fire first.", plan)
         nature = _text(KERNEL / "Kernel" / "CommandHostNature.cs")
         self.assertIn('if (op == "nature.cast")', nature)
@@ -236,7 +236,7 @@ class GlowMatchesTheKernel(unittest.TestCase):
         import ast
         import inspect
         import textwrap
-        from enfractal_companion.mock_host import MockHost
+        from garage_game_companion.mock_host import MockHost
         kernel = _method(_text(EFFECTS), "private EffectPlan PlanEffect(")
         mock = inspect.getsource(MockHost._plan_effect)
         self.assertEqual(re.findall(r'HostError\("(\w+)"', mock), re.findall(r'new Refusal\("(\w+)"', kernel))
@@ -268,7 +268,7 @@ class NatureMatchesTheKernel(unittest.TestCase):
     check must be the kernel's: the args (CheckNatureArgs), and room.undo of any change that is not nature's (NatureUndo)."""
 
     def test_the_mock_checks_the_nature_commands_the_kernel_has(self):
-        from enfractal_companion.mock_host import NATURE_OPS
+        from garage_game_companion.mock_host import NATURE_OPS
         check = _method(_text(NATURE), "private static void CheckNatureArgs(")
         self.assertEqual(set(re.findall(r'"(nature\.[a-z]+)" =>', check)), set(NATURE_OPS))
         # Its refusals are field_unknown and request_invalid only, which is what the mock's mapping gives (refusals.py).
@@ -279,8 +279,8 @@ class NatureMatchesTheKernel(unittest.TestCase):
         defs = json.loads((REPO / "contracts" / "game-command.schema.json").read_bytes())["$defs"]
         cast = defs["args"]["nature.cast"]["properties"]
         check = _method(_text(NATURE), "private static void CheckNatureArgs(")
-        self.assertIn('is not ("bloom" or "fire" or "bubble_carry" or "bubble_boat" or "bubble_lift")', check)
-        self.assertEqual(cast["capability"]["enum"], ["bloom", "fire", "bubble_carry", "bubble_boat", "bubble_lift"])
+        self.assertIn('is not ("grow" or "fire" or "bubble_carry" or "bubble_boat" or "bubble_lift")', check)
+        self.assertEqual(cast["capability"]["enum"], ["grow", "fire", "bubble_carry", "bubble_boat", "bubble_lift"])
         self.assertIn('("radius_m", NatureBlock.MaxFireRadiusM), ("duration_s", 600f)', check)
         radius = float(_match(KERNEL / "Kernel" / "NatureStore.cs", r"\bconst float MaxFireRadiusM = ([0-9.]+)f;"))
         self.assertEqual((cast["radius_m"]["maximum"], cast["duration_s"]["maximum"]), (radius, 600))
@@ -293,7 +293,7 @@ class NatureMatchesTheKernel(unittest.TestCase):
 
     def test_room_undo_of_any_other_change_answers_the_kernels_codes_and_words(self):
         import inspect
-        from enfractal_companion import mock_host
+        from garage_game_companion import mock_host
         undo = _method(_text(NATURE), "private JsonObject NatureUndo(")
         for words in (mock_host.UNDO_NOT_EARLIER, mock_host.UNDO_ONLY_NATURE):
             self.assertIn(f'"{words}"', undo)
@@ -307,7 +307,7 @@ class NatureMatchesTheKernel(unittest.TestCase):
         """CommandHost.Unsupported refuses room.undo outside Creative before CheckExpectations; the mock's _check_unsupported
         does the same before _check_revisions, with the same words."""
         import inspect
-        from enfractal_companion import mock_host
+        from garage_game_companion import mock_host
         host = _text(COMMAND_HOST)
         self.assertIn(f'"room.undo" when Mode != "creative" => "{mock_host.UNDO_NOT_IN_THIS_MODE}",', host)
         execute = _method(host, "private JsonObject Execute(")
@@ -326,7 +326,7 @@ class MechanicsMatchTheKernel(unittest.TestCase):
     numbers and words."""
 
     def test_the_stubs_and_the_fractal_refusal_are_the_kernels_word_for_word(self):
-        from enfractal_companion import mock_host
+        from garage_game_companion import mock_host
         for mock, kernel in (("MECHANICS_NOT_YET", "MechanicsNotYet"), ("DIFFICULTY_NOT_YET", "DifficultyNotYet"),
                              ("FRACTAL_REFUSAL", "FractalRefusal")):
             with self.subTest(words=mock):
@@ -343,7 +343,7 @@ class MechanicsMatchTheKernel(unittest.TestCase):
     def test_the_bubble_is_hosted_with_the_kernels_numbers_and_words(self):
         """M9: the Bubbles casts past the stub on both hosts (no stub words left), the mock's numbers the kernel's BubbleLaws, its
         refusals the kernel's words, a bubble transient on both, and the kernel's Bubbles route ahead of nature's own checks."""
-        from enfractal_companion import mock_host
+        from garage_game_companion import mock_host
         self.assertFalse(hasattr(mock_host, "BUBBLES_NOT_YET"))
         self.assertNotIn("BubblesNotYet", _text(COMMAND_HOST))
         laws = KERNEL / "Kernel" / "Bubble" / "BubbleLaws.cs"
@@ -374,7 +374,7 @@ class MechanicsMatchTheKernel(unittest.TestCase):
             with self.subTest(words=words):
                 self.assertIn('"' + getattr(mock_host, words) + '"', bubble)
         # The lead's argument rule, the adapter's and the mock's words the kernel's CheckArgs (request_invalid at its paths).
-        from enfractal_companion import refusals
+        from garage_game_companion import refusals
         for words in (refusals.LEAD_NAMES_A_BUBBLE, refusals.LEAD_NAMES_A_SPOT):
             with self.subTest(words=words):
                 self.assertIn('"' + words + '"', _text(COMMAND_HOST))
@@ -390,7 +390,7 @@ class MechanicsMatchTheKernel(unittest.TestCase):
     def test_the_mock_reads_its_prices_from_the_pack_the_kernel_will_read(self):
         """The cost block is one JSON both hosts read (the kernel from M1): the mock prices from it and nothing else."""
         import json
-        from enfractal_companion.mock_host import load_rules, rules_path
+        from garage_game_companion.mock_host import load_rules, rules_path
         from support import contracts
         v5 = load_rules(contracts(), rules_path(rules_version=5))
         pack = json.loads(rules_path(rules_version=5).read_bytes())
@@ -399,27 +399,28 @@ class MechanicsMatchTheKernel(unittest.TestCase):
                 self.assertEqual(v5.price(name, "player:local"), price["ordered"])
                 self.assertEqual(v5.price(name, "companion:local"), round(price["ordered"] * price["own_idea_factor"]))
         self.assertEqual({n: (v5.price(n, "player:local"), v5.price(n, "companion:local")) for n in pack["cost"]["prices"]},
-                         {"glow": (2, 1), "bubbles": (2, 1), "fireworks": (2, 1), "bloom": (4, 2), "fire": (6, 3),
-                          "bubble_carry": (4, 2), "bubble_boat": (4, 2), "bubble_lift": (6, 3)})
+                         {"glow": (2, 1), "bubbles": (2, 1), "fireworks": (2, 1), "grow": (4, 2), "fire": (6, 3),
+                          "bubble_carry": (4, 2), "bubble_boat": (4, 2), "bubble_lift": (6, 3),
+                          "fireline": (8, 4), "snuff": (2, 1), "will_o_wisp": (4, 2)})
         self.assertEqual(v5.price("teleport", "companion:local"), 0, "a price the pack does not set costs nothing")
         today = load_rules(contracts(), rules_path(rules_version=4))
         self.assertEqual({a.capability: today.price(a.capability, "companion:local") for a in today.abilities},
-                         {"glow": 0, "bubbles": 0, "fireworks": 0, "bloom": 0, "fire": 0}, "v4 has no cost block: nothing is charged")
+                         {"glow": 0, "bubbles": 0, "fireworks": 0, "grow": 0, "fire": 0}, "v4 has no cost block: nothing is charged (its Bloom read as Grow)")
 
     def test_a_price_moved_in_the_pack_moves_the_mocks(self):
         import json
         import tempfile
         from pathlib import Path
-        from enfractal_companion.mock_host import load_rules, rules_path
+        from garage_game_companion.mock_host import load_rules, rules_path
         from support import contracts
         pack = json.loads(rules_path(rules_version=5).read_bytes())
-        pack["cost"]["prices"]["bloom"]["ordered"] = 8
+        pack["cost"]["prices"]["grow"]["ordered"] = 8
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "storybook_wild" / "v5.json"
             path.parent.mkdir()
             path.write_bytes((json.dumps(pack, indent=2) + "\n").encode("utf-8"))
             moved = load_rules(contracts(), path)
-        self.assertEqual((moved.price("bloom", "player:local"), moved.price("bloom", "companion:local")), (8, 4))
+        self.assertEqual((moved.price("grow", "player:local"), moved.price("grow", "companion:local")), (8, 4))
 
 
 EYES = KERNEL / "Kernel" / "CommandHostEyes.cs"
@@ -444,7 +445,7 @@ class TrustMatchesTheKernel(unittest.TestCase):
     kernel routes the two player's ops past the stubs and observes the Gubble's commits once."""
 
     def test_the_numbers_and_words_are_the_kernels(self):
-        from enfractal_companion import mock_trust
+        from garage_game_companion import mock_trust
         numbers = {
             "CLEAN_INITIATIVE": _constant(TRUST, r"\bconst int CleanInitiative = (-?\d+);"),
             "CLEAN_WINDOW_S": float(_match(TRUST, r"\bconst double CleanWindowS = ([0-9.]+);")),
@@ -474,8 +475,8 @@ class TrustMatchesTheKernel(unittest.TestCase):
         """Decision 69 ("Only paid actions and consequences directly related to those actions earn trust"): the same rule on both
         hosts, read from what the guard charges, never a list of ops (decision 68's lists are gone from both)."""
         import inspect
-        from enfractal_companion import mock_trust
-        from enfractal_companion.mock_host import MockHost
+        from garage_game_companion import mock_trust
+        from garage_game_companion.mock_host import MockHost
         trust = _text(TRUST)
         self.assertIsNone(re.search(r"HashSet<string> World(Ops|Goals)\b", trust), "the kernel keeps no op list for Trust")
         for name in ("WORLD_OPS", "WORLD_GOALS", "changes_the_world"):
@@ -491,7 +492,7 @@ class TrustMatchesTheKernel(unittest.TestCase):
         self.assertLess(observe.index("var charged = TakeTrustCharge();"), observe.index("if (principal != CompanionPrincipal"))
         self.assertIn("Paid = Trust.Paid(charged)", _method(host, "private void RememberGubbleCommand("))
         self.assertRegex(_method(_text(BUBBLE_LEAD), "private bool StartLift("), r"ChargeEnergy\(price\);\s*TrustLiftCharged\(lead\);")
-        # The mock notes the same charge wherever the kernel's guard charges a command the mock hosts (Bloom and Fire it does not).
+        # The mock notes the same charge wherever the kernel's guard charges a command the mock hosts (Grow and Fire it does not).
         self.assertEqual(_text(BUBBLE_HOST).count("ChargeEnergy(price);"), 2, "the kernel charges a bubble at effect.start and nature.cast")
         self.assertIn("ChargeEnergy(price);", _method(_text(EFFECTS), "private JsonObject EffectStart("))
         for method in (MockHost._op_effect_start, MockHost._bubble_effect_start, MockHost._bubble_cast):
@@ -519,7 +520,7 @@ class EyesMatchTheKernel(unittest.TestCase):
     """The Gubble's eyes (view.look): the mock's numbers and words are the kernel's, and the contract's bounds hold them."""
 
     def test_the_numbers_are_the_kernels(self):
-        from enfractal_companion import eyes
+        from garage_game_companion import eyes
         expected = {
             "LOOK_BURST": _constant(EYES, r"\bconst int LookBurst = (\d+);"),
             "LOOK_REFILL_S": float(_match(EYES, r"\bconst double LookRefillS = ([0-9.]+);")),
@@ -538,8 +539,8 @@ class EyesMatchTheKernel(unittest.TestCase):
 
     def test_the_refusals_are_the_kernels_word_for_word_and_in_its_order(self):
         import inspect
-        from enfractal_companion import eyes
-        from enfractal_companion.mock_host import MockHost
+        from garage_game_companion import eyes
+        from garage_game_companion.mock_host import MockHost
         for mock, kernel in (("EYES_OFF_MESSAGE", "EyesOffMessage"), ("NO_RENDERER_MESSAGE", "NoRendererMessage"),
                              ("LOOK_RATE_MESSAGE", "LookRateMessage"), ("LOOK_ACTOR_MESSAGE", "LookActorMessage")):
             with self.subTest(message=mock):
@@ -553,7 +554,7 @@ class EyesMatchTheKernel(unittest.TestCase):
 
     def test_the_contract_bounds_are_the_kernels(self):
         import json
-        from enfractal_companion import eyes
+        from garage_game_companion import eyes
         defs = json.loads((REPO / "contracts" / "game-command.schema.json").read_bytes())["$defs"]
         if "view.look" not in defs["query_op"]["enum"]:
             self.skipTest("the contract has no view.look yet")

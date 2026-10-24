@@ -990,8 +990,9 @@ def rules_path(rules_id: str, version: int, rules_dir: Path = RULES_DIR) -> Path
 
 
 # The mechanics round (M0, 14 October 2026). The Bubbles expertise, priced in a pack's cost block and cast with
-# nature.cast, each needs an ability of the pack carried out by its primitive.
-EXPERTISE_ABILITIES = {"bubble_carry": "particles.float", "bubble_boat": "particles.float", "bubble_lift": "particles.float"}
+# nature.cast, each needs an ability of the pack carried out by its primitive; so do Fire's kinds (decisions 78 to 80).
+EXPERTISE_ABILITIES = {"bubble_carry": "particles.float", "bubble_boat": "particles.float", "bubble_lift": "particles.float",
+                       "fireline": "element.ignite", "snuff": "element.ignite", "will_o_wisp": "element.ignite"}
 # The command contract's bounds on the player's body (game-command.schema.json $defs/data/player.status): 30 hearts of
 # 20 health with Big heart at full rank, and ten bands to 4.0 m with Big bar at full rank.
 MAX_HEALTH = 720
@@ -1013,7 +1014,8 @@ def _check_mechanics(pack: dict, label: str) -> list[str]:
     for name, price in pack.get("cost", {}).get("prices", {}).items():
         if name in EXPERTISE_ABILITIES:
             if EXPERTISE_ABILITIES[name] not in primitives:
-                problems.append(f"{label}: cost prices {name}, a Bubbles expertise, but the pack grants no {EXPERTISE_ABILITIES[name]} ability")
+                kind = "a Fire kind" if EXPERTISE_ABILITIES[name] == "element.ignite" else "a Bubbles expertise"
+                problems.append(f"{label}: cost prices {name}, {kind}, but the pack grants no {EXPERTISE_ABILITIES[name]} ability")
         elif name not in capabilities:
             problems.append(f"{label}: cost prices {name!r}, which is no ability of this pack")
         own = price["ordered"] * price["own_idea_factor"]

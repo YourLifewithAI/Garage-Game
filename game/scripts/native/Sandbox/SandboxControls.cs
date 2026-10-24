@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 
-namespace EnFractal.Native.Sandbox;
+namespace GarageGame.Native.Sandbox;
 
 /// <summary>
 /// What the player's hand keys aim at (F pick up and put down, V push). The keys only choose a target and send the

@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// Mark 1 of the first recorded play (docs/runs/playtests/2026-10-16-landscape_garage_nominal.md): Stickbear gone into a wall on a rock

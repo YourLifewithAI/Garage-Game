@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace EnFractal.Native.Look.Intro;
+namespace GarageGame.Native.Look.Intro;
 
 /// <summary>Where the intro's camera is at a moment: its transform, its field of view (degrees) and its near plane (metres).</summary>
 public readonly record struct IntroPose(Transform3D Transform, float FovDeg, float NearM);

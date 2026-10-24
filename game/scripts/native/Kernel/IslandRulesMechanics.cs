@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>Hearts, counted in quarters (the pack's traits.hearts).</summary>
 public sealed record HeartsRules(double HealthPerQuarter, int StartHearts, int CapHearts, double HealQuarterEveryS, double HealAfterUnharmedS);
@@ -141,6 +141,8 @@ public sealed partial class IslandRules
     public const double ContractMaxStaminaM = 4.8;
     /// <summary>The Bubbles expertise a cost block may price, each carried out by the pack's particles.float ability.</summary>
     public static readonly IReadOnlyList<string> BubblesExpertise = Array.AsReadOnly(new[] { "bubble_carry", "bubble_boat", "bubble_lift" });
+    /// <summary>Fire's kinds a cost block may price (decisions 78 to 80), each carried out by the pack's element.ignite ability.</summary>
+    public static readonly IReadOnlyList<string> FireKinds = Array.AsReadOnly(new[] { "fireline", "snuff", "will_o_wisp" });
     private static readonly string[] KnackMoves =
     {
         "walk_run_speed", "hop_height", "stamina_per_bar", "climb_per_stamina", "swim", "breath", "health_per_quarter", "safe_drop", "build_time", "plant_growth", "gather_speed",
@@ -270,16 +272,20 @@ public sealed partial class IslandRules
         {
             Expect(Token.IsMatch(entry.Name), at + ".prices are named by lowercase tokens.");
             var where = $"{at}.prices.{entry.Name}";
+            // An older pack's Bloom is read as Grow (IslandRules.LegacyBloomAs), and so is its price.
+            var name = entry.Name == "bloom" && abilities.Any(a => a.Primitive == "growth.seed") ? IslandRules.LegacyBloomAs : entry.Name;
             Expect(entry.Value.ValueKind == JsonValueKind.Object, where + " must be an object.");
             Fields(entry.Value, where, new[] { "ordered", "own_idea_factor" }, new[] { "ordered", "own_idea_factor" });
             var price = new AbilityPrice(IntIn(entry.Value, "ordered", where, 0, 40), Num(entry.Value, "own_idea_factor", where, 0, 1));
             // validate.py: a price names an ability of this pack, or a Bubbles expertise of its particles.float ability.
             if (BubblesExpertise.Contains(entry.Name))
                 Expect(abilities.Any(a => a.Primitive == "particles.float"), $"{where} prices a Bubbles expertise, but the pack grants no particles.float ability.");
-            else Expect(abilities.Any(a => a.Capability == entry.Name), $"{where} prices no ability of this pack.");
+            else if (FireKinds.Contains(entry.Name))
+                Expect(abilities.Any(a => a.Primitive == "element.ignite"), $"{where} prices a Fire kind, but the pack grants no element.ignite ability.");
+            else Expect(abilities.Any(a => a.Capability == name), $"{where} prices no ability of this pack.");
             var own = price.Ordered * price.OwnIdeaFactor;
             Expect(Math.Abs(own - Math.Round(own)) <= 1e-9, $"{where}: ordered times own_idea_factor is not a whole number of pips.");
-            prices[entry.Name] = price;
+            prices[name] = price;
         }
         var torch = cost.TryGetProperty("torch_fire", out _) ? IntIn(cost, "torch_fire", at, 0, 40) : 0;
         return new CostRules(prices, torch);

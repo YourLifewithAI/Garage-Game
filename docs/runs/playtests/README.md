@@ -8,6 +8,7 @@ One row per play, newest first. **Changed by it** names the brief or the packets
 
 | Date | Room, mode | Build | Who played | Record | Debrief | Changed by it |
 |---|---|---|---|---|---|---|
+| 2026-10-17 | `landscape_garage_nominal`, Challenge standard | `bb9f47f` | the founder | `20261017-133610-landscape_garage_nominal` on DiamondAge (4.7 min, no marks; the first play with Fractals, Fire and Grow) | [2026-10-17-landscape_garage_nominal.md](2026-10-17-landscape_garage_nominal.md) | [RUN-2-PLAYTEST-ROUND-2.md](../RUN-2-PLAYTEST-ROUND-2.md) (queued for 20 October) |
 | 2026-10-16 | `landscape_garage_nominal`, Challenge standard | `db41d8a` | the founder | `20261016-044825-landscape_garage_nominal` on DiamondAge (4.8 min, 2 marks; the first record the game wrote itself) | [2026-10-16-landscape_garage_nominal.md](2026-10-16-landscape_garage_nominal.md) | [RUN-2-PLAYTEST-ROUND-1.md](../RUN-2-PLAYTEST-ROUND-1.md) (P0 the pack, P1 the kernel and body, L1 the shore and the hitches, P2 the HUD) |
 | 2026-10-09 | `landscape_garage_nominal`, Creative | `ca6656d` | the founder | the founder's recordings in `C:\dev\EnFractal-art\playtests\2026-10-09-glow\` (before the recorder) | [RUN-2-GLOW-PLAYTEST.md](../RUN-2-GLOW-PLAYTEST.md) | the Glow round's Lane P part 1 and Lane L (the free cursor, the spark, readable words, the sea wrapping round) |
 

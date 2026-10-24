@@ -1,4 +1,6 @@
-# EnFractal
+# Garage Game
+
+> **This repository is the Garage Game** (renamed on GitHub from `EnFractal` to `YourLifewithAI/Garage-Game` on 19 October 2026): the room-era EnFractal, kept whole so the founder can keep adding to it for their children. EnFractal's new direction (planetoids in the void, primitives, one material, the AI as a teammate) lives in a fresh repository at [github.com/YourLifewithAI/EnFractal](https://github.com/YourLifewithAI/EnFractal). Nothing here was removed by the split.
 
 A sandbox where you and your AI play together inside a real room that you photographed, shrunk to the size of a thumb.
 

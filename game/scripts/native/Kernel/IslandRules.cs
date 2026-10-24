@@ -5,9 +5,9 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>A rules pack that does not pass the loader's checks. The message names the field, never the pack's text.</summary>
 public sealed class IslandRulesException(string message) : Exception(message);
@@ -80,8 +80,13 @@ public sealed partial class IslandRules
         ["particles.float"] = new("float", new Dictionary<string, (double, double)>(StringComparer.Ordinal) { ["intensity"] = (0.05, 2.0) }, 5, 3, 120, 4),
         ["particles.burst"] = new("burst", new Dictionary<string, (double, double)>(StringComparer.Ordinal) { ["intensity"] = (0.05, 2.0) }, 8, 3, 10, 4),
         ["growth.seed"] = new("growth", new Dictionary<string, (double, double)>(StringComparer.Ordinal) { ["intensity"] = (0.05, 2.0) }, 5, 0.6, 600, 1),
+        // Grow (decision 52): intensity is the share of its natural size a cast grows each plant (a quarter in storybook_wild v5).
+        ["growth.grow"] = new("growth", new Dictionary<string, (double, double)>(StringComparer.Ordinal) { ["intensity"] = (0.05, 1.0) }, 5, 1.0, 600, 1),
         ["element.ignite"] = new("fire", new Dictionary<string, (double, double)>(StringComparer.Ordinal) { ["intensity"] = (0.05, 2.0) }, 5, 1.5, 60, 1),
     };
+
+    /// <summary>The capability an older pack's Bloom (primitive growth.seed) is read as: Grow (decision 52).</summary>
+    public const string LegacyBloomAs = "grow";
 
     public string RulesId { get; private init; } = "";
     public int RulesVersion { get; private init; }
@@ -216,9 +221,12 @@ public sealed partial class IslandRules
         // The validator: each default at most its maximum.
         Expect(radiusDefault <= radiusMax, at + ".area_radius_default_m is above area_radius_max_m.");
         Expect(durationDefault <= durationMax, at + ".duration_default_s is above duration_max_s.");
+        // An older pack's Bloom (growth.seed) is read as Grow (decision 52: Bloom became Grow; storybook_wild v4 stays byte-exact).
+        var legacyBloom = primitive == "growth.seed";
         return new IslandAbility
         {
-            Capability = capability, Category = category, Primitive = primitive, DisplayName = displayName, CastBy = castBy, Tier = tier, Targets = targets,
+            Capability = legacyBloom ? LegacyBloomAs : capability, Category = category, Primitive = primitive, DisplayName = legacyBloom ? "Grow" : displayName,
+            CastBy = castBy, Tier = tier, Targets = targets,
             ReachM = reach, Params = bounds, AreaRadiusDefaultM = radiusDefault, AreaRadiusMaxM = radiusMax, DurationDefaultS = durationDefault,
             DurationMaxS = durationMax, MaxActive = maxActive,
         };

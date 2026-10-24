@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Native.Characters.Gaits;
+namespace GarageGame.Native.Characters.Gaits;
 
 /// <summary>
 /// The hop (Cloudpuff, Tomato Man, any drawing hinted <c>hop</c>): one hop per stride cycle, phased by distance. On the

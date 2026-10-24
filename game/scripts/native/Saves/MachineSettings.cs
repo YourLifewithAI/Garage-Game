@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Native.Saves;
+namespace GarageGame.Native.Saves;
 
 /// <summary>
 /// The machine's settings file (user://single_player/room/avatar_profile_v1.cfg, section [profile]; RoomHud.ProfilePath): the

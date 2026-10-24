@@ -3,9 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native.Characters;
+using GarageGame.Native.Characters;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>The pose API, the skeleton in the tree, and the engine modifiers the rig sets up.</summary>
 public partial class CharacterRigTest

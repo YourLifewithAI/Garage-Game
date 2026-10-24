@@ -3,9 +3,9 @@ using System;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// Gathering (decision 26 of docs/game/MECHANICS.md; contracts: item.gather): a loose log or stone the player is holding

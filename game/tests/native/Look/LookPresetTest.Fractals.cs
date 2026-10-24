@@ -6,13 +6,13 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
-using EnFractal.Native.Look.Fractals;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
+using GarageGame.Native.Look.Fractals;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// Run 2, L9: the look of a Fractal (docs/look/FRACTALS.md). The shaders take exactly what the look sets; the bodies stay inside the
@@ -71,7 +71,7 @@ public partial class LookPresetTest
         Check(forms.All(f => FractalLook.FormPin(new[] { FractalLook.FormArgument + f.ToString().ToLowerInvariant() }, null) == f)
               && FractalLook.FormPin(Array.Empty<string>(), "Star ") == FractalForm.Star && FractalLook.FormPin(new[] { FractalLook.FormArgument + "seed" }, "star") == FractalForm.Seed
               && FractalLook.FormPin(new[] { FractalLook.FormArgument + "cube" }, null) == null && FractalLook.FormPin(Array.Empty<string>(), null) == null,
-            "a capture pins the form by --look-fractal-form= (first) or ENFRACTAL_LOOK_FRACTAL_FORM; anything else leaves the tuning's");
+            "a capture pins the form by --look-fractal-form= (first) or GARAGE_GAME_LOOK_FRACTAL_FORM; anything else leaves the tuning's");
     }
 
     /// <summary>The slow life: inside the box at every moment, the turn and the bob as tuned, deterministic, and no two Fractals in step.</summary>

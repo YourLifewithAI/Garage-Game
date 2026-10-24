@@ -1,0 +1,19 @@
+{
+  "schema": "enfractal.result",
+  "version": 1,
+  "ok": false,
+  "op": "nature.trail",
+  "action_id": "trail-0001",
+  "principal": "player:local",
+  "room_id": "garage_example",
+  "revision": 5,
+  "replayed": false,
+  "preview": false,
+  "at_utc": "2026-10-06T00:05:00Z",
+  "error": {
+    "code": "unsupported_capability",
+    "message": "The flower trail went with Bloom: Grow grows the island's own plants and leaves no trail.",
+    "field_path": "$.op",
+    "retryable": false
+  }
+}

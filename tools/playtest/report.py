@@ -1289,14 +1289,22 @@ def write_report(folder: Path) -> dict:
 # ---------------------------------------------------------------------------------------------------------------------
 # --list: every play in a folder of plays.
 
-def default_plays_folder() -> Path:
+def _user_folder(name: str) -> Path:
     if os.name == "nt":
         base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
-        return Path(base) / "Godot" / "app_userdata" / "EnFractal" / "playtests"
+        return Path(base) / "Godot" / "app_userdata" / name
     if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / "Godot" / "app_userdata" / "EnFractal" / "playtests"
+        return Path.home() / "Library" / "Application Support" / "Godot" / "app_userdata" / name
     base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
-    return Path(base) / "godot" / "app_userdata" / "EnFractal" / "playtests"
+    return Path(base) / "godot" / "app_userdata" / name
+
+
+def default_plays_folder() -> Path:
+    """The game's plays: user://playtests under Garage-Game, or under the room-era EnFractal folder while the renamed
+    build has not run yet on this machine (its first launch copies the plays across; docs/runs/GARAGE-GAME-RENAME.md)."""
+    plays = _user_folder("Garage-Game") / "playtests"
+    old = _user_folder("EnFractal") / "playtests"
+    return old if not plays.is_dir() and old.is_dir() else plays
 
 
 @dataclass

@@ -4,12 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Look;
-using EnFractal.Native.Look.Fauna;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Look;
+using GarageGame.Native.Look.Fauna;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// Run 2, the open sea round (Lane L): each view's blur (the island crisp in F1 to F3, the tilt-shift kept in F4 and observe), the

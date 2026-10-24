@@ -12,7 +12,7 @@ never perceives through the player's avatar.
 seen and where, and says when that may be out of date. Goals that only move or turn it may aim at a
 remembered thing; anything that changes a thing still needs it in sight now.
 
-The mock host implements both in `companion/src/enfractal_companion/perception.py` and `mock_host.py`.
+The mock host implements both in `companion/src/garage_game_companion/perception.py` and `mock_host.py`.
 `companion/tests/test_perception.py` and `test_perception_memory.py` pin them, and `test_no_holds.py`
 runs the same suites again with no approval holds configured. In Run 2 the kernel host replaces the
 geometry with physics ray casts against the real colliders. The rules and the tests carry over; the
@@ -150,7 +150,7 @@ block after one line of facts, so clients such as Claude Code and Codex show it 
 - **No renderer, no picture.** Headless (the test suites, a server run) a look is `unavailable`. A window that draws nothing
   (minimized) gives up after 2 seconds with `unavailable`, retryable.
 - **The mock** answers with a small generated placeholder (a 128 x 72 PNG: sky over ground, the horizon moved by the tilt)
-  and the kernel's facts, refusals and numbers (`companion/src/enfractal_companion/eyes.py`, pinned by
+  and the kernel's facts, refusals and numbers (`companion/src/garage_game_companion/eyes.py`, pinned by
   `test_kernel_alignment.py`).
 - **Where pictures go.** A picture of the stylised island, which is derived from the player's photographed room, goes to the
   player's AI provider with the rest of the conversation. The setting is how the player keeps it from going.

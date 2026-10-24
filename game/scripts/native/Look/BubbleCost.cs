@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>
 /// What the Bubble costs a frame (the brief's frame budget; the pattern of Ui/MeterCost): its drawing (the look's per-frame update:

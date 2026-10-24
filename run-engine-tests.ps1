@@ -10,8 +10,8 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
 
 # Native baseline: build C# before running the retained GDScript kernel regressions.
 . (Join-Path $PSScriptRoot 'tools/native-toolchain.ps1')
-$nativeToolchain = Get-EnfractalNativeToolchain
-Build-EnfractalNativeProject -Toolchain $nativeToolchain
+$nativeToolchain = Get-GarageGameNativeToolchain
+Build-GarageGameNativeProject -Toolchain $nativeToolchain
 $projectPath = $nativeToolchain.ProjectPath
 $enginePath = $nativeToolchain.EnginePath
 # Keep regression saves independent from the player's worlds on either machine.
@@ -35,7 +35,7 @@ $tests = @(
     'kernel_canonical_json_smoke.gd'
 )
 foreach ($test in $tests) {
-    $result = Invoke-EnfractalNativeProcess -Toolchain $nativeToolchain -FilePath $enginePath `
+    $result = Invoke-GarageGameNativeProcess -Toolchain $nativeToolchain -FilePath $enginePath `
         -Arguments @('--headless', '--path', $projectPath, '--script', "res://tests/$test") -TimeoutSeconds 30
     $exitCode = $result.ExitCode
     $stdout = $result.Stdout
@@ -48,7 +48,7 @@ foreach ($test in $tests) {
     Write-Output ($stdout.Trim().Split("`n") | Select-Object -Last 1)
 }
 
-$probe = Invoke-EnfractalNativeProcess -Toolchain $nativeToolchain -FilePath $enginePath `
+$probe = Invoke-GarageGameNativeProcess -Toolchain $nativeToolchain -FilePath $enginePath `
     -Arguments @('--headless', '--path', $projectPath, 'res://scenes/native_contract_probe.tscn') -TimeoutSeconds 30
 if ($probe.Stderr -or $probe.Stdout -notmatch 'Native release probe passed:') {
     throw "Native compiler probe failed:`n$($probe.Stdout)`n$($probe.Stderr)"
@@ -57,7 +57,7 @@ Write-Output ($probe.Stdout.Trim().Split("`n") | Select-Object -Last 1)
 
 # C# kernel: canonical JSON golden fixture (C# and GDScript), the enfractal.command host, the play HUD and the sandbox verbs.
 foreach ($scene in @('native_kernel_canonical_json.tscn', 'native_kernel_command_host.tscn', 'native_kernel_play_hud.tscn', 'native_kernel_sandbox.tscn', 'native_kernel_journal.tscn', 'native_kernel_rebuild.tscn', 'native_kernel_nature.tscn', 'native_kernel_bubble.tscn', 'native_playtest.tscn')) {
-    $kernel = Invoke-EnfractalNativeProcess -Toolchain $nativeToolchain -FilePath $enginePath `
+    $kernel = Invoke-GarageGameNativeProcess -Toolchain $nativeToolchain -FilePath $enginePath `
         -Arguments @('--headless', '--path', $projectPath, '--fixed-fps', '60', "res://tests/$scene") -TimeoutSeconds 120
     if ($kernel.Stderr -or $kernel.Stdout -notmatch 'NATIVE_KERNEL_[A-Z_]+: \d+/\d+ checks passed') {
         throw "$scene failed:`n$($kernel.Stdout)`n$($kernel.Stderr)"

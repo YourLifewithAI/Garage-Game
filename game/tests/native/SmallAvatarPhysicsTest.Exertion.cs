@@ -6,11 +6,11 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Room;
-using EnFractal.Native.Seams;
+using GarageGame.Native;
+using GarageGame.Native.Room;
+using GarageGame.Native.Seams;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// The body's side of the stamina ledger (docs/runs/RUN-2-MECHANICS.md, packet M5; Seams/StaminaLedger.cs): what it reports each

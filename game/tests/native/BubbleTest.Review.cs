@@ -3,11 +3,11 @@ using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// What the Wave 2 review of the Bubble and Trust found (its probes, kept as tests): a bubble judged where it forms, so it never
@@ -221,6 +221,8 @@ public partial class BubbleTest
         _host.ConfigureNature();
         _host.NatureSampleForTests = Soil;
         _host.SetGubbleFire(true);
+        // Decision 72: the team knows Fire, as after the first rest (the one helper every suite that lights fires uses).
+        _host.LearnFireForTests();
         var feet = _player.GlobalPosition;
         var health = Health;
         var carry = TheBubbleOnThePlayer(Companion, duration: 60);

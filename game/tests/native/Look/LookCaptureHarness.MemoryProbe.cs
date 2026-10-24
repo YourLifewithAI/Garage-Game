@@ -3,11 +3,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Look;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Look;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// The island-memory probe (--probe=island-memory --room=DIR, S9): where an island's memory goes, with the real renderer. The room

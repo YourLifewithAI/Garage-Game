@@ -4,11 +4,11 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The team's expertise store for several abilities (M11; docs/magic/README.md): Glow's, Bubbles' (the Bubble's carry, boat and lift
@@ -37,7 +37,7 @@ public partial class CommandHostTest
     private static ExpertiseRecord Full(ExpertiseList list) => ExpertiseRecord.Restore(list, 1_000_000, list.Order, list.HintOrder);
 
     private static GlowProgress FullStore() => GlowProgress.Restore(1_000_000, GlowProgress.DiscoveryOrder, GlowProgress.HintOrder, "chime", 0.35, true,
-        new[] { Full(ExpertiseLists.BubblesList), Full(ExpertiseLists.FireList) });
+        new[] { Full(ExpertiseLists.BubblesList), Full(ExpertiseLists.FireList), Full(ExpertiseLists.GrowList) });
 
     /// <summary>The store holds several abilities, each against its own fixed list, and stays under its size cap with every one full.</summary>
     private void TestExpertiseStore()
@@ -45,16 +45,18 @@ public partial class CommandHostTest
         var full = FullStore();
         var bytes = LocalGlowProgressStore.Serialize(full, "local");
         var back = LocalGlowProgressStore.Parse(bytes);
-        Check(bytes.Length <= LocalGlowProgressStore.MaxSaveBytes && back.Same(full) && back.ExpertiseCount == 13 && back.Others.Keys.SequenceEqual(new[] { "bubbles", "fire" }),
+        Check(bytes.Length <= LocalGlowProgressStore.MaxSaveBytes && back.Same(full) && back.ExpertiseCount == 18 && back.Others.Keys.SequenceEqual(new[] { "bubbles", "fire", "grow" }),
             $"every ability full ({bytes.Length} of {LocalGlowProgressStore.MaxSaveBytes} bytes, 1000000 casts each) saves under the cap and reads back whole");
         var text = Encoding.UTF8.GetString(bytes);
         Check(text.IndexOf("\"glow\":", StringComparison.Ordinal) < text.IndexOf("\"bubbles\":", StringComparison.Ordinal) &&
-              text.IndexOf("\"bubbles\":", StringComparison.Ordinal) < text.IndexOf("\"fire\":", StringComparison.Ordinal) && !text.Contains('\r') && bytes[^1] == (byte)'\n',
+              text.IndexOf("\"bubbles\":", StringComparison.Ordinal) < text.IndexOf("\"fire\":", StringComparison.Ordinal) &&
+              text.IndexOf("\"fire\":", StringComparison.Ordinal) < text.IndexOf("\"grow\":", StringComparison.Ordinal) && !text.Contains('\r') && bytes[^1] == (byte)'\n',
             "the abilities are written in the catalog's order (Glow first), compact, with one final LF");
         Check(ExpertiseLists.BubblesList.Order.SequenceEqual(new[] { "bubble_carry", "bubble_boat", "bubble_lift" }) &&
               ExpertiseLists.FireList.Order.SequenceEqual(new[] { "first_fire", "campfire", "fireline", "snuff", "will_o_wisp" }) &&
-              ExpertiseLists.BubblesList.HintOrder.Count == 0 && ExpertiseLists.FireList.HintOrder.Count == 0,
-            "Bubbles accepts the carry, the boat and the lift; Fire accepts first_fire, campfire, fireline, snuff and will_o_wisp; neither has a hint");
+              ExpertiseLists.BubblesList.HintOrder.Count == 0 && ExpertiseLists.FireList.HintOrder.Count == 5 &&
+              ExpertiseLists.GrowList.Order.SequenceEqual(new[] { "tall_plant", "thicket", "green_ash", "rain_garden", "waterpad" }) && ExpertiseLists.GrowList.HintOrder.Count == 5,
+            "Bubbles accepts the carry, the boat and the lift, with no hint; Fire accepts first_fire, campfire, fireline, snuff and will_o_wisp, each with a hint (its list is final, decisions 77 to 80); Grow accepts its five (decision 75), each with a hint");
         var some = GlowProgress.Fresh.WithExpertise("bubbles", ExpertiseLists.BubbleCarry);
         var someBytes = LocalGlowProgressStore.Serialize(some, "local");
         Check(LocalGlowProgressStore.Parse(someBytes).Same(some) && !Encoding.UTF8.GetString(someBytes).Contains("\"fire\"", StringComparison.Ordinal),
@@ -66,13 +68,15 @@ public partial class CommandHostTest
         var refusals = new (string Label, string Document)[]
         {
             ("an ability the code does not know", Replace("\"fire\":", "\"comet\":")),
-            ("Grow, which is not built", Replace("\"fire\":", "\"grow\":")),
+            ("Fire's ids under Grow", Replace("\"fire\":", "\"grow\":")),
+            ("the replaced Waterside", Replace("\"waterpad\"]", "\"waterside\"]")),
             ("another ability's id under Bubbles", Replace(BubblesCarry, "\"bubbles\":{\"successful_casts\":1000000,\"discoveries\":[\"campfire\",")),
             ("the dropped stream's Bubble trail", Replace(BubblesCarry, "\"bubbles\":{\"successful_casts\":1000000,\"discoveries\":[\"bubble_trail\",")),
             ("a Fire id of the replaced list", Replace("\"first_fire\"", "\"firebreak\"")),
             ("a duplicated expertise", Replace("\"discoveries\":[\"first_fire\",\"campfire\"", "\"discoveries\":[\"first_fire\",\"first_fire\"")),
             ("a hint for Bubbles, which has none until its list is final", Replace("\"delivered_hints\":[]},\"fire\"", "\"delivered_hints\":[\"bubble_carry_ride\"]},\"fire\"")),
-            ("a hint for Fire, which has none yet", Replace("\"delivered_hints\":[]}},\"touch\"", "\"delivered_hints\":[\"campfire_small\"]}},\"touch\"")),
+            // Fire's list is final (decisions 77 to 80): its hints are its own five, and no other.
+            ("a hint Fire's list does not hold", Replace("\"first_fire_rest\"", "\"campfire_small\"")),
             ("no abilities at all", Replace(text[text.IndexOf("\"abilities\":", StringComparison.Ordinal)..(text.IndexOf("\"touch\":", StringComparison.Ordinal))], "\"abilities\":{},")),
             ("an extra field on an ability", Replace("\"fire\":{\"successful_casts\"", "\"fire\":{\"power\":9,\"successful_casts\"")),
             ("a count past the bound", Replace("\"fire\":{\"successful_casts\":1000000", "\"fire\":{\"successful_casts\":1000001")),
@@ -122,9 +126,22 @@ public partial class CommandHostTest
         Check(GrowthRefused(() => GlowProgress.Fresh.WithExpertise("bubbles", "campfire")) && GrowthRefused(() => GlowProgress.Fresh.WithExpertise("fire", "bubble_carry")) &&
               GrowthRefused(() => GlowProgress.Fresh.WithExpertise("bubbles", "bubble_trail")) && GrowthRefused(() => GlowProgress.Fresh.WithExpertise("bubbles", "pond_bubbles")) &&
               GrowthRefused(() => GlowProgress.Fresh.WithExpertise("fire", "night_fire")) && GrowthRefused(() => GlowProgress.Fresh.WithExpertise("fire", "firebreak")) &&
-              GrowthRefused(() => GlowProgress.Fresh.WithExpertise("comet", "bubble_carry")) && GrowthRefused(() => GlowProgress.Fresh.WithExpertise("grow", "tall_plant")) &&
+              GrowthRefused(() => GlowProgress.Fresh.WithExpertise("comet", "bubble_carry")) && GrowthRefused(() => GlowProgress.Fresh.WithExpertise("grow", "waterside")) &&
               GrowthRefused(() => GlowProgress.Fresh.WithExpertise("glow", "lantern")) && GrowthRefused(() => GlowProgress.Fresh.WithExpertise("bubbles", "")),
-            "an id from another list, the dropped ones, an unknown ability, Grow and Glow's own (its casts are AfterObservedCast's) are refused");
+            "an id from another list, the dropped ones (Grow's Waterside among them), an unknown ability and Glow's own (its casts are AfterObservedCast's) are refused");
+        // Grow's casts (decision 75, the shared rules): counted, each expertise once, a hint at the 10th to 50th cast for the first not learned.
+        var grow = GlowProgress.Fresh;
+        for (var cast = 0; cast < 9; cast++) grow = grow.AfterAbilityCast("grow", Array.Empty<string>());
+        var nine = grow.Of("grow")!.DeliveredHints.Count;
+        grow = grow.AfterAbilityCast("grow", Array.Empty<string>());
+        var tenth = grow.Of("grow")!.DeliveredHints.ToArray();
+        grow = grow.AfterAbilityCast("grow", new[] { ExpertiseLists.TallPlant, ExpertiseLists.TallPlant });
+        for (var cast = 0; cast < 9; cast++) grow = grow.AfterAbilityCast("grow", new[] { ExpertiseLists.Waterpad });
+        Check(nine == 0 && tenth.SequenceEqual(new[] { "tall_plant_one" }) && grow.Of("grow")!.SuccessfulCasts == 20 &&
+              grow.Of("grow")!.Discoveries.SequenceEqual(new[] { ExpertiseLists.TallPlant, ExpertiseLists.Waterpad }) &&
+              grow.Of("grow")!.DeliveredHints.SequenceEqual(new[] { "tall_plant_one", "thicket_together" }) && grow.ExpertiseCount == 2 &&
+              GrowthRefused(() => GlowProgress.Fresh.AfterAbilityCast("grow", new[] { "waterside" })) && GrowthRefused(() => GlowProgress.Fresh.AfterAbilityCast("glow", Array.Empty<string>())),
+            "Grow's casts are counted, each expertise learned once in the list's order, the 10th cast hints Tall plant and the 20th the next not learned (Thicket); an id off the list is refused");
         Check(GrowthRefused(() => ExpertiseRecord.Restore(ExpertiseLists.FireList, 9, Array.Empty<string>(), new[] { "campfire_small" })) &&
               GrowthRefused(() => ExpertiseRecord.Restore(ExpertiseLists.BubblesList, 0, new[] { "bubble_carry", "bubble_carry" }, Array.Empty<string>())) &&
               GrowthRefused(() => GlowProgress.Restore(0, Array.Empty<string>(), Array.Empty<string>(), "plain", 0.35, false,
@@ -132,14 +149,15 @@ public partial class CommandHostTest
             "a restored record refuses a hint nothing defines, a duplicate expertise and an ability twice");
 
         var all = GlowProgress.Restore(5, GlowProgress.DiscoveryOrder, Array.Empty<string>(), "plain", 0.35, false,
-            new[] { ExpertiseRecord.Restore(ExpertiseLists.BubblesList, 0, ExpertiseLists.BubblesOrder, Array.Empty<string>()), ExpertiseRecord.Restore(ExpertiseLists.FireList, 0, ExpertiseLists.FireOrder, Array.Empty<string>()) });
-        Check(all.ExpertiseCount == 13 && GlowProgress.Fresh.ExpertiseCount == 0 && GlowProgress.Restore(5, GlowProgress.DiscoveryOrder, Array.Empty<string>()).ExpertiseCount == 5,
-            "the expertise of every ability add up: Glow's five, Bubbles' three for now and Fire's five");
+            new[] { ExpertiseRecord.Restore(ExpertiseLists.BubblesList, 0, ExpertiseLists.BubblesOrder, Array.Empty<string>()), ExpertiseRecord.Restore(ExpertiseLists.FireList, 0, ExpertiseLists.FireOrder, Array.Empty<string>()),
+                ExpertiseRecord.Restore(ExpertiseLists.GrowList, 50, ExpertiseLists.GrowOrder, Array.Empty<string>()) });
+        Check(all.ExpertiseCount == 18 && GlowProgress.Fresh.ExpertiseCount == 0 && GlowProgress.Restore(5, GlowProgress.DiscoveryOrder, Array.Empty<string>()).ExpertiseCount == 5,
+            "the expertise of every ability add up: Glow's five, Bubbles' three for now, Fire's five and Grow's five");
         _host.LoadRules(RoomWorld.DefaultRulesId, ShippedRules.Version);
         int Pips(GlowProgress progress) { _host.ConfigureGlowProgress(new GrowthTestStore(progress)); return _host.BodyRules.MaxPips; }
         var glowFive = GlowProgress.Restore(5, GlowProgress.DiscoveryOrder, Array.Empty<string>());
-        Check(_host.BodyRules.Pips != null && Pips(GlowProgress.Fresh) == 8 && Pips(glowFive) == 9 && Pips(both) == 8 && Pips(fire) == 9 && Pips(all) == 10 && _host.ExpertiseCount() == 13,
-            "the pips' maximum is 8, then one per five across every ability: Glow's five reach 9, Fire's five alone 9, and all thirteen 10");
+        Check(_host.BodyRules.Pips != null && Pips(GlowProgress.Fresh) == 8 && Pips(glowFive) == 9 && Pips(both) == 8 && Pips(fire) == 9 && Pips(all) == 11 && _host.ExpertiseCount() == 18,
+            "the pips' maximum is 8, then one per five across every ability: Glow's five reach 9, Fire's five alone 9, and all eighteen 11");
     }
 
     /// <summary>The founder's real store loads byte for byte as today: its expertise and pips kept, rewritten unchanged until something new is learned.</summary>

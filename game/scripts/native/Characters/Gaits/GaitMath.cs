@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Native.Characters.Gaits;
+namespace GarageGame.Native.Characters.Gaits;
 
 /// <summary>
 /// A critically damped spring (no overshoot, the fastest settle without one), stepped exactly for any Δt, so a layer

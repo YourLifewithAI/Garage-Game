@@ -1,8 +1,8 @@
 using System;
 using System.Linq;
-using EnFractal.Native;
+using GarageGame.Native;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The rules pack the kernel suites load as the shipped one: RoomWorld.DefaultRulesVersion, or the version a run names with

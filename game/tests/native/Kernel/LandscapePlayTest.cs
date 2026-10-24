@@ -5,12 +5,12 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Navigation;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Navigation;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// Play on the land (Run 2, Lane P): a generated landscape room booted as the game boots it, with the real bodies, Jolt
@@ -89,6 +89,13 @@ public partial class LandscapePlayTest : Node3D
             if (OS.GetCmdlineUserArgs().Contains("--gubble-reach"))
             {
                 await TestGubbleReach();
+                Finish();
+                return;
+            }
+            // "-- --grow-demo" runs the Grow packet's windowed demo alone (LandscapePlayTest.Grow).
+            if (OS.GetCmdlineUserArgs().Contains("--grow-demo"))
+            {
+                await TestGrowDemo();
                 Finish();
                 return;
             }
@@ -440,7 +447,7 @@ public partial class LandscapePlayTest : Node3D
         var trip = await Watch("companion fetches the crate", companion, () => { held |= _host.HeldBy(CompanionAvatar) == "obj:apple_crate"; return _host.RunningGoal(CompanionAvatar) != null; }, 7200);
         var job = JobStatus(fetch);
         var gap = PlanarDistance(companion.GlobalPosition, player.GlobalPosition);
-        Check(held && job?["state"]?.GetValue<string>() == "succeeded" && _host.HeldBy(CompanionAvatar) == "obj:apple_crate" && gap <= EnFractal.Native.CompanionAvatar.ComeArrivalM + 0.03f,
+        Check(held && job?["state"]?.GetValue<string>() == "succeeded" && _host.HeldBy(CompanionAvatar) == "obj:apple_crate" && gap <= GarageGame.Native.CompanionAvatar.ComeArrivalM + 0.03f,
             $"the companion fetches it across the land and stands {gap:0.00} m from the player holding it ({trip.Summary()}): {job?.ToJsonString()}");
         // B with the Gubble on Stay out at sea, carrying the crate (Codex Sol's review): it comes home with the player, holding it.
         if (_world.Room.Sea is { } sea && sea.Beaches.Count > 0)
@@ -458,7 +465,7 @@ public partial class LandscapePlayTest : Node3D
             // crate, in the high view. Both come in from the far side together, the crate riding with the Gubble, and the view
             // is put straight on the player rather than swept across the island.
             var hud = _world.GetNode<RoomHud>("RoomHud");
-            var seam = EnFractal.Native.Look.OpenSea.SeamFor(sea, _world.Room.Bounds);
+            var seam = GarageGame.Native.Look.OpenSea.SeamFor(sea, _world.Room.Bounds);
             var centre = sea.OpenSeaCentreM;
             var away2 = (new Vector2(offshore.X, offshore.Z) - centre).Normalized();
             var away = new Vector3(away2.X, 0, away2.Y);
@@ -806,7 +813,7 @@ public partial class LandscapePlayTest : Node3D
         }
 
         // Following a player who runs 40 m: it keeps up and never needs to catch up.
-        companion.CatchUpBeyondM = EnFractal.Native.CompanionAvatar.CatchUpM;
+        companion.CatchUpBeyondM = GarageGame.Native.CompanionAvatar.CatchUpM;
         Check(player.TryTeleportTo(spawn + Vector3.Up * 0.003f), "the player back at the Gubble's spawn");
         await Reset(spawn + new Vector3(0.15f, 0, 0));
         var run = land.Where(p => Mathf.Abs(PlanarDistance(p, spawn) - 40f) <= 4f).OrderBy(p => Mathf.Abs(PlanarDistance(p, spawn) - 40f)).Take(60)
@@ -819,7 +826,7 @@ public partial class LandscapePlayTest : Node3D
         for (var i = 0; i < 300 && companion.FollowMoving; i++) await Frames(1);
         Measure(string.Create(CultureInfo.InvariantCulture,
             $"LANDSCAPE_S8_FOLLOW the player ran {ran.DistanceM:0.0} m in {ran.Ticks / 60.0:0.0} s; the Gubble following was at most {widestGap:0.00} m behind, ending {PlanarDistance(companion.GlobalPosition, player.GlobalPosition):0.00} m away; catch-ups {companion.CatchUps - catchUps}"));
-        Check(run != default && ran.Arrived && companion.CatchUps == catchUps && widestGap < EnFractal.Native.CompanionAvatar.CatchUpM,
+        Check(run != default && ran.Arrived && companion.CatchUps == catchUps && widestGap < GarageGame.Native.CompanionAvatar.CatchUpM,
             $"following a player who runs {ran.DistanceM:0} m, the Gubble keeps up (at most {widestGap:0.0} m behind) and never catches up");
 
         // Left behind on stay while the player runs off 40 m, then called to follow out of the player's sight: it catches up.
@@ -849,14 +856,14 @@ public partial class LandscapePlayTest : Node3D
         var besideGap = PlanarDistance(arrivedAt, player.GlobalPosition);
         var besideLevel = arrivedAt.Y - player.GlobalPosition.Y;
         var wet = RoomWater.At(GetWorld3D().DirectSpaceState, arrivedAt, RoomWater.SearchM, 0.05f).Wet;
-        for (var i = 0; i < 360 && (companion.FollowMoving || PlanarDistance(companion.GlobalPosition, player.GlobalPosition) > EnFractal.Native.CompanionAvatar.FollowFarM + 0.05f); i++) await Frames(1);
+        for (var i = 0; i < 360 && (companion.FollowMoving || PlanarDistance(companion.GlobalPosition, player.GlobalPosition) > GarageGame.Native.CompanionAvatar.FollowFarM + 0.05f); i++) await Frames(1);
         var settled = PlanarDistance(companion.GlobalPosition, player.GlobalPosition);
         Measure(string.Create(CultureInfo.InvariantCulture,
             $"LANDSCAPE_S8_CATCH_UP the player ran off {off.DistanceM:0.0} m ({apart:0.0} m from the Gubble, which the view {(seen ? "held" : "did not hold")}); called to follow, it caught up after {caughtAfter / 60.0:0.00} s, " +
             $"reappearing {besideGap:0.00} m from the player, {besideLevel * 100:0.0} cm off their height, {(inViewAtArrival ? "IN VIEW" : "out of view")}, {(wet ? "IN WATER" : "dry")}; " +
             $"then {settled:0.00} m away following; its AI's notice: {notice?.ToJsonString() ?? "none"}"));
-        Check(away != default && !seen && caughtAfter >= 0 && caughtAfter <= 60 && !inViewAtArrival && !wet && besideGap <= 4.1f && Mathf.Abs(besideLevel) <= EnFractal.Native.CompanionAvatar.LevelGapM &&
-              notice?["distance_m"]?.GetValue<double>() > EnFractal.Native.CompanionAvatar.CatchUpM && settled <= EnFractal.Native.CompanionAvatar.FollowFarM + 0.05f,
+        Check(away != default && !seen && caughtAfter >= 0 && caughtAfter <= 60 && !inViewAtArrival && !wet && besideGap <= 4.1f && Mathf.Abs(besideLevel) <= GarageGame.Native.CompanionAvatar.LevelGapM &&
+              notice?["distance_m"]?.GetValue<double>() > GarageGame.Native.CompanionAvatar.CatchUpM && settled <= GarageGame.Native.CompanionAvatar.FollowFarM + 0.05f,
             $"left {apart:0} m behind out of the player's sight and called, the Gubble catches up beside them out of view, dry and level, its AI is told, and it follows on");
 
         // A fetch across the island: the crate 40 to 60 m off, the player facing away; the way back never catches up.
@@ -882,7 +889,7 @@ public partial class LandscapePlayTest : Node3D
             if (companion.FloatingThere) floated++;
             if (ticks % 60 == 0 || (companion.GoalBlocked && ticks % 15 == 0))
                 trace.Add(string.Create(CultureInfo.InvariantCulture, $"{ticks / 60.0:0.0}s {companion.CurrentIntent}{(_host.HeldBy(CompanionAvatar) != null ? "+held" : "")}{(companion.FloatingThere ? " float(" + companion.FloatReason + ")" : "")}{(companion.GoalBlocked ? " BLOCKED(" + companion.BlockedReason + ")" : "")} at {Text(companion.GlobalPosition)}"));
-            if (ticks % 30 == 0 && _host.HeldBy(CompanionAvatar) == "obj:apple_crate" && companion.GlobalPosition.DistanceTo(player.GlobalPosition) > EnFractal.Native.CompanionAvatar.CatchUpM &&
+            if (ticks % 30 == 0 && _host.HeldBy(CompanionAvatar) == "obj:apple_crate" && companion.GlobalPosition.DistanceTo(player.GlobalPosition) > GarageGame.Native.CompanionAvatar.CatchUpM &&
                 !companion.BodyInPlayerView(companion.GlobalPosition)) outOfSightFar++;
         }
         var job = JobStatus(fetch);
@@ -1023,7 +1030,7 @@ public partial class LandscapePlayTest : Node3D
             var revision = _navigation.Revision;
             await Frames(2);
             _navigation.WorstTickMs = 0;
-            EnFractal.Native.Sandbox.Carrying.Place(thing, pose);
+            GarageGame.Native.Sandbox.Carrying.Place(thing, pose);
             var ticks = await TimeTicks(3600, () => _navigation.Revision != revision);
             Measure(string.Create(CultureInfo.InvariantCulture,
                 $"LANDSCAPE_REBAKE {thing.Name} {name}: re-baked {_navigation.LastTilesBaked} of {_navigation.TileCount} tiles in {_navigation.LastBakeMs:0} ms on worker threads, {_navigation.LastBakeMainThreadMs:0.0} ms of the main thread in all, " +
@@ -1076,7 +1083,7 @@ public partial class LandscapePlayTest : Node3D
         var replans = companion.HighReplans;
         var catchUps = companion.CatchUps;
         // The walk there as the trip starts (how long a way round it is), and the ground covered.
-        var way = _navigation.FindRoute(companion.GlobalPosition, player.GlobalPosition, EnFractal.Native.CompanionAvatar.ComeArrivalM + 0.05f);
+        var way = _navigation.FindRoute(companion.GlobalPosition, player.GlobalPosition, GarageGame.Native.CompanionAvatar.ComeArrivalM + 0.05f);
         var straight = PlanarDistance(companion.GlobalPosition, player.GlobalPosition);
         var covered = 0f;
         var last = companion.GlobalPosition;
@@ -1119,7 +1126,7 @@ public partial class LandscapePlayTest : Node3D
             $"walked {walked / 60.0:0.0} s ({100.0 * walked / Math.Max(1, ticks):0}% of the trip; round something on a route {routed / 60.0:0.0} s), floated {floating / 60.0:0.0} s (float starts {companion.FloatStarts - floats}" +
             $"{(reasons.Count > 0 ? ": " + string.Join(", ", reasons) : "")}; back to walking {companion.FloatEnds - ends}), highest {highest:0.00} m over the player, fastest rise up a face {fastestRise:0.00} m/s, " +
             $"watchdog {companion.HighReplans - replans} times, blocked at most {longestBlocked / 60.0:0.0} s running, catch-ups {companion.CatchUps - catchUps}; a tick {totalTick / Math.Max(1, ticks):0.00} ms on average, worst {worstTick:0.0} ms (tick {worstAt})"));
-        Check(arrived && gap <= EnFractal.Native.CompanionAvatar.ComeArrivalM + 0.03f && Mathf.Abs(level) <= EnFractal.Native.CompanionAvatar.LevelGapM,
+        Check(arrived && gap <= GarageGame.Native.CompanionAvatar.ComeArrivalM + 0.03f && Mathf.Abs(level) <= GarageGame.Native.CompanionAvatar.LevelGapM,
             $"{name}: the Gubble arrives beside the player, level with them ({gap:0.00} m away, {level * 100:0.0} cm off their height)");
         return new Trip(arrived, ticks / 60.0, (double)walked / Math.Max(1, ticks), highest, fastestRise);
     }
@@ -1425,7 +1432,7 @@ public partial class LandscapePlayTest : Node3D
         Check(player.TryTeleportTo(tree.Start), "the player back at the foot of the tree, for the keys");
         // The founder's video (9 October): the Gubble on follow beside this climb shook, its HUD line flipping every few frames.
         Send(Command(NextId("follow"), "goal.set", new JsonObject { ["actor"] = CompanionAvatar, ["goal"] = "follow" }), Player);
-        var side = new Vector3(-tree.Toward.Z, 0, tree.Toward.X) * EnFractal.Native.CompanionAvatar.FollowSideM;
+        var side = new Vector3(-tree.Toward.Z, 0, tree.Toward.X) * GarageGame.Native.CompanionAvatar.FollowSideM;
         if (!companion.TryTeleportTo(tree.Start + side)) companion.TryTeleportTo(tree.Start - side);
         player.Rotation = new Vector3(0, Mathf.Atan2(-tree.Toward.X, -tree.Toward.Z), 0);
         await Frames(10);
@@ -1490,7 +1497,7 @@ public partial class LandscapePlayTest : Node3D
         }
         var level = companion.GlobalPosition.Y - player.GlobalPosition.Y;
         Measure($"LANDSCAPE_TREE_GUBBLE on follow beside the keyed climb and 3 s on the crown: it started to float {companion.FloatStarts - floatStarts} times and its HUD line flipped {hudFlips} times; it ends {level * 100:0.0} cm off the player's height, {PlanarDistance(companion.GlobalPosition, player.GlobalPosition):0.00} m away");
-        Check(hudFlips <= 4 && Mathf.Abs(level) <= EnFractal.Native.CompanionAvatar.LevelGapM, "the Gubble follows a climber up a tree steadily and settles level with them on the crown");
+        Check(hudFlips <= 4 && Mathf.Abs(level) <= GarageGame.Native.CompanionAvatar.LevelGapM, "the Gubble follows a climber up a tree steadily and settles level with them on the crown");
         companion.Stop();
         Check(player.TryTeleportTo(_world.Room.SpawnFor("player").PositionM), "the player back at the spawn after the keyed climb");
         await Frames(10);
@@ -1676,7 +1683,7 @@ public partial class LandscapePlayTest : Node3D
     private Aabb CrateBox() => EntityBox("obj:apple_crate");
 
     private Aabb EntityBox(string id) =>
-        EnFractal.Native.Sandbox.SandboxControls.Box(Query("entity.inspect", new JsonObject { ["target"] = id })["data"]?["entity"]?.AsObject() ?? new JsonObject());
+        GarageGame.Native.Sandbox.SandboxControls.Box(Query("entity.inspect", new JsonObject { ["target"] = id })["data"]?["entity"]?.AsObject() ?? new JsonObject());
 
     private static Vector3 Nearest(Aabb box, Vector3 from) =>
         new(Mathf.Clamp(from.X, box.Position.X, box.End.X), box.Position.Y, Mathf.Clamp(from.Z, box.Position.Z, box.End.Z));

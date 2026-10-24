@@ -3,9 +3,9 @@ using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// Nature as room state: the saved block packs every field compactly and reads back to the same bytes, and the strict
@@ -19,7 +19,7 @@ public partial class NatureTest
     private static NatureState FullNature()
     {
         var state = new NatureState { WeatherS = 123.25, ChangedAt = 5, TrailEnabled = false, TrailPrincipal = "companion", TrailRulesSha256 = new string('a', 64), UndoneAt = 4, UndoneTo = 2 };
-        state.Bloom(new Vector3(0.025f, 0, 0.025f), 0.15f, 30, 0.6f, Soil, null);
+        Flowers(state, new Vector3(0.025f, 0, 0.025f), 0.15f, 30, null);
         state.Objects["creation:00000001"] = new NatureObject { Id = "creation:00000001", Creation = true, Burn = 0.5f, SourceHash = new string('b', 64), RepairCost = new() { ["wood"] = 2 } };
         state.Objects["obj:book"] = new NatureObject { Id = "obj:book", Burn = 1, PositionM = new Vector3(0.45f, 0, 0.1f), Rotation = Quaternion.Identity };
         var step = state.BeginUndo("Fire", 5, Companion, "challenge");
@@ -130,18 +130,18 @@ public partial class NatureTest
     {
         // Saved with the room: whatever the simulation did since the last command is saved on exit and comes back.
         await NewWorld(SavePath("reload"));
-        Check(Ok(Send(Command(NextId("reload-bloom"), "nature.cast", Cast("bloom", NearGubble, 0.2, 120)), Player)), "a Bloom commits");
+        Check(Ok(Send(Command(NextId("reload-bloom"), "nature.cast", Cast("grow", NearGubble, 0.2, 1)), Player)), "a Grow commits");
         Steps(3);
         var expected = Canonical(NatureBlock.Pack(_host.Nature));
         await NewWorld(SavePath("reload"));
-        Check(Canonical(NatureBlock.Pack(_host.Nature)) == expected && _host.Nature.Cells.Count > 0, "nature reloads with the room's save, as the simulation left it on exit");
+        Check(Canonical(NatureBlock.Pack(_host.Nature)) == expected && _host.Nature.Plants.Count > 0, "nature reloads with the room's save, as the simulation left it on exit");
 
         // A sidecar nature.json from an earlier test build is never read.
         var sidecar = ProjectSettings.GlobalizePath($"{TestRoot}/sidecar/nature.json");
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(sidecar)!);
         System.IO.File.WriteAllText(sidecar, "{\"schema\":\"enfractal.nature_state\",\"cells\":\"broken");
         await NewWorld(SavePath("sidecar"));
-        Check(_host.NatureNotice.Length == 0 && Ok(Send(Command(NextId("sidecar-bloom"), "nature.cast", Cast("bloom", NearGubble, 0.2, 120)), Player)),
+        Check(_host.NatureNotice.Length == 0 && Ok(Send(Command(NextId("sidecar-bloom"), "nature.cast", Cast("grow", NearGubble, 0.2, 1)), Player)),
             "a leftover sidecar file breaks nothing");
 
         // A forged nature block refuses the whole save, which stays as it was.
@@ -152,7 +152,7 @@ public partial class NatureTest
         var forged = CanonicalJson.Bytes(save);
         System.IO.File.WriteAllBytes(path, forged);
         await NewWorld(SavePath("sidecar"));
-        var refused = Send(Command(NextId("forged-bloom"), "nature.cast", Cast("bloom", NearGubble, 0.2, 120)), Player);
+        var refused = Send(Command(NextId("forged-bloom"), "nature.cast", Cast("grow", NearGubble, 0.2, 1)), Player);
         Check(!_host.Authority.Call("is_ready").AsBool() && Code(refused) == "not_ready" && System.IO.File.ReadAllBytes(path).SequenceEqual(forged),
             "a save with a forged nature block is not loaded, refuses nature commands and is kept unchanged");
 
@@ -170,23 +170,26 @@ public partial class NatureTest
             writes++;
             return new Godot.Collections.Dictionary { ["ok"] = true };
         }));
-        Check(Ok(Send(Command(NextId("throttle-trail"), "nature.trail", new JsonObject { ["enabled"] = false }), Player)) && writes == 1, "turning the trail off is one write");
+        Check(Ok(Send(Command(NextId("throttle-grow"), "nature.cast", Cast("grow", NearGubble, 0.2, 1)), Player)) && writes == 1, "a Grow is one write");
         Steps(40);
-        Check(writes == 1, "with nothing alive, twenty seconds of weather write nothing");
-        Check(Ok(Send(Command(NextId("throttle-bloom"), "nature.cast", Cast("bloom", NearGubble, 0.2, 120)), Player)) && writes == 2, "a Bloom is one write");
+        Check(writes == 1, "with nothing alive (grown plants stay as they are), twenty seconds of weather write nothing");
+        var lit = Fire(Player, new Vector3(0.9f, 0.01f, 1.2f), 0.2, 1, out _);
+        var before = writes;
+        Steps(3);
+        Check(Ok(lit) && _host.Nature.Fire == null && writes == before + 1, "a fire is one write, and its end is saved at once");
         var revision = _host.Revision;
+        // The ash it left dries and wets: wait for its first throttled save, then time the next ones from it.
+        var synced = writes;
+        for (var i = 0; i < 12 && writes == synced; i++) Steps(1);
+        before = writes;
         Steps(9);
         var early = writes;
         Steps(1);
         var due = writes;
         Steps(10);
-        Check(early == 2 && due == 3 && writes == 4, $"growing flowers are saved every 5 s, no sooner ({early}, {due}, {writes})");
+        Check(early == before && due == before + 1 && writes == before + 2, $"the ash it left, drying and wetting, is saved every 5 s, no sooner ({before}, {early}, {due}, {writes})");
         Check(_host.Revision == revision && Ok(Send(Command(NextId("throttle-lock"), "protect.lock", new JsonObject { ["targets"] = new JsonArray("obj:box") }, expectedRevision: revision), Player)),
             "the simulation's saves never move the room revision: a command naming the revision before them commits");
-        var lit = Fire(Player, new Vector3(0.9f, 0.01f, 1.2f), 0.2, 1, out _);
-        var before = writes;
-        Steps(3);
-        Check(Ok(lit) && _host.Nature.Fire == null && writes == before + 1, "a fire's end is saved at once");
         var clock = _host.Nature.WeatherS;
         _host.AdvanceNature(0.3);
         var none = _host.Nature.WeatherS;
@@ -219,12 +222,12 @@ public partial class NatureTest
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
         System.IO.File.WriteAllBytes(path, CanonicalJson.Bytes(envelope));
         await NewWorld(SavePath("ledger"));
-        var bloom = Send(Command(NextId("full-bloom"), "nature.cast", Cast("bloom", NearGubble, 0.2, 120)), Companion);
-        var another = Send(Command(NextId("full-again"), "nature.cast", Cast("bloom", NearGubble, 0.2, 120)), Companion);
-        Check(Ok(bloom) && Code(another) == "receipt_limit", "the Gubble's Bloom fills its share of the ledger; its next change is refused for capacity");
+        var bloom = Send(Command(NextId("full-bloom"), "nature.cast", Cast("grow", NearGubble, 0.2, 1)), Companion);
+        var another = Send(Command(NextId("full-again"), "nature.cast", Cast("grow", NearGubble, 0.2, 1)), Companion);
+        Check(Ok(bloom) && Code(another) == "receipt_limit", "the Gubble's Grow fills its share of the ledger; its next change is refused for capacity");
         var undo = Send(Command(NextId("full-undo"), "room.undo", new JsonObject { ["to_revision"] = _host.Revision - 1 }, expectedRevision: _host.Revision), Companion);
         var oldest = Send(Query("receipt.lookup", new JsonObject { ["action_id"] = "seed-0000" }), Player);
-        Check(Ok(undo) && _host.Nature.Cells.Count == 0 && oldest["data"]?["compacted"]?.GetValue<bool>() == true,
+        Check(Ok(undo) && _host.Nature.Plants.Count == 0 && oldest["data"]?["compacted"]?.GetValue<bool>() == true,
             "yet its undo commits: the oldest receipt was compacted to make room: " + Canonical(undo["error"]));
         await FreeWorld();
     }

@@ -18,8 +18,8 @@ import unittest
 
 from support import COMPANION, GUBBLE, IN_THE_OPEN, PLAYER, FakeClock, command, contract_problems, glow, new_host, query
 
-from enfractal_companion import mock_trust
-from enfractal_companion.mock_host import MECHANICS_HOSTED
+from garage_game_companion import mock_trust
+from garage_game_companion.mock_host import MECHANICS_HOSTED
 
 
 def refusal(result: dict):

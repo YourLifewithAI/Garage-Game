@@ -4,7 +4,7 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace EnFractal.Native.Look.Intro;
+namespace GarageGame.Native.Look.Intro;
 
 /// <summary>
 /// Where the land starts in the intro: a grid of cells over the island, each with the room's height there (the floor, or the top of

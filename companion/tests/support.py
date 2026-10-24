@@ -15,8 +15,8 @@ from pathlib import Path
 
 COMPANION_DIR = Path(__file__).resolve().parents[1]
 REPO = COMPANION_DIR.parent
-# ENFRACTAL_CONTRACTS_DIR points the suite at another copy of contracts/, to check a proposed change.
-CONTRACTS = Path(os.environ.get("ENFRACTAL_CONTRACTS_DIR") or REPO / "contracts").resolve()
+# GARAGE_GAME_CONTRACTS_DIR points the suite at another copy of contracts/, to check a proposed change.
+CONTRACTS = Path(os.environ.get("GARAGE_GAME_CONTRACTS_DIR") or REPO / "contracts").resolve()
 EXAMPLES = CONTRACTS / "examples" / "messages"
 SRC = COMPANION_DIR / "src"
 
@@ -26,9 +26,9 @@ for path in (str(SRC), str(CONTRACTS)):
 
 import validate as contract_validate  # noqa: E402  (contracts/validate.py, the integrator's validator)
 
-from enfractal_companion.contract import MEMORY_SUMMARY_FIELDS, Contracts  # noqa: E402
-from enfractal_companion.link import LinkServer  # noqa: E402
-from enfractal_companion.mock_host import COMPANION, NO_HOLDS, PLAYER, FakeClock, HostPolicy, MockHost  # noqa: E402
+from garage_game_companion.contract import MEMORY_SUMMARY_FIELDS, Contracts  # noqa: E402
+from garage_game_companion.link import LinkServer  # noqa: E402
+from garage_game_companion.mock_host import COMPANION, NO_HOLDS, PLAYER, FakeClock, HostPolicy, MockHost  # noqa: E402
 
 _CONTRACTS: Contracts | None = None
 _MEMORY_CONTRACTS: Contracts | None = None
@@ -180,7 +180,7 @@ class ThreadedGame:
         self.host = host
         self._tmp = None
         if session_dir is None:
-            self._tmp = tempfile.TemporaryDirectory(prefix="enfractal-companion-")
+            self._tmp = tempfile.TemporaryDirectory(prefix="garage-game-companion-")
             session_dir = Path(self._tmp.name)
         self.session_path = Path(session_dir) / "session.json"
         self.loop = asyncio.new_event_loop()

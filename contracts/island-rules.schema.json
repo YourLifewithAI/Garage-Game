@@ -130,7 +130,7 @@
           "$ref": "common.schema.json#/$defs/token"
         },
         "category": {
-          "description": "What kind of magic the ability is. Unique within a pack; the primitive fixes it (light.emit is light, particles.float is float, particles.burst is burst, growth.seed is growth, element.ignite is fire). The HUD places abilities on its wheel by category, with slots fixed by the engine: light 1, growth 2, float 3, burst 4, build 5, fire 6. That mapping is the HUD's rule, not this contract's, so category stays a token here.",
+          "description": "What kind of magic the ability is. Unique within a pack; the primitive fixes it (light.emit is light, particles.float is float, particles.burst is burst, growth.seed and growth.grow are growth, element.ignite is fire). The HUD places abilities on its wheel by category, with slots fixed by the engine: light 1, growth 2, float 3, burst 4, build 5, fire 6. That mapping is the HUD's rule, not this contract's, so category stays a token here.",
           "$ref": "common.schema.json#/$defs/token"
         },
         "primitive": {
@@ -140,6 +140,7 @@
             "particles.float",
             "particles.burst",
             "growth.seed",
+            "growth.grow",
             "element.ignite"
           ]
         },
@@ -459,7 +460,7 @@
           }
         },
         {
-          "description": "growth.seed, flowers on the island's ground (Bloom, and the flower trail behind the Gubble): host-simulated room state, cast through nature.cast at a point (never self). They take root only on walkable soil or grass above water, grow with light and moisture and fade after their life. intensity is how far grown they start. Its outer limits: intensity only, from 0.05 to 2.0; radius at most 0.6 m; duration (the flowers' life) at most 600 s; one at a time; reach at most 5 m; category growth.",
+          "description": "growth.seed, flowers on the island's ground (Bloom and its flower trail, retired by decision 52: storybook_wild v5 grants Grow, growth.grow, instead, and a host reads an older pack's growth.seed ability as Grow): host-simulated room state, cast through nature.cast at a point (never self). They take root only on walkable soil or grass above water, grow with light and moisture and fade after their life. intensity is how far grown they start. Its outer limits: intensity only, from 0.05 to 2.0; radius at most 0.6 m; duration (the flowers' life) at most 600 s; one at a time; reach at most 5 m; category growth.",
           "if": {
             "required": [
               "primitive"
@@ -507,6 +508,68 @@
               },
               "area_radius_max_m": {
                 "maximum": 0.6
+              },
+              "duration_default_s": {
+                "maximum": 600
+              },
+              "duration_max_s": {
+                "maximum": 600
+              },
+              "max_active": {
+                "maximum": 1
+              }
+            }
+          }
+        },
+        {
+          "description": "growth.grow, the island's own plants grown bigger (Grow, MECHANICS.md decisions 52 and 67): host-simulated room state, cast through nature.cast at a point (never self). Every plant whose root lies in the circle (grass tufts, flowers, ferns, shrubs and trees; never stones, never the ground's painted grass) grows intensity times its natural size a cast (0.25 is a quarter), up to the host's cap (twice its natural size or 0.4 m taller, whichever comes first), and stays grown, saved with the island. A grown tree is climbed as trees are. Grow has no duration: a cast's duration_s is checked against the bounds and otherwise unused. Its outer limits: intensity only, from 0.05 to 1.0; radius at most 1.0 m; reach at most 5 m; one at a time; category growth.",
+          "if": {
+            "required": [
+              "primitive"
+            ],
+            "properties": {
+              "primitive": {
+                "const": "growth.grow"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "category": {
+                "const": "growth"
+              },
+              "params": {
+                "required": [
+                  "intensity"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "intensity": {
+                    "properties": {
+                      "min": {
+                        "minimum": 0.05,
+                        "maximum": 1.0
+                      },
+                      "max": {
+                        "minimum": 0.05,
+                        "maximum": 1.0
+                      },
+                      "default": {
+                        "minimum": 0.05,
+                        "maximum": 1.0
+                      }
+                    }
+                  }
+                }
+              },
+              "reach_m": {
+                "maximum": 5
+              },
+              "area_radius_default_m": {
+                "maximum": 1.0
+              },
+              "area_radius_max_m": {
+                "maximum": 1.0
               },
               "duration_default_s": {
                 "maximum": 600
@@ -856,7 +919,7 @@
       }
     },
     "cost": {
-      "description": "What the Gubble's abilities cost outside Creative, in whole pips (docs/game/MECHANICS.md section 5). Each price names an ability of this pack by its capability, or a Bubbles expertise (bubble_carry, bubble_boat, bubble_lift, which need the pack's bubbles), with its ordered price (even, so that half is whole) and its own-idea factor. The price follows the principal alone, never a field, a tag or a wish's words: the player's keys, wheel and HUD pay the ordered price, and every command on the Gubble's connection pays ordered times own_idea_factor. It is charged once, at commit, never on a preview; stops and refused commands cost nothing; an empty pool refuses with energy_exhausted. In Creative a shadow pool shows the price and never refuses. An ability with no price costs nothing, and an absent block charges nothing: today's behaviour.",
+      "description": "What the Gubble's abilities cost outside Creative, in whole pips (docs/game/MECHANICS.md section 5). Each price names an ability of this pack by its capability, or a Bubbles expertise (bubble_carry, bubble_boat, bubble_lift, which need the pack's bubbles), or a Fire kind (fireline, snuff, will_o_wisp, which need the pack's fire: decisions 78 to 80), with its ordered price (even, so that half is whole) and its own-idea factor. The price follows the principal alone, never a field, a tag or a wish's words: the player's keys, wheel and HUD pay the ordered price, and every command on the Gubble's connection pays ordered times own_idea_factor. It is charged once, at commit, never on a preview; stops and refused commands cost nothing; an empty pool refuses with energy_exhausted. In Creative a shadow pool shows the price and never refuses. An ability with no price costs nothing, and an absent block charges nothing: today's behaviour.",
       "type": "object",
       "additionalProperties": false,
       "required": [

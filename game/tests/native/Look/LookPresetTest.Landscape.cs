@@ -5,12 +5,12 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Look;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Look;
+using GarageGame.Native.Room;
 using FileAccess = Godot.FileAccess;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// Run 2, Lane L: the landscape in the game. The harness's twenty roles each have their own marks; a landscape's baked vertex

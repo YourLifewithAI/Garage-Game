@@ -1,8 +1,8 @@
 using Godot;
-using EnFractal.Native;
-using EnFractal.Native.Playtest;
+using GarageGame.Native;
+using GarageGame.Native.Playtest;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// The game as its main scene boots it (NativeGameBoot: --room=, --style=, the team's boot), with the playtest recorder attached by

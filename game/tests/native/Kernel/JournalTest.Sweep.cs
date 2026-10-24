@@ -1,9 +1,9 @@
 using Godot;
 using System;
 using System.Threading.Tasks;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>The sight sweep spread over ticks (S12): the same team map as a sweep done whole, and the frame left no Godot wrapper.</summary>
 public partial class JournalTest

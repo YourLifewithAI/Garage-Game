@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Saves;
+using GarageGame.Native.Saves;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>Whose island save this is and how it plays (room state's extensions.x_team): the team, the mode, and in Challenge the difficulty.</summary>
 public sealed record SaveTeam(string TeamId, string Mode, string? Difficulty);
@@ -157,9 +157,11 @@ public partial class CommandHost
     public JsonObject PlayerSetKnack(int slot, string knack, bool preview = false) =>
         PlayerCommand("knack.set", new JsonObject { ["slot"] = slot, ["knack"] = knack }, preview);
 
-    /// <summary>Whether the player stands at the camp (the spawn, today): within CampRadiusM of the room's player spawn.</summary>
-    public bool PlayerAtCamp() =>
-        Player != null && IsInstanceValid(Player) && Room != null && Player.GlobalPosition.DistanceTo(Room.SpawnFor("player").PositionM) <= CampRadiusM;
+    /// <summary>
+    /// Whether the player stands at a camp: within CampRadiusM of the room's player spawn or of any lit campfire, the starting one
+    /// included (decision 71: a lit campfire is a full camp; CommandHostCamps.AtCamp). Allocates nothing once the camps are known.
+    /// </summary>
+    public bool PlayerAtCamp() => Player != null && IsInstanceValid(Player) && Room != null && AtCamp(Player.GlobalPosition);
 
     /// <summary>
     /// The player's knack.set (player-only, transient: the team file keeps it): the slot must be open, the knack one the island's pack

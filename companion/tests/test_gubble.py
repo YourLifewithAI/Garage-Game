@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from support import COMPANION, contract_problems, contracts, new_host, query
 
-from enfractal_companion.mock_host import HOVER_M
+from garage_game_companion.mock_host import HOVER_M
 
 
 class Gubble(unittest.TestCase):

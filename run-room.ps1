@@ -23,14 +23,14 @@ $knackArgs = @($Knack | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.T
 if ($knackArgs.Count -gt 3) { throw '-Knack takes up to three knacks, one for each slot.' }
 foreach ($knackArg in $knackArgs) { if ($knackArg -cnotmatch '^[a-z][a-z0-9_-]{0,63}(:[1-3])?$') { throw "-Knack takes a knack id and a rank, like quick_feet:3 (rank 1 to 3, 1 when left off): '$knackArg'." } }
 . (Join-Path $PSScriptRoot 'tools/native-toolchain.ps1')
-$nativeToolchain = Get-EnfractalNativeToolchain
+$nativeToolchain = Get-GarageGameNativeToolchain
 if ($Room -eq 'landscape' -or $Room -eq 'landscape10') {
     # The garage island from the shared fixture cache (tools/landscape-fixture.ps1), built there first if it is missing.
     . (Join-Path $PSScriptRoot 'tools/landscape-fixture.ps1')
     $scale = if ($Room -eq 'landscape10') { 10 } else { 1 }
-    $Room = (Get-EnfractalLandscapeFixture -Toolchain $nativeToolchain -Scale $scale).Room.Replace('\', '/')
+    $Room = (Get-GarageGameLandscapeFixture -Toolchain $nativeToolchain -Scale $scale).Room.Replace('\', '/')
 }
-Build-EnfractalNativeProject -Toolchain $nativeToolchain
+Build-GarageGameNativeProject -Toolchain $nativeToolchain
 $env:DOTNET_ROOT = Split-Path -Parent $nativeToolchain.DotnetPath
 $env:PATH = $env:DOTNET_ROOT + [System.IO.Path]::PathSeparator + $env:PATH
 $userArgs = @()

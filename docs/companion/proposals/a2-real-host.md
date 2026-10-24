@@ -15,8 +15,8 @@ git show run2/companion:docs/companion/proposals/a2-go-to.diff | git apply
 `RoomWorld`, `Companion` names the avatar property, not the namespace.)
 
 **Why:** the game itself then listens for the player's AI: `run-room.ps1` and the shipped game write the session file
-the MCP server reads, and `python -m enfractal_companion.profile` with no arguments connects to the running game.
-Until then only `companion_room.tscn` (and `python -m enfractal_companion.real_game`) serve the link.
+the MCP server reads, and `python -m garage_game_companion.profile` with no arguments connects to the running game.
+Until then only `companion_room.tscn` (and `python -m garage_game_companion.real_game`) serve the link.
 
 **Checked with the patch applied** (8 October): the C# build has no warnings; `tools/test-room.ps1`'s room boot
 (`room.tscn --quit-after 240`, headless) prints `COMPANION_LINK listening ...` with nothing on stderr and removes its
@@ -80,4 +80,4 @@ doorstop, the job succeeds, `held_by` is the companion, `entity.release` puts it
   temporary user folder of its own and quits it cleanly. The suite takes about 100 s instead of about 50.
 - **Ownership:** everything this round added is under `companion/**`, `game/scripts/native/Companion/**` and
   `docs/companion/**`. `companion_room.tscn` lives with its script; move it to `game/scenes/` if scenes should live
-  there, and update `enfractal_companion/real_game.py`'s `SCENE`.
+  there, and update `garage_game_companion/real_game.py`'s `SCENE`.

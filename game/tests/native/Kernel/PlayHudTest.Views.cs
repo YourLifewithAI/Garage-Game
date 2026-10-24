@@ -2,11 +2,11 @@ using Godot;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The two views (the founder, 13 October): first person (F1) and third person over the shoulder (F2, the default). The diorama

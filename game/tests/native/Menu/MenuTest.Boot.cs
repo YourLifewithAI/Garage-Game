@@ -4,13 +4,13 @@ using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Companion;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Saves;
-using EnFractal.Native.Ui;
+using GarageGame.Native;
+using GarageGame.Native.Companion;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Saves;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// The walk from the menu to the room, headless: the menu opens over a user folder with no team, a team is made in the New team panel
@@ -270,11 +270,21 @@ public partial class MenuTest
         var first = await WaitForRoom();
         if (first is not { } creative) return;
         var placed = JsonNode.Parse(creative.Host.Handle(Creation("Menu totem"), CommandHost.PlayerPrincipal))!.AsObject();
-        // (The indoor fixture has no soil to bloom; the flower trail switched off is a durable nature change with an undo step of its own.)
-        var bloomed = creative.Host.PlayerNatureTrail(false);
+        // (The indoor fixture has no plants to grow, and the flower trail went with Bloom: a small Fire on its wooden floor beside the
+        // Gubble, away from the build, is a durable nature change with an undo step of its own.)
+        var fireAt = creative.Host.Companion!.GlobalPosition + new Godot.Vector3(0.15f, 0, 0);
+        // Decision 72: the team knows Fire, as after the first rest (the one helper every suite that lights fires uses).
+        creative.Host.LearnFireForTests();
+        var preview = creative.Host.PlayerNaturePreview("fire", fireAt, 0.2f, 3);
+        var bloomed = preview["ok"]?.GetValue<bool>() == true
+            ? creative.Host.PlayerNatureCast("fire", fireAt, 0.2f, 3, preview["data"]?["preview_id"]?.GetValue<string>())
+            : preview;
         Check(placed["ok"]?.GetValue<bool>() == true && bloomed["ok"]?.GetValue<bool>() == true && creative.Host.NatureCanUndo,
             $"(a build and a nature change made in Creative: the island can undo) {placed["error"]?["message"]} | {bloomed["error"]?["message"]} | {creative.Host.Mode}");
         if (placed["created"] == null) return;
+        // The small fire burns out before the game closes (a fire still burning would go on burning in the copy).
+        for (var waited = 0; waited < 60 * 20 && creative.Host.Nature.Fire != null; waited++) await Frames(1);
+        Check(creative.Host.Nature.Fire == null, "(the small fire has burnt out)");
         var prefix = creative.World.Room.ManifestSha256[..16];
         var creativeSave = layout.IslandSave("theo", "creative", "test_room", prefix);
         var challengeSave = layout.IslandSave("theo", "challenge", "test_room", prefix);

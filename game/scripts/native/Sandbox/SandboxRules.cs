@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Sandbox;
+namespace GarageGame.Native.Sandbox;
 
 /// <summary>
 /// The sandbox verbs' numbers (Run 2, P3; docs/engine/phase3/command-host.md, "The sandbox verbs"). They are tunings for

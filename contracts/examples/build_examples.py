@@ -672,10 +672,11 @@ def answer(op, query_id, principal, revision, at, data):
             "room_id": "garage_example", "revision": revision, "replayed": False, "preview": False, "data": data, "at_utc": at}
 
 
-# What the examples below cast: a patch of flowers by the bean bag, and a fire in front of the left shelving.
-BLOOM = {"capability": "bloom", "center_m": [0.4, 0.0, 0.6], "radius_m": 0.25, "duration_s": 180}
+# What the examples below cast: Grow among the plants by the bean bag (decision 52: Bloom became Grow), and a fire in front of the left shelving.
+GROW = {"capability": "grow", "center_m": [0.4, 0.0, 0.6], "radius_m": 0.5, "duration_s": 1}
 FIRE = {"capability": "fire", "center_m": [-0.1, 0.0, -1.9], "radius_m": 0.6, "duration_s": 30}
-BLOOM_CELLS = [[0.375, 0.0, 0.575], [0.425, 0.0, 0.575], [0.375, 0.0, 0.625], [0.425, 0.0, 0.625]]
+# The flower trail went with Bloom (decision 52): both hosts refuse nature.trail in these words.
+TRAIL_RETIRED = "The flower trail went with Bloom: Grow grows the island's own plants and leaves no trail."
 WISH_TEXT = "A path of flowers to the shelves"
 NO_RENDERER = "This game runs without a renderer (headless), so the Gubble cannot take a picture. Use observe instead."
 # The Gubble's fire (result_fire_cast, revision 7) hurt the player: the notice, and the journal's lesson.
@@ -692,7 +693,7 @@ def placed(cast: dict) -> dict:
 
 
 def magic_modes_and_wishes(at: str) -> dict:
-    """The round of 13 October: Glow's constellation, the player's settings and status, nature (Bloom, the trail, Fire,
+    """The round of 13 October: Glow's constellation, the player's settings and status, nature (Grow, which replaced Bloom, Fire,
     repair, undo), the player's wishes and the Gubble's eyes."""
     picture = tiny_png(16, 16, (178, 196, 140))
     look = {"actor": "avatar:companion",
@@ -720,17 +721,17 @@ def magic_modes_and_wishes(at: str) -> dict:
         "result_player_status": answer("player.status", "q-0021", "companion:local", 4, at, {
             "mode": "challenge", "health": 82.5, "max_health": 100, "stamina": 0.35, "max_stamina": 0.65, "completed_climbs": 2,
             "recoveries": 0, "consequences": True}),
-        # Bloom: a patch of flowers, previewed and then cast; the trail turned off.
-        "command_bloom_preview": command("nature.cast", "bloom-0001", BLOOM, preview=True),
-        "result_bloom_preview": {**result("nature.cast", "bloom-0001", "companion:local", 4, at), "preview": True,
-                                 "data": {**placed(BLOOM), "cell_count": 4, "cells": BLOOM_CELLS, "cells_truncated": False,
-                                          "requires_approval": False}},
-        "command_bloom_patch": command("nature.cast", "bloom-0002", BLOOM),
-        "result_bloom_patch": result("nature.cast", "bloom-0002", "companion:local", 5, at, transient=False,
-                                     data={**placed(BLOOM), "cell_count": 4, "requires_approval": False, "started_cells": 4}),
+        # Grow: the plants rooted in the circle, previewed and then cast (it takes no ground cell); the retired trail refused.
+        "command_grow_preview": command("nature.cast", "grow-0001", GROW, preview=True),
+        "result_grow_preview": {**result("nature.cast", "grow-0001", "companion:local", 4, at), "preview": True,
+                                "data": {**placed(GROW), "cell_count": 0, "cells": [], "cells_truncated": False, "grown_plants": 6,
+                                         "requires_approval": False}},
+        "command_grow_plants": command("nature.cast", "grow-0002", GROW),
+        "result_grow_plants": result("nature.cast", "grow-0002", "companion:local", 5, at, transient=False,
+                                     data={**placed(GROW), "cell_count": 0, "requires_approval": False, "started_cells": 0, "grown_plants": 6}),
         "command_flower_trail_off": command("nature.trail", "trail-0001", {"enabled": False}),
-        "result_flower_trail_off": result("nature.trail", "trail-0001", "player:local", 6, at, transient=False,
-                                          data={"enabled": False, "requires_approval": False}),
+        "result_flower_trail_retired": {**result("nature.trail", "trail-0001", "player:local", 5, at), "ok": False,
+                                        "error": {"code": "unsupported_capability", "message": TRAIL_RETIRED, "field_path": "$.op", "retryable": False}},
         # Fire: previewed first (its preview_id is the caster's own handle, never an approval), then cast naming it.
         "command_fire_preview": command("nature.cast", "fire-0001", FIRE, preview=True),
         "result_fire_preview": {**result("nature.cast", "fire-0001", "companion:local", 6, at), "preview": True,
@@ -751,7 +752,7 @@ def magic_modes_and_wishes(at: str) -> dict:
                                                   affected=["creation:00000002"], data={"cost": {"copper": 2, "wood": 1}}),
         # room.undo takes the latest nature changes back by room revision (command_undo names revision 2 from 4).
         "result_undo_nature": result("room.undo", "undo-0001", "player:local", 5, at, transient=False, affected=["obj:shelving_left"],
-                                     data={"undone": "Fire, Flower trail", "undone_steps": 2, "requires_approval": False}),
+                                     data={"undone": "Fire, Grow", "undone_steps": 2, "requires_approval": False}),
         "query_nature_describe": query("nature.describe", "q-0022", {}),
         "result_nature_describe": answer("nature.describe", "q-0022", "companion:local", 8, at, {
             "nature_revision": 8, "trail_enabled": False, "weather": {"pattern": "fair", "rain": 0.0, "wind_mps": [0.12, 0.0, -0.03]},
@@ -791,6 +792,55 @@ def magic_modes_and_wishes(at: str) -> dict:
     }
 
 
+# Fire's behaviours (decisions 77 to 80): a Fireline dragged along the bench, a Snuff of the fire there, and a Will-o'-wisp over the pond.
+FIRELINE = {"capability": "fire", "center_m": [-0.6, 0.0, -1.9], "radius_m": 1.5, "duration_s": 30, "end_m": [0.6, 0.0, -1.9]}
+FIRELINE_PREVIEW = hashlib.sha256(b"a fireline preview along the bench").hexdigest()[:32]
+SNUFF = {"capability": "fire", "center_m": [-0.1, 0.0, -1.9], "radius_m": 1.5, "duration_s": 30}
+SNUFF_PREVIEW = hashlib.sha256(b"a snuff preview of the bench fire").hexdigest()[:32]
+WISP_CAST = {"capability": "fire", "center_m": [1.2, 0.02, 0.4], "radius_m": 1.5, "duration_s": 30}
+WISP_PREVIEW = hashlib.sha256(b"a will-o'-wisp preview over the pond").hexdigest()[:32]
+WISP = "effect:" + hashlib.sha256(b"the will-o'-wisp over the pond").hexdigest()[:26]
+
+
+def fire_behaviours(at: str) -> dict:
+    """Fire's behaviours (the packet of 17 October): the place decides what a Fire cast is, its preview's kind says so."""
+    line = placed(FIRELINE)
+    return {
+        "command_fireline_preview": command("nature.cast", "line-0001", FIRELINE, preview=True),
+        "result_fireline_preview": {**result("nature.cast", "line-0001", "player:local", 9, at), "preview": True, "data": {
+            **line, "radius_m": 0.9, "cell_count": 48, "cells": [[-0.575, 0.0, -1.875], [-0.525, 0.0, -1.875]], "cells_truncated": True,
+            "requires_approval": False, "affected_ids": [], "max_burning_cells": 200, "avatars_in_area": [], "preview_id": FIRELINE_PREVIEW,
+            "kind": "fireline"}},
+        "command_fireline_cast": command("nature.cast", "line-0001", {**FIRELINE, "preview_id": FIRELINE_PREVIEW}),
+        "result_fireline_cast": result("nature.cast", "line-0001", "player:local", 10, at, transient=False, data={
+            **{k: v for k, v in line.items() if k != "end_m"}, "radius_m": 0.9, "cell_count": 48, "requires_approval": False,
+            "started_cells": 48, "max_burning_cells": 200}),
+        "result_snuff_preview": {**result("nature.cast", "snuff-0001", "companion:local", 10, at), "preview": True, "data": {
+            **placed(SNUFF), "cell_count": 31, "cells": [[-0.125, 0.0, -1.925]], "cells_truncated": True, "requires_approval": True,
+            "preview_id": SNUFF_PREVIEW, "kind": "snuff"}},
+        "result_snuff_cast": result("nature.cast", "snuff-0001", "player:local", 10, at, transient=True, data={
+            **placed(SNUFF), "cell_count": 31, "requires_approval": False, "started_cells": 0, "kind": "snuff"}),
+        "result_wisp_preview": {**result("nature.cast", "wisp-0001", "companion:local", 10, at), "preview": True, "data": {
+            **placed(WISP_CAST), "radius_m": 0.25, "duration_s": 300, "cell_count": 0, "cells": [], "cells_truncated": False,
+            "requires_approval": False, "preview_id": WISP_PREVIEW, "kind": "will_o_wisp"}},
+        "result_wisp_cast": result("nature.cast", "wisp-0001", "companion:local", 10, at, transient=True, affected=[WISP], created=[WISP], data={
+            **placed(WISP_CAST), "radius_m": 0.25, "duration_s": 300, "cell_count": 0, "requires_approval": False, "started_cells": 0,
+            "kind": "will_o_wisp", "wisp": WISP}),
+    }
+
+
+def fire_behaviours_refused(at: str) -> dict:
+    """What Fire's behaviours refuse, each for one reason (EXPECTED_FAILURES in contracts/tests/test_contracts.py)."""
+    valid = fire_behaviours(at)
+    snuff = valid["result_snuff_preview"]
+    wisp = valid["result_wisp_cast"]
+    return {
+        "command_grow_with_an_end": command("nature.cast", "grow-0009", {**GROW, "end_m": [0.5, 0.0, 0.5]}),
+        "result_snuff_preview_naming_what_it_would_burn": {**snuff, "data": {**snuff["data"], "affected_ids": ["obj:shelving_left"]}},
+        "result_wisp_naming_a_thing": {**wisp, "data": {**wisp["data"], "wisp": "obj:pond"}},
+    }
+
+
 def magic_modes_and_wishes_refused(at: str) -> dict:
     """What the round's ops refuse, each for one reason (EXPECTED_FAILURES in contracts/tests/test_contracts.py)."""
     valid = magic_modes_and_wishes(at)
@@ -804,7 +854,7 @@ def magic_modes_and_wishes_refused(at: str) -> dict:
         "result_capabilities_list_with_native_required": {**capabilities, "data": {"items": [
             {**capabilities["data"]["items"][0], "native_required": True}]}},
         "command_fire_past_the_engines_radius": command("nature.cast", "fire-0009", {**FIRE, "radius_m": 2}, preview=True),
-        "command_nature_cast_of_an_effect": command("nature.cast", "glow-0009", {**BLOOM, "capability": "glow"}),
+        "command_nature_cast_of_an_effect": command("nature.cast", "glow-0009", {**GROW, "capability": "glow"}),
         "command_fire_with_a_made_up_preview_id": command("nature.cast", "fire-0010", {**FIRE, "preview_id": "preview-1"}),
         "command_repair_an_object": command("nature.repair", "repair-0009", {"target": "obj:bean_bag"}),
         "command_player_mode_unknown": command("world.set_mode", "mode-0009", {"mode": "peaceful"}),
@@ -817,7 +867,7 @@ def magic_modes_and_wishes_refused(at: str) -> dict:
             **valid["result_fire_cast"]["data"], "cells": fire_preview["data"]["cells"]}},
         "result_fire_preview_without_what_it_reaches": {**fire_preview, "data": {
             k: v for k, v in fire_preview["data"].items() if k != "affected_ids"}},
-        "result_flower_trail_without_its_data": {k: v for k, v in valid["result_flower_trail_off"].items() if k != "data"},
+        "result_flower_trail_without_its_data": {k: v for k, v in result("nature.trail", "trail-0001", "player:local", 6, at, transient=False).items() if k != "data"},
         "result_undo_without_what_it_undid": {k: v for k, v in valid["result_undo_nature"].items() if k != "data"},
         "result_wish_with_a_counter_id": {**valid["result_player_wish"], "data": {"wish_id": "wish:000001", "status": "queued"}},
         "result_mode_with_data": {**valid["result_player_mode_challenge"], "data": {"mode": "challenge"}},
@@ -850,7 +900,7 @@ def magic_modes_and_wishes_refused(at: str) -> dict:
 
 # ---------- the mechanics round (M0, 14 October 2026; docs/game/MECHANICS.md, docs/runs/RUN-2-MECHANICS.md section 3) ----------
 
-# A Fractal on the island example, and the receipt the player marks (the Gubble's Bloom patch above).
+# A Fractal on the island example, and the receipt the player marks (the Gubble's Grow above).
 FRACTAL = "fractal:k3x9q2"
 BUBBLE_PREVIEW = hashlib.sha256(b"a bubble carry over the bean bag").hexdigest()[:32]
 # A bubble's id (M9): an effect: id, which effect.stop names and goal.stop of the Gubble pops.
@@ -873,7 +923,9 @@ MECHANICS = {
     },
     "cost": {
         "prices": {name: {"ordered": ordered, "own_idea_factor": 0.5} for name, ordered in (
-            ("glow", 2), ("bubbles", 2), ("fireworks", 2), ("bloom", 4), ("fire", 6), ("bubble_carry", 4), ("bubble_boat", 4), ("bubble_lift", 6))},
+            ("glow", 2), ("bubbles", 2), ("fireworks", 2), ("grow", 4), ("fire", 6), ("bubble_carry", 4), ("bubble_boat", 4), ("bubble_lift", 6),
+            # Fire's kinds (decisions 78 to 80): a Fireline 8, a Snuff 2, a Will-o'-wisp 4 when the player orders it, half as the Gubble's idea.
+            ("fireline", 8), ("snuff", 2), ("will_o_wisp", 4))},
         "torch_fire": 0,
     },
     "modes": {"rows": [
@@ -917,12 +969,12 @@ def ability(capability, category, primitive, display, tier, targets, reach, inte
             "area_radius_max_m": radius[1], "duration_default_s": duration[0], "duration_max_s": duration[1], "max_active": active}
 
 
-# storybook_wild v4's abilities, which the example pack prices.
+# storybook_wild v5's abilities, which the example pack prices (Grow in Bloom's place, decision 52).
 ABILITIES = [
     ability("glow", "light", "light.emit", "Glow", "auto", ["self", "point"], 2.0, (0.2, 1.0, 0.6), (0.6, 1.5), (300, 600), 5),
     ability("bubbles", "float", "particles.float", "Bubbles", "auto", ["self", "point"], 2.0, (0.2, 1.0, 0.6), (0.5, 1.0), (20, 60), 2),
     ability("fireworks", "burst", "particles.burst", "Fireworks", "auto", ["self", "point"], 4.0, (0.3, 1.0, 0.8), (1.0, 2.0), (4, 6), 3),
-    ability("bloom", "growth", "growth.seed", "Bloom", "auto_undo", ["point"], 2.0, (0.2, 1.0, 0.6), (0.25, 0.6), (180, 600), 1),
+    ability("grow", "growth", "growth.grow", "Grow", "auto_undo", ["point"], 2.0, (0.1, 0.5, 0.25), (0.5, 1.0), (1, 600), 1),
     ability("fire", "fire", "element.ignite", "Fire", "preview_commit", ["point"], 2.0, (0.2, 1.0, 0.6), (1.5, 1.5), (30, 60), 1),
 ]
 
@@ -1100,7 +1152,7 @@ def mechanics_round(at: str) -> dict:
         "result_player_gathers_a_log": result("item.gather", "gather-0001", "player:local", 6, at, transient=False, affected=["obj:loose_log"]),
         "command_player_chooses_a_knack": command("knack.set", "knack-0001", {"slot": 1, "knack": "quick_feet"}, note="Player-only."),
         "result_player_chooses_a_knack": result("knack.set", "knack-0001", "player:local", 5, at, transient=True),
-        "command_player_marks_a_receipt": command("receipt.mark", "mark-0001", {"action_id": "bloom-0002", "mark": "yes"}, note="Player-only."),
+        "command_player_marks_a_receipt": command("receipt.mark", "mark-0001", {"action_id": "grow-0002", "mark": "yes"}, note="Player-only."),
         "result_player_marks_a_receipt": result("receipt.mark", "mark-0001", "player:local", 5, at, transient=True),
         "command_player_resets_trust": command("trust.reset", "trust-0001", {}, note="Player-only: the menu, beside Change my AI."),
         "result_player_resets_trust": result("trust.reset", "trust-0001", "player:local", 5, at, transient=True),
@@ -1120,8 +1172,8 @@ def mechanics_round(at: str) -> dict:
                                                        "The mode is chosen at the menu; this save keeps its mode.", "$.op"),
         "result_set_mode_to_live": refused("world.set_mode", "mode-0004", "player:local", "unsupported_capability",
                                            "Live is not available yet.", "$.args.mode", allowed=["creative", "challenge"]),
-        # Connection energy: the pool cannot pay the Gubble's own-idea Bloom (2 pips) with 1 left.
-        "result_energy_exhausted": refused("nature.cast", "bloom-0003", "companion:local", "energy_exhausted",
+        # Connection energy: the pool cannot pay the Gubble's own-idea Grow (2 pips) with 1 left.
+        "result_energy_exhausted": refused("nature.cast", "grow-0003", "companion:local", "energy_exhausted",
                                            "The Gubble needs a moment.", "$.op", balance=1, price=2),
         "result_player_status_with_energy": answer("player.status", "q-0040", "companion:local", 5, at, status),
         # The Bubbles expertise: a carry on the player's avatar, previewed first (the ghost preview is the consent), then cast
@@ -1192,14 +1244,14 @@ def mechanics_round_refused(at: str) -> dict:
         "command_gather_of_a_creation": command("item.gather", "gather-0009", {"target": "creation:00000001"}),
         "result_gather_with_data": {**valid["result_player_gathers_a_log"], "data": {"wood": 21}},
         "command_knack_in_a_fourth_slot": command("knack.set", "knack-0009", {"slot": 4, "knack": "quick_feet"}),
-        "command_receipt_marked_maybe": command("receipt.mark", "mark-0009", {"action_id": "bloom-0002", "mark": "maybe"}),
+        "command_receipt_marked_maybe": command("receipt.mark", "mark-0009", {"action_id": "grow-0002", "mark": "maybe"}),
         "command_trust_reset_to_a_number": command("trust.reset", "trust-0009", {"count": 30}),
         "command_fractals_spent_on_a_knack": command("fractal.spend", "spend-0009", {"grow": "knack"}),
         "command_fractals_spent_by_the_count": command("fractal.spend", "spend-0010", {"grow": "heart", "count": 5}),
         "result_spend_with_data": {**valid["result_player_spends_fractals_on_a_heart"], "data": {"hearts": 6}},
         "command_difficulty_in_creative": command("world.set_mode", "mode-0009", {"mode": "creative", "difficulty": "brave"}),
         "command_carry_on_the_player_without_its_preview": {**carry, "args": {k: v for k, v in carry["args"].items() if k != "preview_id"}},
-        "command_bloom_on_the_player": command("nature.cast", "bloom-0009", {**BLOOM, "target": "avatar:player"}, preview=True),
+        "command_grow_on_the_player": command("nature.cast", "grow-0009", {**GROW, "target": "avatar:player"}, preview=True),
         "command_carry_of_a_thing": {**carry, "args": {**carry["args"], "target": "obj:bean_bag"}},
         "result_energy_exhausted_without_its_price": {**exhausted, "error": {k: v for k, v in exhausted["error"].items() if k != "price"}},
         "result_balance_on_another_refusal": {**exhausted, "error": {**exhausted["error"], "code": "budget_exceeded"}},
@@ -1363,6 +1415,7 @@ def build_messages(out: Path) -> None:
                                 "at_utc": at}
     valid.update(magic_modes_and_wishes(at))
     valid.update(mechanics_round(at))
+    valid.update(fire_behaviours(at))
     # The 10x world (S2): observe sees the whole island unless a radius narrows it, and a plant copy is an entity.
     valid["query_observe_everything_in_sight"] = query("observe", "q-0030", {"actor": "avatar:companion"})
     valid["query_observe_across_the_island"] = query("observe", "q-0031", {"actor": "avatar:companion", "radius_m": 150})
@@ -1444,6 +1497,7 @@ def build_messages(out: Path) -> None:
                                                       "preview": False, "data": {"items": [], "not_yet_seen": 2}, "at_utc": at}
     invalid.update(magic_modes_and_wishes_refused(at))
     invalid.update(mechanics_round_refused(at))
+    invalid.update(fire_behaviours_refused(at))
     # The 10x world (S2): a radius past 150 m, and a second spelling of one plant copy.
     invalid["query_observe_past_150_m"] = query("observe", "q-0033", {"actor": "avatar:companion", "radius_m": 151})
     invalid["command_go_to_a_tree_spelt_with_a_leading_zero"] = command("goal.set", "go-to-tree-0001", {
@@ -1461,7 +1515,7 @@ def build_messages(out: Path) -> None:
 
 # The playtest record (contracts/playtest-record.schema.json; README "The playtest record"), as the recorder (R1) writes it:
 # one folder per play, manifest.json and events.jsonl. A short play on the example island in Challenge: the Gubble's AI joins,
-# the player picks up a log, the Gubble's Bloom is refused for pips and the refusal is shown, a note with instruction-like
+# the player picks up a log, the Gubble's Grow is refused for pips and the refusal is shown, a note with instruction-like
 # text goes in as data, the founder marks "something's off" (F9), quickens the beat (F7), keeps a moment (F8), and quits
 # cleanly. The stills are named, never written: they are never in Git.
 PLAYTEST_STARTED = "2026-10-15T19:30:00Z"
@@ -1510,7 +1564,7 @@ def playtest_events() -> list[dict]:
                        request={"target": "obj:log_small_2", "actor": "avatar:player"}, result={"ok": True, "revision": 42}, ms=0.8),
         playtest_still(10.0, "0001-steady.jpg", "steady", by_log),
         playtest_event(12.4, "command", principal="companion:local", op="nature.cast", action_id="cast-7f2a",
-                       request={"ability": "bloom", "center_m": by_log, "radius_m": 0.5},
+                       request={"ability": "grow", "center_m": by_log, "radius_m": 0.5},
                        result={"ok": False, "code": "energy_exhausted", "message": refused, "revision": 42}, ms=0.6),
         playtest_event(12.4, "notice", channel="refusal", text=refused, code="energy_exhausted", action_id="cast-7f2a"),
         playtest_still(12.5, "0002-refusal.jpg", "refusal", by_log, full=True),

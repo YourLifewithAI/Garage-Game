@@ -41,7 +41,7 @@ the [room capture pipeline](../../docs/pipeline/ROOM-CAPTURE-PIPELINE.md); the d
 - GPU stages pause while a window titled `EnFractal...` is open (the founder may be playing on the
   same card) and wait for free VRAM.
 - Photos, derived images and reports of a real room are never committed.
-- A captured room is written to the player's user data (`%APPDATA%\Godot\app_userdata\EnFractal\rooms\<room>\` on
+- A captured room is written to the player's user data (`%APPDATA%\Godot\app_userdata\Garage-Game\rooms\<room>\` on
   Windows) and nowhere else: `write_room` refuses the resolved destination when it is inside *any* Git checkout (this one,
   another clone, a worktree) or when the room folder is a link that leads out of the rooms folder. It stages the manifest,
   runs `contracts/validate.py` on the staged copy and only then replaces the room that was there: a manifest that fails

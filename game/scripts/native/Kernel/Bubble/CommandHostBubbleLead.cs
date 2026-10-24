@@ -3,7 +3,7 @@ using System;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The Gubble leading a bubble (goal.set lead; decisions 57, 58 and 60): the smart ask's steering. The player orders it (the HUD's

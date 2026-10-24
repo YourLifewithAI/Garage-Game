@@ -6,9 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Saves;
+using GarageGame.Native.Saves;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>A save the menu could not write or read, in the player's words (never a path, never saved text).</summary>
 public sealed class MenuSaveException(string message) : Exception(message);

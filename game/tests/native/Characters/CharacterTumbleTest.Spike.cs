@@ -3,11 +3,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Room;
-using EnFractal.Native.Characters;
+using GarageGame.Native;
+using GarageGame.Native.Room;
+using GarageGame.Native.Characters;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>
 /// The spike the plan asks for before the tumble is built (docs/runs/RUN-2-CHARACTERS.md, "The risk"): Godot's

@@ -2,11 +2,11 @@ using Godot;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>
 /// K7's suite: the tumble on a big fall (docs/runs/RUN-2-CHARACTERS.md, "The tumble (K7)" and acceptance item 2), on real

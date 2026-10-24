@@ -8,7 +8,7 @@ from __future__ import annotations
 import copy
 import unittest
 
-from enfractal_companion.textsafety import hidden_characters
+from garage_game_companion.textsafety import hidden_characters
 from support import (
     COMPANION, GARAGE_TO_TEST_ROOM, PLAYER, FakeClock, HostPolicy, command, contract_problems, example, glow, new_host,
     query, retarget,

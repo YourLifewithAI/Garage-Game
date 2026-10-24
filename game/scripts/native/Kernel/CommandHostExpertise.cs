@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The hook for expertise outside Glow's own casts (docs/magic/README.md, M11). Glow's are recorded at its own casts

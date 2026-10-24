@@ -3,10 +3,10 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Saves;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Saves;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// The opening menu (docs/game/MECHANICS.md section 3; scenes/menu.tscn): three rows of big cards and one big button.
@@ -97,7 +97,7 @@ public partial class MainMenu : Control
         // The title, and the way out.
         var header = new HBoxContainer { Name = "Header" };
         column.AddChild(header);
-        var title = new Label { Name = "Title", Text = "EnFractal" };
+        var title = new Label { Name = "Title", Text = "Garage Game" };
         title.AddThemeFontSizeOverride("font_size", 34);
         header.AddChild(title);
         var tagline = MenuStyle.Text("   a room you photographed, grown into an island, and the Gubble who plays it with you", 16, MenuStyle.Muted, "Tagline");

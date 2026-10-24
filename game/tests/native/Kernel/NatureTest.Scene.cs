@@ -3,11 +3,11 @@ using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// What fire leaves for the scene and the verbs, and the smaller rules: a burnt tree's climbing collision goes with it and
@@ -22,7 +22,7 @@ public partial class NatureTest
     {
         await TestBurntRemains();
         await TestCarriedThings();
-        await TestTrailConsent();
+        await TestOlderFlowers();
         await TestNatureRequests();
     }
 
@@ -99,18 +99,31 @@ public partial class NatureTest
         Check(book.CollisionLayer == layer, "putting it down does");
     }
 
-    /// <summary>Review major 11: turning back on the trail the player turned off is the player's choice.</summary>
-    private async Task TestTrailConsent()
+    /// <summary>
+    /// Decision 52: Bloom became Grow and its flower trail was removed. An older island's save that holds the trail's flowers (and the
+    /// trail switched on) loads cleanly: its flowers are dropped, whatever else it holds (here a grown plant) is kept, and nothing plants
+    /// flowers again as the Gubble walks.
+    /// </summary>
+    private async Task TestOlderFlowers()
     {
-        await NewWorld(SavePath("trail"));
-        Check(Ok(Send(Command(NextId("player-trail-off"), "nature.trail", new JsonObject { ["enabled"] = false }), Player)), "the player turns the flower trail off");
-        var asked = Send(Command(NextId("gubble-trail-on"), "nature.trail", new JsonObject { ["enabled"] = true }), Companion);
-        Check(Code(asked) == "approval_required" && !_host.Nature.TrailEnabled, "the Gubble asking to turn it back on waits for the player");
-        var approved = _host.Approve(asked["approval_needed"]?["request_id"]?.GetValue<string>() ?? "");
-        Check(Ok(approved) && _host.Nature.TrailEnabled, "and the player's click turns it on");
-        Send(Command(NextId("gubble-trail-off"), "nature.trail", new JsonObject { ["enabled"] = false }), Companion);
-        Check(Ok(Send(Command(NextId("gubble-trail-back"), "nature.trail", new JsonObject { ["enabled"] = true }), Companion)) && _host.Nature.TrailEnabled,
-            "a trail the Gubble itself turned off it may turn back on");
+        await NewWorld(SavePath("older-flowers"));
+        Check(Ok(Send(Command(NextId("older-grow"), "nature.cast", Cast("grow", NearGubble, 0.1, 1)), Player)), "a Grow is saved with the island");
+        await FreeWorld();
+        var path = ProjectSettings.GlobalizePath(SavePath("older-flowers"));
+        var save = JsonNode.Parse(System.IO.File.ReadAllText(path))!.AsObject();
+        var older = NatureBlock.Unpack(save["nature"]!);
+        older.TrailEnabled = true;
+        var planted = Flowers(older, NearGubble + new Vector3(0, 0, -0.3f), 0.1f, 120, null);
+        save["nature"] = NatureBlock.Pack(older);
+        System.IO.File.WriteAllBytes(path, CanonicalJson.Bytes(save));
+        await NewWorld(SavePath("older-flowers"));
+        var grown = _host.Nature.Plants.Count;
+        Check(planted > 0 && _host.Authority.Call("is_ready").AsBool() && _host.NatureNotice.Length == 0 && _host.Nature.Cells.Count == 0 && grown > 0,
+            $"an older island's save with the trail's flowers loads cleanly: the {planted} flower cells are dropped, its grown plants kept ({grown})");
+        _companion.GlobalPosition += new Vector3(0.3f, 0, 0.2f);
+        Steps(4);
+        Check(_host.Nature.Cells.Count == 0 && Send(Query("nature.describe", new JsonObject()), Player)["data"]?["trail_enabled"]?.GetValue<bool>() == false,
+            "and no trail plants flowers as the Gubble walks: nature.describe says the trail is off");
     }
 
     /// <summary>Review item 14 and 15: request shapes, the pack's limits, the preview id, durable receipts.</summary>
@@ -119,12 +132,13 @@ public partial class NatureTest
         await NewWorld(SavePath("requests"));
         var malformed = new (string Label, JsonObject Args, string Op, string Expected)[]
         {
-            ("an ability that is not bloom or fire", Cast("ice", NearGubble, 0.2, 10), "nature.cast", "request_invalid"),
-            ("a radius past the contract's 1.5 m", Cast("bloom", NearGubble, 2, 10), "nature.cast", "request_invalid"),
-            ("a duration that is not a number", Edited(Cast("bloom", NearGubble, 0.2, 10), a => a["duration_s"] = "long"), "nature.cast", "request_invalid"),
-            ("a missing centre", Edited(Cast("bloom", NearGubble, 0.2, 10), a => a.Remove("center_m")), "nature.cast", "request_invalid"),
+            ("an ability that is not grow or fire", Cast("ice", NearGubble, 0.2, 10), "nature.cast", "request_invalid"),
+            ("Bloom, retired by decision 52", Cast("bloom", NearGubble, 0.2, 10), "nature.cast", "request_invalid"),
+            ("a radius past the contract's 1.5 m", Cast("grow", NearGubble, 2, 10), "nature.cast", "request_invalid"),
+            ("a duration that is not a number", Edited(Cast("grow", NearGubble, 0.2, 10), a => a["duration_s"] = "long"), "nature.cast", "request_invalid"),
+            ("a missing centre", Edited(Cast("grow", NearGubble, 0.2, 10), a => a.Remove("center_m")), "nature.cast", "request_invalid"),
             ("a preview id this host never made", Cast("fire", NearGubble, 0.2, 10, "not-a-preview"), "nature.cast", "request_invalid"),
-            ("an argument the op does not have", Edited(Cast("bloom", NearGubble, 0.2, 10), a => a["owner"] = Player), "nature.cast", "field_unknown"),
+            ("an argument the op does not have", Edited(Cast("grow", NearGubble, 0.2, 10), a => a["owner"] = Player), "nature.cast", "field_unknown"),
             ("a trail that is neither on nor off", new JsonObject { ["enabled"] = "yes" }, "nature.trail", "request_invalid"),
             ("an undo to a negative revision", new JsonObject { ["to_revision"] = -1 }, "room.undo", "request_invalid"),
             ("an undo to a revision that is not a whole number", new JsonObject { ["to_revision"] = 1.5 }, "room.undo", "request_invalid"),
@@ -134,9 +148,11 @@ public partial class NatureTest
         Check(Code(Send(Command(NextId("unnamed-undo"), "room.undo", new JsonObject { ["to_revision"] = 0 }), Player, contractValid: false)) == "request_invalid",
             "an undo that does not name the room revision it undoes from is request_invalid");
         var pack = JsonNode.Parse(Godot.FileAccess.GetFileAsString(IslandRules.PathFor(RoomWorld.DefaultRulesId, ShippedRules.Version)))!.AsObject();
-        pack["abilities"]!.AsArray().First(a => a!["capability"]!.GetValue<string>() == "bloom")!["area_radius_max_m"] = 0.3;
+        var grow = pack["abilities"]!.AsArray().First(a => a!["capability"]!.GetValue<string>() == "grow")!;
+        grow["area_radius_max_m"] = 0.3;
+        grow["area_radius_default_m"] = 0.3;
         _host.UseRules(IslandRules.Parse(CanonicalJson.Bytes(pack)));
-        var wide = Send(Command(NextId("wide-bloom"), "nature.cast", Cast("bloom", NearGubble, 0.4, 10)), Player);
+        var wide = Send(Command(NextId("wide-bloom"), "nature.cast", Cast("grow", NearGubble, 0.4, 10)), Player);
         Check(Code(wide) == "invalid_args" && wide["error"]?["allowed"]?.GetValue<double>() == 0.3, "a radius past the pack's own limit is refused with the pack's limit");
         _host.LoadRules(RoomWorld.DefaultRulesId, ShippedRules.Version);
         var preview = Send(Command(NextId("id-preview"), "nature.cast", Cast("fire", NearGubble, 0.2, 10), preview: true), Player);

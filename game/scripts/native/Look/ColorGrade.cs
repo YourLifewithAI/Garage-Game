@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>Everything the colour grade depends on at one moment.</summary>
 public sealed record GradeParams(

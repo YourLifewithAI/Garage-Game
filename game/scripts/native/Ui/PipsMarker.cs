@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// The Gubble's pips as a row under the hearts and the stamina bar, always (docs/game/MECHANICS.md sections 1 and 5, decision 51,

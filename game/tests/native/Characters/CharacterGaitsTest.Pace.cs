@@ -2,13 +2,13 @@ using Godot;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Characters.Gaits;
-using EnFractal.Native.Room;
-using EnFractal.Native.Seams;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Characters.Gaits;
+using GarageGame.Native.Room;
+using GarageGame.Native.Seams;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>
 /// The gaits read the body's real walk and run (docs/runs/RUN-2-MECHANICS.md, M5; RUN-2-CHARACTERS.md, "Stride and cadence from leg

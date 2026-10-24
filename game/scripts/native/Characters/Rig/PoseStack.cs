@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// The fixed order of the pose stack (docs/runs/RUN-2-CHARACTERS.md, "The pose stack"). Layers write into the

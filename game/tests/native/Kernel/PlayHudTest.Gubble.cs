@@ -3,12 +3,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Characters;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
+using GarageGame.Native;
+using GarageGame.Native.Characters;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The drawn Gubble in the room (the characters round, K5; Characters/Gubble): the companion wears the family's Gubble in place of

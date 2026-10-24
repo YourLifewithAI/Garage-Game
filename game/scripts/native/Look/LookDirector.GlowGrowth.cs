@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>Draws host-verified Glow discoveries and cosmetic touches. No heat, force, injury or discovery authority lives here.</summary>
 public partial class LookDirector

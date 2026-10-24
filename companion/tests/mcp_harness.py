@@ -8,8 +8,8 @@ from pathlib import Path
 
 from support import contract_problems, contracts, new_host
 
-from enfractal_companion.link import LinkClient, LinkServer
-from enfractal_companion.server import RESULT_PREAMBLE, Adapter, build_server
+from garage_game_companion.link import LinkClient, LinkServer
+from garage_game_companion.server import RESULT_PREAMBLE, Adapter, build_server
 
 
 class McpHarness:

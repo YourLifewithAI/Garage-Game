@@ -7,7 +7,7 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	var output := OS.get_environment("ENFRACTAL_ART_OUTPUT")
+	var output := OS.get_environment("GARAGE_GAME_ART_OUTPUT")
 	if output.is_empty():
 		output = ProjectSettings.globalize_path("res://../.cache/asset-proof")
 	DirAccess.make_dir_recursive_absolute(output)

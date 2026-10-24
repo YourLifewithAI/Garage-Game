@@ -7,11 +7,11 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Saves;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Saves;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// Teams and save paths (docs/runs/RUN-2-MECHANICS.md, packet M3; docs/game/MECHANICS.md sections 2, 3, 7 and 12): the team folder
@@ -51,9 +51,10 @@ public partial class TeamSavesTest : Node3D
             await TestABootThatCannotSetItsMode();
             await TestAFixtureBootIsAsBefore();
             await TestTrustInTheTeamFile();
+            TestTheFolderMove();
             GC.Collect();
             GC.WaitForPendingFinalizers();
-            GD.Print($"NATIVE_TEAM_SAVES: {_checks - _failures}/{_checks} checks passed; the team folder and its layout (two teams never share a file), the team file, the expertise store's version 3 and the union of the per-mode Glow records, the migration (written and verified, the old files removed only on a later launch, never one that changed or whose copy does not read, never over a team's own file), the boot's team, mode and difficulty, world.set_mode and Live refused once the room is up, the save keeping its difficulty, an island whose mode could not be set held rather than played under another mode's rules, knack.set at the camp reaching the body with a swapped knack's earned rank kept, Trust kept in the team file (the player's marks and reset, never the companion's), and no Windows device's name for a team; not the menu");
+            GD.Print($"NATIVE_TEAM_SAVES: {_checks - _failures}/{_checks} checks passed; the team folder and its layout (two teams never share a file), the team file, the expertise store's version 3 and the union of the per-mode Glow records, the migration (written and verified, the old files removed only on a later launch, never one that changed or whose copy does not read, never over a team's own file), the boot's team, mode and difficulty, world.set_mode and Live refused once the room is up, the save keeping its difficulty, an island whose mode could not be set held rather than played under another mode's rules, knack.set at the camp reaching the body with a swapped knack's earned rank kept, Trust kept in the team file (the player's marks and reset, never the companion's), and no Windows device's name for a team; not the menu; the save folder's move from EnFractal to Garage-Game (copied and verified, caches left, nothing overwritten, resumed, never repeated)");
             GetTree().Quit(_failures == 0 ? 0 : 1);
         }
         catch (Exception error)
@@ -256,9 +257,24 @@ public partial class TeamSavesTest : Node3D
             "the store writes version 3, keyed by ability, naming its team: " + text.Trim());
         Check(LocalGlowProgressStore.ParseDocument(Encoding.UTF8.GetBytes(CreativeGlowV2)) is { Version: 2, TeamId: null } v2 && v2.Progress.Same(CreativeGlow),
             "version 2 (one file per mode) is still read, for the migration");
-        var bloom = text.Replace("\"abilities\":{", "\"abilities\":{\"bloom\":{\"successful_casts\":1,\"discoveries\":[],\"delivered_hints\":[]},", StringComparison.Ordinal);
+        var bloom = text.Replace("\"abilities\":{", "\"abilities\":{\"thunder\":{\"successful_casts\":1,\"discoveries\":[],\"delivered_hints\":[]},", StringComparison.Ordinal);
         Check(Refuses(() => LocalGlowProgressStore.Parse(Encoding.UTF8.GetBytes(bloom))) && Refuses(() => LocalGlowProgressStore.Parse(Encoding.UTF8.GetBytes(text.Replace("\"team_id\":\"mira\"", "\"team_id\":\"Mira\"", StringComparison.Ordinal)))),
             "an ability this game does not learn yet (a newer save's) and a malformed team are refused whole, so a write never drops them");
+        // Decision 52: Bloom became Grow, and Grow takes Bloom's place in the store. A store that holds "bloom" is read as Grow's
+        // record and written as "grow" from then on; one holding both is ambiguous and refused whole.
+        var older = JsonNode.Parse(text)!.AsObject();
+        older["abilities"]!["bloom"] = new JsonObject { ["successful_casts"] = 3, ["discoveries"] = new JsonArray(), ["delivered_hints"] = new JsonArray() };
+        var migrated = LocalGlowProgressStore.Parse(Encoding.UTF8.GetBytes(older.ToJsonString()));
+        var rewritten = Encoding.UTF8.GetString(LocalGlowProgressStore.Serialize(migrated, "mira"));
+        var both = JsonNode.Parse(older.ToJsonString())!.AsObject();
+        both["abilities"]!["grow"] = new JsonObject { ["successful_casts"] = 1, ["discoveries"] = new JsonArray(), ["delivered_hints"] = new JsonArray() };
+        Check(migrated.Others.TryGetValue(ExpertiseLists.Grow, out var grow) && grow.SuccessfulCasts == 3 && rewritten.Contains("\"grow\":{\"successful_casts\":3", StringComparison.Ordinal) &&
+              !rewritten.Contains("bloom", StringComparison.Ordinal) && Refuses(() => LocalGlowProgressStore.Parse(Encoding.UTF8.GetBytes(both.ToJsonString()))),
+            "a store holding Bloom's record is read as Grow's and written as \"grow\"; one holding both is refused: " + rewritten.Trim());
+        string WithGrow(string id) => older.ToJsonString().Replace("\"discoveries\":[],\"delivered_hints\":[]}}", $"\"discoveries\":[\"{id}\"],\"delivered_hints\":[]}}}}", StringComparison.Ordinal);
+        Check(Refuses(() => LocalGlowProgressStore.Parse(Encoding.UTF8.GetBytes(WithGrow("waterside")))) &&
+              LocalGlowProgressStore.Parse(Encoding.UTF8.GetBytes(WithGrow("tall_plant"))).Has(ExpertiseLists.Grow, ExpertiseLists.TallPlant),
+            "Grow's list is the founder's (decision 75): Tall plant is accepted under a Bloom record read as Grow, the replaced Waterside is refused");
     }
 
     // ---- the migration ----

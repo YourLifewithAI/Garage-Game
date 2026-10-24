@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Room;
+using GarageGame.Native.Room;
 using FileAccess = Godot.FileAccess;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// Writes synthetic islands for the loading tests (packet S6), from the contract's island example: its meshes and terrain GLBs
@@ -235,6 +235,57 @@ public static class IslandFixture
         if (boundsMin is { } low && boundsMax is { } high)
             manifest["bounds"] = new JsonObject { ["min_m"] = new JsonArray(low.X, low.Y, low.Z), ["max_m"] = new JsonArray(high.X, high.Y, high.Z) };
         customize?.Invoke(manifest, files);
+        var listed = new JsonArray();
+        foreach (var (path, bytes) in files.OrderBy(f => f.Key, StringComparer.Ordinal))
+        {
+            Save(target + "/" + path, bytes);
+            listed.Add(new JsonObject { ["path"] = path, ["sha256"] = RoomData.Sha256Hex(bytes), ["bytes"] = bytes.Length });
+        }
+        manifest["files"] = listed;
+        Save(target + "/room.json", System.Text.Encoding.UTF8.GetBytes(manifest.ToJsonString()));
+        return target;
+    }
+
+    /// <summary>
+    /// A copy of a room (its manifest and every file it lists, its room id kept, at target, a user:// folder named as the room) with
+    /// plant copies added: the island example's plant meshes, the sets as given, and the manifest's files listed again with their hashes
+    /// and sizes. For Grow's tests (decision 52), which need the test room's objects and plants beside them.
+    /// </summary>
+    public static string WithPlants(string sourceDirectory, string target, IReadOnlyList<SetSpec> sets)
+    {
+        var source = ProjectSettings.GlobalizePath(sourceDirectory);
+        var absolute = ProjectSettings.GlobalizePath(target);
+        if (System.IO.Directory.Exists(absolute)) System.IO.Directory.Delete(absolute, recursive: true);
+        var manifest = JsonNode.Parse(File.ReadAllText(source + "/room.json"))!.AsObject();
+        var files = new Dictionary<string, byte[]>();
+        foreach (var entry in manifest["files"]!.AsArray())
+        {
+            var path = entry!["path"]!.GetValue<string>();
+            files[path] = File.ReadAllBytes(source + "/" + path);
+        }
+        var records = new JsonArray();
+        foreach (var spec in sets)
+        {
+            var kind = spec.Kind switch { "tree" => PlantKind.Tree, "stone" => PlantKind.Stone, _ => PlantKind.Plant };
+            var (bytes, tiles, _) = Table(kind, spec.CapSlots, spec.Rows);
+            var table = $"plants/{spec.Name}.bin";
+            files[table] = bytes;
+            foreach (var mesh in new[] { spec.Mesh }.Concat(spec.Lods.Select(l => l.Mesh))) files[mesh] = File.ReadAllBytes(ExampleDirectory + "/" + mesh);
+            var record = new JsonObject
+            {
+                ["set"] = spec.Name, ["prototype"] = spec.Prototype, ["kind"] = spec.Kind, ["species"] = spec.Species, ["collides"] = spec.Collides,
+                ["fuel_class"] = spec.FuelClass, ["seeds"] = spec.Seeds, ["mesh"] = spec.Mesh, ["triangle_count"] = spec.Triangles,
+            };
+            if (spec.Lods.Length > 0) record["lods"] = new JsonArray(spec.Lods.Select(l => (JsonNode)new JsonObject { ["mesh"] = l.Mesh, ["triangle_count"] = l.Triangles }).ToArray());
+            record["table"] = table;
+            if (kind == PlantKind.Tree) record["cap_slots"] = spec.CapSlots;
+            record["tiles"] = tiles;
+            record["count"] = spec.Rows.Count;
+            records.Add(record);
+        }
+        manifest["plant_copies"] = new JsonObject { ["tile_m"] = PlantCopies.TileM, ["groups"] = sets.SelectMany(s => s.Rows).Select(r => (int)r.Group).DefaultIfEmpty(0).Max(), ["sets"] = records };
+        foreach (var directory in files.Keys.Select(p => Path.GetDirectoryName(p)!.Replace('\\', '/')).Distinct())
+            DirAccess.MakeDirRecursiveAbsolute(absolute + "/" + directory);
         var listed = new JsonArray();
         foreach (var (path, bytes) in files.OrderBy(f => f.Key, StringComparer.Ordinal))
         {

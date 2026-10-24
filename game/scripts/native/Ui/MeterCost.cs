@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// What the meters and the minimap cost a frame (the mechanics round's budget, docs/runs/RUN-2-MECHANICS.md section 9: at most

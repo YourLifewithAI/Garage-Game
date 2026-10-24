@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace EnFractal.Native.Room;
+namespace GarageGame.Native.Room;
 
 /// <summary>
 /// The collision a copy's row describes (contracts/README.md "Plant copies"; packet S6), as shapes the game builds itself rather
@@ -63,6 +63,26 @@ public static class PlantCollision
 
     public static Transform3D CapPlace(TreeCap cap) =>
         new(Basis.FromScale(new Vector3(cap.RimHalfXM, cap.TopM - cap.RimM, cap.RimHalfZM)), new Vector3(cap.X, cap.RimM, cap.Z));
+
+    /// <summary>
+    /// A tree's climbing collision grown with the tree (Grow, decision 52): every height above its base and every offset from its root
+    /// (pivotX, pivotZ) times factor, every radius and half-size times factor, so the same unit shapes are placed with the grown
+    /// transform. Its taper and its caps' perch-to-rim ratios do not change, so the shared shapes stay shared.
+    /// </summary>
+    public static TreeShape Grown(TreeShape tree, float pivotX, float pivotZ, float factor)
+    {
+        if (factor == 1) return tree;
+        float X(float x) => pivotX + (x - pivotX) * factor;
+        float Z(float z) => pivotZ + (z - pivotZ) * factor;
+        float Y(float y) => tree.BaseY + (y - tree.BaseY) * factor;
+        var caps = new TreeCap[tree.Caps.Length];
+        for (var k = 0; k < caps.Length; k++)
+        {
+            var c = tree.Caps[k];
+            caps[k] = new TreeCap(X(c.X), Z(c.Z), c.RimHalfXM * factor, c.RimHalfZM * factor, Y(c.RimM), Y(c.TopM), c.TopHalfXM * factor, c.TopHalfZM * factor);
+        }
+        return new TreeShape(tree.BaseY, X(tree.AxisX), Z(tree.AxisZ), tree.TrunkRadiusM * factor, tree.PoleRadiusM * factor, Y(tree.TrunkTopM), Y(tree.PoleTopM), caps);
+    }
 
     /// <summary>The trunk's corners in room metres: a ring of trunk_radius_m at the base and one of pole_radius_m at trunk_top_m.</summary>
     public static Vector3[] Trunk(TreeShape tree)

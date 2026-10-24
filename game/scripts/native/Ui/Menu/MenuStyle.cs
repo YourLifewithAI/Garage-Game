@@ -1,6 +1,6 @@
 using Godot;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>The menu's look: the HUD's deep teal and warm cream, cards that read as buttons, a selected card with a cream border. A first pass for the founder's eye, not settled art.</summary>
 public static class MenuStyle

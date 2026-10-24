@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace EnFractal.Native.Navigation;
+namespace GarageGame.Native.Navigation;
 
 /// <summary>
 /// The walkable islands of a tiled bake: which polygons a walk can get between. Built on a worker after each bake from the

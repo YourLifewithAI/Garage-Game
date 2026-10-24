@@ -5,12 +5,12 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Navigation;
-using EnFractal.Native.Room;
-using EnFractal.Tests.Look;
+using GarageGame.Native;
+using GarageGame.Native.Navigation;
+using GarageGame.Native.Room;
+using GarageGame.Tests.Look;
 
-namespace EnFractal.Tests;
+namespace GarageGame.Tests;
 
 /// <summary>
 /// Where an island's memory goes in the full game (S12b, the 10x world's memory budget: 0.9 GB steady, 1.2 GB peak), headless or in

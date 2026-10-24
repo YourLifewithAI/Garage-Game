@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-using EnFractal.Native.Characters;
+using GarageGame.Native.Characters;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>A main part's physics shape: a capsule or a sphere sized from its mesh bounds, placed relative to its bone.</summary>
 public sealed record TumblePartShape(Shape3D Shape, Transform3D ShapeTransform, Transform3D BodyOffset, Transform3D JointOffset, float Volume);

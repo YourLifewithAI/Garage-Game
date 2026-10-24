@@ -3,10 +3,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using EnFractal.Native;
-using EnFractal.Native.Look;
+using GarageGame.Native;
+using GarageGame.Native.Look;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// Where a character sheet tile stands its character: the feet, the ground's normal, the water's surface, the wall it climbs and

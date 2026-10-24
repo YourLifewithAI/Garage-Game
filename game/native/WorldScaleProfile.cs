@@ -1,4 +1,4 @@
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 /// <summary>
 /// Engine-independent body dimensions in real-world metres. Avatar size never rescales the room or

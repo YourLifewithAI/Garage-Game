@@ -283,6 +283,52 @@ Multiplayer is a later phase and out of scope for the engine work now.
 
 69. **Trust counts only paid actions and their direct consequences.** A Gubble action gains Trust only when it cost pips (a cast or an effect the guard charged, a Lift charged at its rise); free actions (grabs, pushes, releases, builds that cost nothing, goals, stops, notes) never gain it. A consequence fact moves Trust only when it follows directly from such a paid action (the fire it cast, a bubble it cast). "Only paid actions and consequences directly related to those actions earn trust." This narrows decision 68.
 
+**Decided by the founder on Fire's campsites (16 October, evening)**:
+
+70. **Resting at a campfire is an action near the fire:** sitting down by it. "Resting at a campfire should mean taking some kind of action near the fire." The first rest at the island's starting campfire teaches Fire (decision 61).
+71. **A lit campfire is a full camp:** spending Fractals, choosing a knack and waking with half the pips work there as at the starting camp, and hearts refill faster (decision 62). The opening scene that will introduce Fire is planned in [RUN-2-OPENING.md](../runs/RUN-2-OPENING.md).
+
+**Decided by the founder on Fire's camp as built (16 October, night; the eighteenth session's questions)**:
+
+72. **The Gubble has no Fire until the first rest.** Fire is refused until the team has learned it by the player's first rest at the island's starting campfire (decision 61), whoever asks: the player's keys and wheel order the Gubble's magic too, so both are locked, in every mode; the wheel shows Fire locked until then.
+73. **Only rain or Snuff puts a campfire out.** The player's Stop (X) does not. A campfire put out is not a camp until it is relit, and the Gubble's Fire relights it. Snuff's behaviour is its own later packet; rain puts campfires out from this round.
+74. **Firepits are spread evenly over any island,** covering it rather than pushed to its edges or clustered, wherever the island's land lies.
+
+**Decided by the founder on Grow's expertise (16 October, night; the list in [the magic design](../magic/README.md), "Expertise for Bubbles, Fire and Grow")**:
+
+75. **Grow's five expertise:** Tall plant (one plant grown to its full size), Thicket (three plants at full size within 1 m of one another), Green ash (Grow cast on burnt ground greens the ash at once), Rain garden (Grow cast while it rains grows the plants twice as much) and **Waterpad**, replacing Waterside: Grow cast on water grows a large water lily leaf that the player can step onto. Each behaviour works from the start; the first time it works teaches it, once per team, as Bubbles' do.
+76. **Grow's unlocks by count:** two Grow expertise open growing plants without seeds (flowers and grass on bare soil); three open plants that grow across a gap **like a bridge, horizontal only for now**; five open **ivy grown up a wall that the player can climb, for a limited distance** (replacing crops that grow faster).
+
+**Decided by the founder on Fire's behaviours (17 October; the integrator's proposal of the same night, built "as planned for now")**:
+
+77. **Fire on the wheel:** key 6 and a ninth wedge just after Fireworks, the other seven keeping their clockwise order. Until the first rest it shows a lock and "Rest by the starting campfire first."; then a tap previews the outlined fire at the aimed spot and a hold lights it, as the Magic panel does. The place decides, as for the Bubble: on an unlit firepit it lights the firepit, on water it makes a Will-o'-wisp, on a fire it is Snuff once learned, dragged it is Fireline once learned, elsewhere plain Fire.
+78. **Fireline:** learned by three Fire casts within 2 minutes, at least 0.5 m apart, whose centres lie along one line; then a drag of up to 3 m is outlined and held to light, the whole line catching at once and spreading within Fire's limits. One fire (one undo in Creative, Fire's guardrails); 8 ordered, 4 as the Gubble's idea.
+79. **Snuff:** learned by rain falling on a fire the Gubble started, or a Bubble cast on a fire (decision 63); then Fire aimed at something burning puts out everything in its 1.5 m circle, campfires included (decision 73), the ground damp and unable to catch for 30 s. The Gubble's own-idea Snuff of a lit campfire waits for the player's yes (it is the player's camp); a wild fire asks nothing. 2 ordered, 1 as the Gubble's idea.
+80. **Will-o'-wisp:** once Fire is learned, Fire cast on water makes a cold, ghostly flame hovering about 15 cm over the water and drifting slowly, a lantern at night and a floating flame by day; it burns nothing and is not the Gubble's one fire; it lasts 5 minutes, at most 3 at a time, and is not saved, like a bubble. The first one teaches the expertise. 4 ordered, 2 as the Gubble's idea. Fish rising toward it wait (decision 63).
+
+**Decided by the founder after the second recorded play (17 October; [the debrief](../runs/playtests/2026-10-17-landscape_garage_nominal.md), queued as [RUN-2-PLAYTEST-ROUND-2.md](../runs/RUN-2-PLAYTEST-ROUND-2.md); the details still open are that brief's questions)**:
+
+81. **Esc is the in-game menu:** save, load, settings and exit to the main menu, as players expect.
+82. **A fire burns until it burns itself out or is Snuffed.** X no longer puts out any fire (decision 73 for campfires, now for every fire).
+83. **Fire costs 2 pips a cast** (was 6) and **lights at once,** with no wait for a preview or a hold. Casting it near yourself is a learning moment.
+84. **Hearts do not heal by themselves** (one of the kids): they heal by resting at a camp and by eating food found in the world (apples, fish and the like). Replaces healing anywhere and decision 62's faster healing at camp.
+85. **A campfire hurts a player standing in it,** as any fire does.
+86. **One interaction key for the world,** shown by a prompt at what it works on: sitting at a camp, picking an apple, picking a thing up, opening a door. Which key is still to settle (Enter was suggested); it will be iterated.
+87. **Sitting at a camp changes the scene,** so the player knows they are resting, and **opens the camp:** the place to manage magic, see the expertise found, check stats and knacks, manage the inventory (not built yet) and spend Fractals.
+88. **Out of a bubble is a fall.** Falls hurt, and so does falling out of a bubble: a player can pop out, grab a wall and climb the rest on their stamina. Replaces decision 43's and 60's slow drift down.
+89. **A bubble's time is a ring of light** around it that shrinks as a countdown; when the ring is gone, the bubble pops.
+
+**The founder's answers to that brief's questions (17 October, evening)**:
+
+90. **The interaction key is E** (question 1); Z stays a second key for the camp for one round.
+91. **Resting at a camp heals one quarter of a heart a second** (question 2): five hearts in 20 s.
+92. **Food, first cut** (question 3): **apples heal half a heart, berries a quarter,** eaten on the spot for now; berries grow on certain bushes and apples on certain trees.
+93. **Hearts do not heal while the game is closed** (question 4); you come back with what you had. Replaces the hearts part of "While the player is away".
+94. **Fire as the Gubble's own idea costs 1 pip** (question 5): half of the 2 ordered.
+95. **A bubble lasts 8 seconds** (question 7), not 20.
+96. **A bubble's pop costs the Gubble Trust only when the Gubble pops it by its own action** and the fall hurts the player (question 8). A pop at the time limit, or because the player called the spell off, never counts against the Gubble.
+97. **Esc cancels first, then opens the menu** (question 6): while the player is in the middle of something (a chosen bubble, the wheel, anything Esc lets go today), the first Esc cancels it and the next opens the menu; with nothing going on, one Esc opens the menu.
+
 **Still open for the founder** (with the recommendation this document carries; the letter is the one the build plan uses):
 
 - F. **Competitive balance** (the brief's two options): a sealed profile with knowledge as the only carry-over is the recommendation (section 9). Live is later, so no packet waits on it.

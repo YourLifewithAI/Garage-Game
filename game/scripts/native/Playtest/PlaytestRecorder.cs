@@ -5,13 +5,13 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using EnFractal.Native.Companion;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
-using EnFractal.Native.Room;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Companion;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
+using GarageGame.Native.Room;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Native.Playtest;
+namespace GarageGame.Native.Playtest;
 
 /// <summary>
 /// The game records its own playtests (docs/runs/RUN-2-PLAYTEST-LOOP.md, R1; contracts/playtest-record.schema.json): every windowed

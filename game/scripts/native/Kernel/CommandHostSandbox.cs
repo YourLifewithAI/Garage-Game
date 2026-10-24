@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using EnFractal.Native.Room;
-using EnFractal.Native.Sandbox;
+using GarageGame.Native.Room;
+using GarageGame.Native.Sandbox;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The sandbox verbs (Run 2, P3; contracts/README.md "The sandbox verbs"): pick up (entity.grab, transient), carry

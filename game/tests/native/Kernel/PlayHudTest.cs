@@ -2,12 +2,12 @@ using Godot;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
-using EnFractal.Native.Sandbox;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
+using GarageGame.Native.Sandbox;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The second playtest's fix round, in the real room with the real look and HUD: the diorama and isometric views are shelved
@@ -123,6 +123,12 @@ public partial class PlayHudTest : Node
             await TestShoulderKeepsTheBodyInFrame();
             await TestShoulderFocusAndSwitches();
             await TestSwimHint();
+            // Fire's camp: the rest key and the expertise announcement (PlayHudTest.Camp.cs).
+            await TestCampHud();
+            // The Fire behaviours packet (PlayHudTest.FireBehaviours.cs): Fractals collected by touch, the Magic panel's key, Fire on the wheel.
+            await TestFractalTouch();
+            await TestMagicKey();
+            await TestFireWheel();
             // The playtest record's keys (PlayHudTest.Playtest.cs).
             await TestPlaytestKeys();
 
@@ -183,7 +189,11 @@ public partial class PlayHudTest : Node
         ("gubble_recall", Key.Q, false), ("gubble_stop", Key.X, false),
         ("gubble_slot_1", Key.Key1, false), ("gubble_slot_2", Key.Key2, false), ("gubble_slot_3", Key.Key3, false),
         ("gubble_slot_4", Key.Key4, false), ("gubble_slot_5", Key.Key5, false),
+        // Fire on the wheel (decision 77): 6; and the Magic panel's own key, M (it was only a button inside H).
+        ("gubble_slot_6", Key.Key6, false), ("hud_magic", Key.M, false),
         ("hands", Key.F, false), ("push", Key.V, false), ("item_gather", Key.E, false),
+        // Fire's camp: sit down by a lit campfire (decision 70).
+        ("rest", Key.Z, false),
         ("physics_next", Key.G, false), ("time_step", Key.T, false), ("season_step", Key.T, true), ("lamps", Key.L, false),
         ("bounce_step", Key.P, false), ("bounce_print", Key.P, true),
         ("hud_help", Key.H, false), ("hud_customize", Key.C, false), ("journal", Key.J, false), ("gubble_eyes", Key.I, false), ("mouse_release", Key.Escape, false),
@@ -354,6 +364,7 @@ public partial class PlayHudTest : Node
         try
         {
             var home = _world.Player.HomeName;
+            var fireLearned = CommandHost.Of(_world)!.FireLearned;
             await Frames(2);
             var expected = new[]
             {
@@ -361,12 +372,15 @@ public partial class PlayHudTest : Node
                 $"WASD move · Shift run · Space jump · B back to {home} · R recover · drag to look around",
                 "Climb: keep walking into a steep face, W up, S down, A/D across, Space lets go · Swim: deep water floats you, Space leaps · Dive: hold Ctrl, Space rises, W swims the way you look, let go to drift up",
                 "F1 first person · F2 third person: wheel zooms out to look around, and zoomed out drag orbits and WASD follows the view",
-                "O observe (a very tight tilt-shift view, best zoomed out) · C settings · J journal (Esc closes either)",
+                "O observe (a very tight tilt-shift view, best zoomed out) · C settings · M the Gubble's magic · J journal (Esc closes any)",
                 "F11 full screen on or off (kept for your next launch)",
-                "F pick up what you face · F again sets it down in front of you, or on top of what you face (the box, the book) · V push what you face 10 cm · E gather a log or stone you hold into your wallet",
+                "Walk into a fractal to collect it · F pick up what you face · F again sets it down in front of you, or on top of what you face (the box, the book) · V push what you face 10 cm · E gather a log or stone you hold into your wallet · Z sit down by a lit campfire to rest (moving stands you up)",
                 "The Gubble, your companion:",
                 "right-click asks for what fits where you point (wait or follow, fetch or put down, light the dark, go and look; on a bubble, choose it, then a spot to lead it there, a higher one to lift it); hold it for the wheel · Q come, then follow · X stop · I look through its eyes",
-                $"1 Glow{PriceWords("glow")}, 2 Bloom{PriceWords("bloom")}, 3 Bubbles{PriceWords("bubbles")}, 4 Fireworks{PriceWords("fireworks")} where you point (it comes closer first if it must; at the sky, on itself) · 5 magic still to come · it floats after you, over water and up cliffs",
+                $"1 Glow{PriceWords("glow")}, 2 Grow{PriceWords("grow")}, 3 Bubbles{PriceWords("bubbles")}, 4 Fireworks{PriceWords("fireworks")}, 6 Fire" +
+                (fireLearned ? $"{PriceWords("fire")} where you point (it comes closer first if it must; at the sky, on itself) · 6 previews Fire where you point and holding right-click lights it"
+                    : " (locked: rest by the starting campfire first) where you point (it comes closer first if it must; at the sky, on itself)") +
+                " · 5 magic still to come · it floats after you, over water and up cliffs",
                 "Testing",
                 "G gravity · T time of day · Shift+T season (each steps round to the real clock) · L lamps · P your character's bounce (x0.5, x1, x1.5) · Shift+P print its motion profile",
                 "Playtest record: F9 something's off here · F8 keep this · F7 stills faster · F6 slower (the record is off for this run)",
@@ -386,7 +400,7 @@ public partial class PlayHudTest : Node
                 Key.F13, Key.F14, Key.F15, Key.F16, Key.F17, Key.F18, Key.F19, Key.F20, Key.F21, Key.F22, Key.F23, Key.F24,
                 Key.Kp0, Key.Kp1, Key.Kp2, Key.Kp3, Key.Kp4, Key.Kp5, Key.Kp6, Key.Kp7, Key.Kp8, Key.Kp9,
                 Key.KpAdd, Key.KpSubtract, Key.KpMultiply, Key.KpDivide, Key.KpPeriod, Key.KpEnter, Key.Insert, Key.Delete, Key.Pause, Key.Pageup, Key.Pagedown,
-                Key.Home, Key.End, Key.Numlock, Key.Scrolllock, Key.Sysreq, Key.F25, Key.F26, Key.F27, Key.F28, Key.F29, Key.F30,
+                Key.Home, Key.End, Key.Numlock, Key.Scrolllock, Key.Sysreq, Key.F25, Key.F26, Key.F27, Key.F28, Key.F29, Key.F30, Key.F31, Key.F32,
             };
             var actions = PlayerControls.Specs.Select(spec => spec.Action).ToArray();
             Check(pool.Length >= actions.Length, "enough spare keys to give every control its own");
@@ -898,26 +912,27 @@ public partial class PlayHudTest : Node
         var wheelSpot = FloorNearGubble(0.3f);
         _hud.AimRayForTests = Down(wheelSpot);
         host.PlayerGoal("follow");
+        // Nine wedges since Fire's (decision 77): Stay sits at 120 degrees, a flick to the lower right.
         _hud._UnhandledInput(RightButton(true));
-        _hud._UnhandledInput(Motion(new Vector2(60, 4)));
+        _hud._UnhandledInput(Motion(new Vector2(52, 30)));
         var drawn = _hud.Wheel.Open;
         _hud._UnhandledInput(RightButton(false));
-        Check(!drawn && companion.CurrentIntent == "stay" && !GetTree().Paused, "a flick right and release picks Stay before the wheel is even drawn");
+        Check(!drawn && companion.CurrentIntent == "stay" && !GetTree().Paused, "a flick to the lower right and release picks Stay before the wheel is even drawn");
         _hud._UnhandledInput(RightButton(true));
         await Frames(4);
         Check(!_hud.Wheel.Open && !GetTree().Paused, "a short hold has not opened it yet");
         await Frames(20);
         Check(_hud.Wheel.Open && _hud.Wheel.Visible && GetTree().Paused, "held, the wheel opens and the game pauses");
         var labels = _hud.Wheel.WedgeLabels.Select(l => l.Text).ToArray();
-        Check(labels[0] == "☀\n1 Glow" && labels[2] == "‖\nStay" && labels[5] == "✋\nFetch" && labels[6] == "↩\nCome (Q)",
-            "Glow is up (the pack's light ability, its display_name), Stay right, Fetch lower left, Come left: " + string.Join(" | ", labels).Replace("\n", " "));
-        Check(labels[1] == "✸\n4 Fireworks" && labels[7] == "○\n3 Bubbles" && _hud.Wheel.WedgeLabels[1].Modulate.A == 1f && _hud.Wheel.WedgeLabels[7].Modulate.A == 1f,
-            "Fireworks (upper right) and Bubbles (upper left) are the island's now, bright in their fixed places: " + labels[1].Replace("\n", " ") + " | " + labels[7].Replace("\n", " "));
-        Check(labels[3] == "✿\n2 Bloom" && _hud.Wheel.WedgeLabels[3].Modulate.A == 1f,
-            "Bloom is now available in its fixed growth wedge");
-        Check(new[] { 4 }.All(i => labels[i] == $"{GubbleMagic.Wedges[i].Icon}\n{GubbleMagic.Wedges[i].Slot + 1} {GubbleMagic.Wedges[i].Name}\n{GubbleWheel.LackingWords}" &&
+        Check(labels[0] == "☀\n1 Glow" && labels[3] == "‖\nStay" && labels[6] == "✋\nFetch" && labels[7] == "↩\nCome (Q)",
+            "Glow is up (the pack's light ability, its display_name), then clockwise Stay, Fetch lower left, Come left: " + string.Join(" | ", labels).Replace("\n", " "));
+        Check(labels[1] == "✸\n4 Fireworks" && labels[8] == "○\n3 Bubbles" && _hud.Wheel.WedgeLabels[1].Modulate.A == 1f && _hud.Wheel.WedgeLabels[8].Modulate.A == 1f,
+            "Fireworks (upper right) and Bubbles (upper left) are the island's now, bright in their fixed places: " + labels[1].Replace("\n", " ") + " | " + labels[8].Replace("\n", " "));
+        Check(labels[2].StartsWith("♨\n6 Fire", StringComparison.Ordinal) && labels[4] == "✿\n2 Grow" && _hud.Wheel.WedgeLabels[4].Modulate.A == 1f,
+            "Fire is the ninth wedge just after Fireworks (decision 77), and Grow is in its fixed growth wedge: " + labels[2].Replace("\n", " "));
+        Check(new[] { 5 }.All(i => labels[i] == $"{GubbleMagic.Wedges[i].Icon}\n{GubbleMagic.Wedges[i].Slot + 1} {GubbleMagic.Wedges[i].Name}\n{GubbleWheel.LackingWords}" &&
               _hud.Wheel.WedgeLabels[i].Modulate.A < 0.5f && !labels[i].Contains(GubbleMagic.UnknownIcon, StringComparison.Ordinal)),
-            "Build, which this island lacks, stays dim in its fixed place with its name and \"not yet\": " + labels[4].Replace("\n", " "));
+            "Build, which this island lacks, stays dim in its fixed place with its name and \"not yet\": " + labels[5].Replace("\n", " "));
         Check(_hud.Wheel.Title.Text == "The Gubble's magic" && _hud.Wheel.Title.IsVisibleInTree() && companion.AuraColor is { } aura && _hud.Wheel.Rim.IsEqualApprox(new Color(aura, 1)),
             $"the wheel says whose it is: \"{_hud.Wheel.Title.Text}\" over it, its rim the Gubble's aura colour");
         var intent = companion.CurrentIntent;
@@ -936,7 +951,8 @@ public partial class PlayHudTest : Node
             "held, moved to Glow and let go: the Gubble lights the spot the press froze, dark or not (by day, the floor beside it)");
         _hud._UnhandledInput(RightButton(true));
         await Frames(20);
-        _hud._UnhandledInput(Motion(new Vector2(0, 90)));
+        _hud._UnhandledInput(Motion(new Vector2(-31, 85)));
+        Check(_hud.Wheel.Hovered == 5, "down and a little left hovers Build (200 degrees, nine wedges)");
         _hud._UnhandledInput(RightButton(false));
         Check(_hud.Cue.State == "shrug" && _hud.Cue.Reason == GubbleMagic.NotYet && host.ActiveEffectIds.Count == effects + 1, "the unavailable Build wedge shrugs \"not yet\" and casts nothing");
         _hud._UnhandledInput(RightButton(true));
@@ -1035,7 +1051,7 @@ public partial class PlayHudTest : Node
         _hud.SetViewMode(1);
         await Frames(2);
         Check(!_hud.Cue.Bubble.Visible && !_hud.Cue.ReasonLabel.Visible, "cleared, neither shows");
-        if (EnFractal.Native.Companion.CompanionBridge.Of(_world)?.Cue is { } status)
+        if (GarageGame.Native.Companion.CompanionBridge.Of(_world)?.Cue is { } status)
             Check(status.FontSize >= 30 && status.OutlineSize >= 8, $"the AI link's state line is as large as the name tag ({status.FontSize}) with a thick outline ({status.OutlineSize})");
         Check(companion.GetNode<Label3D>("CompanionLabel").OutlineSize >= 8, "and so is the name tag's outline");
     }
@@ -1335,7 +1351,7 @@ public partial class PlayHudTest : Node
         Check(ids.Length == 2 && ids.All(id => look.GlowLight(id)!.LightColor.IsEqualApprox(GlowLook.LightColor(before))) && companion.LastCastToward != null,
             "a halo on the Gubble and a wisp at a dark spot (1 aimed there) both take the Gubble's aura colour");
         // The Gubble's colour is the team's now (chosen in the menu's New team panel, worn through RoomHud.UseTeam).
-        var other = EnFractal.Native.Saves.TeamFile.Create("aura_team", new DateTime(2026, 10, 16, 8, 0, 0, DateTimeKind.Utc), "Mira", "prototype", companion.CompanionName, "#d28f63");
+        var other = GarageGame.Native.Saves.TeamFile.Create("aura_team", new DateTime(2026, 10, 16, 8, 0, 0, DateTimeKind.Utc), "Mira", "prototype", companion.CompanionName, "#d28f63");
         _hud.UseTeam(other);
         await Frames(2);
         var after = companion.AuraColor!.Value;
@@ -1490,7 +1506,9 @@ public partial class PlayHudTest : Node
         // In order through the day (an hour past midnight for night is allowed to wrap), light by day and dark at night.
         var unwrapped = hours.Select((h, i) => i > 0 && h < hours[0] ? h + 24f : h).ToArray();
         Check(unwrapped.Zip(unwrapped.Skip(1), (a, b) => b > a).All(ok => ok), "the seven times run in order: " + string.Join(", ", hours.Select(h => h.ToString("0.0"))));
-        Check(daylight[2] >= daylight[1] && daylight[2] >= daylight[3] && daylight[3] > daylight[4] && daylight[4] > daylight[6], $"noon is the brightest and the light falls through the afternoon to sunset ({string.Join(" ", daylight.Select(d => d.ToString("0.00")))})");
+        // Noon within 0.02 of the brightest: the day's light keys plateau through the afternoon, and on some real dates (mid
+        // October: noon 0.89, late afternoon 0.90) the late-afternoon step reads a hundredth brighter, which no one can see.
+        Check(daylight[2] >= daylight[1] && daylight[2] >= daylight[3] - 0.02f && daylight[3] > daylight[4] && daylight[4] > daylight[6], $"noon is the brightest and the light falls through the afternoon to sunset ({string.Join(" ", daylight.Select(d => d.ToString("0.00")))})");
         Check(daylight[6] < 0.1f && daylight[5] <= daylight[4] && look.Moment.MoonWeight > 0.9f, "night is dark and lit by the moon");
         Check(look.LampsOn, "and the lamps are on at night");
         _hud._UnhandledInput(Press(Key.T));

@@ -3,7 +3,7 @@
   "version": 1,
   "ok": false,
   "op": "nature.cast",
-  "action_id": "bloom-0003",
+  "action_id": "grow-0003",
   "principal": "companion:local",
   "room_id": "garage_example",
   "revision": 5,

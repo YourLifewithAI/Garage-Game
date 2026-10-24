@@ -4,12 +4,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native.Companion;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Saves;
-using EnFractal.Native.Ui;
+using GarageGame.Native.Companion;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Saves;
+using GarageGame.Native.Ui;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// Trust (M8 of docs/runs/RUN-2-MECHANICS.md; docs/game/MECHANICS.md section 5 and decisions 1, 6, 16, 42 and 45), in the real
@@ -370,7 +370,7 @@ public partial class NatureTest
         {
             await EnergyWorld($"trust-band-{trust}");
             TrustTeam($"trust-band-{trust}", trust);
-            prices.Add($"{_host.TrustBand}:{_host.PriceFor("fire", Companion)}/{_host.PriceFor("bloom", Companion)}/{_host.PriceFor("glow", Companion)}/{_host.PriceFor("fire", Player)}");
+            prices.Add($"{_host.TrustBand}:{_host.PriceFor("fire", Companion)}/{_host.PriceFor("grow", Companion)}/{_host.PriceFor("glow", Companion)}/{_host.PriceFor("fire", Player)}");
         }
         Check(prices.SequenceEqual(new[] { "0:3/2/1/6", "1:2/2/1/6", "2:2/1/1/6", "3:1/1/1/6" }),
             "each band widens the discount on the Gubble's own ideas, Fire included; the player's price is the pack's: " + string.Join(" ", prices));

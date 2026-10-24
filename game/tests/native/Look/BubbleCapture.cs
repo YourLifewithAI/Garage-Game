@@ -5,14 +5,14 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Look;
-using EnFractal.Native.Look.Intro;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Look;
+using GarageGame.Native.Look.Intro;
+using GarageGame.Native.Room;
 using Godot;
 
-namespace EnFractal.Tests.Look;
+namespace GarageGame.Tests.Look;
 
 /// <summary>
 /// A windowed look at the Bubble and what it costs a frame (the Bubble HUD and look lane, 16 October). Never in a runner: it needs a

@@ -1,0 +1,47 @@
+{
+  "schema": "enfractal.result",
+  "version": 1,
+  "ok": true,
+  "op": "nature.cast",
+  "action_id": "line-0001",
+  "principal": "player:local",
+  "room_id": "garage_example",
+  "revision": 9,
+  "replayed": false,
+  "preview": true,
+  "at_utc": "2026-10-06T00:05:00Z",
+  "data": {
+    "center_m": [
+      -0.6,
+      0.0,
+      -1.9
+    ],
+    "radius_m": 0.9,
+    "duration_s": 30,
+    "end_m": [
+      0.6,
+      0.0,
+      -1.9
+    ],
+    "cell_count": 48,
+    "cells": [
+      [
+        -0.575,
+        0.0,
+        -1.875
+      ],
+      [
+        -0.525,
+        0.0,
+        -1.875
+      ]
+    ],
+    "cells_truncated": true,
+    "requires_approval": false,
+    "affected_ids": [],
+    "max_burning_cells": 200,
+    "avatars_in_area": [],
+    "preview_id": "8dab56f278b31c74717a21e203d1498a",
+    "kind": "fireline"
+  }
+}

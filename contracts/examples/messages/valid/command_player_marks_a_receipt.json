@@ -5,7 +5,7 @@
   "room_id": "garage_example",
   "op": "receipt.mark",
   "args": {
-    "action_id": "bloom-0002",
+    "action_id": "grow-0002",
     "mark": "yes"
   },
   "note": "Player-only."

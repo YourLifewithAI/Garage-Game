@@ -1,9 +1,9 @@
 using System;
 using System.Globalization;
 using Godot;
-using EnFractal.Native.Kernel;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// What the three meters say, worked out from the host's numbers and nothing else (docs/game/MECHANICS.md sections 1, 4, 5 and

@@ -1,7 +1,7 @@
 using Godot;
-using EnFractal.Native.Companion;
+using GarageGame.Native.Companion;
 
-namespace EnFractal.Native.Ui;
+namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// "Gubble: connected" or "Gubble: waiting for your AI", in the room's first seconds (docs/game/MECHANICS.md section 3: the AI

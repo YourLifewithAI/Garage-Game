@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 
-namespace EnFractal.Native;
+namespace GarageGame.Native;
 
 public partial class RoomHud
 {

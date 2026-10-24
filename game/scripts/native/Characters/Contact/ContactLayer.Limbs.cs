@@ -1,7 +1,7 @@
 using Godot;
-using EnFractal.Native.Characters.Gaits;
+using GarageGame.Native.Characters.Gaits;
 
-namespace EnFractal.Native.Characters.Contact;
+namespace GarageGame.Native.Characters.Contact;
 
 /// <summary>The limbs (water, climbing, carrying, the stumble's touch-down), the leg IK's switch and the springs' wind.</summary>
 public sealed partial class ContactLayer

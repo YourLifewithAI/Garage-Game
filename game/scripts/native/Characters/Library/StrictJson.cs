@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using Godot;
 
-namespace EnFractal.Native.Characters;
+namespace GarageGame.Native.Characters;
 
 /// <summary>
 /// Where a value sits in a JSON file, for refusal reasons. Built without allocating and turned into text only when a

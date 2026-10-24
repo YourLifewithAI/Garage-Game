@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace EnFractal.Native.Room;
+namespace GarageGame.Native.Room;
 
 /// <summary>
 /// What navigation needs from the 10x world (packet S6, for S7's island-scale navigation), in one place and from the room's data

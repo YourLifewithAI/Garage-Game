@@ -4,10 +4,10 @@ using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Playtest;
+using GarageGame.Native;
+using GarageGame.Native.Playtest;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The playtest record's keys on the HUD (docs/runs/RUN-2-PLAYTEST-LOOP.md, R1): with the record off they say so; with it on, F9 and

@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-namespace EnFractal.Native.Look;
+namespace GarageGame.Native.Look;
 
 /// <summary>What the place made of a Bubble (Kernel/Bubble, decision 56), as the look draws it: a carry round the player, a bubble that waits for them to walk in, a boat on water.</summary>
 public enum BubbleForm { Carry, WalkIn, Boat }

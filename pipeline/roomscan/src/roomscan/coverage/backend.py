@@ -103,8 +103,8 @@ def nvidia_smi_memory() -> tuple[int, int] | None:
         return None
 
 
-GAME_WINDOW_PREFIX = "EnFractal"
-GAME_PROGRAMS = ("godot", "enfractal")  # the editor/runner, or an exported build
+GAME_WINDOW_PREFIXES = ("Garage Game", "EnFractal")  # the game, and a build from before the rename
+GAME_PROGRAMS = ("godot", "garagegame", "enfractal")  # the editor/runner, or an exported build
 
 
 def visible_windows() -> list[tuple[str, str]]:
@@ -151,7 +151,7 @@ def visible_windows() -> list[tuple[str, str]]:
 def game_window_open(windows: list[tuple[str, str]] | None = None) -> bool:
     """Whether the game is open (the founder may be playing on this GPU).
 
-    A window titled EnFractal... owned by Godot or an EnFractal build counts; a folder or an editor
+    A window titled Garage Game... (or EnFractal... from an older build) owned by Godot or an EnFractal build counts; a folder or an editor
     tab named EnFractal does not. Windows only; elsewhere, or if the check fails, False.
     """
     if windows is None:
@@ -161,7 +161,7 @@ def game_window_open(windows: list[tuple[str, str]] | None = None) -> bool:
             windows = visible_windows()
         except (OSError, AttributeError, ValueError):
             return False
-    return any(title.startswith(GAME_WINDOW_PREFIX) and any(p in exe.lower() for p in GAME_PROGRAMS)
+    return any(title.startswith(GAME_WINDOW_PREFIXES) and any(p in exe.lower() for p in GAME_PROGRAMS)
                for title, exe in windows)
 
 
@@ -172,7 +172,7 @@ def wait_while_game_runs(*, retries: int = 240, delay_s: float = 30.0, log=print
         if not game_window_open():
             return waited
         if attempt == 0:
-            log("The EnFractal game is open on this GPU; pausing GPU work until it closes...")
+            log("The game is open on this GPU; pausing GPU work until it closes...")
         time.sleep(delay_s)
         waited += delay_s
     raise RuntimeError("The game stayed open; GPU work was not started. Run the coverage step again later.")

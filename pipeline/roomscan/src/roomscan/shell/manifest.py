@@ -7,7 +7,7 @@ says where the holes are and ``RoomBuilder`` cuts them.
 
 The manifest is a pinned file: UTF-8, LF line endings, the same bytes for the same inputs. It never
 goes into the repository; ``write_room`` refuses a folder inside one and writes to the player's user
-data (``user://rooms/<room_id>/``, on Windows ``%APPDATA%\\Godot\\app_userdata\\EnFractal\\rooms``).
+data (``user://rooms/<room_id>/``, on Windows ``%APPDATA%\\Godot\\app_userdata\\Garage-Game\\rooms``).
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ from ..scene import Scene
 from .planes import ShellPlan, WALL_KEYS
 from .spec import OpeningSpec, ShellSpec
 
-GAME_NAME = "EnFractal"
+GAME_NAME = "Garage-Game"
 SKY_COLOUR = "#d6e2f5"
 SUN_COLOUR = "#fff1d2"
 

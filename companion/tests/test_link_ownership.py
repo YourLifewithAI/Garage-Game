@@ -24,8 +24,8 @@ from pathlib import Path
 
 from support import query
 
-from enfractal_companion.link import LinkClient, SessionLock, parse_session
-from enfractal_companion.real_game import GameNotAvailable, RealGame, session_file_under, toolchain
+from garage_game_companion.link import LinkClient, SessionLock, parse_session
+from garage_game_companion.real_game import GameNotAvailable, RealGame, session_file_under, toolchain
 
 try:
     toolchain()

@@ -8,7 +8,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using FileAccess = Godot.FileAccess;
 
-namespace EnFractal.Native.Room;
+namespace GarageGame.Native.Room;
 
 /// <summary>A room.json could not be loaded. The message is safe to show and names the failing rule.</summary>
 public sealed class RoomLoadException(string message) : Exception(message);

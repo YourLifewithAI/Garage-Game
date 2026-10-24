@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace EnFractal.Native.Kernel;
+namespace GarageGame.Native.Kernel;
 
 /// <summary>A message or value that is not strict JSON, or that canonical JSON cannot write.</summary>
 public sealed class CanonicalJsonException(string message) : Exception(message);

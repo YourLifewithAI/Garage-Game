@@ -1,11 +1,11 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using EnFractal.Native;
-using EnFractal.Native.Room;
-using EnFractal.Native.Characters;
+using GarageGame.Native;
+using GarageGame.Native.Room;
+using GarageGame.Native.Characters;
 
-namespace EnFractal.Tests.Characters;
+namespace GarageGame.Tests.Characters;
 
 /// <summary>The three grounds of the tumble suite: flat, a 30° slope and 2 cm steps.</summary>
 public enum TumbleGround { Flat, Slope, Step }

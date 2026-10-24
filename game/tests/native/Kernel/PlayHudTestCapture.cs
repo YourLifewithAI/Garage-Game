@@ -5,16 +5,16 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The meters packet's captures (docs/runs/RUN-2-MECHANICS.md, M2): the HUD as the player sees it, in the real window, a
 /// before set and an after set from the same script. It uses only what the HUD and the host have always offered, so the same
 /// scenarios run on the code before the meters and on the code after. Run it with a scratch profile (APPDATA elsewhere), never
-/// while someone plays: the window must not be open beside an "EnFractal*" window.
+/// while someone plays: the window must not be open beside a "Garage Game*" (or older "EnFractal*") window.
 ///
 /// User arguments (after "--"): --out=DIR [--tag=before|after] [--scenarios=play_challenge,play_creative,wheel,journal,marker,spend,pulse,probe]
 /// [--room=ID|DIR] [--hour=15] [--date=2026-10-06]. The probe scenario prints the team's discovered map after a walk (it needs
@@ -51,6 +51,17 @@ public partial class PlayHudTestCapture : Node
             if (_out.Length > 0) System.IO.Directory.CreateDirectory(_out);
             Engine.MaxFps = 60;
             DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled);
+            // A fresh scratch profile would play the opening intro first, and the intro takes every input: --no-intro skips it.
+            if (Arg("no-intro", "") == "true")
+            {
+                const string profile = "user://capture_profile/avatar_profile_v1.cfg";
+                DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath("user://capture_profile"));
+                var config = new ConfigFile();
+                config.SetValue("profile", "version", 1);
+                config.SetValue("profile", RoomHud.PlayIntroProfileKey, false);
+                config.Save(profile);
+                RoomHud.ProfilePath = profile;
+            }
             _world = GD.Load<PackedScene>("res://scenes/room.tscn").Instantiate<RoomWorld>();
             if (Arg("room", "").Length > 0) _world.RoomDirectory = RoomWorld.ResolveRoom(Arg("room", "").Replace('\\', '/'));
             AddChild(_world);
@@ -79,6 +90,9 @@ public partial class PlayHudTestCapture : Node
                     case "marker": await Marker(); break;
                     case "spend": await Spend(); break;
                     case "pulse": await Pulse(); break;
+                    // The Fire behaviours packet (PlayHudTestCapture.FireBehaviours.cs).
+                    case "fractal": await FractalCapture(); break;
+                    case "fire": await FireCapture(); break;
                     case "probe": await Probe(); break;
                     case "alloc": await Alloc(); break;
                     case "dump": await Dump(); break;

@@ -1,7 +1,7 @@
 using System;
 using Godot;
 
-namespace EnFractal.Native.Characters.Gaits;
+namespace GarageGame.Native.Characters.Gaits;
 
 /// <summary>
 /// The float (the Gubble, or any drawing hinted <c>float</c>): a slow bob, about ±4 mm over 2.6 s, lifted so the hem never

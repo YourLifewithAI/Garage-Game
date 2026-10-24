@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace EnFractal.Native.Room;
+namespace GarageGame.Native.Room;
 
 /// <summary>What a plant set's copies are (contracts/README.md, "Plant copies"); the values are the table header's kind codes.</summary>
 public enum PlantKind { Plant = 0, Tree = 1, Stone = 2 }
@@ -184,6 +184,30 @@ public sealed class PlantCopies
         set = found;
         row = number;
         return true;
+    }
+
+    /// <summary>
+    /// Every copy whose pivot (its root) lies within radius of (x, z) horizontally, set by set: only the tiles round the circle are
+    /// read (a copy's row sits in the tile of its pivot), so a cast or a fire reads a few tiles, never the island.
+    /// </summary>
+    public IEnumerable<(PlantSet Set, int Row)> RowsNear(float x, float z, float radius)
+    {
+        var (tx0, tz0) = TileOf(x - radius, z - radius);
+        var (tx1, tz1) = TileOf(x + radius, z + radius);
+        foreach (var set in Sets)
+            for (var tx = tx0; tx <= tx1; tx++)
+            for (var tz = tz0; tz <= tz1; tz++)
+            {
+                var tile = set.FindTile(tx, tz);
+                if (tile < 0) continue;
+                var (_, _, first, count) = set.Tile(tile);
+                for (var row = first; row < first + count; row++)
+                {
+                    var at = set.Position(row);
+                    float dx = at.X - x, dz = at.Z - z;
+                    if (dx * dx + dz * dz <= radius * radius) yield return (set, row);
+                }
+            }
     }
 
     /// <summary>The 8 m tile of a point, from its float32 coordinates (exact: 8 is a power of two).</summary>

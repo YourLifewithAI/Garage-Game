@@ -3,11 +3,11 @@ using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using EnFractal.Native;
-using EnFractal.Native.Kernel;
-using EnFractal.Native.Room;
+using GarageGame.Native;
+using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
 
-namespace EnFractal.Tests.Kernel;
+namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The review of 13 October, its blockers and majors through the contract's command path only (each check failed on
@@ -25,31 +25,31 @@ public partial class NatureTest
     private async Task TestNatureIsRoomState()
     {
         await NewWorld(SavePath("state-a"));
-        var bloom = Send(Command("state-bloom", "nature.cast", Cast("bloom", NearGubble, 0.2, 120)), Player);
-        var cells = _host.Nature.Cells.Count;
-        Check(Ok(bloom) && cells > 0, "the player's Bloom plants flowers");
+        var bloom = Send(Command("state-bloom", "nature.cast", Cast("grow", NearGubble, 0.2, 1)), Player);
+        var cells = _host.Nature.Plants.Count;
+        Check(Ok(bloom) && cells > 0, "the player's Grow grows the plants there");
         var before = _host.ExportRoomState()!;
         Check(before["extensions"]?["x_play_nature"] is JsonObject, "room state carries the island's nature as x_play_nature");
         await NewWorld(SavePath("state-b"));
         var rebuilt = _host.ImportRoomState(before);
-        Check(rebuilt.Ok && _host.Nature.Cells.Count == cells, "a room built from nothing is rebuilt from that room state, its flowers included: " + rebuilt.Message);
+        Check(rebuilt.Ok && _host.Nature.Plants.Count == cells, "a room built from nothing is rebuilt from that room state, its grown plants included: " + rebuilt.Message);
         var after = _host.ExportRoomState()!;
         Check(Canonical(Unsessioned(after)) == Canonical(Unsessioned(before)), "and writes the same room state again, nature and its receipt included");
         await NewWorld(SavePath("state-b"));
-        Check(_host.Nature.Cells.Count == cells && Canonical(Unsessioned(_host.ExportRoomState()!)) == Canonical(Unsessioned(before)), "the rebuilt room's own save loads the same nature again");
+        Check(_host.Nature.Plants.Count == cells && Canonical(Unsessioned(_host.ExportRoomState()!)) == Canonical(Unsessioned(before)), "the rebuilt room's own save loads the same nature again");
     }
 
     /// <summary>Review blocker 2: a nature command's receipt is a durable authority receipt, and room.checkpoint compacts it like any other.</summary>
     private async Task TestReceiptsCompact()
     {
         await NewWorld(SavePath("compact"));
-        var bloom = Command("compact-bloom", "nature.cast", Cast("bloom", NearGubble, 0.2, 120));
-        Check(Ok(Send(bloom, Player)), "a Bloom commits");
+        var bloom = Command("compact-bloom", "nature.cast", Cast("grow", NearGubble, 0.2, 1));
+        Check(Ok(Send(bloom, Player)), "a Grow commits");
         Check(Ok(Send(Command("compact-checkpoint", "room.checkpoint", new JsonObject()), Player)), "the player takes a checkpoint");
         var lookup = Send(Query("receipt.lookup", new JsonObject { ["action_id"] = "compact-bloom" }), Player);
-        Check(lookup["data"]?["found"]?.GetValue<bool>() == true && lookup["data"]?["compacted"]?.GetValue<bool>() == true, "the checkpoint compacted the Bloom's receipt: " + Canonical(lookup["data"]));
-        Check(Send(bloom, Player)["replayed"]?.GetValue<bool>() == true, "the compacted Bloom still replays");
-        Check(Code(Send(Command("compact-bloom", "nature.cast", Cast("bloom", NearGubble, 0.3, 120)), Player)) == "action_id_conflict", "and still refuses other content under its id");
+        Check(lookup["data"]?["found"]?.GetValue<bool>() == true && lookup["data"]?["compacted"]?.GetValue<bool>() == true, "the checkpoint compacted the Grow's receipt: " + Canonical(lookup["data"]));
+        Check(Send(bloom, Player)["replayed"]?.GetValue<bool>() == true, "the compacted Grow still replays");
+        Check(Code(Send(Command("compact-bloom", "nature.cast", Cast("grow", NearGubble, 0.3, 1)), Player)) == "action_id_conflict", "and still refuses other content under its id");
     }
 
     /// <summary>
@@ -61,19 +61,19 @@ public partial class NatureTest
         await NewWorld(SavePath("undo"));
         Check(Build("Undo crate", -1.5, 0.9).Length > 0, "the player builds something first (the room revision moves)");
         var beforeBloom = _host.Revision;
-        var bloom = Send(Command("undo-player-bloom", "nature.cast", Cast("bloom", NearGubble, 0.15, 120)), Player);
-        Check(Ok(bloom) && _host.Revision == beforeBloom + 1 && bloom["revision"]?.GetValue<int>() == beforeBloom + 1, "a Bloom is a room revision of its own");
-        var companionBloom = Send(Command("undo-gubble-bloom", "nature.cast", Cast("bloom", NearGubble + new Vector3(0.3f, 0, 0), 0.1, 120)), Companion);
-        Check(Ok(companionBloom) && _host.Revision == beforeBloom + 2, "the Gubble's Bloom is the next one");
+        var bloom = Send(Command("undo-player-bloom", "nature.cast", Cast("grow", NearGubble, 0.15, 1)), Player);
+        Check(Ok(bloom) && _host.Revision == beforeBloom + 1 && bloom["revision"]?.GetValue<int>() == beforeBloom + 1, "a Grow is a room revision of its own");
+        var companionBloom = Send(Command("undo-gubble-bloom", "nature.cast", Cast("grow", NearGubble + new Vector3(0.3f, 0, 0), 0.1, 1)), Companion);
+        Check(Ok(companionBloom) && _host.Revision == beforeBloom + 2, "the Gubble's Grow is the next one");
         var undone = Send(Command("undo-both", "room.undo", new JsonObject { ["to_revision"] = beforeBloom }, expectedRevision: _host.Revision), Player);
-        Check(Ok(undone) && _host.Nature.Cells.Count == 0 && _host.Revision == beforeBloom + 3,
-            "room.undo to the revision before the player's Bloom takes back both Blooms: the Gubble's change kept the player's step: " + Canonical(undone["error"]));
-        var again = Send(Command("undo-player-again", "nature.cast", Cast("bloom", NearGubble, 0.15, 120)), Player);
+        Check(Ok(undone) && _host.Nature.Plants.Count == 0 && _host.Revision == beforeBloom + 3,
+            "room.undo to the revision before the player's Grow takes back both: the Gubble's change kept the player's step: " + Canonical(undone["error"]));
+        var again = Send(Command("undo-player-again", "nature.cast", Cast("grow", NearGubble, 0.15, 1)), Player);
         var held = Send(Command("undo-gubble-asks", "room.undo", new JsonObject { ["to_revision"] = _host.Revision - 1 }, expectedRevision: _host.Revision), Companion);
-        Check(Ok(again) && Code(held) == "approval_required" && _host.Nature.Cells.Count > 0, "the Gubble's undo of the player's change waits for the player, changing nothing");
+        Check(Ok(again) && Code(held) == "approval_required" && _host.Nature.Plants.Count > 0, "the Gubble's undo of the player's change waits for the player, changing nothing");
         var requestId = held["approval_needed"]?["request_id"]?.GetValue<string>();
         var approved = requestId == null ? new JsonObject() : _host.Approve(requestId);
-        Check(Ok(approved) && approved["approved_by"]?.GetValue<string>() == Player && _host.Nature.Cells.Count == 0, "and the player's click takes the change back");
+        Check(Ok(approved) && approved["approved_by"]?.GetValue<string>() == Player && _host.Nature.Plants.Count == 0, "and the player's click takes the change back");
     }
 
     /// <summary>Review major 7: every nature change needs a role that builds, before a preview, a hold or a commit, and again on the player's click.</summary>
@@ -81,30 +81,28 @@ public partial class NatureTest
     {
         await NewWorld(SavePath("roles"));
         _host.Authority.Call("set_role", Player, Companion, "visitor");
-        var bloom = Send(Command(NextId("visitor-bloom"), "nature.cast", Cast("bloom", NearGubble, 0.2, 120)), Companion);
+        var bloom = Send(Command(NextId("visitor-bloom"), "nature.cast", Cast("grow", NearGubble, 0.2, 1)), Companion);
         var preview = Send(Command(NextId("visitor-preview"), "nature.cast", Cast("fire", NearGubble, 0.2, 10), preview: true), Companion);
-        var trail = Send(Command(NextId("visitor-trail"), "nature.trail", new JsonObject { ["enabled"] = false }), Companion);
-        Check(Code(bloom) == "permission_denied" && Code(preview) == "permission_denied" && Code(trail) == "permission_denied" && _host.Nature.Cells.Count == 0,
-            "a visitor Gubble can neither Bloom, preview Fire nor change the trail: " + Code(bloom) + ", " + Code(preview) + ", " + Code(trail));
+        Check(Code(bloom) == "permission_denied" && Code(preview) == "permission_denied" && _host.Nature.Plants.Count == 0,
+            "a visitor Gubble can neither Grow nor preview Fire: " + Code(bloom) + ", " + Code(preview));
         _host.Authority.Call("set_role", Player, Companion, "editor");
         var pack = JsonNode.Parse(Godot.FileAccess.GetFileAsString(IslandRules.PathFor(RoomWorld.DefaultRulesId, ShippedRules.Version)))!.AsObject();
-        pack["abilities"]!.AsArray().First(a => a!["capability"]!.GetValue<string>() == "bloom")!["tier"] = "keyed_yes";
+        pack["abilities"]!.AsArray().First(a => a!["capability"]!.GetValue<string>() == "grow")!["tier"] = "keyed_yes";
         _host.UseRules(IslandRules.Parse(CanonicalJson.Bytes(pack)));
-        var held = Send(Command(NextId("keyed-bloom"), "nature.cast", Cast("bloom", NearGubble, 0.2, 120)), Companion);
+        var held = Send(Command(NextId("keyed-bloom"), "nature.cast", Cast("grow", NearGubble, 0.2, 1)), Companion);
         _host.Authority.Call("set_role", Player, Companion, "visitor");
         var requestId = held["approval_needed"]?["request_id"]?.GetValue<string>();
         var approved = requestId == null ? new JsonObject() : _host.Approve(requestId);
-        Check(Code(held) == "approval_required" && !Ok(approved) && _host.Nature.Cells.Count == 0,
-            "a held Bloom asked as an editor commits nothing when the player approves it after the Gubble became a visitor");
+        Check(Code(held) == "approval_required" && !Ok(approved) && _host.Nature.Plants.Count == 0,
+            "a held Grow asked as an editor commits nothing when the player approves it after the Gubble became a visitor");
         _host.Authority.Call("set_role", Player, Companion, "editor");
         _host.LoadRules(RoomWorld.DefaultRulesId, ShippedRules.Version);
-        Send(Command(NextId("gubble-trail-off"), "nature.trail", new JsonObject { ["enabled"] = false }), Companion);
-        var on = Send(Command(NextId("gubble-trail-on"), "nature.trail", new JsonObject { ["enabled"] = true }), Companion);
-        _host.Authority.Call("set_role", Player, Companion, "visitor");
-        _companion.GlobalPosition += new Vector3(0.3f, 0, 0.2f);
-        Steps(2);
-        Check(Ok(on) && !_host.Nature.TrailEnabled && _host.Nature.Cells.Count == 0, "the Gubble's own flower trail is turned off when it becomes a visitor, and plants nothing");
-        _host.Authority.Call("set_role", Player, Companion, "editor");
+        // The flower trail went with Bloom (decision 52): asked of either, it is refused in words and changes nothing.
+        var revision = _host.Revision;
+        var trail = Send(Command(NextId("gubble-trail-on"), "nature.trail", new JsonObject { ["enabled"] = true }), Companion);
+        var mine = Send(Command(NextId("player-trail-off"), "nature.trail", new JsonObject { ["enabled"] = false }), Player);
+        Check(Code(trail) == "unsupported_capability" && Code(mine) == "unsupported_capability" && trail["error"]?["message"]?.GetValue<string>() == CommandHost.TrailRetired &&
+              _host.Revision == revision && _host.Nature.Cells.Count == 0, "the flower trail is gone: nature.trail is refused, whoever asks, and changes nothing");
     }
 
     /// <summary>
