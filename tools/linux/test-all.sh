@@ -60,6 +60,10 @@ landscape_fixture() { # 1 or 10; prints the exported room's folder, built first 
   fi
   echo "$final/landscape_garage_nominal"
 }
+# Godot's Jolt job system warns on stderr when its job queue fills under load and then waits (seen on a four-core cloud container,
+# 24 October, in the body knacks scene, with every check passing); the game wrote nothing, so those two lines alone are not a
+# failure. Anything else on stderr still is, exactly as in the Windows runners.
+stderr_counts() { grep -v -E 'Jolt Physics job system exceeded the maximum number of jobs|at: CreateJob \(modules/jolt_physics/spaces/jolt_job_system\.cpp' "$1" | grep -q '[^[:space:]]'; }
 # Containers and WSL often run as root, and Godot then warns on stderr, which every check here treats as a failure.
 export GODOT_SILENCE_ROOT_WARNING=1
 
@@ -73,7 +77,7 @@ if [ $SCALE -eq 1 ]; then
   echo "== scale suite (the 10x garage)"
   if ! LR10=$(landscape_fixture 10); then echo "FAIL 10x landscape fixture"; tail -15 "$LOG/landscape_fixture_x10.log"; echo "== RED"; exit 1; fi
   timeout 1500 "$GODOT" --headless --path "$P" --fixed-fps 60 res://tests/native_scale_suite.tscn -- --landscape="$LR10" > "$LOG/scale_suite.out" 2> "$LOG/scale_suite.err"; code=$?
-  if [ $code -ne 0 ] || grep -q '[^[:space:]]' "$LOG/scale_suite.err" || ! grep -qE 'NATIVE_SCALE_SUITE: [0-9]+/[0-9]+ checks passed' "$LOG/scale_suite.out"; then
+  if [ $code -ne 0 ] || stderr_counts "$LOG/scale_suite.err" || ! grep -qE 'NATIVE_SCALE_SUITE: [0-9]+/[0-9]+ checks passed' "$LOG/scale_suite.out"; then
     echo "FAIL scale suite (exit $code)"; tail -20 "$LOG/scale_suite.out"; echo "--- stderr"; head -30 "$LOG/scale_suite.err"; echo "== RED"; exit 1
   fi
   grep -E '^(SCALE_|NATIVE_SCALE_SUITE)' "$LOG/scale_suite.out"; echo "== GREEN"; exit 0
@@ -82,7 +86,7 @@ fi
 run() { # name, expected stdout regex, godot args...
   local name="$1" expect="$2"; shift 2
   timeout 180 "$GODOT" "$@" > "$LOG/$name.out" 2> "$LOG/$name.err"; local code=$?
-  if [ $code -ne 0 ] || grep -q '[^[:space:]]' "$LOG/$name.err" || ! grep -qE "$expect" "$LOG/$name.out"; then
+  if [ $code -ne 0 ] || stderr_counts "$LOG/$name.err" || ! grep -qE "$expect" "$LOG/$name.out"; then
     echo "FAIL $name (exit $code)"; tail -15 "$LOG/$name.out"; echo "--- stderr"; head -30 "$LOG/$name.err"; failed=1
   else echo "PASS $name: $(grep -E "$expect" "$LOG/$name.out" | tail -1 | cut -c1-150)"; fi
 }
