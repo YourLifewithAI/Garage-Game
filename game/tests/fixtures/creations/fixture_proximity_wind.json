@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.creation", "version": 1, "name": "Fixture proximity wind", "seed": 7, "mount": "ground",
+  "schema": "garage_game.creation", "version": 1, "name": "Fixture proximity wind", "seed": 7, "mount": "ground",
   "parts": [
     {"id":"pad","shape":"cylinder","position_m":[0,0.1,0],"rotation_deg":[0,0,0],"size_m":[1.6,0.2,1.6],"material":"stone"},
     {"id":"bulb","shape":"sphere","position_m":[0,0.35,0],"rotation_deg":[0,0,0],"size_m":[0.3,0.3,0.3],"material":"copper"}

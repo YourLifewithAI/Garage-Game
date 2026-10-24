@@ -49,7 +49,7 @@ public sealed class IslandAbility
 /// </summary>
 public sealed partial class IslandRules
 {
-    public const string SchemaId = "enfractal.island_rules";
+    public const string SchemaId = SchemaIds.IslandRules;
     /// <summary>A pack is small (at most 32 abilities); anything larger is refused before it is parsed.</summary>
     public const int MaxPackBytes = 65536;
 
@@ -131,7 +131,7 @@ public sealed partial class IslandRules
             var root = document.RootElement;
             Expect(root.ValueKind == JsonValueKind.Object, "A rules pack is a JSON object.");
             Fields(root, "$", TopFields, TopRequired);
-            Expect(Str(root, "schema", "$") == SchemaId, $"$.schema must be {SchemaId}.");
+            Expect(SchemaIds.IsSchema(Str(root, "schema", "$"), "island_rules"), $"$.schema must be {SchemaIds.Both("island_rules")}.");
             Expect(Int(root, "version", "$") == 1, "$.version must be 1.");
             var rulesId = TokenAt(root, "rules_id", "$");
             var rulesVersion = Int(root, "rules_version", "$");

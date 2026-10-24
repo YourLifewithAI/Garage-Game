@@ -14,7 +14,7 @@ public partial class CommandHost
     /// <summary>A read-only query as the player (player.status, journal.read and the other query ops).</summary>
     public JsonObject PlayerQuery(string op, JsonObject? args = null) => HandleObject(CanonicalJson.Text(new JsonObject
     {
-        ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = $"hud-query-{_session}-{++_counter}",
+        ["schema"] = SchemaIds.Query, ["version"] = 1, ["query_id"] = $"hud-query-{_session}-{++_counter}",
         ["room_id"] = Room.RoomId, ["op"] = op, ["args"] = args ?? new JsonObject(),
     }), PlayerPrincipal);
 }

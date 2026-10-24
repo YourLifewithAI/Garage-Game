@@ -215,7 +215,7 @@ func _install(runtime, source: Dictionary) -> Node3D:
 
 
 func _single(shape: String, dimensions: Array) -> Dictionary:
-	return {"schema":"enfractal.creation","version":1,"name":"Geometry test","seed":7,"mount":"ground",
+	return {"schema":"garage_game.creation","version":1,"name":"Geometry test","seed":7,"mount":"ground",
 		"parts":[{"id":"part","shape":shape,"position_m":[0,3,0],"rotation_deg":[35,25,12],"size_m":dimensions,"material":"stone"}],"nodes":[],"edges":[]}
 
 

@@ -72,6 +72,20 @@ func _run() -> void:
 	_expect(restored.revision == 3, "failed load preserves live state")
 	_expect(not restored.load_from_path(SAVE_PATH, pin, "other-world"), "cross-world load rejected")
 	_expect(not restored.save_to_path("user://../escape.json"), "path traversal rejected")
+	# The rename (decision C): written with the new id; a snapshot written before it, with the old one, still loads.
+	var written := FileAccess.get_file_as_string(SAVE_PATH)
+	_expect(written.contains("\"schema\":\"garage_game-world-state\""), "the snapshot is written with the new id")
+	for spelling in ["enfractal-world-state", "garagegame-world-state"]:
+		var renamed_file := FileAccess.open(BROKEN_PATH, FileAccess.WRITE)
+		if renamed_file != null:
+			renamed_file.store_string(written.replace("garage_game-world-state", spelling))
+			renamed_file.close()
+		var other = WorldState.new()
+		var read: bool = other.load_from_path(BROKEN_PATH, pin, "home-test-room-local")
+		if spelling.begins_with("enfractal"):
+			_expect(read and other.revision == 3, "a snapshot written before the rename loads")
+		else:
+			_expect(not read and other.last_error == "unsupported_save_version", "a snapshot named with another id is refused")
 	var old_snapshot: Dictionary = state.get_snapshot()
 	old_snapshot["version"] = 2
 	var old_file := FileAccess.open(BROKEN_PATH, FileAccess.WRITE)

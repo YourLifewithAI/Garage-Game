@@ -319,7 +319,7 @@ func _test_corrupt_load_cleanup() -> void:
 
 
 func _wind_source() -> Dictionary:
-	return {"schema": "enfractal.creation", "version": 1, "name": "Runtime wind", "seed": 1, "mount": "ground", "parts": [{"id": "base", "shape": "box", "position_m": [0, 0.25, 0], "rotation_deg": [0, 0, 0], "size_m": [0.5, 0.5, 0.5], "material": "stone"}], "nodes": [{"id": "use", "op": "interact", "part_id": "base", "params": {}}, {"id": "wind", "op": "wind", "part_id": "base", "params": {"direction": [1, 0, 0], "acceleration_mps2": 4.0, "radius_m": 3.0, "duration_s": 2.0}}], "edges": [{"from": "use", "to": "wind"}]}
+	return {"schema": "garage_game.creation", "version": 1, "name": "Runtime wind", "seed": 1, "mount": "ground", "parts": [{"id": "base", "shape": "box", "position_m": [0, 0.25, 0], "rotation_deg": [0, 0, 0], "size_m": [0.5, 0.5, 0.5], "material": "stone"}], "nodes": [{"id": "use", "op": "interact", "part_id": "base", "params": {}}, {"id": "wind", "op": "wind", "part_id": "base", "params": {"direction": [1, 0, 0], "acceleration_mps2": 4.0, "radius_m": 3.0, "duration_s": 2.0}}], "edges": [{"from": "use", "to": "wind"}]}
 
 
 func _frames(count: int) -> void:

@@ -71,13 +71,13 @@ public partial class CharacterRigTest
             var lied = Gubble(); lied["triangles"] = 16000;
             Folder("triangle_mismatch", Text(lied), gubbleGlb);
             Expect("triangle_mismatch", "triangles, but character.json says 16000");
-            Folder("bad_sidecar", gubbleJson, gubbleGlb, "{\"schema\": \"enfractal.character.rig\", \"version\": 1, \"wiggle\": 2}");
+            Folder("bad_sidecar", gubbleJson, gubbleGlb, "{\"schema\": \"garage_game.character.rig\", \"version\": 1, \"wiggle\": 2}");
             Expect("bad_sidecar", "rig.json has an unknown key \"wiggle\"");
-            Folder("sidecar_unknown_part", gubbleJson, gubbleGlb, "{\"schema\": \"enfractal.character.rig\", \"version\": 1, \"rigid\": [\"tail\"]}");
+            Folder("sidecar_unknown_part", gubbleJson, gubbleGlb, "{\"schema\": \"garage_game.character.rig\", \"version\": 1, \"rigid\": [\"tail\"]}");
             Expect("sidecar_unknown_part", "names \"tail\", which is not a part");
-            Folder("sidecar_bad_role", gubbleJson, gubbleGlb, "{\"schema\": \"enfractal.character.rig\", \"version\": 1, \"roles\": {\"aura\": \"halo_ring\"}}");
+            Folder("sidecar_bad_role", gubbleJson, gubbleGlb, "{\"schema\": \"garage_game.character.rig\", \"version\": 1, \"roles\": {\"aura\": \"halo_ring\"}}");
             Expect("sidecar_bad_role", "not a known role");
-            Folder("sidecar_out_of_range", gubbleJson, gubbleGlb, "{\"schema\": \"enfractal.character.rig\", \"version\": 1, \"profile\": {\"squash\": 9}}");
+            Folder("sidecar_out_of_range", gubbleJson, gubbleGlb, "{\"schema\": \"garage_game.character.rig\", \"version\": 1, \"profile\": {\"squash\": 9}}");
             Expect("sidecar_out_of_range", "rig.json.profile.squash is 9, outside 0 to 4");
             Folder("Bad Name", gubbleJson, gubbleGlb);
             Expect("Bad Name", "is not a character id");
@@ -105,7 +105,7 @@ public partial class CharacterRigTest
             Folder("shared_within", withinJson, withinGlb);
             var (kiteJson, kiteGlb) = Synthetic(48);
             Folder("synthetic_kite", kiteJson, kiteGlb,
-                "{\"schema\": \"enfractal.character.rig\", \"version\": 1, \"roles\": {\"wing_screen_left\": \"arm\"}, \"rigid\": [\"hat\"], \"chains\": {\"leg_screen_left\": {\"enabled\": false}}}");
+                "{\"schema\": \"garage_game.character.rig\", \"version\": 1, \"roles\": {\"wing_screen_left\": \"arm\"}, \"rigid\": [\"hat\"], \"chains\": {\"leg_screen_left\": {\"enabled\": false}}}");
 
             var library = CharacterLibrary.Load(root);
             Check(library.Entries.Count == expected.Count + 4, $"every fixture folder is listed ({library.Entries.Count})");
@@ -236,7 +236,7 @@ public partial class CharacterRigTest
             ["motion"] = new JsonObject { ["kind"] = "waddle", ["reason"] = "A test box" },
             ["name"] = "A shared-vertex box", ["parts"] = metaParts,
             ["provenance"] = new JsonObject { ["description_sha256"] = hex, ["interpretation_sha256"] = hex, ["photo_sha256"] = hex, ["photo_size_px"] = new JsonArray(800, 1000) },
-            ["root_pivot_m"] = new JsonArray(0, 0, 0), ["schema"] = "enfractal.character.draft", ["triangles"] = parts * primitivesPerPart,
+            ["root_pivot_m"] = new JsonArray(0, 0, 0), ["schema"] = "garage_game.character.draft", ["triangles"] = parts * primitivesPerPart,
             ["uncertainties"] = new JsonArray("Synthetic"), ["units"] = "metres", ["up"] = "+Y", ["version"] = 1, ["width_m"] = high.X - low.X,
         };
         return (Encoding.UTF8.GetBytes(character.ToJsonString()), glb.ToArray());
@@ -356,7 +356,7 @@ public partial class CharacterRigTest
             ["motion"] = new JsonObject { ["kind"] = "hop", ["reason"] = "A test kite with one leg" },
             ["name"] = "A synthetic kite", ["parts"] = metaParts,
             ["provenance"] = new JsonObject { ["description_sha256"] = hex, ["interpretation_sha256"] = hex, ["photo_sha256"] = hex, ["photo_size_px"] = new JsonArray(800, 1000) },
-            ["root_pivot_m"] = new JsonArray(0, 0, 0), ["schema"] = "enfractal.character.draft", ["triangles"] = total,
+            ["root_pivot_m"] = new JsonArray(0, 0, 0), ["schema"] = "garage_game.character.draft", ["triangles"] = total,
             ["uncertainties"] = new JsonArray("Synthetic"), ["units"] = "metres", ["up"] = "+Y", ["version"] = 1, ["width_m"] = high.X - low.X,
         };
         return (Encoding.UTF8.GetBytes(character.ToJsonString()), glb.ToArray());

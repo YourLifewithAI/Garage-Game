@@ -355,7 +355,7 @@ public partial class CompanionBridge : Node
         Directory.CreateDirectory(directory);
         string Quoted(string value) => JsonSerializer.Serialize(value);
         var text = "{\n" +
-            "  \"schema\": \"enfractal.companion_session\",\n" +
+            $"  \"schema\": {Quoted(SchemaIds.CompanionSession)},\n" +
             "  \"version\": 1,\n" +
             $"  \"host\": {Quoted(host)},\n" +
             $"  \"port\": {port.ToString(CultureInfo.InvariantCulture)},\n" +

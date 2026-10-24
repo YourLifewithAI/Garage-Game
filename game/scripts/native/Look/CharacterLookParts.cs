@@ -20,7 +20,7 @@ public enum CharacterSurfaceRole
     Bubble,
 }
 
-/// <summary>A part's material hint, as the converter writes it (character.json's material_hint, a GLB material's extras.enfractal_material).</summary>
+/// <summary>A part's material hint, as the converter writes it (character.json's material_hint, a GLB material's extras.garage_game_material, or enfractal_material as written before the rename).</summary>
 public sealed record CharacterMaterialHint(string Kind, bool SeeThrough = false, string? Rim = null, Color? AuraColour = null, Color? FallbackColour = null);
 
 /// <summary>
@@ -78,7 +78,7 @@ public static partial class CharacterLook
     }
 
     /// <summary>
-    /// The parts a loaded GLB names itself: one per node that carries a mesh or the converter's extras (enfractal_part, kept by
+    /// The parts a loaded GLB names itself: one per node that carries a mesh or the converter's extras (garage_game_part, or enfractal_part as written before the rename, kept by
     /// Godot's glTF import as the node's "extras" meta where the engine keeps it), with the kind and hints those extras give.
     /// </summary>
     public static IReadOnlyList<CharacterLookPart> PartsFromNodes(Node root)
@@ -107,17 +107,22 @@ public static partial class CharacterLook
         var extras = node.GetMeta("extras");
         if (extras.VariantType != Variant.Type.Dictionary) return null;
         var dictionary = extras.AsGodotDictionary();
-        return dictionary.TryGetValue("enfractal_part", out var part) && part.VariantType == Variant.Type.Dictionary ? part.AsGodotDictionary() : null;
+        foreach (var key in SchemaIds.GlbPartKeys)
+            if (dictionary.TryGetValue(key, out var part) && part.VariantType == Variant.Type.Dictionary) return part.AsGodotDictionary();
+        return null;
     }
 
-    /// <summary>A GLB material's own hint: its extras.enfractal_material where the import kept it, else what its name says (bubble__part__colour).</summary>
+    /// <summary>A GLB material's own hint: its extras.garage_game_material (or enfractal_material) where the import kept it, else what its name says (bubble__part__colour).</summary>
     public static CharacterMaterialHint? HintOf(Material? material)
     {
         if (material == null) return null;
-        if (material.HasMeta("extras") && material.GetMeta("extras").VariantType == Variant.Type.Dictionary
-            && material.GetMeta("extras").AsGodotDictionary().TryGetValue("enfractal_material", out var hint) && hint.VariantType == Variant.Type.Dictionary
-            && HintFrom(hint.AsGodotDictionary()) is { } fromExtras)
-            return fromExtras;
+        if (material.HasMeta("extras") && material.GetMeta("extras").VariantType == Variant.Type.Dictionary)
+        {
+            var extras = material.GetMeta("extras").AsGodotDictionary();
+            foreach (var key in SchemaIds.GlbMaterialKeys)
+                if (extras.TryGetValue(key, out var hint) && hint.VariantType == Variant.Type.Dictionary && HintFrom(hint.AsGodotDictionary()) is { } fromExtras)
+                    return fromExtras;
+        }
         // FORMAT.md: a hinted material is named <kind>__<part>__<colour>.
         var pieces = (material.ResourceName ?? "").Split("__");
         return pieces.Length == 3 && pieces.All(p => p.Length > 0) ? new CharacterMaterialHint(pieces[0]) : null;

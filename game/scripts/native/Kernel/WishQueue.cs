@@ -33,7 +33,7 @@ public sealed record WishEntry(string Id, string ActionId, string Fingerprint, s
 public sealed class WishQueue
 {
     public const int MaxQueued = 16, MaxHistory = 64, MaxCommands = 32;
-    public const string Schema = "enfractal.wish_queue";
+    public const string Schema = SchemaIds.WishQueue;
     /// <summary>Version 2 adds each wish's pending actions. Version 1 journals (no pending actions) still load.</summary>
     public const int Version = 2;
     private static readonly Regex Action = new(@"\A[A-Za-z0-9][A-Za-z0-9_-]{0,63}\z");
@@ -154,7 +154,7 @@ public sealed class WishQueue
             var root = doc.RootElement;
             Exact(root, "schema", "version", "room_id", "items");
             var version = root.GetProperty("version").GetInt32();
-            if (root.GetProperty("schema").GetString() != Schema || version is not (1 or Version) || root.GetProperty("room_id").GetString() != roomId)
+            if (!SchemaIds.IsSchema(root.GetProperty("schema").GetString(), "wish_queue") || version is not (1 or Version) || root.GetProperty("room_id").GetString() != roomId)
                 throw new FormatException();
             var rows = root.GetProperty("items");
             if (rows.ValueKind != JsonValueKind.Array || rows.GetArrayLength() > MaxHistory + MaxQueued + 1) throw new FormatException();

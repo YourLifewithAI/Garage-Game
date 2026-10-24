@@ -388,6 +388,23 @@ func _test_load(host, initial: Dictionary, id: String) -> void:
 	malformed.locks = {"obj:ghost": {"locked_by": PLAYER, "locked_revision": 1}}
 	_write(path, JSON.stringify(malformed))
 	_expect_code(restored.load_saved(), "save_invalid", "a saved lock on something not in the room is refused")
+	# The rename (decision C): the save is written with the new id; one written before it loads, keeps its creations'
+	# sources as written (their hashes pin them) and takes the new id the next time it is saved. Another id is refused.
+	_expect(old_text.begins_with("{") and old_text.contains("\"schema\":\"garage_game.creation-world\"") and not old_text.contains("enfractal."), "the island save is written with the new ids")
+	var before_text := old_text.replace("\"schema\":\"garage_game.creation-world\"", "\"schema\":\"enfractal.creation-world\"").replace("\"schema\":\"garage_game.creation\"", "\"schema\":\"enfractal.creation\"")
+	_write(path, before_text.replace("\"schema\":\"enfractal.creation-world\"", "\"schema\":\"garagegame.creation-world\""))
+	_expect_code(restored.load_saved(), "save_incompatible", "a save named with another id is refused")
+	_write(path, before_text)
+	_expect(restored.load_saved().ok and restored.snapshot(PLAYER).instances[id].source.schema == "enfractal.creation", "a save written before the rename loads, its sources as written")
+	_expect(FileAccess.get_file_as_string(path) == before_text, "loading it rewrites nothing")
+	var after := _command(restored, "place", "after_the_rename", _source())
+	after.x_m = -30.0
+	var accepted: Dictionary = restored.submit(PLAYER, after)
+	_expect(accepted.ok, "the next change is accepted: " + str(accepted))
+	var saved_text := FileAccess.get_file_as_string(path)
+	_expect(saved_text.contains("\"schema\":\"garage_game.creation-world\"") and not saved_text.contains("enfractal.creation-world")
+		and saved_text.contains("\"schema\":\"enfractal.creation\"") and saved_text.contains("\"schema\":\"garage_game.creation\""),
+		"and the save it writes carries the new id, the old creation's source as written beside the new one's")
 	_write(path, old_text)
 	_expect(restored.load_saved().ok, "valid restored file releases load lock")
 
@@ -698,7 +715,7 @@ func _lock(host, op: String, action_id: String, targets: Array) -> Dictionary:
 
 
 func _source() -> Dictionary:
-	return {"schema": "enfractal.creation", "version": 1, "name": "Test invention", "seed": 1, "mount": "ground", "parts": [{"id": "base", "shape": "box", "position_m": [0, 0.5, 0], "rotation_deg": [0, 0, 0], "size_m": [1, 1, 1], "material": "stone"}], "nodes": [{"id": "use", "op": "interact", "part_id": "base", "params": {}}], "edges": []}
+	return {"schema": "garage_game.creation", "version": 1, "name": "Test invention", "seed": 1, "mount": "ground", "parts": [{"id": "base", "shape": "box", "position_m": [0, 0.5, 0], "rotation_deg": [0, 0, 0], "size_m": [1, 1, 1], "material": "stone"}], "nodes": [{"id": "use", "op": "interact", "part_id": "base", "params": {}}], "edges": []}
 
 
 func _wind_source() -> Dictionary:

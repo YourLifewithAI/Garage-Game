@@ -161,14 +161,14 @@ public partial class NatureTest : Node3D
 
     private JsonObject Command(string actionId, string op, JsonObject args, bool preview = false, int? expectedRevision = null)
     {
-        var command = new JsonObject { ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = actionId, ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args };
+        var command = new JsonObject { ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = actionId, ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args };
         if (preview) command["preview"] = true;
         if (expectedRevision != null) command["expected_revision"] = expectedRevision;
         return command;
     }
 
     private JsonObject Query(string op, JsonObject args) =>
-        new() { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = NextId("q"), ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args };
+        new() { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = NextId("q"), ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args };
 
     /// <summary>Sends a message as principal; contractValid false keeps a deliberately malformed message out of the dump.</summary>
     private JsonObject Send(JsonObject message, string principal, bool contractValid = true)
@@ -201,7 +201,7 @@ public partial class NatureTest : Node3D
 
     private static JsonObject Source(string name, string material = "wood") => new()
     {
-        ["schema"] = "enfractal.creation", ["version"] = 1, ["name"] = name, ["seed"] = 1, ["mount"] = "ground",
+        ["schema"] = "garage_game.creation", ["version"] = 1, ["name"] = name, ["seed"] = 1, ["mount"] = "ground",
         ["parts"] = new JsonArray(new JsonObject
         {
             ["id"] = "base", ["shape"] = "box", ["position_m"] = new JsonArray(0, 0.06, 0), ["rotation_deg"] = new JsonArray(0, 0, 0),

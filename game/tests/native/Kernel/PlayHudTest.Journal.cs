@@ -210,7 +210,7 @@ public partial class PlayHudTest
             "and on the page under \"Your note\", its markup shown literally, not interpreted");
         var aiNote = host.HandleObject(CanonicalJson.Text(new JsonObject
         {
-            ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = "journal-book-ai-note", ["room_id"] = host.Room.RoomId,
+            ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = "journal-book-ai-note", ["room_id"] = host.Room.RoomId,
             ["op"] = "journal.note", ["args"] = new JsonObject { ["text"] = "A note in the AI's own words" },
         }), CommandHost.CompanionPrincipal);
         await Frames(JournalRefreshFrames);

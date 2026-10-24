@@ -260,7 +260,7 @@ public partial class PlayHudTest
         host.PlayerMode("challenge");
         var refused = host.HandleObject(CanonicalJson.Text(new JsonObject
         {
-            ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = "hud-companion-spend", ["room_id"] = host.Room.RoomId, ["op"] = "fractal.spend",
+            ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = "hud-companion-spend", ["room_id"] = host.Room.RoomId, ["op"] = "fractal.spend",
             ["args"] = new JsonObject { ["grow"] = "heart" },
         }), CommandHost.CompanionPrincipal);
         Check(refused["ok"]?.GetValue<bool>() == false && refused["error"]?["code"]?.GetValue<string>() == "permission_denied" && host.Vitals.Fractals == new PlayerFractals(12, 12, 0, 0),

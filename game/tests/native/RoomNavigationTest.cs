@@ -487,7 +487,7 @@ public partial class RoomNavigationTest : Node3D
 
     private JsonObject Say(CommandHost host, RoomData room, string op, JsonObject args, bool preview = false, int? expectedRevision = null)
     {
-        var command = new JsonObject { ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = $"trunks-{++_trunkIds}", ["room_id"] = room.RoomId, ["op"] = op, ["args"] = args };
+        var command = new JsonObject { ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = $"trunks-{++_trunkIds}", ["room_id"] = room.RoomId, ["op"] = op, ["args"] = args };
         if (preview) command["preview"] = true;
         if (expectedRevision != null) command["expected_revision"] = expectedRevision;
         return JsonNode.Parse(host.Handle(command.ToJsonString(), CommandHost.PlayerPrincipal))!.AsObject();

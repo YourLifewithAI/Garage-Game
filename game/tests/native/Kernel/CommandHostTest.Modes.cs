@@ -122,7 +122,7 @@ public partial class CommandHostTest
             restored.For("live").CompletedClimbs == 0 && restored.For("live").Health == 100 && saved[0] == (byte)'{' && saved[^1] == (byte)'\n',
             "health, energy and earned traits survive reload in the mode's own document, stamped, and stay separate between Challenge and Live");
         var text = Encoding.UTF8.GetString(saved);
-        Check(text.Contains("\"schema\":\"enfractal.player_modes\",\"version\":2,\"team_id\":\"local\",\"mode\":\"challenge\",\"written_utc\":\"2026-10-14T19:30:00.000Z\"", StringComparison.Ordinal) &&
+        Check(text.Contains("\"schema\":\"garage_game.player_modes\",\"version\":2,\"team_id\":\"local\",\"mode\":\"challenge\",\"written_utc\":\"2026-10-14T19:30:00.000Z\"", StringComparison.Ordinal) &&
             text.Contains("\"fractals\":{\"found\":0,\"unspent\":0,\"hearts\":0,\"bands\":0},\"pips\":0", StringComparison.Ordinal),
             "the document is the contract's: schema, version 2, team, mode, the time it was written, and the vitals with their Fractals and pool: " + text);
         var bad = new[]

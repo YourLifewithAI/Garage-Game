@@ -25,7 +25,7 @@ namespace GarageGame.Native.Kernel;
 /// </summary>
 public partial class CommandHost
 {
-    public const string RoomStateBuild = "enfractal-native";
+    public const string RoomStateBuild = "garage-game-native";
 
     /// <summary>
     /// The island's clock record (room state's extensions.x_clock, M6): kept as read from an imported room state and written back
@@ -125,7 +125,7 @@ public partial class CommandHost
         if (XTeam() is { } whose) extensions["x_team"] = whose;
         return new JsonObject
         {
-            ["schema"] = "enfractal.room_state", ["version"] = 1, ["room_id"] = Room.RoomId,
+            ["schema"] = SchemaIds.RoomState, ["version"] = 1, ["room_id"] = Room.RoomId,
             ["room_pin"] = new JsonObject { ["manifest_sha256"] = Room.ManifestSha256 },
             ["style_pin"] = new JsonObject { ["preset_id"] = style.PresetId, ["preset_version"] = style.PresetVersion, ["preset_sha256"] = style.Sha256 },
             ["rules"] = new JsonObject { ["command_version"] = 1, ["compiler_version"] = 1 },
@@ -249,7 +249,7 @@ public partial class CommandHost
     {
         var top = new HashSet<string> { "schema", "version", "room_id", "room_pin", "style_pin", "rules", "store_revision", "session", "entities", "receipts", "checkpoints", "journal", "discovered", "extensions" };
         if (state.Any(p => !top.Contains(p.Key))) return "a field room state does not have";
-        if (StrOf(state["schema"]) != "enfractal.room_state" || !Whole(state["version"]) || state["version"]!.GetValue<double>() != 1) return "not room state, version 1";
+        if (!SchemaIds.IsSchema(StrOf(state["schema"]), "room_state") || !Whole(state["version"]) || state["version"]!.GetValue<double>() != 1) return "not room state, version 1";
         if (StrOf(state["room_id"]) != Room.RoomId) return "another room";
         if (state["room_pin"] is not JsonObject pin || pin.Count != 1 || StrOf(pin["manifest_sha256"]) != Room.ManifestSha256)
             return "another version of this room (it migrates instead)";
@@ -323,7 +323,7 @@ public partial class CommandHost
                 if (Math.Abs(q[0]) > 1e-4 || Math.Abs(q[2]) > 1e-4) return "a creation that does not stand upright";
                 if (!Principals.Contains(StrOf(entity["provenance"]!["created_by"]) ?? "")) return "an owner that is not the player or the companion";
                 if (entity["creation"] is not JsonObject creation || creation.Any(p => p.Key is not ("source" or "source_sha256")) || creation["source"] is not JsonObject source ||
-                    StrOf(source["schema"]) != "enfractal.creation" || StrOf(creation["source_sha256"]) is not { } sha || !Hex64.IsMatch(sha)) return "its source";
+                    !SchemaIds.IsSchema(StrOf(source["schema"]), "creation") || StrOf(creation["source_sha256"]) is not { } sha || !Hex64.IsMatch(sha)) return "its source";
                 if (CanonicalJson.Sha256Hex(CanonicalJson.Bytes(source)) != sha) return "a source that does not match its hash";
                 break;
             case "avatar":
@@ -345,7 +345,7 @@ public partial class CommandHost
             return "its shape";
         var allowed = new HashSet<string> { "schema", "version", "ok", "op", "principal", "room_id", "revision", "replayed", "preview", "transient", "at_utc", "action_id", "affected", "created", "approved_by", "data" };
         if (result.Any(p => !allowed.Contains(p.Key))) return "a result field a durable receipt does not have";
-        if (StrOf(result["schema"]) != "enfractal.result" || !Whole(result["version"]) || result["version"]!.GetValue<double>() != 1) return "not a result";
+        if (!SchemaIds.IsSchema(StrOf(result["schema"]), "result") || !Whole(result["version"]) || result["version"]!.GetValue<double>() != 1) return "not a result";
         if (result["ok"]?.GetValueKind() != JsonValueKind.True) return "a result that failed";
         if (result["transient"]?.GetValueKind() != JsonValueKind.False) return "a transient result";
         if (result["replayed"]?.GetValueKind() != JsonValueKind.False || result["preview"]?.GetValueKind() != JsonValueKind.False) return "a replay or a preview";
@@ -520,7 +520,7 @@ public partial class CommandHost
         if (extensions["x_clock"] is JsonObject clock) team["clock"] = clock.DeepClone();
         return new JsonObject
         {
-            ["schema"] = "enfractal.creation-world", ["version"] = 6, ["compiler_version"] = 1, ["style_version"] = "painterly_v1",
+            ["schema"] = SchemaIds.CreationWorld, ["version"] = 6, ["compiler_version"] = 1, ["style_version"] = "painterly_v1",
             ["room_pin"] = new JsonObject { ["room_id"] = Room.RoomId, ["manifest_sha256"] = Room.ManifestSha256 },
             ["revision"] = (int)state["store_revision"]!.GetValue<double>(), ["permission_revision"] = 0, ["next_id"] = next,
             ["roles"] = new JsonObject { [PlayerPrincipal] = "owner", [CompanionPrincipal] = StrOf(extensions["x_play_companion_role"]) ?? "editor" },
@@ -639,7 +639,7 @@ public partial class CommandHost
         if (version >= 5) expected.Add("team");
         if (version >= 6) expected.Add("nature");
         if (old.Count != expected.Count || expected.Any(k => !old.ContainsKey(k))) return "its fields";
-        if (StrOf(old["schema"]) != "enfractal.creation-world" || !Whole(old["compiler_version"]) || old["compiler_version"]!.GetValue<double>() != 1 || StrOf(old["style_version"]) != "painterly_v1")
+        if (!SchemaIds.IsSchema(StrOf(old["schema"]), "creation-world") || !Whole(old["compiler_version"]) || old["compiler_version"]!.GetValue<double>() != 1 || StrOf(old["style_version"]) != "painterly_v1")
             return "another schema, compiler or style";
         if (old["room_pin"] is not JsonObject pin || pin.Count != 2 || StrOf(pin["room_id"]) != Room.RoomId || StrOf(pin["manifest_sha256"]) is not { } sha || !Hex64.IsMatch(sha))
             return "another room";
@@ -656,7 +656,7 @@ public partial class CommandHost
             if (node is not JsonObject instance || instance.Count != 6 || StrOf(instance["id"]) is not { } id || !HostCreationId.IsMatch(id) || !ids.Add(id) ||
                 int.Parse(id["creation:".Length..], System.Globalization.CultureInfo.InvariantCulture) is var n && (n < 1 || n >= nextId)) return "a creation's id";
             if (!Principals.Contains(StrOf(instance["owner_id"]) ?? "") || !Whole(instance["revision"], revision) || instance["revision"]!.GetValue<double>() < 1) return "a creation's owner or revision";
-            if (instance["source"] is not JsonObject source || StrOf(source["schema"]) != "enfractal.creation" || !Vec3(instance["position_m"]) || !Number(instance["yaw_deg"], 180)) return "a creation's source or place";
+            if (instance["source"] is not JsonObject source || !SchemaIds.IsSchema(StrOf(source["schema"]), "creation") || !Vec3(instance["position_m"]) || !Number(instance["yaw_deg"], 180)) return "a creation's source or place";
         }
         if (old["receipts"] is not JsonObject receipts || receipts.Count > 2048) return "its receipts";
         foreach (var (key, node) in receipts)
@@ -751,7 +751,7 @@ public partial class CommandHost
         });
         var envelope = new JsonObject
         {
-            ["schema"] = "enfractal.creation-world", ["version"] = 6, ["compiler_version"] = 1, ["style_version"] = "painterly_v1",
+            ["schema"] = SchemaIds.CreationWorld, ["version"] = 6, ["compiler_version"] = 1, ["style_version"] = "painterly_v1",
             ["room_pin"] = new JsonObject { ["room_id"] = Room.RoomId, ["manifest_sha256"] = Room.ManifestSha256 },
             ["revision"] = revision, ["permission_revision"] = old["permission_revision"]!.DeepClone(), ["next_id"] = old["next_id"]!.DeepClone(),
             ["roles"] = old["roles"]!.DeepClone(), ["consent"] = new JsonObject { [PlayerPrincipal] = false, [CompanionPrincipal] = false },

@@ -191,7 +191,7 @@ public partial class RoomHud
     {
         var status = Host?.HandleObject(CanonicalJson.Text(new JsonObject
         {
-            ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "hud-ask-" + Guid.NewGuid().ToString("N")[..24],
+            ["schema"] = SchemaIds.Query, ["version"] = 1, ["query_id"] = "hud-ask-" + Guid.NewGuid().ToString("N")[..24],
             ["room_id"] = Host.Room.RoomId, ["op"] = "jobs.status", ["args"] = new JsonObject { ["job_id"] = jobId },
         }), CommandHost.PlayerPrincipal);
         return status?["data"]?["result"]?["error"]?["message"]?.GetValue<string>();

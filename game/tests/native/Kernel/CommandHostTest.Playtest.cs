@@ -29,7 +29,7 @@ public partial class CommandHostTest
     }
 
     private JsonObject Unlock(string target) =>
-        new() { ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = "tap-unlock-" + (++_dumped), ["room_id"] = "test_room", ["op"] = "protect.unlock",
+        new() { ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = "tap-unlock-" + (++_dumped), ["room_id"] = "test_room", ["op"] = "protect.unlock",
             ["args"] = new JsonObject { ["target"] = target }, ["expected_revision"] = _host.Revision };
 
     private void TestTapOncePerMessage()
@@ -44,8 +44,8 @@ public partial class CommandHostTest
             var text = message.ToJsonString();
             sent.Add((text, principal, _host.HandleObject(text, principal)));
         }
-        Through(new JsonObject { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "tap-q1", ["room_id"] = "test_room", ["op"] = "room.describe", ["args"] = new JsonObject() }, Player);
-        Through(new JsonObject { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "tap-q2", ["room_id"] = "test_room", ["op"] = "observe", ["args"] = new JsonObject { ["actor"] = CommandHost.CompanionAvatarId } }, Companion);
+        Through(new JsonObject { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "tap-q1", ["room_id"] = "test_room", ["op"] = "room.describe", ["args"] = new JsonObject() }, Player);
+        Through(new JsonObject { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "tap-q2", ["room_id"] = "test_room", ["op"] = "observe", ["args"] = new JsonObject { ["actor"] = CommandHost.CompanionAvatarId } }, Companion);
         Through(Command("tap-note-1", "journal.note", new JsonObject { ["text"] = "A tap's note." }), Player);
         Through(Unlock("obj:table"), Companion);
         _now += TimeSpan.FromMilliseconds(50);
@@ -93,7 +93,7 @@ public partial class CommandHostTest
         var note = Command("tap-preview-note", "journal.note", new JsonObject { ["text"] = "A preview's note." });
         note["preview"] = true;
         var acceptedPreview = Through(note, Player);
-        var query = Through(new JsonObject { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "tap-preview-q", ["room_id"] = "test_room", ["op"] = "room.describe", ["args"] = new JsonObject() }, Player);
+        var query = Through(new JsonObject { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "tap-preview-q", ["room_id"] = "test_room", ["op"] = "room.describe", ["args"] = new JsonObject() }, Player);
         _host.Handled -= Heard;
         Check(heard.Count == 4, $"four messages, four events ({heard.Count})");
         if (heard.Count != 4) return;
@@ -111,12 +111,12 @@ public partial class CommandHostTest
     {
         var messages = new (string Text, string Principal)[]
         {
-            (new JsonObject { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "tap-a1", ["room_id"] = "test_room", ["op"] = "room.describe", ["args"] = new JsonObject() }.ToJsonString(), Player),
-            (new JsonObject { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "tap-a2", ["room_id"] = "test_room", ["op"] = "entities.list", ["args"] = new JsonObject { ["limit"] = 3 } }.ToJsonString(), Player),
-            (new JsonObject { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "tap-a3", ["room_id"] = "test_room", ["op"] = "capabilities.list", ["args"] = new JsonObject() }.ToJsonString(), Companion),
-            (new JsonObject { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "tap-a4", ["room_id"] = "test_room", ["op"] = "journal.read", ["args"] = new JsonObject() }.ToJsonString(), Player),
+            (new JsonObject { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "tap-a1", ["room_id"] = "test_room", ["op"] = "room.describe", ["args"] = new JsonObject() }.ToJsonString(), Player),
+            (new JsonObject { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "tap-a2", ["room_id"] = "test_room", ["op"] = "entities.list", ["args"] = new JsonObject { ["limit"] = 3 } }.ToJsonString(), Player),
+            (new JsonObject { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "tap-a3", ["room_id"] = "test_room", ["op"] = "capabilities.list", ["args"] = new JsonObject() }.ToJsonString(), Companion),
+            (new JsonObject { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "tap-a4", ["room_id"] = "test_room", ["op"] = "journal.read", ["args"] = new JsonObject() }.ToJsonString(), Player),
             (Unlock("obj:table").ToJsonString(), Companion),
-            ("{\"schema\": \"enfractal.command\", \"op\": ", Player),
+            ("{\"schema\": \"garage_game.command\", \"op\": ", Player),
         };
         var hoard = new List<CommandHandled>();
         var thrown = 0;

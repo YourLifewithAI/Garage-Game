@@ -8,7 +8,9 @@ extends RefCounted
 const COMPILER = preload("res://scripts/creation_compiler.gd")
 const JSON_KERNEL = preload("res://scripts/creation_json.gd")
 const TEXT = preload("res://scripts/creation_text.gd")
-const SCHEMA := "enfractal.creation-world"
+const SCHEMA_IDS = preload("res://scripts/schema_ids.gd")
+## The island save's id as written; a save written before the rename says it the old way and is read too.
+const SCHEMA := "garage_game.creation-world"
 ## Version 2 pins a room manifest instead of a map, uses contract principals and adds locks. Version 3 adds
 ## the compacted receipt index and the checkpoints. Version 4 adds object_poses: where play has moved the
 ## room's objects (the sandbox verbs, Run 2 P3). Version 5 adds team: the team's journal and discovered map, a block
@@ -1179,7 +1181,7 @@ func _validate_saved(data: Dictionary) -> Dictionary:
 		expected.append("team")
 	if _whole(data.get("version")) and int(data.version) >= 6:
 		expected.append("nature")
-	if not _exact_keys(data, expected) or data.get("schema") != SCHEMA or not _whole(data.get("version")) or int(data.version) not in LOADABLE_VERSIONS or not _whole(data.get("compiler_version")) or int(data.compiler_version) != 1 or data.get("style_version") != STYLE_VERSION or data.get("room_pin") != _room_pin():
+	if not _exact_keys(data, expected) or not SCHEMA_IDS.is_schema(data.get("schema"), "creation-world") or not _whole(data.get("version")) or int(data.version) not in LOADABLE_VERSIONS or not _whole(data.get("compiler_version")) or int(data.compiler_version) != 1 or data.get("style_version") != STYLE_VERSION or data.get("room_pin") != _room_pin():
 		return _failure("save_incompatible", "save", "The save's room, compiler or style version does not match this room.")
 	var bounded := _envelope_bounds_problem(data)
 	if not bounded.is_empty():

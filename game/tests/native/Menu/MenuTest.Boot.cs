@@ -238,12 +238,12 @@ public partial class MenuTest
 
     private string Creation(string name) => new JsonObject
     {
-        ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = "menu-" + Guid.NewGuid().ToString("N")[..12], ["room_id"] = "test_room", ["op"] = "creation.place",
+        ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = "menu-" + Guid.NewGuid().ToString("N")[..12], ["room_id"] = "test_room", ["op"] = "creation.place",
         ["args"] = new JsonObject
         {
             ["source"] = new JsonObject
             {
-                ["schema"] = "enfractal.creation", ["version"] = 1, ["name"] = name, ["seed"] = 1, ["mount"] = "ground",
+                ["schema"] = "garage_game.creation", ["version"] = 1, ["name"] = name, ["seed"] = 1, ["mount"] = "ground",
                 ["parts"] = new JsonArray(new JsonObject
                 {
                     ["id"] = "base", ["shape"] = "box", ["position_m"] = new JsonArray(0, 0.06, 0), ["rotation_deg"] = new JsonArray(0, 0, 0), ["size_m"] = new JsonArray(0.12, 0.12, 0.12), ["material"] = "wood",
@@ -317,7 +317,7 @@ public partial class MenuTest
             $"the copy opens as a Challenge island at the difficulty chosen, with the build in it ({challenge.Host.SaveTeamIdentity}, held {challenge.Host.IslandHeld})");
         var listed = JsonNode.Parse(challenge.Host.Handle(new JsonObject
         {
-            ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "menu-entities", ["room_id"] = "test_room", ["op"] = "entities.list",
+            ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "menu-entities", ["room_id"] = "test_room", ["op"] = "entities.list",
             ["args"] = new JsonObject { ["filter"] = new JsonObject { ["kind"] = "creation" } },
         }.ToJsonString(), CommandHost.PlayerPrincipal))!.AsObject();
         Check(listed["data"]?["items"]?.AsArray().Any(i => i?["id"]?.GetValue<string>() == built) == true && !challenge.Host.NatureCanUndo && challenge.Host.Nature.Undo.Count == 0,

@@ -157,12 +157,12 @@ public partial class IslandLoadingTest
         {
             var command = new JsonObject
             {
-                ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = "far-place-0001", ["room_id"] = _land.Room.RoomId, ["op"] = "creation.place",
+                ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = "far-place-0001", ["room_id"] = _land.Room.RoomId, ["op"] = "creation.place",
                 ["args"] = new JsonObject
                 {
                     ["source"] = new JsonObject
                     {
-                        ["schema"] = "enfractal.creation", ["version"] = 1, ["name"] = "Far marker", ["seed"] = 1, ["mount"] = "ground",
+                        ["schema"] = "garage_game.creation", ["version"] = 1, ["name"] = "Far marker", ["seed"] = 1, ["mount"] = "ground",
                         ["parts"] = new JsonArray(new JsonObject { ["id"] = "base", ["shape"] = "box", ["position_m"] = new JsonArray(0, 0.06, 0), ["rotation_deg"] = new JsonArray(0, 0, 0), ["size_m"] = new JsonArray(0.12, 0.12, 0.12), ["material"] = "wood" }),
                         ["nodes"] = new JsonArray(
                             new JsonObject { ["id"] = "use", ["op"] = "interact", ["part_id"] = "base", ["params"] = new JsonObject() },

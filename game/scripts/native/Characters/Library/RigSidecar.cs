@@ -72,13 +72,13 @@ public sealed class ChainOverride
 }
 
 /// <summary>
-/// The optional hand-written sidecar <c>rig.json</c> beside a character.json (schema <c>enfractal.character.rig</c>,
+/// The optional hand-written sidecar <c>rig.json</c> beside a character.json (schema <c>garage_game.character.rig</c>, or its spelling from before the rename,
 /// version 1). It may rename roles, mark parts rigid, set chain numbers and scale the motion profile. Strict: an
 /// unknown key, an unknown part or role, or a number out of range refuses the whole character with a reason.
 /// </summary>
 public sealed class RigSidecar
 {
-    public const string Schema = "enfractal.character.rig";
+    public const string Schema = SchemaIds.CharacterRig;
     public const int Version = 1;
     public const int MaxBytes = 64 * 1024;
 
@@ -104,8 +104,8 @@ public sealed class RigSidecar
         using var document = StrictJson.Parse(bytes, label, MaxBytes);
         var root = document.RootElement;
         StrictJson.Keys(root, label, new[] { "schema", "version" }, new[] { "notes", "roles", "rigid", "chains", "profile" });
-        if (StrictJson.String(root.GetProperty("schema"), label + ".schema", 64) != Schema)
-            throw new CharacterLoadException($"{label}.schema must be \"{Schema}\"");
+        if (!SchemaIds.IsSchema(StrictJson.String(root.GetProperty("schema"), label + ".schema", 64), "character.rig"))
+            throw new CharacterLoadException($"{label}.schema must be {SchemaIds.Both("character.rig")}");
         if (StrictJson.Integer(root.GetProperty("version"), label + ".version", 0, 1000) != Version)
             throw new CharacterLoadException($"{label}.version must be {Version}");
         var notes = root.TryGetProperty("notes", out var notesValue) ? StrictJson.String(notesValue, label + ".notes", 2000) : "";

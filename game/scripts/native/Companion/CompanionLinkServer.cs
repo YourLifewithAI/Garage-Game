@@ -33,7 +33,8 @@ public sealed class LinkFrameException(string message) : Exception(message);
 /// </summary>
 public sealed class CompanionLinkServer : IDisposable
 {
-    public const string Protocol = "enfractal.companion_link";
+    /// <summary>The protocol id the game names in its challenge and proves with; a hello may name it in either spelling (SchemaIds).</summary>
+    public const string Protocol = SchemaIds.CompanionLink;
     public const int LinkVersion = 1;
     public const int MaxHandshakeFrame = 1024;
     /// <summary>A contract message is at most 65,536 bytes of canonical JSON; the headroom lets the game answer an oversized one with request_invalid.</summary>
@@ -81,7 +82,7 @@ public sealed class CompanionLinkServer : IDisposable
     /// </summary>
     public event Action<string, string>? Note;
 
-    /// <param name="handle">Answers one enfractal.command or enfractal.query (JSON text) with enfractal.result text.</param>
+    /// <param name="handle">Answers one command or query (JSON text) with result text.</param>
     /// <param name="sessionEvent">Told "start" and "end" around each authenticated session, so the host can keep per-session state from outliving it.</param>
     public CompanionLinkServer(string roomId, Func<string, Task<string>> handle, Action<string>? sessionEvent = null,
         string host = "127.0.0.1", string principal = CommandHost.CompanionPrincipal, string avatar = CommandHost.CompanionAvatarId,
@@ -260,7 +261,7 @@ public sealed class CompanionLinkServer : IDisposable
         using (var hello = await ReadFrame(connection.Stream, MaxHandshakeFrame))
         {
             var root = hello.RootElement;
-            if (!HasExactly(root, "type", "protocol", "version", "client_nonce") || Str(root, "type") != "hello" || Str(root, "protocol") != Protocol
+            if (!HasExactly(root, "type", "protocol", "version", "client_nonce") || Str(root, "type") != "hello" || !SchemaIds.IsSchema(Str(root, "protocol"), "companion_link")
                 || !IsOne(root.GetProperty("version")) || Str(root, "client_nonce") is not { } nonce || !Hex64.IsMatch(nonce))
             {
                 await Refuse(connection, "hello_invalid");
@@ -493,7 +494,8 @@ public sealed class CompanionLinkServer : IDisposable
 
     // ---- proofs ----
 
-    /// <summary>hex(HMAC-SHA256(key = the token's bytes, "enfractal.companion_link/1|server|" or "|client|" + client_nonce + "|" + server_nonce)).</summary>
+    /// <summary>hex(HMAC-SHA256(key = the token's bytes, the challenge's protocol + "/1|server|" or "/1|client|", then client_nonce + "|" +
+    /// server_nonce)). The game's challenge always names <see cref="Protocol"/>, whichever spelling the hello used.</summary>
     public static string Proof(byte[] key, bool server, string clientNonce, string serverNonce)
     {
         var label = server ? ServerLabel : ClientLabel;

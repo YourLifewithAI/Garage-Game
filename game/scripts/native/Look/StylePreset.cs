@@ -26,7 +26,7 @@ public sealed record TimeKey(float Hour, Color KeyColor, float KeyEnergy, Color 
 public sealed record SeasonGrade(float Saturation, float Warmth, Color Tint);
 
 /// <summary>
-/// An enfractal.style preset as the runtime reads it. contracts/validate.py is the full validator; this
+/// A style preset (garage_game.style, or its spelling from before the rename) as the runtime reads it. contracts/validate.py is the full validator; this
 /// reader fails closed on every field the look uses. Experimental x_look_* extension keys are read with
 /// defaults, so a preset without them still loads; Tuning.Defaulted lists every look number such a preset
 /// left to the code, and the shipped preset leaves none.
@@ -183,7 +183,7 @@ public sealed class StylePreset
         }
         catch (Exception error) when (error is KeyNotFoundException or InvalidOperationException or FormatException or JsonException)
         {
-            throw new InvalidOperationException($"{path} is not a usable enfractal.style preset: {error.Message}", error);
+            throw new InvalidOperationException($"{path} is not a usable style preset: {error.Message}", error);
         }
     }
 
@@ -191,8 +191,8 @@ public sealed class StylePreset
     {
         using var document = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 32 });
         var root = document.RootElement;
-        if (root.Req("schema").GetString() != "enfractal.style" || root.Req("version").GetInt32() != 1)
-            throw new InvalidOperationException($"{path} is not an enfractal.style version 1 preset");
+        if (!SchemaIds.IsSchema(root.Req("schema").GetString(), "style") || root.Req("version").GetInt32() != 1)
+            throw new InvalidOperationException($"{path} is not a {SchemaIds.Both("style")} version 1 preset");
         var renderer = root.Req("renderer");
         var gi = renderer.Req("gi");
         var shadows = renderer.Req("shadows");

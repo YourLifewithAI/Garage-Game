@@ -5,7 +5,7 @@ using GarageGame.Native.Room;
 namespace GarageGame.Native;
 
 /// <summary>
-/// Deterministic, game-only companion body. Its goals arrive as enfractal.command goal.set /
+/// Deterministic, game-only companion body. Its goals arrive as garage_game.command goal.set /
 /// goal.stop through Kernel/CommandHost; this is not an AI adapter or an authorization service.
 /// It keeps its own body profile (WorldScaleProfile.Companion), a 10 cm body like the player's since the
 /// founder's decision of 6 October, but a separate object so companion upgrades can change it later; the

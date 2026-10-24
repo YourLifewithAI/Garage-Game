@@ -25,6 +25,24 @@ func _run() -> void:
 		_valid(source, "fixture " + source.name)
 	var minimal := _minimal()
 	_valid(minimal, "inert plinth")
+	# The rename (decision C): a source written before it names its kind enfractal.creation. Both spellings compile, and the
+	# compiled source keeps the one it was written with, so its hash (a saved creation's source_sha256) stays the same.
+	var written_before := minimal.duplicate(true)
+	written_before.schema = "enfractal.creation"
+	var new_result := _valid(minimal, "a source in the new spelling of its id")
+	var old_result := _valid(written_before, "a source in the spelling written before the rename")
+	if new_result.ok and old_result.ok:
+		_check(new_result.artifact.source.schema == "garage_game.creation" and old_result.artifact.source.schema == "enfractal.creation",
+			"each compiled source keeps the spelling of its id it was written with")
+		var swapped: Dictionary = old_result.artifact.source.duplicate(true)
+		swapped.schema = "garage_game.creation"
+		_check(swapped == new_result.artifact.source and old_result.artifact.hash == COMPILER.canonical_json(old_result.artifact.source).sha256_text()
+			and old_result.artifact.hash != new_result.artifact.hash, "so an old source keeps its own hash, and nothing else differs")
+	_check(COMPILER.registry().schema == "garage_game.creation", "the registry names the new id")
+	for wrong in ["garagegame.creation", "garage_game.creations", "enfractal.command", "", 7]:
+		var misspelt := minimal.duplicate(true)
+		misspelt.schema = wrong
+		_invalid(misspelt, "schema", "$.schema", "a source named " + str(wrong))
 	var multi := minimal.duplicate(true)
 	multi.parts.append(_part("wing", "wing", [1, 1, 0], [2, 0.1, 1]))
 	_valid(multi, "multipart editable source")
@@ -263,7 +281,7 @@ func _check(condition: bool, label: String) -> void:
 
 
 func _minimal() -> Dictionary:
-	return {"schema":"enfractal.creation","version":1,"name":"Test invention","seed":1,"mount":"ground",
+	return {"schema":"garage_game.creation","version":1,"name":"Test invention","seed":1,"mount":"ground",
 		"parts":[_part("base", "box", [0,0.5,0], [1,1,1])],"nodes":[],"edges":[]}
 
 

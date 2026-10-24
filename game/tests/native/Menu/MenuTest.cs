@@ -124,7 +124,7 @@ public partial class MenuTest : Node
         var extensions = new List<string>();
         if (tutorial) extensions.Add("\"x_island_tutorial\":true");
         if (shape) extensions.Add("\"x_landscape_source\":" + Shape);
-        return "{\"schema\":\"enfractal.room\",\"version\":1,\"room_id\":" + System.Text.Json.JsonSerializer.Serialize(roomId) + ",\"display_name\":" + System.Text.Json.JsonSerializer.Serialize(display) +
+        return "{\"schema\":\"garage_game.room\",\"version\":1,\"room_id\":" + System.Text.Json.JsonSerializer.Serialize(roomId) + ",\"display_name\":" + System.Text.Json.JsonSerializer.Serialize(display) +
                (extensions.Count > 0 ? ",\"extensions\":{" + string.Join(",", extensions) + "}" : "") + "}";
     }
 
@@ -280,7 +280,7 @@ public partial class MenuTest : Node
 
     private static string CreativeSave(string team, params string[] creations) => new JsonObject
     {
-        ["schema"] = "enfractal.creation-world", ["version"] = 7, ["compiler_version"] = 1, ["revision"] = 4,
+        ["schema"] = "garage_game.creation-world", ["version"] = 7, ["compiler_version"] = 1, ["revision"] = 4,
         ["instances"] = new JsonArray(creations.Select(id => (JsonNode?)new JsonObject { ["id"] = id, ["owner_id"] = "player:local", ["revision"] = 1 }).ToArray()),
         ["team"] = new JsonObject { ["team_id"] = team, ["mode"] = "creative", ["journal"] = new JsonArray(), ["discovered"] = new JsonObject() },
         ["nature"] = new JsonObject
@@ -358,9 +358,15 @@ public partial class MenuTest : Node
         Check(LastGame.Read(layout) == null, "there is no last game before one is played");
         var last = new LastGame("mira", "plain_isle", "challenge", "gentle", Now);
         Check(last.Write(layout) && LastGame.Read(layout) == last, "the last game is written and read back");
-        Write(LastGame.PathFor(layout), "{\"schema\":\"enfractal.last_game\",\"version\":1,\"team_id\":\"mira\",\"room_id\":\"plain_isle\",\"mode\":\"challenge\",\"difficulty\":\"nasty\",\"written_utc\":\"2026-10-16T09:00:00Z\"}");
+        Check(File.ReadAllText(LastGame.PathFor(layout)).StartsWith("{\"schema\":\"garage_game.last_game\",", StringComparison.Ordinal), "it is written with the new id");
+        // Written before the rename (decision C): read as it is, and never rewritten by reading it.
+        var before = "{\"schema\":\"enfractal.last_game\",\"version\":1,\"team_id\":\"mira\",\"room_id\":\"plain_isle\",\"mode\":\"challenge\",\"difficulty\":\"gentle\",\"written_utc\":\"2026-10-16T09:00:00Z\"}";
+        Write(LastGame.PathFor(layout), before);
+        Check(LastGame.Read(layout) is { TeamId: "mira", RoomId: "plain_isle", Mode: "challenge", Difficulty: "gentle" } && File.ReadAllText(LastGame.PathFor(layout)) == before,
+            "a last game written before the rename is read, and reading it changes nothing");
+        Write(LastGame.PathFor(layout), "{\"schema\":\"garage_game.last_game\",\"version\":1,\"team_id\":\"mira\",\"room_id\":\"plain_isle\",\"mode\":\"challenge\",\"difficulty\":\"nasty\",\"written_utc\":\"2026-10-16T09:00:00Z\"}");
         Check(LastGame.Read(layout) == null, "a last game that names a difficulty there is not (or an extra field, a team that is not one) is no last game");
-        Write(LastGame.PathFor(layout), "{\"schema\":\"enfractal.last_game\",\"version\":1,\"team_id\":\"../x\",\"room_id\":\"plain_isle\",\"mode\":\"creative\",\"difficulty\":null,\"written_utc\":\"2026-10-16T09:00:00Z\"}");
+        Write(LastGame.PathFor(layout), "{\"schema\":\"garage_game.last_game\",\"version\":1,\"team_id\":\"../x\",\"room_id\":\"plain_isle\",\"mode\":\"creative\",\"difficulty\":null,\"written_utc\":\"2026-10-16T09:00:00Z\"}");
         Check(LastGame.Read(layout) == null && !new LastGame("../x", "plain_isle", "creative", null, Now).Write(layout), "a team id that is a path is never read or written");
     }
 

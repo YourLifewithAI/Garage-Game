@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using GarageGame.Native;
 using GarageGame.Native.Kernel;
@@ -51,10 +52,12 @@ public partial class TeamSavesTest : Node3D
             await TestABootThatCannotSetItsMode();
             await TestAFixtureBootIsAsBefore();
             await TestTrustInTheTeamFile();
+            TestTheRenamedStores();
+            await TestTheRenamedSaves();
             TestTheFolderMove();
             GC.Collect();
             GC.WaitForPendingFinalizers();
-            GD.Print($"NATIVE_TEAM_SAVES: {_checks - _failures}/{_checks} checks passed; the team folder and its layout (two teams never share a file), the team file, the expertise store's version 3 and the union of the per-mode Glow records, the migration (written and verified, the old files removed only on a later launch, never one that changed or whose copy does not read, never over a team's own file), the boot's team, mode and difficulty, world.set_mode and Live refused once the room is up, the save keeping its difficulty, an island whose mode could not be set held rather than played under another mode's rules, knack.set at the camp reaching the body with a swapped knack's earned rank kept, Trust kept in the team file (the player's marks and reset, never the companion's), and no Windows device's name for a team; not the menu; the save folder's move from EnFractal to Garage-Game (copied and verified, caches left, nothing overwritten, resumed, never repeated)");
+            GD.Print($"NATIVE_TEAM_SAVES: {_checks - _failures}/{_checks} checks passed; the team folder and its layout (two teams never share a file), the team file, the expertise store's version 3 and the union of the per-mode Glow records, the migration (written and verified, the old files removed only on a later launch, never one that changed or whose copy does not read, never over a team's own file), the boot's team, mode and difficulty, world.set_mode and Live refused once the room is up, the save keeping its difficulty, an island whose mode could not be set held rather than played under another mode's rules, knack.set at the camp reaching the body with a swapped knack's earned rank kept, Trust kept in the team file (the player's marks and reset, never the companion's), and no Windows device's name for a team; files written before the rename (enfractal ids) read as they are and given the new ids by the next save, never by a read, the creations' sources kept as written; not the menu; the save folder's move from EnFractal to Garage-Game (copied and verified, caches left, nothing overwritten, resumed, never repeated)");
             GetTree().Quit(_failures == 0 ? 0 : 1);
         }
         catch (Exception error)
@@ -152,8 +155,8 @@ public partial class TeamSavesTest : Node3D
         Check(back == team with { Knacks = back.Knacks } && back.Knacks.Count == 0 && back.SlotsOpen == 1 && back.Trust == 0 && bytes[^1] == '\n' && !bytes.Contains((byte)'\r'),
             "a new team: one slot open, no knack, Trust at base (a field, unused yet); it reads back as written, LF-terminated");
         var text = Encoding.UTF8.GetString(bytes);
-        Check(text.StartsWith("{\"schema\":\"enfractal.team\",\"version\":1,\"team_id\":\"example_team\"", StringComparison.Ordinal) && text.Contains("\"trust\":{\"count\":0}", StringComparison.Ordinal),
-            "the team file is enfractal.team version 1 with its Trust: " + text.Trim());
+        Check(text.StartsWith("{\"schema\":\"garage_game.team\",\"version\":1,\"team_id\":\"example_team\"", StringComparison.Ordinal) && text.Contains("\"trust\":{\"count\":0}", StringComparison.Ordinal),
+            "the team file is garage_game.team version 1 with its Trust: " + text.Trim());
         var refused = new[]
         {
             text.Replace("\"version\":1", "\"version\":2", StringComparison.Ordinal),
@@ -253,7 +256,7 @@ public partial class TeamSavesTest : Node3D
         var text = File.ReadAllText(path);
         var document = LocalGlowProgressStore.ParseDocument(File.ReadAllBytes(path));
         Check(document.Version == 3 && document.TeamId == "mira" && document.Progress.Same(union) &&
-              text.StartsWith("{\"schema\":\"enfractal.glow_progress\",\"version\":3,\"team_id\":\"mira\",\"abilities\":{\"glow\":{\"successful_casts\":30,", StringComparison.Ordinal),
+              text.StartsWith("{\"schema\":\"garage_game.glow_progress\",\"version\":3,\"team_id\":\"mira\",\"abilities\":{\"glow\":{\"successful_casts\":30,", StringComparison.Ordinal),
             "the store writes version 3, keyed by ability, naming its team: " + text.Trim());
         Check(LocalGlowProgressStore.ParseDocument(Encoding.UTF8.GetBytes(CreativeGlowV2)) is { Version: 2, TeamId: null } v2 && v2.Progress.Same(CreativeGlow),
             "version 2 (one file per mode) is still read, for the migration");
@@ -291,7 +294,7 @@ public partial class TeamSavesTest : Node3D
         Write(layout.LegacyGlow("creative"), CreativeGlowV2);
         Write(layout.LegacyGlow("challenge"), ChallengeGlowV2);
         Directory.CreateDirectory(Path.GetDirectoryName(layout.LegacyVitalsV2("challenge"))!);
-        File.WriteAllBytes(layout.LegacyVitalsV2("challenge"), LocalPlayerVitalsStore.SerializeMode("local", "challenge", Earlier, ChallengeBody));
+        File.WriteAllBytes(layout.LegacyVitalsV2("challenge"), WrittenBefore(LocalPlayerVitalsStore.SerializeMode("local", "challenge", Earlier, ChallengeBody)));
         Write(layout.LegacyVitalsV1, "{\"schema\":\"enfractal.player_modes\",\"version\":1,\"mode\":\"creative\",\"modes\":{" +
             "\"creative\":{\"health\":100,\"stamina\":0.3,\"challenges\":[],\"recoveries\":0}," +
             "\"challenge\":{\"health\":40,\"stamina\":0.45,\"challenges\":[],\"recoveries\":2}," +
@@ -330,6 +333,11 @@ public partial class TeamSavesTest : Node3D
             "each room save, every manifest's, becomes the island save of the mode being played (the vitals written last: Challenge), byte for byte; a folder that is no room id is left alone");
         Check(new LocalPlayerVitalsStore(layout.VitalsFile("local", "creative")).Load().Mode == "challenge", "and the team's vitals say Challenge was played last, so the next boot opens the same island saves");
         Check(File.Exists(layout.MigrationLedger) && File.ReadAllText(layout.MigrationLedger).Contains("\"removed_utc\"", StringComparison.Ordinal) == false, "a ledger records what moved; nothing is removed yet");
+        Check(SchemaOf(layout.MigrationLedger) == "garage_game.legacy_migration" && SchemaOf(layout.ExpertiseFile("local")) == "garage_game.glow_progress" &&
+              SchemaOf(layout.VitalsFile("local", "challenge")) == "garage_game.player_modes",
+            "the ledger and the stores it wrote carry the new ids (the version 2 vitals it read said the old one)");
+        // The ledger as a build from before the rename wrote it: the next launch reads it as it is.
+        File.WriteAllBytes(layout.MigrationLedger, WrittenBefore(File.ReadAllBytes(layout.MigrationLedger)));
 
         // Before the next launch: an older build writes one old file, and one copy is spoiled.
         var changed = Path.Combine(layout.LegacyRooms, "other_room", "1111111111111111", "inventions.json");
@@ -443,7 +451,7 @@ public partial class TeamSavesTest : Node3D
 
     private static JsonObject Companion(CommandHost host, string op, JsonObject args) => host.HandleObject(new JsonObject
     {
-        ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = "team-" + Guid.NewGuid().ToString("N")[..12], ["room_id"] = host.Room.RoomId, ["op"] = op, ["args"] = args,
+        ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = "team-" + Guid.NewGuid().ToString("N")[..12], ["room_id"] = host.Room.RoomId, ["op"] = op, ["args"] = args,
     }.ToJsonString(), CommandHost.CompanionPrincipal);
 
     private async Task TestTheGameBoot()
@@ -686,6 +694,144 @@ public partial class TeamSavesTest : Node3D
             (CommandHost.SaveRoot, CommandHost.DefaultGlowProgressPath, CommandHost.DefaultPlayerVitalsPath, CommandHost.DefaultWishSaveRoot, RoomHud.ProfilePath) = previous;
         }
     }
+
+    // ---- the rename's phase 4: files written before it (decision C, contracts/README.md "Schema ids") ----
+
+    private static readonly Regex NewSchemaId = new("\"schema\":( ?)\"garage_game\\.", RegexOptions.Compiled);
+
+    /// <summary>A document as a build from before the rename wrote it: every schema id in its old spelling.</summary>
+    private static byte[] WrittenBefore(byte[] bytes) => Encoding.UTF8.GetBytes(NewSchemaId.Replace(Encoding.UTF8.GetString(bytes), "\"schema\":$1\"enfractal."));
+
+    private static string SchemaOf(string path) => JsonNode.Parse(File.ReadAllText(path))?["schema"]?.GetValue<string>() ?? "";
+
+    /// <summary>Each store reads its file in either spelling of its id, writes the new one, and refuses any other.</summary>
+    private void TestTheRenamedStores()
+    {
+        var folder = Folder("renamed_stores");
+        var team = TeamFile.Create("mira", Now, "Mira", "prototype", "the Gubble", "#75965c").WithTrust(3);
+        var teamBytes = team.Serialize();
+        Check(Encoding.UTF8.GetString(teamBytes).StartsWith("{\"schema\":\"garage_game.team\",", StringComparison.Ordinal) && TeamFile.Parse(WrittenBefore(teamBytes)).Trust == 3,
+            "the team file is written with the new id, and one written before the rename reads");
+        var teamPath = Path.Combine(folder, "teams", "mira", "team.json");
+        Write(teamPath, Encoding.UTF8.GetString(WrittenBefore(teamBytes)));
+        var store = new TeamStore(teamPath, "mira");
+        var before = File.ReadAllBytes(teamPath);
+        Check(store.Load()?.Trust == 3 && File.ReadAllBytes(teamPath).SequenceEqual(before), "reading an old team file rewrites nothing");
+        store.Save(store.Load()!.WithTrust(4));
+        Check(SchemaOf(teamPath) == "garage_game.team" && store.Load()?.Trust == 4, "its next save writes the new id");
+        var refused = 0;
+        foreach (var wrong in new[] { "garagegame.team", "garage_game.player_modes", "enfractal.teams" })
+            try { TeamFile.Parse(Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(teamBytes).Replace("garage_game.team", wrong, StringComparison.Ordinal))); }
+            catch (TeamFileException) { refused++; }
+        Check(refused == 3, "a team file named with another id is refused");
+
+        var expertise = LocalGlowProgressStore.Serialize(CreativeGlow, "mira");
+        Check(SchemaOfBytes(expertise) == "garage_game.glow_progress" && LocalGlowProgressStore.ParseDocument(WrittenBefore(expertise)).Progress.Same(CreativeGlow),
+            "the expertise store is written with the new id, and one written before the rename reads");
+        var vitals = LocalPlayerVitalsStore.SerializeMode("mira", "challenge", Earlier, ChallengeBody);
+        Check(SchemaOfBytes(vitals) == "garage_game.player_modes" && LocalPlayerVitalsStore.ParseMode(WrittenBefore(vitals)).Vitals.Same(ChallengeBody),
+            "the vitals store is written with the new id, and one written before the rename reads");
+        var wishes = WishQueue.Fresh("test_room").Serialize();
+        Check(SchemaOfBytes(wishes) == "garage_game.wish_queue" && WishQueue.Parse(WrittenBefore(wishes), "test_room").RoomId == "test_room",
+            "the wish queue is written with the new id, and one written before the rename reads");
+        var wrongs = 0;
+        foreach (var (bytes, parse) in new (byte[], Action<byte[]>)[]
+        {
+            (expertise, b => LocalGlowProgressStore.ParseDocument(b)), (vitals, b => LocalPlayerVitalsStore.ParseMode(b)), (wishes, b => WishQueue.Parse(b, "test_room")),
+        })
+            try { parse(Encoding.UTF8.GetBytes(NewSchemaId.Replace(Encoding.UTF8.GetString(bytes), "\"schema\":$1\"garagegame."))); }
+            catch (Exception) { wrongs++; }
+        Check(wrongs == 3, "the expertise store, the vitals store and the wish queue refuse a file named with another id");
+    }
+
+    private static string SchemaOfBytes(byte[] bytes) => JsonNode.Parse(Encoding.UTF8.GetString(bytes))?["schema"]?.GetValue<string>() ?? "";
+
+    /// <summary>
+    /// A team folder written before the rename (every file naming its kind enfractal.&lt;kind&gt;) boots as it is: the team file,
+    /// the vitals and the island save read; reading rewrites nothing; the next save of each writes the new id through its own
+    /// writer; the creation saved then keeps its source's old spelling, which its hash pins, beside the new creation's.
+    /// </summary>
+    private async Task TestTheRenamedSaves()
+    {
+        var previous = (CommandHost.SaveRoot, CommandHost.DefaultGlowProgressPath, CommandHost.DefaultPlayerVitalsPath, CommandHost.DefaultWishSaveRoot, RoomHud.ProfilePath);
+        var root = Folder("renamed");
+        var layout = new TeamLayout(root);
+        try
+        {
+            var host = await Boot(root, "--team=mira", "--mode=challenge");
+            if (host == null) return;
+            var stay = Companion(host, "goal.set", new JsonObject { ["actor"] = CommandHost.CompanionAvatarId, ["goal"] = "stay" });
+            var marked = Answer(host.PlayerMarkReceipt(stay["action_id"]!.GetValue<string>(), yes: true));
+            var placed = Answer(host.HandleObject(Placement("Old lantern", 1.5, -1.0), CommandHost.PlayerPrincipal));
+            var savePath = ProjectSettings.GlobalizePath(host.SavePath);
+            Check(marked.Ok && placed.Ok && host.TrustCount == 2, $"a first launch keeps a Trust mark and a creation ({marked.Code} {placed.Code} {placed.Message})");
+            await Unboot();
+            var teamFolder = layout.TeamFolder("mira");
+            var files = Directory.GetFiles(teamFolder, "*.json", SearchOption.AllDirectories).Order(StringComparer.Ordinal).ToList();
+            foreach (var file in files) File.WriteAllBytes(file, WrittenBefore(File.ReadAllBytes(file)));
+            Check(files.Contains(layout.TeamFile("mira")) && files.Contains(savePath) && files.Contains(layout.VitalsFile("mira", "challenge")) &&
+                  files.All(f => !File.ReadAllText(f).Contains("garage_game.", StringComparison.Ordinal) && SchemaOf(f).StartsWith("enfractal.", StringComparison.Ordinal)),
+                "the team's folder as a build from before the rename left it: " + string.Join(", ", files.Select(f => layout.Relative(f) + " " + SchemaOf(f))));
+            var old = Hashes(teamFolder);
+
+            host = await Boot(root, "--team=mira", "--mode=challenge");
+            if (host == null) return;
+            var listed = host.HandleObject(new JsonObject
+            {
+                ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "renamed-1", ["room_id"] = host.Room.RoomId, ["op"] = "entities.list",
+                ["args"] = new JsonObject { ["filter"] = new JsonObject { ["kind"] = "creation" } },
+            }.ToJsonString(), CommandHost.PlayerPrincipal);
+            var creations = listed["data"]?["items"]?.AsArray().Count ?? -1;
+            Check(host.TrustCount == 2 && creations == 1, $"the old team file and island save read: Trust {host.TrustCount}, {creations} creation");
+            var untouched = Hashes(teamFolder);
+            var played = layout.VitalsFile("mira", "challenge");
+            Check(old.Where(p => p.Key != played).All(p => untouched.TryGetValue(p.Key, out var h) && h == p.Value) &&
+                  (untouched[played] == old[played] || SchemaOf(played) == "garage_game.player_modes"),
+                "the boot rewrote none of them, but the vitals of the mode being played when the game saved them (with the new id): " +
+                string.Join(", ", old.Where(p => untouched.GetValueOrDefault(p.Key) != p.Value).Select(p => layout.Relative(p.Key) + " " + SchemaOf(p.Key))));
+            var reset = Answer(host.PlayerResetTrust());
+            var second = Answer(host.HandleObject(Placement("New lantern", -1.5, -1.0), CommandHost.PlayerPrincipal));
+            Check(reset.Ok && second.Ok, $"the next changes are accepted ({reset.Code} {second.Code} {second.Message})");
+            await Unboot();
+
+            var island = File.ReadAllText(savePath);
+            Check(SchemaOf(layout.TeamFile("mira")) == "garage_game.team" && TeamFile.Parse(File.ReadAllBytes(layout.TeamFile("mira"))).Trust == 0,
+                "the team file's next save writes the new id");
+            Check(SchemaOf(savePath) == "garage_game.creation-world" && island.Contains("\"schema\":\"enfractal.creation\"", StringComparison.Ordinal) &&
+                  island.Contains("\"schema\":\"garage_game.creation\"", StringComparison.Ordinal) && !island.Contains("enfractal.creation-world", StringComparison.Ordinal),
+                "the island save's next save writes the new id; the old creation keeps its source as written beside the new one's");
+            var after = Hashes(teamFolder);
+            var rewritten = after.Where(p => !old.TryGetValue(p.Key, out var h) || h != p.Value).Select(p => p.Key).ToList();
+            Check(rewritten.All(f => !SchemaOf(f).StartsWith("enfractal.", StringComparison.Ordinal)) &&
+                  old.Keys.Except(rewritten).All(f => after.TryGetValue(f, out var h) && h == old[f]),
+                "every file the game saved carries the new id, and every one it did not save is as it was: rewritten " + string.Join(", ", rewritten.Select(layout.Relative)));
+        }
+        finally
+        {
+            await Unboot();
+            TeamBoot.UserRootOverride = null;
+            (CommandHost.SaveRoot, CommandHost.DefaultGlowProgressPath, CommandHost.DefaultPlayerVitalsPath, CommandHost.DefaultWishSaveRoot, RoomHud.ProfilePath) = previous;
+        }
+    }
+
+    private static string Placement(string name, double x, double z) => new JsonObject
+    {
+        ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = "renamed-" + Guid.NewGuid().ToString("N")[..12], ["room_id"] = "test_room", ["op"] = "creation.place",
+        ["args"] = new JsonObject
+        {
+            ["source"] = new JsonObject
+            {
+                ["schema"] = "garage_game.creation", ["version"] = 1, ["name"] = name, ["seed"] = 1, ["mount"] = "ground",
+                ["parts"] = new JsonArray(new JsonObject
+                {
+                    ["id"] = "base", ["shape"] = "box", ["position_m"] = new JsonArray(0, 0.06, 0), ["rotation_deg"] = new JsonArray(0, 0, 0), ["size_m"] = new JsonArray(0.12, 0.12, 0.12), ["material"] = "wood",
+                }),
+                ["nodes"] = new JsonArray(new JsonObject { ["id"] = "use", ["op"] = "interact", ["part_id"] = "base", ["params"] = new JsonObject() }),
+                ["edges"] = new JsonArray(),
+            },
+            ["placement"] = new JsonObject { ["position_m"] = new JsonArray(x, 0, z) },
+        },
+    }.ToJsonString();
 
     // ---- one launch's migration on a copy of a user folder ----
 
