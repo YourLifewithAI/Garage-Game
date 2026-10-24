@@ -23,19 +23,18 @@ namespace GarageGame.Native.Navigation;
 /// </summary>
 public partial class RoomNavigation
 {
-    /// <summary>A copy that obstructs (a tree's trunk, a solid copy) at a size nature gave it, resolved to its row once.</summary>
-    private sealed record PlantSize(string Id, PlantSet Set, int Row, float Factor);
-
     /// <summary>The command host whose nature the trees follow (Create's nature); null leaves every tree at its natural size.</summary>
     private Kernel.CommandHost? _nature;
     /// <summary>Nature has to be read: at the first bake, and after the host says it changed.</summary>
-    private bool _naturePending = true;
+    private volatile bool _naturePending = true;
     /// <summary>The sizes the last bake took, or the bake about to start will: obstructing copies at other than natural size. Never changed once made.</summary>
     private Dictionary<string, PlantSize> _plantsSeen = new(StringComparer.Ordinal);
     private readonly Dictionary<string, float> _plantScratch = new(StringComparer.Ordinal);
     /// <summary>The copies that obstruct, resolved once per id (those sets only: nature may list thousands of grass tufts that never do).</summary>
     private readonly Dictionary<string, (PlantSet Set, int Row)?> _obstructing = new(StringComparer.Ordinal);
     private string[]? _obstructingPrefixes;
+    /// <summary>The resized copies' obstacles of the last bake, by id and the size they were made at (the bake's worker's alone, as _triangles is): a bake makes only the ones that changed.</summary>
+    private readonly Dictionary<string, (float Factor, PlantObstacles.Standing Obstacle)> _standing = new(StringComparer.Ordinal);
 
     /// <summary>Trees and solid copies at other than their natural size, as the last bake took them (grown, and burnt down).</summary>
     public int PlantsFollowed => _plantsSeen.Count;
@@ -129,6 +128,9 @@ public partial class RoomNavigation
     }
 }
 
+/// <summary>A copy that obstructs (a tree's trunk, a solid copy) at a size nature gave it (0: burnt down), resolved to its row once.</summary>
+internal sealed record PlantSize(string Id, PlantSet Set, int Row, float Factor);
+
 /// <summary>
 /// A copy's obstacle at a size, from the room's data alone (pure, any thread): the shapes IslandNavigation gives a copy at its
 /// natural size, and the same shapes grown. A tree's trunk is PlantCollision.Grown's base ring (the shape the copies' view
@@ -185,21 +187,37 @@ internal static class PlantObstacles
     /// <summary>A resized copy's obstacle with its footprint's rectangle, made once for a bake (a tile asks for the ones that reach into it).</summary>
     public readonly record struct Standing(IslandNavigation.Obstacle Obstacle, Rect2 Footprint);
 
-    /// <summary>The obstacles of the copies at other than natural size that stand (not burnt down), made once for a bake.</summary>
-    public static Standing[] Resized(IEnumerable<(string Id, PlantSet Set, int Row, float Factor)> sizes) =>
-        sizes.Where(s => s.Factor > 0).Select(s =>
+    /// <summary>
+    /// The obstacles of the copies at other than natural size that stand (not burnt down), for a bake. cache keeps those made for the
+    /// last: a copy at the size it had is not made again, so a bake after one tree changed makes one obstacle, not thousands.
+    /// </summary>
+    public static Standing[] Resized(IEnumerable<PlantSize> sizes, Dictionary<string, (float Factor, Standing Obstacle)> cache)
+    {
+        var standing = new List<Standing>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var size in sizes)
         {
-            var obstacle = Of(s.Set, s.Row, s.Id, s.Factor);
-            float x0 = obstacle.Outline.Min(p => p.X), x1 = obstacle.Outline.Max(p => p.X), z0 = obstacle.Outline.Min(p => p.Z), z1 = obstacle.Outline.Max(p => p.Z);
-            return new Standing(obstacle, new Rect2(x0, z0, x1 - x0, z1 - z0));
-        }).ToArray();
+            if (size.Factor <= 0) continue;
+            seen.Add(size.Id);
+            if (!cache.TryGetValue(size.Id, out var made) || made.Factor != size.Factor)
+            {
+                var obstacle = Of(size.Set, size.Row, size.Id, size.Factor);
+                float x0 = float.MaxValue, x1 = float.MinValue, z0 = float.MaxValue, z1 = float.MinValue;
+                foreach (var corner in obstacle.Outline) (x0, x1, z0, z1) = (Math.Min(x0, corner.X), Math.Max(x1, corner.X), Math.Min(z0, corner.Z), Math.Max(z1, corner.Z));
+                cache[size.Id] = made = (size.Factor, new Standing(obstacle, new Rect2(x0, z0, x1 - x0, z1 - z0)));
+            }
+            standing.Add(made.Obstacle);
+        }
+        foreach (var gone in cache.Keys.Where(id => !seen.Contains(id)).ToList()) cache.Remove(gone);
+        return standing.ToArray();
+    }
 
     /// <summary>
     /// What IslandNavigation.AddTo gives a tile, with the copies nature resized: the natural obstacles in the area except those
     /// copies, and the resized ones that reach into it (a grown trunk may reach in from beyond the area's edge). Returns how many
     /// obstructions were added.
     /// </summary>
-    public static int AddTo(RoomData room, NavigationMeshSourceGeometryData3D source, Rect2 area, IReadOnlyDictionary<string, float> resized, Standing[] standing)
+    public static int AddTo(RoomData room, NavigationMeshSourceGeometryData3D source, Rect2 area, IReadOnlyDictionary<string, PlantSize> resized, Standing[] standing)
     {
         if (resized.Count == 0) return IslandNavigation.AddTo(room, source, area, ground: false);
         var added = 0;

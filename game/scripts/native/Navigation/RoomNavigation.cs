@@ -35,6 +35,8 @@ namespace GarageGame.Native.Navigation;
 /// The 10x world (S5, S6): trees and stones are plant copies whose collision is built from the room's rows, not scene nodes, and
 /// the land is tiled terrain. Given the room (Room), each tile also bakes the trunks and solid stones round it as obstructions and
 /// the tiled ground, both from the room's data (IslandNavigation), on the bake's workers, first bake and re-bakes alike.
+/// The trees are those the island's nature leaves (RoomNavigation.Plants.cs): a grown tree's trunk at its grown size, a burnt-down
+/// tree's none, the tiles round a tree that changed baked again when the command host says nature moved.
 /// </para>
 /// </summary>
 public partial class RoomNavigation : Node
@@ -674,8 +676,7 @@ public partial class RoomNavigation : Node
         }
         var obstructed = 0;
         // The trees nature resized: their natural trunks are left out of every tile and their trunks as they are now put in, made once here.
-        var resized = plants.ToDictionary(p => p.Key, p => p.Value.Factor, StringComparer.Ordinal);
-        var standing = PlantObstacles.Resized(plants.Values.Select(p => (p.Id, p.Set, p.Row, p.Factor)));
+        var standing = PlantObstacles.Resized(plants.Values, _standing);
         result.ReadMs = clock.Elapsed.TotalMilliseconds;
         var baked = new NavigationIslands.TileGeometry?[chosen.Count];
         var next = -1;
@@ -709,7 +710,7 @@ public partial class RoomNavigation : Node
                     // nature has them (RoomNavigation.Plants.cs).
                     if (room != null)
                         Interlocked.Add(ref obstructed, PlantObstacles.AddTo(room, source,
-                            new Rect2(tile.BakeBox.Position.X, tile.BakeBox.Position.Z, tile.BakeBox.Size.X, tile.BakeBox.Size.Z), resized, standing));
+                            new Rect2(tile.BakeBox.Position.X, tile.BakeBox.Position.Z, tile.BakeBox.Size.X, tile.BakeBox.Size.Z), plants, standing));
                     var mesh = TileSettings(tile);
                     NavigationServer3D.BakeFromSourceGeometryData(mesh, source);
                     if (mesh.GetPolygonCount() > 0) baked[k] = NavigationIslands.TileGeometry.From(tile.Index, mesh);

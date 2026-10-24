@@ -539,11 +539,15 @@ public partial class RoomNavigationTest : Node3D
         return navigation.Revision > revision;
     }
 
+    /// <summary>The trees nature lists at other than their natural size (a landscape's grass and flowers burn too, and have no trunk).</summary>
+    private static int TreesResized(CommandHost host, RoomData room) =>
+        host.Nature.Plants.Count(p => p.Value.Shown != 1f && room.Copies!.TryResolve(p.Key, out var set, out _) && set.Kind == PlantKind.Tree);
+
     /// <summary>Frames until the navigation follows as many trees as nature lists at other than natural size, and has baked them (false after seconds).</summary>
-    private async Task<bool> Follows(RoomNavigation navigation, CommandHost host, double seconds = 15)
+    private async Task<bool> Follows(RoomNavigation navigation, CommandHost host, RoomData room, double seconds = 15)
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        bool Caught() => navigation.PlantsFollowed == host.Nature.Plants.Values.Count(p => p.Shown != 1f) && !navigation.Baking;
+        bool Caught() => navigation.PlantsFollowed == TreesResized(host, room) && !navigation.Baking;
         while (!Caught() && clock.Elapsed.TotalSeconds < seconds) await Frames(1);
         // One more poll and its bake, if nature moved again while this one went to the map.
         await Frames(30);
@@ -553,16 +557,16 @@ public partial class RoomNavigationTest : Node3D
 
     private static bool Reaches(RoomNavigation navigation, Vector3 from, Vector3 to) => navigation.FindRoute(from, to, 0.05f).Reaches;
 
-    private async Task<RoomWorld?> BootPlanted(string directory)
+    private async Task<RoomWorld?> BootPlanted(string directory, double seconds = 60)
     {
         var world = GD.Load<PackedScene>("res://scenes/room.tscn").Instantiate<RoomWorld>();
         world.RoomDirectory = directory;
         AddChild(world);
-        for (var booting = System.Diagnostics.Stopwatch.StartNew(); booting.Elapsed.TotalSeconds < 60 && !world.WorldReady && world.LoadError.Length == 0;) await Frames(1);
-        Check(world.WorldReady, "the planted test room boots: " + world.LoadError);
+        for (var booting = System.Diagnostics.Stopwatch.StartNew(); booting.Elapsed.TotalSeconds < seconds && !world.WorldReady && world.LoadError.Length == 0;) await Frames(1);
+        Check(world.WorldReady, "the room boots: " + world.LoadError);
         if (!world.WorldReady) { world.QueueFree(); return null; }
         var navigation = world.GetNodeOrNull<RoomNavigation>("RoomNavigation");
-        for (var waited = System.Diagnostics.Stopwatch.StartNew(); navigation != null && !navigation.IsReady && waited.Elapsed.TotalSeconds < 30;) await Frames(1);
+        for (var waited = System.Diagnostics.Stopwatch.StartNew(); navigation != null && !navigation.IsReady && waited.Elapsed.TotalSeconds < seconds;) await Frames(1);
         Check(navigation is { IsReady: true }, "and bakes its navigation");
         return navigation is { IsReady: true } ? world : null;
     }
@@ -575,141 +579,238 @@ public partial class RoomNavigationTest : Node3D
     /// </summary>
     private async Task TestTrunks()
     {
+        TestObstaclesAtSize();
+        await WithTestStores(TrunksInPlantedRoom);
+        // A landscape given to the run (-- --landscape=DIR, as the landscape suite takes one) is measured the same way: see below.
+        var landscape = OS.GetCmdlineUserArgs().FirstOrDefault(a => a.StartsWith("--landscape=", StringComparison.Ordinal))?["--landscape=".Length..];
+        if (!string.IsNullOrEmpty(landscape)) await WithTestStores(() => TrunksOnTheLandscape(landscape.Replace('\\', '/')));
+    }
+
+    /// <summary>
+    /// Runs a part of the test with the island's save, the team's stores and the profile the test's own, never the player's: a
+    /// cast writes the island's save and teaches the team's expertise. Removed afterwards.
+    /// </summary>
+    private async Task WithTestStores(Func<Task> body)
+    {
         var previous = (CommandHost.SaveRoot, CommandHost.DefaultGlowProgressPath, CommandHost.DefaultPlayerVitalsPath, CommandHost.DefaultWishSaveRoot, RoomHud.ProfilePath);
         var scratch = ProjectSettings.GlobalizePath(TrunksRoot);
         if (System.IO.Directory.Exists(scratch)) System.IO.Directory.Delete(scratch, recursive: true);
         try
         {
-            // The island's save, the team's stores and the profile are the test's own, never the player's.
             CommandHost.SaveRoot = TrunksRoot + "/saves";
             CommandHost.DefaultGlowProgressPath = TrunksRoot + "/expertise.json";
             CommandHost.DefaultPlayerVitalsPath = TrunksRoot + "/vitals.json";
             CommandHost.DefaultWishSaveRoot = TrunksRoot + "/wishes";
             RoomHud.ProfilePath = TrunksRoot + "/profile.cfg";
-            TestObstaclesAtSize();
-            var directory = WritePlantedRoom();
-            var room = RoomData.Load(directory);
-            var pennedA = OnFloor(PenA);
-            var outsideA = OnFloor(PenA) + new Vector3(-0.8f, 0, 0);
-            var pennedB = OnFloor(PenB);
-            var outsideB = OnFloor(PenB) + new Vector3(0.8f, 0, 0);
-            var aIds = Enumerable.Range(0, 5).Select(k => TreeId(room, RingAt(PenA, PenARadiusM, k))).ToArray();
-            var bIds = Enumerable.Range(0, 5).Select(k => TreeId(room, RingAt(PenB, PenBRadiusM, k))).ToArray();
-
-            var world = await BootPlanted(directory);
-            if (world == null) return;
-            var navigation = world.GetNode<RoomNavigation>("RoomNavigation");
-            var host = CommandHost.Of(world)!;
-            host.LearnFireForTests();
-            host.NatureSampleForTests = Soil;
-
-            // The trees as the room's data has them: pen A's gaps are open, pen B's ring is closed.
-            Check(navigation.PlantsFollowed == 0 && navigation.LastRoomObstructions == 11, $"before anything grows, the navigation bakes the room's eleven trunks as they are ({navigation.LastRoomObstructions})");
-            Check(Reaches(navigation, pennedA, outsideA) && navigation.IslandAt(pennedA) == navigation.IslandAt(outsideA) && navigation.IslandAt(pennedA) >= 0,
-                "pen A, its trunks 15 cm apart, can be walked out of");
-            Check(!Reaches(navigation, pennedB, outsideB) && navigation.IslandAt(pennedB) >= 0 && navigation.IslandAt(pennedB) != navigation.IslandAt(outsideB),
-                "pen B, its trunks 5 cm apart, cannot (its middle is an island of its own)");
-
-            // A grown tree is an obstacle at its grown size: two Grow casts take pen A's trees to 1.42, their trunks to 21 cm, and the gaps close.
-            var revision = navigation.Revision;
-            var grew = await GrowAt(host, room, world, OnFloor(PenA) + new Vector3(0.04f, 0.01f, 0), PenA, 0.5);
-            var grownFactor = host.Nature.Plants.GetValueOrDefault(aIds[0])?.Factor ?? 1;
-            Check(grew && aIds.All(id => host.Nature.Plants.GetValueOrDefault(id)?.Factor > 1.4f), $"Grow takes pen A's five trees to their cap (factor {grownFactor:0.000})");
-            var rebaked = await Rebaked(navigation, revision);
-            var scanMs = navigation.LastPlantScanMs;
-            Check(rebaked && await Follows(navigation, host) && navigation.PlantsFollowed == 5, $"a cast changes the navigation within a moment: the trees are re-baked at their grown size ({navigation.PlantsFollowed} followed)");
-            Check(!Reaches(navigation, pennedA, outsideA) && navigation.IslandAt(pennedA) >= 0 && navigation.IslandAt(pennedA) != navigation.IslandAt(outsideA),
-                "pen A, grown, cannot be walked out of: a grown tree blocks a route it did not block before");
-            var growThrough = navigation.FindRoute(OnFloor(RingAt(PenA, PenARadiusM, 1)), OnFloor(PenA), 0.05f);
-            var nearest = navigation.ClosestPoint(OnFloor(RingAt(PenA, PenARadiusM, 0)));
-            var nearestFromAxis = new Vector2(nearest.X, nearest.Z).DistanceTo(RingAt(PenA, PenARadiusM, 0));
-            Check(nearestFromAxis >= TrunkRadiusM * grownFactor, $"nothing inside a grown trunk is walkable: the nearest walkable point to a trunk's axis is {nearestFromAxis * 100:0.0} cm from it (the grown trunk is {TrunkRadiusM * grownFactor * 100:0.0} cm)");
-            GD.Print(string.Create(System.Globalization.CultureInfo.InvariantCulture,
-                $"ROOM_NAVIGATION_MEASURED trunks grown: pen A's five trees to {grownFactor:0.00}; re-baked {navigation.LastTilesBaked} of {navigation.TileCount} tiles in {navigation.LastBakeMs:0.0} ms, {navigation.LastBakeMainThreadMs:0.0} ms of the main thread; nature read in {scanMs:0.00} ms; {navigation.LastRoomObstructions} obstructions"));
-
-            // The Gubble's go_to across the grown pen: the way through (the open gaps) is gone, so it walks round, and arrives.
-            var west = OnFloor(PenA) + new Vector3(-0.8f, 0, 0);
-            var east = OnFloor(PenA) + new Vector3(0.85f, 0, 0);
-            var companion = world.Companion;
-            host.PlayerGoal("stop");
-            Check(companion.TryTeleportTo(west + new Vector3(0, 0.01f, 0)), "the Gubble west of pen A");
-            await Frames(5);
-            var straight = PlanarDistance(west, east);
-            var way = navigation.FindRoute(west, east, 0.05f);
-            var sent = host.PlayerGoal("go_to", east);
-            var serial = companion.IntentSerial;
-            int frames = 0, blocked = 0;
-            float closest = float.MaxValue, deepest = float.MaxValue;
-            var walked = 0.0f;
-            var last = companion.GlobalPosition;
-            for (; frames < 2400 && companion.GoToArrivedSerial != serial; frames++)
-            {
-                await Frames(1);
-                if (companion.GoalBlocked) blocked++;
-                closest = Mathf.Min(closest, PlanarDistance(companion.GlobalPosition, pennedA));
-                foreach (var id in aIds) deepest = Mathf.Min(deepest, new Vector2(companion.GlobalPosition.X, companion.GlobalPosition.Z).DistanceTo(TreeRoot(room, id)) - TrunkRadiusM * grownFactor);
-                walked += PlanarDistance(companion.GlobalPosition, last);
-                last = companion.GlobalPosition;
-            }
-            var arrivedAt = PlanarDistance(companion.GlobalPosition, east);
-            GD.Print(string.Create(System.Globalization.CultureInfo.InvariantCulture,
-                $"ROOM_NAVIGATION_MEASURED go_to across grown pen A: {(companion.GoToArrivedSerial == serial ? "arrived" : "did not arrive")} in {frames} frames, {arrivedAt * 100:0.0} cm from the goal, walked {walked:0.00} m " +
-                $"(straight {straight:0.00} m, planned {way.LengthM:0.00} m), blocked {blocked} frames, never nearer the pen's middle than {closest * 100:0} cm, never nearer a grown trunk than {deepest * 100:0.0} cm"));
-            Check(Ok(sent) && companion.GoToArrivedSerial == serial && arrivedAt <= CommandHost.GoToStopM + 0.03f && blocked == 0,
-                $"the Gubble's go_to across a grown pen arrives, never reported blocked ({frames} frames, {arrivedAt * 100:0.0} cm off, blocked {blocked})");
-            Check(way.Reaches && way.LengthM > straight + 0.3f && closest > PenARadiusM && deepest > 0,
-                $"it went round: planned {way.LengthM:0.00} m against {straight:0.00} m straight, never inside the ring (nearest {closest * 100:0} cm to its middle) or a grown trunk");
-            host.PlayerGoal("stop");
-
-            // A burnt tree is no obstacle at all: a fire on pen B's east tree burns it down, and the ring opens.
-            revision = navigation.Revision;
-            var east_k = Enumerable.Range(0, 5).OrderByDescending(k => RingAt(PenB, PenBRadiusM, k).X).First();
-            var treeAt = RingAt(PenB, PenBRadiusM, east_k);
-            var watching = OnFloor(treeAt) + new Vector3(0.5f, 0.01f, 0.1f);
-            var burnt = await BurnAt(host, room, world, watching, OnFloor(treeAt) + new Vector3(0.2f, 0.01f, 0), 0.3);
-            var down = bIds.Where(id => host.Nature.Plants.GetValueOrDefault(id) is { Burnt: true }).ToArray();
-            Check(burnt && down.Contains(bIds[east_k]), $"a fire burns pen B's east tree down ({down.Length} of pen B's trees burnt down)");
-            Check(await Follows(navigation, host) && navigation.PlantsBurnt >= down.Length && navigation.Revision > revision,
-                $"the navigation follows the fire: {navigation.PlantsBurnt} burnt trees are no obstacle ({navigation.PlantChangesSeen} changes seen, {navigation.PlantsMarkedDirty} trees marked)");
-            Check(Reaches(navigation, pennedB, outsideB) && navigation.IslandAt(pennedB) == navigation.IslandAt(outsideB),
-                "pen B, a tree burnt, can be walked out of: a burnt tree opens a route it closed");
-            Check(!Reaches(navigation, pennedA, outsideA), "while pen A, grown, is closed still");
-
-            // Creative's undo takes the fire back: the tree stands again and the ring closes (the navigation reads the state, not the cause).
-            if (host.NatureCanUndo)
-            {
-                revision = navigation.Revision;
-                var undo = Say(host, room, "room.undo", new JsonObject { ["to_revision"] = host.Revision - 1 }, expectedRevision: host.Revision);
-                Check(Ok(undo) && await Follows(navigation, host) && navigation.Revision > revision && !Reaches(navigation, pennedB, outsideB),
-                    "Creative's undo of the fire brings the trees back, and pen B is closed again: " + Why(undo));
-                var again = await BurnAt(host, room, world, watching, OnFloor(treeAt) + new Vector3(0.2f, 0.01f, 0), 0.3);
-                Check(again && await Follows(navigation, host) && Reaches(navigation, pennedB, outsideB), "and burnt again, it opens again");
-            }
-            else Check(false, "the planted test room's mode allows Creative's undo");
-
-            await TrunksWiderMap(world, room, host, navigation);
-
-            // A reload keeps both: the island's save names the grown trees and the burnt, and the first bake already holds them.
-            var followed = navigation.PlantsFollowed;
-            var burntBefore = navigation.PlantsBurnt;
-            world.QueueFree();
-            await Frames(5);
-            var reloaded = await BootPlanted(directory);
-            if (reloaded == null) return;
-            var again2 = reloaded.GetNode<RoomNavigation>("RoomNavigation");
-            var host2 = CommandHost.Of(reloaded)!;
-            Check(again2.PlantsFollowed == followed && again2.PlantsBurnt == burntBefore && again2.PlantChangesSeen == 1,
-                $"after a reload the first bake already follows the same trees ({again2.PlantsFollowed} of {followed}, {again2.PlantsBurnt} of {burntBefore} burnt, read once; bake {again2.Revision})");
-            Check(!Reaches(again2, pennedA, outsideA) && Reaches(again2, pennedB, outsideB) && host2.Nature.Plants.Count > 0,
-                "and after a reload pen A is still closed by its grown trees and pen B still open where a tree burnt");
-            reloaded.QueueFree();
-            await Frames(3);
+            await body();
         }
         finally
         {
             (CommandHost.SaveRoot, CommandHost.DefaultGlowProgressPath, CommandHost.DefaultPlayerVitalsPath, CommandHost.DefaultWishSaveRoot, RoomHud.ProfilePath) = previous;
             if (System.IO.Directory.Exists(scratch)) System.IO.Directory.Delete(scratch, recursive: true);
         }
+    }
+
+    private async Task TrunksInPlantedRoom()
+    {
+        var directory = WritePlantedRoom();
+        var room = RoomData.Load(directory);
+        var pennedA = OnFloor(PenA);
+        var outsideA = OnFloor(PenA) + new Vector3(-0.8f, 0, 0);
+        var pennedB = OnFloor(PenB);
+        var outsideB = OnFloor(PenB) + new Vector3(0.8f, 0, 0);
+        var aIds = Enumerable.Range(0, 5).Select(k => TreeId(room, RingAt(PenA, PenARadiusM, k))).ToArray();
+        var bIds = Enumerable.Range(0, 5).Select(k => TreeId(room, RingAt(PenB, PenBRadiusM, k))).ToArray();
+
+        var world = await BootPlanted(directory);
+        if (world == null) return;
+        var navigation = world.GetNode<RoomNavigation>("RoomNavigation");
+        var host = CommandHost.Of(world)!;
+        host.LearnFireForTests();
+        host.NatureSampleForTests = Soil;
+
+        // The trees as the room's data has them: pen A's gaps are open, pen B's ring is closed.
+        Check(navigation.PlantsFollowed == 0 && navigation.LastRoomObstructions == 11, $"before anything grows, the navigation bakes the room's eleven trunks as they are ({navigation.LastRoomObstructions})");
+        Check(Reaches(navigation, pennedA, outsideA) && navigation.IslandAt(pennedA) == navigation.IslandAt(outsideA) && navigation.IslandAt(pennedA) >= 0,
+            "pen A, its trunks 15 cm apart, can be walked out of");
+        Check(!Reaches(navigation, pennedB, outsideB) && navigation.IslandAt(pennedB) >= 0 && navigation.IslandAt(pennedB) != navigation.IslandAt(outsideB),
+            "pen B, its trunks 5 cm apart, cannot (its middle is an island of its own)");
+
+        // A grown tree is an obstacle at its grown size: two Grow casts take pen A's trees to 1.42, their trunks to 21 cm, and the gaps close.
+        var revision = navigation.Revision;
+        var grew = await GrowAt(host, room, world, OnFloor(PenA) + new Vector3(0.04f, 0.01f, 0), PenA, 0.5);
+        var grownFactor = host.Nature.Plants.GetValueOrDefault(aIds[0])?.Factor ?? 1;
+        Check(grew && aIds.All(id => host.Nature.Plants.GetValueOrDefault(id)?.Factor > 1.4f), $"Grow takes pen A's five trees to their cap (factor {grownFactor:0.000})");
+        var rebaked = await Rebaked(navigation, revision);
+        var scanMs = navigation.LastPlantScanMs;
+        Check(rebaked && await Follows(navigation, host, room) && navigation.PlantsFollowed == 5, $"a cast changes the navigation within a moment: the trees are re-baked at their grown size ({navigation.PlantsFollowed} followed)");
+        Check(!Reaches(navigation, pennedA, outsideA) && navigation.IslandAt(pennedA) >= 0 && navigation.IslandAt(pennedA) != navigation.IslandAt(outsideA),
+            "pen A, grown, cannot be walked out of: a grown tree blocks a route it did not block before");
+        var growThrough = navigation.FindRoute(OnFloor(RingAt(PenA, PenARadiusM, 1)), OnFloor(PenA), 0.05f);
+        var nearest = navigation.ClosestPoint(OnFloor(RingAt(PenA, PenARadiusM, 0)));
+        var nearestFromAxis = new Vector2(nearest.X, nearest.Z).DistanceTo(RingAt(PenA, PenARadiusM, 0));
+        Check(nearestFromAxis >= TrunkRadiusM * grownFactor, $"nothing inside a grown trunk is walkable: the nearest walkable point to a trunk's axis is {nearestFromAxis * 100:0.0} cm from it (the grown trunk is {TrunkRadiusM * grownFactor * 100:0.0} cm)");
+        GD.Print(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"ROOM_NAVIGATION_MEASURED trunks grown: pen A's five trees to {grownFactor:0.00}; re-baked {navigation.LastTilesBaked} of {navigation.TileCount} tiles in {navigation.LastBakeMs:0.0} ms, {navigation.LastBakeMainThreadMs:0.0} ms of the main thread; nature read in {scanMs:0.00} ms; {navigation.LastRoomObstructions} obstructions"));
+
+        // The Gubble's go_to across the grown pen: the way through (the open gaps) is gone, so it walks round, and arrives.
+        var west = OnFloor(PenA) + new Vector3(-0.8f, 0, 0);
+        var east = OnFloor(PenA) + new Vector3(0.85f, 0, 0);
+        var companion = world.Companion;
+        host.PlayerGoal("stop");
+        Check(companion.TryTeleportTo(west + new Vector3(0, 0.01f, 0)), "the Gubble west of pen A");
+        await Frames(5);
+        var straight = PlanarDistance(west, east);
+        var way = navigation.FindRoute(west, east, 0.05f);
+        var sent = host.PlayerGoal("go_to", east);
+        var serial = companion.IntentSerial;
+        int frames = 0, blocked = 0;
+        float closest = float.MaxValue, deepest = float.MaxValue;
+        var walked = 0.0f;
+        var last = companion.GlobalPosition;
+        for (; frames < 2400 && companion.GoToArrivedSerial != serial; frames++)
+        {
+            await Frames(1);
+            if (companion.GoalBlocked) blocked++;
+            closest = Mathf.Min(closest, PlanarDistance(companion.GlobalPosition, pennedA));
+            foreach (var id in aIds) deepest = Mathf.Min(deepest, new Vector2(companion.GlobalPosition.X, companion.GlobalPosition.Z).DistanceTo(TreeRoot(room, id)) - TrunkRadiusM * grownFactor);
+            walked += PlanarDistance(companion.GlobalPosition, last);
+            last = companion.GlobalPosition;
+        }
+        var arrivedAt = PlanarDistance(companion.GlobalPosition, east);
+        GD.Print(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"ROOM_NAVIGATION_MEASURED go_to across grown pen A: {(companion.GoToArrivedSerial == serial ? "arrived" : "did not arrive")} in {frames} frames, {arrivedAt * 100:0.0} cm from the goal, walked {walked:0.00} m " +
+            $"(straight {straight:0.00} m, planned {way.LengthM:0.00} m), blocked {blocked} frames, never nearer the pen's middle than {closest * 100:0} cm, never nearer a grown trunk than {deepest * 100:0.0} cm"));
+        Check(Ok(sent) && companion.GoToArrivedSerial == serial && arrivedAt <= CommandHost.GoToStopM + 0.03f && blocked == 0,
+            $"the Gubble's go_to across a grown pen arrives, never reported blocked ({frames} frames, {arrivedAt * 100:0.0} cm off, blocked {blocked})");
+        Check(way.Reaches && way.LengthM > straight + 0.3f && closest > PenARadiusM && deepest > 0,
+            $"it went round: planned {way.LengthM:0.00} m against {straight:0.00} m straight, never inside the ring (nearest {closest * 100:0} cm to its middle) or a grown trunk");
+        host.PlayerGoal("stop");
+
+        // A burnt tree is no obstacle at all: a fire on pen B's east tree burns it down, and the ring opens.
+        revision = navigation.Revision;
+        var east_k = Enumerable.Range(0, 5).OrderByDescending(k => RingAt(PenB, PenBRadiusM, k).X).First();
+        var treeAt = RingAt(PenB, PenBRadiusM, east_k);
+        var watching = OnFloor(treeAt) + new Vector3(0.5f, 0.01f, 0.1f);
+        var burnt = await BurnAt(host, room, world, watching, OnFloor(treeAt) + new Vector3(0.2f, 0.01f, 0), 0.3);
+        var down = bIds.Where(id => host.Nature.Plants.GetValueOrDefault(id) is { Burnt: true }).ToArray();
+        Check(burnt && down.Contains(bIds[east_k]), $"a fire burns pen B's east tree down ({down.Length} of pen B's trees burnt down)");
+        Check(await Follows(navigation, host, room) && navigation.PlantsBurnt >= down.Length && navigation.Revision > revision,
+            $"the navigation follows the fire: {navigation.PlantsBurnt} burnt trees are no obstacle ({navigation.PlantChangesSeen} changes seen, {navigation.PlantsMarkedDirty} trees marked)");
+        Check(Reaches(navigation, pennedB, outsideB) && navigation.IslandAt(pennedB) == navigation.IslandAt(outsideB),
+            "pen B, a tree burnt, can be walked out of: a burnt tree opens a route it closed");
+        Check(!Reaches(navigation, pennedA, outsideA), "while pen A, grown, is closed still");
+
+        // Creative's undo takes the fire back: the tree stands again and the ring closes (the navigation reads the state, not the cause).
+        if (host.NatureCanUndo)
+        {
+            revision = navigation.Revision;
+            var undo = Say(host, room, "room.undo", new JsonObject { ["to_revision"] = host.Revision - 1 }, expectedRevision: host.Revision);
+            Check(Ok(undo) && await Follows(navigation, host, room) && navigation.Revision > revision && !Reaches(navigation, pennedB, outsideB),
+                "Creative's undo of the fire brings the trees back, and pen B is closed again: " + Why(undo));
+            var again = await BurnAt(host, room, world, watching, OnFloor(treeAt) + new Vector3(0.2f, 0.01f, 0), 0.3);
+            Check(again && await Follows(navigation, host, room) && Reaches(navigation, pennedB, outsideB), "and burnt again, it opens again");
+        }
+        else Check(false, "the planted test room's mode allows Creative's undo");
+
+        await TrunksWiderMap(world, room, host, navigation);
+
+        // A reload keeps both: the island's save names the grown trees and the burnt, and the first bake already holds them.
+        var followed = navigation.PlantsFollowed;
+        var burntBefore = navigation.PlantsBurnt;
+        world.QueueFree();
+        await Frames(5);
+        var reloaded = await BootPlanted(directory);
+        if (reloaded == null) return;
+        var again2 = reloaded.GetNode<RoomNavigation>("RoomNavigation");
+        var host2 = CommandHost.Of(reloaded)!;
+        Check(again2.PlantsFollowed == followed && again2.PlantsBurnt == burntBefore && again2.PlantChangesSeen == 1,
+            $"after a reload the first bake already follows the same trees ({again2.PlantsFollowed} of {followed}, {again2.PlantsBurnt} of {burntBefore} burnt, read once; bake {again2.Revision})");
+        Check(!Reaches(again2, pennedA, outsideA) && Reaches(again2, pennedB, outsideB) && host2.Nature.Plants.Count > 0,
+            "and after a reload pen A is still closed by its grown trees and pen B still open where a tree burnt");
+        reloaded.QueueFree();
+        await Frames(3);
+    }
+
+    /// <summary>
+    /// The same on an exported landscape (the 1x garage's 56 trees, or the 10x garage's 4,900): the trees nearest the player's spawn
+    /// are grown and burnt, and the re-bakes measured (tiles baked of the map's, the bake's time on the workers and the main
+    /// thread's, the worst tick, what reading nature cost). Run by hand with -- --landscape=DIR; the runners do not pass one.
+    /// </summary>
+    private async Task TrunksOnTheLandscape(string directory)
+    {
+        var world = await BootPlanted(directory, 180);
+        if (world == null) return;
+        var room = world.Room;
+        var navigation = world.GetNode<RoomNavigation>("RoomNavigation");
+        var host = CommandHost.Of(world)!;
+        host.LearnFireForTests();
+        var spawn = world.Player.GlobalPosition;
+        var trees = new List<(PlantSet Set, int Row, float Away)>();
+        foreach (var set in room.Copies!.Sets.Where(set => set.Kind == PlantKind.Tree))
+            for (var row = 0; row < set.Count; row++)
+            {
+                var away = new Vector2(set.Position(row).X - spawn.X, set.Position(row).Z - spawn.Z).Length();
+                if (away > 0.6f) trees.Add((set, row, away));
+            }
+        trees.Sort((a, b) => a.Away.CompareTo(b.Away));
+        Check(trees.Count >= 2, $"the landscape has trees to grow and burn ({trees.Count} beyond 60 cm of the spawn, {navigation.TileCount} navigation tiles, {navigation.PolygonCount} polygons)");
+        if (trees.Count < 2) { world.QueueFree(); return; }
+        // Each tree: the Gubble stands on the side of it toward the spawn (on walkable ground), the cast's middle between the two, outside the trunk.
+        (Vector3 Gubble, Vector3 Centre, Vector3 Axis, float Radius) Around((PlantSet Set, int Row, float Away) tree)
+        {
+            var root = tree.Set.Position(tree.Row);
+            var shape = tree.Set.Tree(tree.Row);
+            var toSpawn = new Vector3(spawn.X - root.X, 0, spawn.Z - root.Z).Normalized();
+            var spot = navigation.ClosestPoint(root + toSpawn * (shape.TrunkRadiusM + 0.4f));
+            return (spot, root + toSpawn * (shape.TrunkRadiusM + 0.12f) + Vector3.Up * 0.01f, root, shape.TrunkRadiusM);
+        }
+        var grow = Around(trees[0]);
+        // The yardstick: the re-bake the navigation already does for any body that moved, marked round the same tree.
+        var revision = navigation.Revision;
+        navigation.WorstTickMs = 0;
+        navigation.MarkDirty(new Aabb(grow.Axis - new Vector3(0.3f, 0.1f, 0.3f), new Vector3(0.6f, 1.0f, 0.6f)));
+        await Rebaked(navigation, revision);
+        await Frames(10);
+        GD.Print(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"ROOM_NAVIGATION_MEASURED landscape, the yardstick, the tiles round a moved body: re-baked {navigation.LastTilesBaked} of {navigation.TileCount} tiles in {navigation.LastBakeMs:0.0} ms on worker threads, " +
+            $"{navigation.LastBakeMainThreadMs:0.0} ms of the main thread in all, the worst tick {navigation.WorstTickMs:0.00} ms"));
+        revision = navigation.Revision;
+        navigation.WorstTickMs = 0;
+        Check(world.Companion.TryTeleportTo(grow.Gubble), $"the Gubble beside the nearest tree ({grow.Gubble})");
+        await Frames(3);
+        var cast = Enumerable.Range(0, 2).Select(_ => Say(host, room, "nature.cast", CastArgs("grow", grow.Centre, 0.4, 1))).ToArray();
+        var rebaked = await Rebaked(navigation, revision);
+        await Frames(10);
+        var id = PlantCopies.IdOf(trees[0].Set.Name, trees[0].Row);
+        var factor = host.Nature.Plants.GetValueOrDefault(id)?.Factor ?? 1;
+        GD.Print(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"ROOM_NAVIGATION_MEASURED landscape, {id} grown to {factor:0.00}: re-baked {navigation.LastTilesBaked} of {navigation.TileCount} tiles in {navigation.LastBakeMs:0.0} ms on worker threads, " +
+            $"{navigation.LastBakeMainThreadMs:0.0} ms of the main thread in all, the worst tick {navigation.WorstTickMs:0.00} ms, nature read in {navigation.LastPlantScanMs:0.00} ms; {navigation.LastRoomObstructions} obstructions"));
+        Check(cast.All(Ok) && rebaked && navigation.PlantsFollowed >= 1 && navigation.LastTilesBaked <= 4 && navigation.LastTilesBaked < navigation.TileCount + (navigation.TileCount == 1 ? 1 : 0),
+            $"a cast on the landscape re-bakes only the tiles round the tree ({navigation.LastTilesBaked} of {navigation.TileCount}): " + string.Join(" / ", cast.Select(Why)));
+        var nearest = navigation.ClosestPoint(grow.Axis + Vector3.Up * 0.02f);
+        Check(new Vector2(nearest.X - grow.Axis.X, nearest.Z - grow.Axis.Z).Length() >= grow.Radius * factor - 0.005f,
+            $"nothing inside the grown trunk is walkable ({new Vector2(nearest.X - grow.Axis.X, nearest.Z - grow.Axis.Z).Length() * 100:0.0} cm from its axis, the trunk {grow.Radius * factor * 100:0.0} cm)");
+
+        var burn = Around(trees[1]);
+        revision = navigation.Revision;
+        navigation.WorstTickMs = 0;
+        Check(world.Companion.TryTeleportTo(burn.Gubble), $"the Gubble beside the second tree ({burn.Gubble})");
+        await Frames(3);
+        var preview = Say(host, room, "nature.cast", CastArgs("fire", burn.Centre, 0.3, 30), preview: true);
+        var lit = Say(host, room, "nature.cast", CastArgs("fire", burn.Centre, 0.3, 30, preview["data"]?["preview_id"]?.GetValue<string>()));
+        for (var step = 0; step < 400 && host.Nature.Fire != null; step++) host.AdvanceNature(NatureLaws.StepS);
+        var down = host.Nature.Plants.Values.Count(p => p.Burnt);
+        var treesDown = host.Nature.Plants.Count(p => p.Value.Burnt && room.Copies!.TryResolve(p.Key, out var set, out _) && set.Kind == PlantKind.Tree);
+        var followed = await Follows(navigation, host, room);
+        GD.Print(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"ROOM_NAVIGATION_MEASURED landscape, a fire: {down} plants burnt down, {navigation.PlantsBurnt} trees among them no obstacle; {navigation.Revision - revision} bakes in all, the last {navigation.LastTilesBaked} of {navigation.TileCount} tiles in {navigation.LastBakeMs:0.0} ms, " +
+            $"{navigation.LastBakeMainThreadMs:0.0} ms of the main thread, the worst tick {navigation.WorstTickMs:0.00} ms, nature read in {navigation.LastPlantScanMs:0.00} ms (worst {navigation.WorstPlantScanMs:0.00} ms)"));
+        Check(Ok(lit) && treesDown >= 1 && followed && navigation.PlantsBurnt == treesDown,
+            $"a fire on the landscape burns {treesDown} trees down (of {down} plants) and the navigation follows ({navigation.PlantsBurnt} burnt trees are no obstacle): " + Why(lit));
+        world.QueueFree();
+        await Frames(3);
     }
 
     /// <summary>
