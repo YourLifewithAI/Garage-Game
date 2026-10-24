@@ -48,15 +48,19 @@ public partial class PlayHudTest
         await Frames(2);
         Check(!_hud.PauseMenuOpen && !GetTree().Paused && !_hud.SettingsOpen && !_hud.MagicPanelOpen && !_hud.JournalOpen && _hud.SelectedBubble == null,
             "(nothing is going on: no panel, no wheel, no chosen bubble)");
+        // The island's weather clock moves a nature step (0.5 s) at a time while the game runs: it shows whether the game waits.
+        var running = host.Nature.WeatherS;
+        for (var i = 0; i < 90 && host.Nature.WeatherS == running; i++) await Frames(1);
+        Check(host.NatureConfigured && host.Nature.WeatherS > running, "(while the game runs the island's weather clock moves)");
         var clock = host.Nature.WeatherS;
         _hud._UnhandledInput(Press(Key.Escape));
-        await Frames(30);
+        await Frames(90);
         var menu = _hud.PauseMenu;
         var screen = _hud.GetViewport().GetVisibleRect().Size;
         var rect = menu.GetGlobalRect();
         Check(_hud.PauseMenuOpen && _hud.PausePage == "main" && GetTree().Paused && menu.Visible && _hud.GetNode<ColorRect>("PauseLayer/PauseVeil").Visible,
             "with nothing going on, one Esc opens the menu and pauses the game");
-        Check(host.Nature.WeatherS == clock, $"the game waits under it: the island's weather clock stood still for 30 frames ({clock:0.###} s)");
+        Check(host.Nature.WeatherS == clock, $"the game waits under it: the island's weather clock stood still for 1.5 s, three of its steps ({clock:0.###} s)");
         Check(Mathf.Abs(rect.Position.X - (screen.X - rect.End.X)) <= 2 && Mathf.Abs(rect.Position.Y - (screen.Y - rect.End.Y)) <= 2 && rect.Size.X >= 400,
             $"the menu sits in the middle of the screen: {rect.Position.X:0}..{rect.End.X:0} x {rect.Position.Y:0}..{rect.End.Y:0} of {screen.X:0} x {screen.Y:0}");
         var names = new[] { "PauseResume", "PauseSave", "PauseLoad", "PauseSettings", "PauseExit" };
@@ -72,8 +76,9 @@ public partial class PlayHudTest
         await Frames(2);
         Check(KeyHelpOpen() == help && !_hud.JournalOpen && !_hud.MagicPanelOpen && !_hud.SettingsOpen && _hud.PauseMenuOpen, "under the menu the other keys wait (H, J, M, C, 1)");
         _hud._UnhandledInput(Press(Key.Escape));
-        await Frames(20);
-        Check(!_hud.PauseMenuOpen && !GetTree().Paused && !menu.Visible && host.Nature.WeatherS > clock, "Esc again resumes: the menu goes and the game runs on (the clock moves)");
+        var closed = !_hud.PauseMenuOpen && !GetTree().Paused && !menu.Visible;
+        for (var i = 0; i < 90 && host.Nature.WeatherS == clock; i++) await Frames(1);
+        Check(closed && host.Nature.WeatherS > clock, "Esc again resumes: the menu goes and the game runs on (the clock moves)");
         Check(shown.LastOrDefault(n => n.Channel == "status") is { Text: "" }, "and the status cue is cleared");
         // Resume as a button too.
         _hud.OpenPauseMenu();

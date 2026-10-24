@@ -110,7 +110,6 @@ public partial class RoomHud : CanvasLayer
     private static string K(StringName action) => PlayerControls.KeyLabel(action);
     /// <summary>Every label and button that names a key, with the words it shows now. Rebuilt when what they are made from changes (RefreshKeyTextIfChanged, every frame).</summary>
     private readonly List<(System.Action<string> Set, System.Func<string> Words)> _keyTexts = new();
-    private Label _notice = null!;
     private PanelContainer _footer = null!;
     private VBoxContainer _keyHelp = null!;
     private Label _helpHint = null!;
@@ -215,7 +214,6 @@ public partial class RoomHud : CanvasLayer
     }
 
     private (float, string, int, string, string, bool, bool, string?, bool)? _stateAsOf;
-    private string? _noticeShown;
     private string? _teamNoticeShown;
     private (int, int, string?, int, int, int)? _clockAsOf;
 
@@ -224,11 +222,6 @@ public partial class RoomHud : CanvasLayer
     private Camera3D _diorama = null!;
     private int _playerColor;
     private int _companionColor = 1;
-    /// <summary>
-    /// The notice line's words. It starts empty: the first notice of a play is a real one (the look's, a key's, an action's), never Run 0's
-    /// placeholder sentence (the first recorded play, 16 October: its first notice at 0:14 was that sentence).
-    /// </summary>
-    private string _noticeText = "";
 
     public override void _Ready()
     {
@@ -330,8 +323,8 @@ public partial class RoomHud : CanvasLayer
         AddKeyLine(_keyHelp, () => $"{K(Act.PhysicsNext)} gravity · {K(Act.TimeStep)} time of day · {K(Act.SeasonStep)} season (each steps round to the real clock) · {K(Act.Lamps)} lamps · {K(Act.BounceStep)} your character's bounce (x0.5, x1, x1.5) · {K(Act.BouncePrint)} print its motion profile", "TestingKeys");
         // The playtest record's keys and its beat (RoomHud.Playtest.cs).
         AddKeyLine(_keyHelp, PlaytestKeysLine, "PlaytestKeys");
-        // The notice line shows only when it has words: folded, the footer is the one small "H keys" line.
-        _notice = new Label { Name = "Notice", Text = _noticeText, Visible = _noticeText.Length > 0 }; help.AddChild(_notice);
+        // The footer keeps the key hints only (the second recorded play: the line at the bottom edge was never seen): notices show under
+        // the reticle and fade (RoomHud.Notice.cs). Folded, the footer is the one small "H keys" line.
         // The footer is a line of no height at the bottom edge that grows up to the size its content needs, and gives it back when the help folds.
         // (It was told its size here once, which moved its top edge nowhere: the unfolded help ran off the bottom of the screen.)
         // The settings (RoomHud.Settings.cs): the player's switches and "Your AI". The Customize panel's avatars moved to the opening menu.
@@ -348,14 +341,17 @@ public partial class RoomHud : CanvasLayer
         BuildMinimap();
         BuildJournal();
         BuildGubbleView(compactTheme);
+        // Notices where the eye is, over the panels (RoomHud.Notice.cs). The notice's words start empty: the first notice of a play is a
+        // real one (the look's, a key's, an action's), never Run 0's placeholder sentence (the first recorded play, 16 October).
+        BuildNotice(compactTheme);
         // The Esc menu on its own layer, over everything (RoomHud.Pause.cs).
         BuildPauseMenu();
         WatchForPlaytest();
         ApplyAura();
         SetViewMode(1);
         if (LookNotice.Length > 0) _noticeText = LookNotice;
-        // An empty line has nothing to report: the record's first notice is a real one (RoomHud.Playtest.cs).
-        else if (_noticeText.Length == 0) _noticeShown = _noticeText;
+        // An empty notice has nothing to report: the record's first notice is a real one (RoomHud.Playtest.cs).
+        else if (_noticeText.Length == 0) _noticeSerialShown = _noticeSerial;
         Input.MouseMode = Input.MouseModeEnum.Visible;
         StartFullscreenIfAsked();
         RefreshKeyText();
@@ -691,12 +687,8 @@ public partial class RoomHud : CanvasLayer
         }
         // An island held because its mode could not be set (M3's fix round) says why, once, without waiting for a refused change.
         if (Host is { IslandHeld: true, TeamNotice: { Length: > 0 } heldWords } && !ReferenceEquals(heldWords, _teamNoticeShown)) _noticeText = _teamNoticeShown = heldWords;
-        if (!ReferenceEquals(_noticeShown, _noticeText))
-        {
-            _notice.Text = _noticeShown = _noticeText;
-            _notice.Visible = _noticeText.Length > 0;
-            NoticeLineShown(_noticeText);
-        }
+        // The notice under the reticle, fading after about four seconds (RoomHud.Notice.cs).
+        UpdateNotice(delta);
         UpdateFocus(delta);
         // Fractals are collected by walking into them (RoomHud.Pickup.cs).
         UpdatePickup(delta);

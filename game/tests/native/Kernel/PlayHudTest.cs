@@ -54,6 +54,8 @@ public partial class PlayHudTest : Node
             await TestGlowJournalFresh();
             await TestMagicPanel();
             await TestFoldedHelp();
+            // Notices where the eye is: under the reticle, fading after about four seconds (PlayHudTest.Notice.cs).
+            await TestNotices();
             // The card is in the help and the full-screen key (PlayHudTest.Screen.cs); the swim hint is with the views, which move the body.
             await TestCardIsInTheHelp();
             TestFullscreenAtBoot();
@@ -1456,17 +1458,16 @@ public partial class PlayHudTest : Node
         var footer = _hud.GetNode<PanelContainer>("HelpFooter");
         var column = footer.GetChild<VBoxContainer>(0);
         var help = column.GetNode<VBoxContainer>("KeyHelp");
-        var notice = column.GetNode<Label>("Notice");
         var hint = column.GetChild<Label>(0);
         var foldedHeight = footer.Size.Y;
-        var noticeText = notice.Text;
         Check(!help.Visible && hint.Text == "H keys", "key help starts folded with one short H hint");
-        Check(notice.IsVisibleInTree() && noticeText.Length > 0, "the notice is visible with the help folded");
+        // The second recorded play: the line at the bottom edge was never seen. The footer keeps the key hints only (PlayHudTest.Notice.cs).
+        Check(footer.FindChild("Notice", true, false) == null && column.GetChildCount() == 2 && _hud.FindChild("Notice", true, false) is Label { } moved && moved.GetParent() == _hud.NoticeCard,
+            "the bottom line keeps the key hints only: the notice is no longer in it but in its own card");
         _hud._UnhandledInput(Press(Key.H));
         await Frames(3);
         Check(help.IsVisibleInTree() && help.GetChildren().OfType<Label>().All(l => l.IsVisibleInTree()), "H unfolds every key-help line");
         Check(footer.Size.Y > foldedHeight, "the footer grows to fit the unfolded help");
-        Check(notice.IsVisibleInTree() && notice.Text == noticeText, "unfolding the help keeps the same notice visible");
         var repeat = Press(Key.H); repeat.Echo = true;
         _hud._UnhandledInput(repeat);
         Check(help.Visible, "holding H does not repeatedly toggle the help");
@@ -1474,7 +1475,6 @@ public partial class PlayHudTest : Node
         await Frames(3);
         Check(!help.Visible && hint.Text == "H keys", "H refolds the key help");
         Check(Mathf.Abs(footer.Size.Y - foldedHeight) < 1, "the folded footer releases the space used by the full help");
-        Check(notice.IsVisibleInTree() && notice.Text == noticeText, "refolding the help keeps the notice visible");
     }
 
     private void TestWorkshopGone()

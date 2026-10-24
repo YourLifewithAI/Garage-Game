@@ -127,9 +127,9 @@ public partial class PlayHudTest
             Check(recorder is { Recording: true }, "a windowed launch's recorder on the fresh world");
             if (recorder == null) return;
             await Frames(6);
-            var noticeLabel = hud.GetNode<PanelContainer>("HelpFooter").GetChild<VBoxContainer>(0).GetNode<Label>("Notice");
+            var noticeLabel = (Label)hud.FindChild("Notice", true, false)!;
             var line = noticeLabel.Text;
-            Check(line == hud.LookNotice && !line.Contains("Placeholder", StringComparison.Ordinal) && noticeLabel.Visible == (line.Length > 0),
+            Check(line == hud.LookNotice && !line.Contains("Placeholder", StringComparison.Ordinal) && hud.NoticeCard.Visible == (line.Length > 0),
                 $"the notice line starts with the look's words or none (\"{hud.LookNotice}\"), never Run 0's sentence, and shows only when it has words: \"{line}\"");
             hud._UnhandledInput(Press(Key.F9));
             await Frames(2);
