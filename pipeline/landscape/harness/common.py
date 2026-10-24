@@ -4,8 +4,12 @@ import json
 import math
 from pathlib import Path
 
-FORMAT = 'garage_game.landscape'
-FORMATS = (FORMAT, 'enfractal.landscape')  # a package written before the rename reads too (contracts/schema_ids.py)
+# The package format's id. The writer keeps the old spelling for now: the frozen harness reference (reference/package, pinned by
+# receipt.json's digests) is reproduced byte for byte by test_harness, and regenerating it needs the harness's renders (Blender).
+# Flip FORMAT to 'garage_game.landscape' on a machine that can regenerate the reference; every reader already accepts both
+# (contracts/schema_ids.py, the rename's phase 4).
+FORMAT = 'enfractal.landscape'
+FORMATS = (FORMAT, 'garage_game.landscape')
 VERSION = 1
 MAX_BYTES = 50_000_000
 MAX_TRIANGLES = 2_000_000
