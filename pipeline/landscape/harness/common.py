@@ -4,7 +4,8 @@ import json
 import math
 from pathlib import Path
 
-FORMAT = 'enfractal.landscape'
+FORMAT = 'garage_game.landscape'
+FORMATS = (FORMAT, 'enfractal.landscape')  # a package written before the rename reads too (contracts/schema_ids.py)
 VERSION = 1
 MAX_BYTES = 50_000_000
 MAX_TRIANGLES = 2_000_000

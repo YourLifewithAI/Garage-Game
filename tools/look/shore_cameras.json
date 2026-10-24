@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.look_review_cameras",
+  "schema": "garage_game.look_review_cameras",
   "version": 1,
   "room_id": "landscape_garage_nominal",
   "description": "The living shore's review cameras (Run 2, the first recorded play's fix round, L1): the HUD's shoulder view (F2) on the 10x island garage's south shore, where the generator's coast is a straight line 15 m long. shore_along stands where the founder marked it (the jetty's gravel at (9.45, 0, -34.3)) looking west along the shore with the sea on the right; shore_beach stands on the jetty looking east down the beach. Pass the 10x island with -Room (a folder) and the -Only ids; the wash is held at shore_clock_s seconds of the shore's clock (looks without a living shore ignore it), so a before and an after show the same moment. The founder's morning (16 October, 08:30) for the two views along the shore, noon for the jetty's.",

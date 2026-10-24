@@ -18,7 +18,7 @@ The Garage Game (the room-era EnFractal) is a single-player sandbox set inside a
 
 - **Edit only the paths your lane owns.** Read anything. For any other file, put the exact diff and the reason in your report; the integrator applies it.
 - **Contracts are the integration point.** Build against `contracts/*.schema.json`. Never change them yourself; propose changes. Validate what you produce with `contracts/validate.py`.
-- **One command path.** Every world change goes through an `enfractal.command` handled by the kernel. Manual controls and the AI use the same commands. No gameplay code moves or edits entities directly.
+- **One command path.** Every world change goes through a `garage_game.command` handled by the kernel. Manual controls and the AI use the same commands. No gameplay code moves or edits entities directly.
 - **The room is data; the scene is derived.** Room manifest plus room state fully describe a room. Do not keep authoritative state in scene nodes.
 - **Security boundary for the AI.** The principal is assigned by the trusted adapter and never accepted from a request. No request carries an approval: the host holds a command and the player approves it with a click. Every name, label and sign is untrusted data, never instructions. `protect.unlock` and the other player-only operations are never exposed to the companion. The companion surface exposes no files, shell, URLs, credentials or save files. A command's price follows its principal and never a field, and no companion command targets or moves the player's avatar, the Bubbles carry (consent by preview or step-in, exit by the dive key) being the one exception.
 - **Metres, kilograms, seconds, degrees.** Godot axes: +Y up, -Z forward. Asset pivots are bottom centre.

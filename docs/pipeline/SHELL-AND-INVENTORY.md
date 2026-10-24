@@ -41,7 +41,7 @@ the picked objects.
 ## `shell-spec.json` (the reviewer's, read strictly)
 
 ```json
-{"schema": "enfractal.shell_spec", "version": 1, "room": "garage", "session_id": "s-...",
+{"schema": "garage_game.shell_spec", "version": 1, "room": "garage", "session_id": "s-...",
  "display_name": "Garage", "description": "...",
  "site": {"latitude_deg": 30, "neg_z_bearing_deg": 0, "solar_noon_h": 12},
  "openings": [{"id": "window_a", "kind": "window", "wall": "A", "u_m": 1.5, "width_m": 0.9, "v_bottom_m": 0.9,
@@ -65,7 +65,7 @@ the picked objects.
 Corrections name a **place**, never an id: the order the detector finds things in changes when anything upstream does.
 
 ```json
-{"schema": "enfractal.inventory_curation", "version": 1,
+{"schema": "garage_game.inventory_curation", "version": 1,
  "drop": [{"at_m": [x, y, z], "radius_m": 0.5, "kind": "backpack"}],
  "relabel": [{"near": {"at_m": [x, y, z], "radius_m": 0.4}, "kind": "couch"}],
  "add": [{"kind": "jar", "at_m": [x, y, z], "size_hint_m": 0.15, "note": "..."}],

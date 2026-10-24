@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.look_review_cameras",
+  "schema": "garage_game.look_review_cameras",
   "version": 1,
   "room_id": "landscape_garage_nominal",
   "description": "Review cameras for the garage landscape (Run 2, Lane L: the landscape in the game), in world metres, +Y up, -Z forward. They need a landscape export passed with --room (tools/test-room.ps1 builds one under .cache/landscape-fixture). The player's spawn is (0, 0.088, -3.0); the apple crate and three cottages stand about 5 m on, at z 1.6 to 2.4. The clock is the landscape's own setup answer (summer, day 172, 09:00 apparent solar time, noon at 12 on the clock), so the pictures can be set beside the harness's reference renders; the landscape has no lamps. Run 2's open sea round adds the HUD's four views across the island (F1 to F4, staged on the north shore facing south), a swimmer 40 m out looking further out and looking home (the endless sea, the distant islands holding their place), and the focus highlight on the apple crate set on grass, the beach, rock and the jetty's planks.",

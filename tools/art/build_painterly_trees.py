@@ -418,7 +418,7 @@ def build(species):
     bpy.ops.export_scene.gltf(filepath=str(glb),export_format='GLB',use_selection=True,export_yup=True,export_normals=True,export_texcoords=True,export_materials='EXPORT',export_vertex_color='ACTIVE',export_extras=True)
     patch_glb_mask(glb)
     metadata={
-        'schema':'enfractal.art.asset.v1','id':scene['asset_id'],'species':species,
+        'schema':'garage_game.art.asset.v1','id':scene['asset_id'],'species':species,
         'interpretation':'Original illustrative tree; no surveyed individual claim.',
         'builder':'tools/art/build_painterly_trees.py','builder_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         'seed':SEED,'blender_version':bpy.app.version_string,

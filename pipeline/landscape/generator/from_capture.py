@@ -210,8 +210,9 @@ def problems(folder, setup_path=None):
     room, inv = load_json(folder/'room.json'), load_json(folder/'inventory.json')
     if room['objects'] or room['files']:
         out.append('room.json must be the shell only (no objects, no files)')
-    if inv.get('schema') != 'enfractal.inventory' or inv.get('room') != room['room_id']:
-        out.append('inventory.json must be an enfractal.inventory of room %r' % room['room_id'])
+    # roomscan writes garage_game.inventory since the rename; captures and corpus rooms from before it say enfractal.inventory.
+    if inv.get('schema') not in ('garage_game.inventory', 'enfractal.inventory') or inv.get('room') != room['room_id']:
+        out.append('inventory.json must be a garage_game.inventory of room %r' % room['room_id'])
     ids = [o['id'] for o in inv['objects']]
     if len(ids) != len(set(ids)):
         out.append('inventory ids must be unique')

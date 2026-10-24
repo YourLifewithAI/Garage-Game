@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.look_review_cameras",
+  "schema": "garage_game.look_review_cameras",
   "version": 1,
   "room_id": "any island",
   "description": "The look suite's island cameras (S9, the 10x world), worked out from the island's own data instead of fixed world coordinates, so the same file serves any island at any scale (the 1x and 10x garage alike): spawn (at the player's spawn facing the island's middle), summit (on the highest ground facing the farthest land), hamlet (beside the densest cluster of structures facing its middle), beach (on the beach nearest the spawn facing along the coast), each the HUD's F2 view with both avatars staged, and a flight over the island from the spawn to the far side above the summit, for the frame-time record while moving; and two fixed cameras on the 10x garage alone (L9), fractal_near and fractal_far, at its most open Fractal. The rules are in game/tests/native/Look/IslandCameras.cs; the harness writes each camera's derived placement into timings.json. Pass the island with -Room (a folder: the 10x export, or .cache/landscape-fixture's 1x garage with -Room landscape). The clock is the landscape's own setup answer, as in landscape_cameras.json.",
