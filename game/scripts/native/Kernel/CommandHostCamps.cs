@@ -50,7 +50,11 @@ public static class CampLaws
     /// <summary>A Fire cast lights a firepit when its circle reaches within this of the firepit (and within FirepitCatchRiseM of its height).</summary>
     public const float FirepitCatchM = 0.12f;
     public const float FirepitCatchRiseM = 0.3f;
-    /// <summary>Hearts refill this many times faster within CommandHost.CampRadiusM of the starting camp or any lit campfire.</summary>
+    /// <summary>
+    /// Decision 62's camp, for a pack that names no camp pace of its own: hearts refill this many times faster within
+    /// CommandHost.CampRadiusM of the starting camp or any lit campfire (VitalsRules.CampHealQuarterEveryS's default). v5 names its
+    /// own (traits.hearts.camp_heal_quarter_every_s, a quarter a second: decision 91).
+    /// </summary>
     public const float CampHeartsFactor = 2f;
     /// <summary>The start spot is saved again once the player's last safe footing moved this far.</summary>
     public const float SpotMovedM = 0.25f;
@@ -169,8 +173,9 @@ public static class CampLaws
 /// <item><b>No Fire until the first rest</b> (72): a Fire cast, whoever asks and in every mode, is refused until the team's store holds
 /// first_fire (RequireFireLearned).</item>
 /// <item><b>A lit campfire is a full camp</b> (71): PlayerAtCamp is true within CampRadiusM of the starting camp (while its campfire
-/// burns) or of any lit campfire, so Fractals are spent and knacks chosen there; hearts refill CampHeartsFactor times faster there; and
-/// the campfire the player last sat at is the camp they wake at (a knockout's recovery lands there, with the pool at least half full).</item>
+/// burns) or of any lit campfire, so Fractals are spent and knacks chosen there; hearts heal there at the pack's camp pace (v5: a quarter
+/// a second, decision 91; CampHeartsFactor times faster by default) and, under v5, nowhere else (84; HealQuarterEveryHereS); and the
+/// campfire the player last sat at is the camp they wake at (a knockout's recovery lands there, with the pool at least half full).</item>
 /// <item><b>Resting is sitting down by a fire</b> (70): PlayerRest, the HUD's rest key, within RestRadiusM of a lit campfire, on the
 /// ground. The first rest at the starting campfire teaches Fire (61), once per team. The host verifies it from the body itself.</item>
 /// <item><b>The start spot</b> (49): the island save's team block keeps where the player and the Gubble last stood, one spot per mode
@@ -395,8 +400,14 @@ public partial class CommandHost
         return false;
     }
 
-    /// <summary>How much faster hearts refill now (decision 62): CampHeartsFactor at the camp, else 1.</summary>
-    internal float CampHeartsFactorNow() => PlayerAtCamp() ? CampLaws.CampHeartsFactor : 1f;
+    /// <summary>
+    /// Seconds per quarter of a heart healed where the player stands now, hearts in quarters (the pack's traits.hearts; decisions 84
+    /// and 91): the camp's pace at a camp (camp_heal_quarter_every_s, 1 s in v5; by default heal_quarter_every_s / CampHeartsFactor,
+    /// decision 62's), heal_quarter_every_s elsewhere, or null where the pack heals hearts only at camp (heal_outside_camp false, v5).
+    /// P1's resting (sitting, the campfire's harm, food) builds on it; this only reads the rates.
+    /// </summary>
+    internal double? HealQuarterEveryHereS() =>
+        PlayerAtCamp() ? _vitalsRules.CampHealQuarterEveryS : _vitalsRules.HealsOutsideCamp ? _vitalsRules.HealQuarterEveryS : null;
 
     private CampSite? NearestCampfire(Vector3 at, float within, bool litOnly)
     {

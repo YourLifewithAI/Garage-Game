@@ -172,7 +172,8 @@ public partial class NatureTest
         var beside = pits[0] + new Vector3(0.15f, 0.01f, 0);
         Check(_player.TryTeleportTo(beside), "(the player stands by the first firepit)");
         await Frames(3);
-        Check(!_host.PlayerAtCamp() && _host.CampHeartsFactorNow() == 1f && _host.PlayerRest().Words == CommandHost.RestUnlit, "an unlit firepit is no camp yet, and sitting there says so");
+        Check(!_host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == null && _host.PlayerRest().Words == CommandHost.RestUnlit,
+            "an unlit firepit is no camp yet: hearts do not heal there (v5, decision 84), and sitting there says so");
         Check(_companion.TryTeleportTo(pits[0] + new Vector3(0, 0.01f, -0.3f)), "(the Gubble floats beside it)");
         await Frames(2);
         var revision = _host.Revision;
@@ -181,8 +182,8 @@ public partial class NatureTest
               _host.Nature.Fire == null && _host.Nature.Cells.Values.All(c => c.BurningS <= 0),
             "the Gubble's Fire cast on the firepit lights it, one durable revision, and nothing else catches: " + (lit["error"]?["message"]?.GetValue<string>() ?? ""));
         Check(_host.GlowProgress.Has(ExpertiseLists.Fire, ExpertiseLists.Campfire) && store.Saves == 1, "the first firepit lit teaches Campfire");
-        // A lit campfire is a full camp: the camp's spends and knacks (PlayerAtCamp), hearts faster, and the camp the player wakes at.
-        Check(_host.PlayerAtCamp() && _host.CampHeartsFactorNow() == CampLaws.CampHeartsFactor, "beside the lit campfire the player is at a camp, and hearts refill faster");
+        // A lit campfire is a full camp: the camp's spends and knacks (PlayerAtCamp), its hearts' pace, and the camp the player wakes at.
+        Check(_host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == 1, "beside the lit campfire the player is at a camp, and hearts heal there, a quarter a second (v5, decision 91)");
         var rest = _host.PlayerRest();
         Check(rest.Ok && rest.NewCamp && _host.HomeCamp == "firepit:1" && !rest.LearnedFire, "sitting by it makes it the player's camp: " + rest.Words);
         var sat = _player.GlobalPosition;
@@ -257,8 +258,8 @@ public partial class NatureTest
         Check(_player.TryTeleportTo(pits[0] + new Vector3(0.15f, 0.01f, 0)), "(the player stands by the firepit that is out)");
         await Frames(3);
         var outRest = _host.PlayerRest();
-        Check(!_host.PlayerAtCamp() && _host.CampHeartsFactorNow() == 1f && !outRest.Ok && outRest.Words == CommandHost.RestOut,
-            "a campfire that is out is no camp: no spends or knacks, no faster hearts, and resting there says so: " + outRest.Words);
+        Check(!_host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == null && !outRest.Ok && outRest.Words == CommandHost.RestOut,
+            "a campfire that is out is no camp: no spends or knacks, no healing hearts (v5), and resting there says so: " + outRest.Words);
         Check(_player.TryTeleportTo(spawn), "(the player stands by the starting campfire)");
         await Frames(3);
         var look = CampfireLook.Create(_host);

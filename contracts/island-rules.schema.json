@@ -707,10 +707,24 @@
           "maximum": 600
         },
         "heal_after_unharmed_s": {
-          "description": "... once this many seconds have passed without harm (10), and only on safe ground: today's rule.",
+          "description": "... once this many seconds have passed without harm (10), and only on safe ground: today's rule. Every heal waits for it, a camp's included.",
           "type": "number",
           "minimum": 0,
           "maximum": 600
+        },
+        "heal_outside_camp": {
+          "description": "Whether hearts heal away from a camp, at heal_quarter_every_s on safe ground. Absent: true, today's rule (anywhere). False under decision 84 (storybook_wild v5): hearts heal only by resting at a camp (the starting campfire while it burns, or any lit campfire), and later by food.",
+          "type": "boolean"
+        },
+        "camp_heal_quarter_every_s": {
+          "description": "At a camp, healing lands one quarter every this many seconds (after the same unharmed wait): 1 under decision 91 (storybook_wild v5: a quarter a second, five hearts in 20 s). Absent: half of heal_quarter_every_s, decision 62's camp twice as fast (today's).",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 600
+        },
+        "heal_while_closed": {
+          "description": "Whether the time the game was closed heals hearts at heal_quarter_every_s, after the unharmed wait (docs/game/MECHANICS.md, \"While the player is away\"). Absent: true, today's. False under decision 93 (storybook_wild v5): the player comes back with the hearts they had; the bar and the pool still catch up.",
+          "type": "boolean"
         }
       }
     },
