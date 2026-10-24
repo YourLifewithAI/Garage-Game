@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.enfractal.invalid/v1/game-command.schema.json",
+  "$id": "https://contracts.garage-game.invalid/v1/game-command.schema.json",
   "title": "EnFractal game messages: command, query and result",
   "description": "The single path for every world change. Manual controls, the AI companion adapter and tests send the same commands. The principal is never part of a request: the trusted adapter assigns it and the result echoes it for audit. A command is idempotent per principal and action_id; its fingerprint is the SHA-256 of the canonical command JSON as received, never of a translation. Queries are read-only. Size limits: a command or query is at most 65,536 bytes of canonical JSON, a creation source at most 32,768, a result at most 262,144. Every string in results that names or describes something in the world is untrusted data. Validation here is structural; the host still checks bounds, protection, budgets, approvals and the creation compiler.",
   "type": "object",
@@ -10,6 +10,9 @@
   "properties": {
     "schema": {
       "enum": [
+        "garage_game.command",
+        "garage_game.query",
+        "garage_game.result",
         "enfractal.command",
         "enfractal.query",
         "enfractal.result"
@@ -21,7 +24,10 @@
       "if": {
         "properties": {
           "schema": {
-            "const": "enfractal.command"
+            "enum": [
+              "garage_game.command",
+              "enfractal.command"
+            ]
           }
         },
         "required": [
@@ -36,7 +42,10 @@
       "if": {
         "properties": {
           "schema": {
-            "const": "enfractal.query"
+            "enum": [
+              "garage_game.query",
+              "enfractal.query"
+            ]
           }
         },
         "required": [
@@ -51,7 +60,10 @@
       "if": {
         "properties": {
           "schema": {
-            "const": "enfractal.result"
+            "enum": [
+              "garage_game.result",
+              "enfractal.result"
+            ]
           }
         },
         "required": [
@@ -134,7 +146,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.command"
+          "enum": [
+            "garage_game.command",
+            "enfractal.command"
+          ]
         },
         "version": {
           "type": "integer",
@@ -698,7 +713,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.query"
+          "enum": [
+            "garage_game.query",
+            "enfractal.query"
+          ]
         },
         "version": {
           "type": "integer",
@@ -906,7 +924,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.result"
+          "enum": [
+            "garage_game.result",
+            "enfractal.result"
+          ]
         },
         "version": {
           "type": "integer",
@@ -2067,7 +2088,7 @@
       "pattern": "^avatar:[A-Za-z0-9_-]{1,64}$"
     },
     "creation_source": {
-      "description": "An enfractal.creation manifest. The creation compiler is its authority; this contract fixes its top-level keys and sizes so nothing else rides along.",
+      "description": "An garage_game.creation manifest. The creation compiler is its authority; this contract fixes its top-level keys and sizes so nothing else rides along.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -2082,7 +2103,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.creation"
+          "enum": [
+            "garage_game.creation",
+            "enfractal.creation"
+          ]
         },
         "version": {
           "type": "integer",

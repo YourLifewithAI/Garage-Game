@@ -58,6 +58,7 @@ LOCKED_RULES: dict[str, str] = {}
 
 # Each invalid example and the reason it must fail.
 EXPECTED_FAILURES = {
+    "command_with_a_misspelt_schema_id": "unknown schema 'garagegame.command'",
     "command_with_principal": "'principal' was unexpected",
     "command_carries_approval": "'approval' was unexpected",
     "command_grab_without_target": "'target' is a required property",
@@ -231,7 +232,7 @@ def l_shaped_room(base: Path, reverse_wall: str | None = None) -> Path:
         platform.reverse()
     parts.append({"id": "shell:shelf_platform", "role": "platform", "geometry": {"kind": "polygon", "points_m": platform, "thickness_m": 0.05},
                   "collides": True, "material_role": "wood"})
-    manifest = {"schema": "enfractal.room", "version": 1, "room_id": "l_room", "display_name": "L room", "created_utc": "2026-10-06T00:00:00Z",
+    manifest = {"schema": "garage_game.room", "version": 1, "room_id": "l_room", "display_name": "L room", "created_utc": "2026-10-06T00:00:00Z",
                 "units": "m", "axes": "y_up_neg_z_forward", "source": {"kind": "hand_built"},
                 "bounds": {"min_m": [0.0, 0.0, 0.0], "max_m": [4.0, height, 4.0]}, "shell": {"parts": parts}, "objects": [],
                 "spawns": [{"id": "player_start", "role": "player", "position_m": [1.0, 0.0, 1.0], "yaw_deg": 0.0},
@@ -278,7 +279,7 @@ class ExampleTests(unittest.TestCase):
         seen = set()
         for path in (EXAMPLES / "messages" / "valid").glob("*.json"):
             document = validate.load_strict(path)
-            if document["schema"] in ("enfractal.command", "enfractal.query"):
+            if validate.kind_of(document["schema"]) in ("command", "query"):
                 seen.add(document["op"])
         # Ops whose shape the examples have not needed yet; the list may only shrink.
         without = {"entity.remove", "creation.revise", "creation.activate", "protect.unlock", "entity.inspect"}
@@ -1141,7 +1142,7 @@ class SemanticTests(unittest.TestCase):
     def test_asset_slot_pointing_at_another_document_is_reported_not_crashed(self):
         target = self.room / "objects" / "box_proxy" / "asset.json"
         shutil.copy(SEED_PRESET, target)
-        self.assertProblem(validate.check_room(self.room), "expected 'enfractal.asset'")
+        self.assertProblem(validate.check_room(self.room), "expected 'garage_game.asset' (or 'enfractal.asset')")
 
     def test_path_aliases_are_rejected(self):
         for alias in ("objects/box_proxy/./asset.json", "objects/box_proxy//asset.json", "objects/../box_proxy/asset.json", "asset.json"):
@@ -1707,17 +1708,17 @@ class IslandRulesTests(unittest.TestCase):
                               "reach_m": ability["reach_m"]})
             if nature:
                 # A nature cast carries no params: the host reads the pack's intensity. Fire is previewed first.
-                commands.append({"schema": "enfractal.command", "version": 1, "action_id": "cast-0001", "room_id": "test_room",
+                commands.append({"schema": "garage_game.command", "version": 1, "action_id": "cast-0001", "room_id": "test_room",
                                  "op": "nature.cast", "preview": ability["primitive"] == "element.ignite",
                                  "args": {"capability": ability["capability"], "center_m": [0.0, 0.0, 0.0],
                                           "radius_m": ability["area_radius_default_m"], "duration_s": ability["duration_default_s"]}})
                 continue
-            commands.append({"schema": "enfractal.command", "version": 1, "action_id": "glow-0001", "room_id": "test_room", "op": "effect.start",
+            commands.append({"schema": "garage_game.command", "version": 1, "action_id": "glow-0001", "room_id": "test_room", "op": "effect.start",
                              "args": {"capability": ability["capability"],
                                       "params": {k: v["default"] for k, v in ability["params"].items()},
                                       "area": {"center_m": [0.0, 0.1, 0.0], "radius_m": ability["area_radius_default_m"]},
                                       "duration_s": ability["duration_default_s"], "targets": ["avatar:companion"]}})
-        result = {"schema": "enfractal.result", "version": 1, "ok": True, "op": "capabilities.list", "query_id": "q-0001",
+        result = {"schema": "garage_game.result", "version": 1, "ok": True, "op": "capabilities.list", "query_id": "q-0001",
                   "principal": "companion:local", "room_id": "test_room", "revision": 0, "replayed": False, "preview": False,
                   "data": {"items": summaries}, "at_utc": "2026-10-10T00:00:00Z"}
         self.assertEqual(validate.schema_errors(result), [])
@@ -2151,7 +2152,7 @@ class MechanicsRoundTests(unittest.TestCase):
             with self.subTest(earned=name):
                 self.assertTrue(validate.schema_errors({**team, "knacks": {**team["knacks"], "earned": earned}}))
         # Version 1 of the vitals and version 2 of the Glow record are the kernel's own formats today, read for migration only.
-        self.assertTrue(validate.schema_errors({"schema": "enfractal.glow_progress", "version": 2, "successful_casts": 0,
+        self.assertTrue(validate.schema_errors({"schema": "garage_game.glow_progress", "version": 2, "successful_casts": 0,
                                                 "discoveries": [], "delivered_hints": [], "touch": "plain", "sound_volume": 0.35, "muted": False}))
 
     # ----- the stamina ledger's seam -----
@@ -2300,7 +2301,7 @@ class PlaytestRecordTests(unittest.TestCase):
                     self.assertTrue(validate.event_errors(broken), f"{event['kind']} with {change} passed")
         # A line that is not an object, and a line of another document, are refused as events.
         self.assertTrue(validate.event_errors([1, 2]))
-        self.assertTrue(validate.event_errors({"schema": "enfractal.result", "ok": True}))
+        self.assertTrue(validate.event_errors({"schema": "garage_game.result", "ok": True}))
         # Each kind's own required fields are required only of that kind.
         self.assertTrue(validate.event_errors({k: v for k, v in self.event("mark").items() if k != "still"}))
         self.assertEqual(validate.event_errors({**self.event("action"), "still": "0001-steady.jpg"}), [])

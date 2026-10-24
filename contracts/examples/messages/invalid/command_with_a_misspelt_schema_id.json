@@ -1,0 +1,8 @@
+{
+  "schema": "garagegame.command",
+  "version": 1,
+  "action_id": "stop-0009",
+  "room_id": "garage_example",
+  "op": "goal.stop",
+  "args": {}
+}

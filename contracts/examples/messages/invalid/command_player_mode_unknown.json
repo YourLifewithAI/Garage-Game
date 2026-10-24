@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.command",
+  "schema": "garage_game.command",
   "version": 1,
   "action_id": "mode-0009",
   "room_id": "garage_example",

@@ -1,0 +1,41 @@
+{
+  "schema": "enfractal.result",
+  "version": 1,
+  "ok": true,
+  "op": "room.describe",
+  "query_id": "q-0037",
+  "principal": "companion:local",
+  "room_id": "garage_example",
+  "revision": 4,
+  "replayed": false,
+  "preview": false,
+  "data": {
+    "room_id": "garage_example",
+    "display_name": "Garage (example manifest)",
+    "revision": 4,
+    "source_kind": "capture",
+    "bounds_m": {
+      "min_m": [
+        -3.0,
+        0.0,
+        -2.75
+      ],
+      "max_m": [
+        3.0,
+        2.7,
+        2.75
+      ]
+    },
+    "style": {
+      "preset_id": "storybook_painterly",
+      "preset_version": 1,
+      "preset_sha256": "5d1c0e8a1b7f4e3c9a2d6b8f0e4a7c3d1b9f5e2a8c6d4b0f7e3a1c9d5b2f8e64"
+    },
+    "counts": {
+      "objects": 4,
+      "creations": 1,
+      "shell_parts": 6
+    }
+  },
+  "at_utc": "2026-10-06T00:05:00Z"
+}

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.enfractal.invalid/v1/companion-link.schema.json",
+  "$id": "https://contracts.garage-game.invalid/v1/companion-link.schema.json",
   "title": "EnFractal companion and wish runner links: session files and frames",
-  "description": "The loopback connection between the companion MCP server and the running game. The game listens on 127.0.0.1 or ::1 only and writes the session file to user://companion/session.json with a fresh 256-bit token per launch. Both sides prove knowledge of the token with HMAC-SHA256 over two fresh nonces, so the token never crosses the socket. Each frame is a 4-byte big-endian length followed by one JSON object, which the sender writes as canonical JSON v1 (UTF-8, numbers in canonical form) so that a frame is the canonical message plus a short envelope; readers accept any strict JSON within the limit, and duplicate keys and non-finite numbers are refused. A wrong proof closes only that connection: there is no lockout. The game binds the principal to the authenticated connection; no request frame carries a principal, an approval or the token. The normal game connection carries enfractal.command / enfractal.query and enfractal.result messages from game-command.schema.json. A separate authenticated runner listener carries only the exact wish.wait / wish.update protocol below and assigns runner:local with no avatar. This static schema describes both transports; the trusted listener enforces which message family its connection may use.",
+  "description": "The loopback connection between the companion MCP server and the running game. The game listens on 127.0.0.1 or ::1 only and writes the session file to user://companion/session.json with a fresh 256-bit token per launch. Both sides prove knowledge of the token with HMAC-SHA256 over two fresh nonces, so the token never crosses the socket. Each frame is a 4-byte big-endian length followed by one JSON object, which the sender writes as canonical JSON v1 (UTF-8, numbers in canonical form) so that a frame is the canonical message plus a short envelope; readers accept any strict JSON within the limit, and duplicate keys and non-finite numbers are refused. A wrong proof closes only that connection: there is no lockout. The game binds the principal to the authenticated connection; no request frame carries a principal, an approval or the token. The normal game connection carries garage_game.command / garage_game.query and garage_game.result messages from game-command.schema.json. A separate authenticated runner listener carries only the exact wish.wait / wish.update protocol below and assigns runner:local with no avatar. This static schema describes both transports; the trusted listener enforces which message family its connection may use.",
   "oneOf": [
     {
       "$ref": "#/$defs/session_file"
@@ -50,7 +50,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.companion_session"
+          "enum": [
+            "garage_game.companion_session",
+            "enfractal.companion_session"
+          ]
         },
         "version": {
           "type": "integer",
@@ -85,7 +88,7 @@
       }
     },
     "hello": {
-      "description": "Companion to game, first frame.",
+      "description": "Companion to game, first frame. The companion names garage_game.companion_link; the game accepts either id (a companion from before the rename names enfractal.companion_link).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -99,7 +102,10 @@
           "const": "hello"
         },
         "protocol": {
-          "const": "enfractal.companion_link"
+          "enum": [
+            "garage_game.companion_link",
+            "enfractal.companion_link"
+          ]
         },
         "version": {
           "type": "integer",
@@ -111,7 +117,7 @@
       }
     },
     "challenge": {
-      "description": "Game to companion. server_proof = hex(HMAC-SHA256(key = token bytes, msg = 'enfractal.companion_link/1|server|' + client_nonce + '|' + server_nonce)). The companion verifies it before sending anything else, so a listener that does not know the token learns nothing.",
+      "description": "Game to companion. server_proof = hex(HMAC-SHA256(key = token bytes, msg = protocol + '/1|server|' + client_nonce + '|' + server_nonce)), where protocol is this frame's own: the game names garage_game.companion_link whichever id the hello named, and a companion accepts a challenge naming either id (a game from before the rename names enfractal.companion_link) and proves with the one it names. The companion verifies it before sending anything else, so a listener that does not know the token learns nothing.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -126,7 +132,10 @@
           "const": "challenge"
         },
         "protocol": {
-          "const": "enfractal.companion_link"
+          "enum": [
+            "garage_game.companion_link",
+            "enfractal.companion_link"
+          ]
         },
         "version": {
           "type": "integer",
@@ -141,7 +150,7 @@
       }
     },
     "auth": {
-      "description": "Companion to game. client_proof = hex(HMAC-SHA256(key = token bytes, msg = 'enfractal.companion_link/1|client|' + client_nonce + '|' + server_nonce)), compared in constant time.",
+      "description": "Companion to game. client_proof = hex(HMAC-SHA256(key = token bytes, msg = protocol + '/1|client|' + client_nonce + '|' + server_nonce)), with the challenge's protocol, compared in constant time.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -253,7 +262,7 @@
       }
     },
     "request": {
-      "description": "Authenticated client to its listener. The game endpoint accepts one enfractal.command or enfractal.query; the separate runner endpoint accepts only wish.wait or wish.update. The trusted endpoint enforces the connection role; this schema is their static union.",
+      "description": "Authenticated client to its listener. The game endpoint accepts one garage_game.command or garage_game.query; the separate runner endpoint accepts only wish.wait or wish.update. The trusted endpoint enforces the connection role; this schema is their static union.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -286,7 +295,7 @@
       }
     },
     "response": {
-      "description": "Game to authenticated client, echoing seq. The game endpoint returns enfractal.result; the separate runner endpoint returns only a fixed runner_response.",
+      "description": "Game to authenticated client, echoing seq. The game endpoint returns garage_game.result; the separate runner endpoint returns only a fixed runner_response.",
       "type": "object",
       "additionalProperties": false,
       "required": [

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.enfractal.invalid/v1/team.schema.json",
+  "$id": "https://contracts.garage-game.invalid/v1/team.schema.json",
   "title": "EnFractal team: the team file, the vitals store and the expertise store",
-  "description": "A team is one person and their Gubble (docs/game/MECHANICS.md section 2): one folder on disk, user://teams/<team_id>/, that the companion surface never sees (no tool, field or resource reaches it). Three documents live there, each named by its schema: the team file (enfractal.team, team.json), one vitals store per mode (enfractal.player_modes version 2, modes/<mode>/vitals.json) and one expertise store for the team (enfractal.glow_progress version 3, expertise.json); the island saves sit beside them under the mode (contracts/README.md, \"Teams and the save layout\"). The host writes them atomically (docs/engine/persistence-notes.md); nothing a request carries sets them, and the machine's switches (\"Let my AI see\", \"Let the Gubble use fire\", \"Play the intro\", the numbers option) stay in the machine's settings file. The Gubble is bound to the team for life, never to a drawing; the drawing is a costume. Written by the teams packet (M3) and the menu (M7); the vitals by the energy packet (M1); Trust by M8.",
+  "description": "A team is one person and their Gubble (docs/game/MECHANICS.md section 2): one folder on disk, user://teams/<team_id>/, that the companion surface never sees (no tool, field or resource reaches it). Three documents live there, each named by its schema: the team file (garage_game.team, team.json), one vitals store per mode (garage_game.player_modes version 2, modes/<mode>/vitals.json) and one expertise store for the team (garage_game.glow_progress version 3, expertise.json); the island saves sit beside them under the mode (contracts/README.md, \"Teams and the save layout\"). The host writes them atomically (docs/engine/persistence-notes.md); nothing a request carries sets them, and the machine's switches (\"Let my AI see\", \"Let the Gubble use fire\", \"Play the intro\", the numbers option) stay in the machine's settings file. The Gubble is bound to the team for life, never to a drawing; the drawing is a costume. Written by the teams packet (M3) and the menu (M7); the vitals by the energy packet (M1); Trust by M8.",
   "type": "object",
   "required": [
     "schema"
@@ -10,6 +10,9 @@
   "properties": {
     "schema": {
       "enum": [
+        "garage_game.team",
+        "garage_game.player_modes",
+        "garage_game.glow_progress",
         "enfractal.team",
         "enfractal.player_modes",
         "enfractal.glow_progress"
@@ -21,7 +24,10 @@
       "if": {
         "properties": {
           "schema": {
-            "const": "enfractal.team"
+            "enum": [
+              "garage_game.team",
+              "enfractal.team"
+            ]
           }
         },
         "required": [
@@ -36,7 +42,10 @@
       "if": {
         "properties": {
           "schema": {
-            "const": "enfractal.player_modes"
+            "enum": [
+              "garage_game.player_modes",
+              "enfractal.player_modes"
+            ]
           }
         },
         "required": [
@@ -51,7 +60,10 @@
       "if": {
         "properties": {
           "schema": {
-            "const": "enfractal.glow_progress"
+            "enum": [
+              "garage_game.glow_progress",
+              "enfractal.glow_progress"
+            ]
           }
         },
         "required": [
@@ -80,7 +92,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.team"
+          "enum": [
+            "garage_game.team",
+            "enfractal.team"
+          ]
         },
         "version": {
           "type": "integer",
@@ -221,7 +236,7 @@
       }
     },
     "vitals_store": {
-      "description": "The vitals store (modes/<mode>/vitals.json): one per team and mode, with the pool. Version 2 of the kernel's enfractal.player_modes, whose version 1 kept the three modes in one file (user://single_player/progression/player_modes_v1.json, read for migration only). written_utc lets the host catch up time away (hearts heal, the pool wakes half full).",
+      "description": "The vitals store (modes/<mode>/vitals.json): one per team and mode, with the pool. Version 2 of the kernel's garage_game.player_modes, whose version 1 kept the three modes in one file (user://single_player/progression/player_modes_v1.json, read for migration only). written_utc lets the host catch up time away (hearts heal, the pool wakes half full).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -234,7 +249,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.player_modes"
+          "enum": [
+            "garage_game.player_modes",
+            "enfractal.player_modes"
+          ]
         },
         "version": {
           "type": "integer",
@@ -371,7 +389,7 @@
       }
     },
     "expertise_store": {
-      "description": "The expertise store (expertise.json): one per team, across modes (expertise travels; it cannot be farmed, each a one-time condition the host verifies). Version 3 of the kernel's enfractal.glow_progress, whose version 2 kept one record per mode (user://single_player/progression/glow_trial_v1.json and its .challenge and .live siblings, merged as their union). Keyed by ability, so Bubbles', Fire's and Grow's lists join Glow's without a new version (a store holding Bloom's record, from before decision 52, is read as Grow's and written as grow). Only the host writes it.",
+      "description": "The expertise store (expertise.json): one per team, across modes (expertise travels; it cannot be farmed, each a one-time condition the host verifies). Version 3 of the kernel's garage_game.glow_progress, whose version 2 kept one record per mode (user://single_player/progression/glow_trial_v1.json and its .challenge and .live siblings, merged as their union). Keyed by ability, so Bubbles', Fire's and Grow's lists join Glow's without a new version (a store holding Bloom's record, from before decision 52, is read as Grow's and written as grow). Only the host writes it.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -385,7 +403,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.glow_progress"
+          "enum": [
+            "garage_game.glow_progress",
+            "enfractal.glow_progress"
+          ]
         },
         "version": {
           "type": "integer",

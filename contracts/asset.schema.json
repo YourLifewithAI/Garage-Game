@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.enfractal.invalid/v1/asset.schema.json",
+  "$id": "https://contracts.garage-game.invalid/v1/asset.schema.json",
   "title": "EnFractal asset metadata (asset.json)",
   "description": "One complete, closed, collidable game object. The pivot is the bottom centre of the asset's bounds, +Y up, -Z is the object's front. Generated assets are fitted to their measured size, so dimensions_m is true size at scale 1. Every file the asset uses is listed with its hash.",
   "type": "object",
@@ -26,7 +26,10 @@
   ],
   "properties": {
     "schema": {
-      "const": "enfractal.asset"
+      "enum": [
+        "garage_game.asset",
+        "enfractal.asset"
+      ]
     },
     "version": {
       "type": "integer",

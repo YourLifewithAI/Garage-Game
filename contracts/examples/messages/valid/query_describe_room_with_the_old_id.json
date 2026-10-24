@@ -1,0 +1,8 @@
+{
+  "schema": "enfractal.query",
+  "version": 1,
+  "query_id": "q-0037",
+  "room_id": "garage_example",
+  "op": "room.describe",
+  "args": {}
+}

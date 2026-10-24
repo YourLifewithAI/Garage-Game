@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.enfractal.invalid/v1/style-preset.schema.json",
+  "$id": "https://contracts.garage-game.invalid/v1/style-preset.schema.json",
   "title": "EnFractal style preset",
   "description": "One complete look: renderer settings, light, palette, time of day and seasons, camera and depth of field, post effects, per-material treatments, handmade geometry, procedural charm and the offline restyle recipe. Owned by the Look track. Stored as game/styles/<preset_id>/v<preset_version>.json. A seed or draft version may be edited in place; once a version is candidate or approved, or anything pins it, its file never changes and a change means a new version file. Rooms and saves pin a preset by id, version and file hash.",
   "type": "object",
@@ -27,7 +27,10 @@
   ],
   "properties": {
     "schema": {
-      "const": "enfractal.style"
+      "enum": [
+        "garage_game.style",
+        "enfractal.style"
+      ]
     },
     "version": {
       "type": "integer",

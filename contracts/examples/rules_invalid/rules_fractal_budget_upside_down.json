@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.island_rules",
+  "schema": "garage_game.island_rules",
   "version": 1,
   "rules_id": "mechanics_example",
   "rules_version": 1,

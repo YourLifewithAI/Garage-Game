@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.enfractal.invalid/v1/room-state.schema.json",
+  "$id": "https://contracts.garage-game.invalid/v1/room-state.schema.json",
   "title": "EnFractal room state (saved play on top of a room manifest)",
   "description": "Everything play has changed in a room: moved or removed objects, creations, locks, avatar identities, the active style, the durable receipt ledger and, since Run 2, the team's journal and discovered map. The scene is rebuilt from manifest + state; no other scene state is authoritative. Written atomically per docs/engine/persistence-notes.md. Velocities, running effects, goals, jobs, what an avatar is holding (a carried thing is saved where it was last put down) and transient receipts are not saved. When a checkpoint is taken, receipts at or below its revision may be compacted; receipt.lookup then reports compacted.",
   "type": "object",
@@ -19,7 +19,10 @@
   ],
   "properties": {
     "schema": {
-      "const": "enfractal.room_state"
+      "enum": [
+        "garage_game.room_state",
+        "enfractal.room_state"
+      ]
     },
     "version": {
       "type": "integer",
@@ -404,14 +407,17 @@
           ],
           "properties": {
             "source": {
-              "description": "The editable enfractal.creation source; the compiled artifact is derived again on load, never trusted from the file.",
+              "description": "The editable garage_game.creation source; the compiled artifact is derived again on load, never trusted from the file.",
               "type": "object",
               "required": [
                 "schema"
               ],
               "properties": {
                 "schema": {
-                  "const": "enfractal.creation"
+                  "enum": [
+                    "garage_game.creation",
+                    "enfractal.creation"
+                  ]
                 }
               }
             },

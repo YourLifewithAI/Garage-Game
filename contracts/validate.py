@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate EnFractal contract documents.
+"""Validate the Garage Game's contract documents.
 
 Usage:
   python contracts/validate.py FILE_OR_ROOM_DIR [...]
@@ -14,7 +14,9 @@ A directory containing room.json is validated as a room: the manifest, every ass
 references, every listed file (hash, size, self-contained GLB), its plant tables and tiled terrain
 GLBs (the 10x world), and the semantic rules JSON Schema cannot express. A directory containing manifest.json
 is validated as a playtest record: the manifest, then every line of events.jsonl. A .json file is validated by its own 'schema' field (a style preset or an
-island rules pack is one such file). Exit status is 0 only when everything passes. Requires the packages in contracts/requirements.txt.
+island rules pack is one such file). A document may name its kind in either spelling of its id (contracts/schema_ids.py:
+garage_game.<kind>, or enfractal.<kind> as files written before the rename and pinned files say). Exit status is 0 only when
+everything passes. Requires the packages in contracts/requirements.txt.
 """
 from __future__ import annotations
 
@@ -27,6 +29,7 @@ import math
 import re
 import bisect
 import functools
+import importlib.util
 import struct
 import sys
 from pathlib import Path, PurePosixPath
@@ -40,26 +43,41 @@ CONTRACTS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = CONTRACTS_DIR.parent
 STYLES_DIR = REPO_ROOT / "game" / "styles"
 RULES_DIR = REPO_ROOT / "game" / "rules"
-SCHEMA_FILES = {
-    "enfractal.room": "room-manifest.schema.json",
-    "enfractal.asset": "asset.schema.json",
-    "enfractal.style": "style-preset.schema.json",
-    "enfractal.command": "game-command.schema.json",
-    "enfractal.query": "game-command.schema.json",
-    "enfractal.result": "game-command.schema.json",
-    "enfractal.room_state": "room-state.schema.json",
-    "enfractal.island_rules": "island-rules.schema.json",
+
+
+def _load_schema_ids():
+    """contracts/schema_ids.py, the one id table, loaded by its path (this file is itself often loaded by path)."""
+    spec = importlib.util.spec_from_file_location("garage_game_schema_ids", CONTRACTS_DIR / "schema_ids.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+SCHEMA_IDS = _load_schema_ids()
+id_of, is_schema, kind_of = SCHEMA_IDS.id_of, SCHEMA_IDS.is_schema, SCHEMA_IDS.kind_of
+# The document kinds this validator checks on their own, and their schema files. A document names its kind in either
+# spelling (SCHEMA_IDS), so SCHEMA_FILES and MESSAGE_LIMITS are keyed by both.
+KIND_FILES = {
+    "room": "room-manifest.schema.json",
+    "asset": "asset.schema.json",
+    "style": "style-preset.schema.json",
+    "command": "game-command.schema.json",
+    "query": "game-command.schema.json",
+    "result": "game-command.schema.json",
+    "room_state": "room-state.schema.json",
+    "island_rules": "island-rules.schema.json",
     # A team's folder (the mechanics round): the team file, the vitals store (version 2) and the expertise store (version 3).
-    "enfractal.team": "team.schema.json",
-    "enfractal.player_modes": "team.schema.json",
-    "enfractal.glow_progress": "team.schema.json",
+    "team": "team.schema.json",
+    "player_modes": "team.schema.json",
+    "glow_progress": "team.schema.json",
+    # The playtest record (R0, 15 October): one folder per play under user://playtests/<record_id>/ (manifest.json,
+    # events.jsonl, stills/), docs/runs/RUN-2-PLAYTEST-LOOP.md. The manifest is a document of its own; each line of
+    # events.jsonl is the schema's $defs/event, checked here line by line.
+    "playtest_manifest": "playtest-record.schema.json",
 }
-TEAM_DOCUMENTS = ("enfractal.team", "enfractal.player_modes", "enfractal.glow_progress")
-# The playtest record (R0, 15 October): one folder per play under user://playtests/<record_id>/ (manifest.json, events.jsonl,
-# stills/), docs/runs/RUN-2-PLAYTEST-LOOP.md. The manifest is a document of its own; each line of events.jsonl is the
-# schema's $defs/event, checked here line by line.
-PLAYTEST_MANIFEST = "enfractal.playtest_manifest"
-SCHEMA_FILES[PLAYTEST_MANIFEST] = "playtest-record.schema.json"
+SCHEMA_FILES = {spelling: file for kind, file in KIND_FILES.items() for spelling in SCHEMA_IDS.ids_of(kind)}
+TEAM_DOCUMENTS = ("team", "player_modes", "glow_progress")  # kinds
+PLAYTEST_MANIFEST = id_of("playtest_manifest")
 PLAYTEST_MANIFEST_LIMIT = 16384  # bytes of canonical JSON
 PLAYTEST_EVENT_LINE_LIMIT = 8192  # bytes of one line of events.jsonl
 PLAYTEST_STILLS_LIMIT = 600  # stills per play (the recorder's cap)
@@ -68,7 +86,8 @@ PLAYTEST_STILLS_LIMIT = 600  # stills per play (the recorder's cap)
 PLAYTEST_FORBIDDEN_KEYS = frozenset({"data", "picture", "base64", "token", "session_file", "save", "secret", "password", "credential"})
 PLAYTEST_STILL_FILE = re.compile(r"^([0-9]{4})-(steady|mark|keep|refusal|home|mode|quit)(?:-([1-9][0-9]{0,3}))?\.jpg\Z")
 PLAYTEST_UTC = re.compile(r"^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.([0-9]{1,6}))?Z\Z")
-MESSAGE_LIMITS = {"enfractal.command": 65536, "enfractal.query": 65536, "enfractal.result": 262144}
+MESSAGE_LIMITS = {spelling: limit for kind, limit in (("command", 65536), ("query", 65536), ("result", 262144))
+                  for spelling in SCHEMA_IDS.ids_of(kind)}
 CREATION_SOURCE_LIMIT = 32768
 QUAT_TOLERANCE = 1e-3
 PLANE_TOLERANCE_M = 1e-3
@@ -313,10 +332,13 @@ def _schema_messages(validator, document) -> list[str]:
 
 
 def schema_errors(document, expected: str | None = None) -> list[str]:
+    """Schema problems of a document. `expected` names the kind it must be, as a kind ("room") or either id."""
     if not isinstance(document, dict) or not isinstance(document.get("schema"), str):
         return ["$: document must be an object with a string 'schema' field"]
-    if expected is not None and document["schema"] != expected:
-        return [f"$.schema: expected {expected!r}, found {document['schema']!r}"]
+    if expected is not None:
+        kind = kind_of(expected) or expected
+        if not is_schema(document["schema"], kind):
+            return [f"$.schema: expected {id_of(kind)!r} (or {SCHEMA_IDS.ids_of(kind)[1]!r}), found {document['schema']!r}"]
     if document["schema"] not in SCHEMA_FILES:
         return [f"$.schema: unknown schema {document['schema']!r}"]
     messages = _schema_messages(validator_for(document["schema"]), document)
@@ -333,7 +355,7 @@ def schema_errors(document, expected: str | None = None) -> list[str]:
 
 
 def _creation_sources(document):
-    if document.get("schema") != "enfractal.command":
+    if not is_schema(document.get("schema"), "command"):
         return []
     args = document.get("args") if isinstance(document.get("args"), dict) else {}
     found = [args.get("source"), (args.get("into") or {}).get("source") if isinstance(args.get("into"), dict) else None]
@@ -482,7 +504,7 @@ def check_room(room_dir: Path, check_style_pins: bool = False, manifest_name: st
         room = load_strict(room_dir / manifest_name)
     except (OSError, ContractError) as error:
         return [f"{label}: {error}"]
-    problems = [f"{label} {message}" for message in schema_errors(room, "enfractal.room")]
+    problems = [f"{label} {message}" for message in schema_errors(room, "room")]
     if problems:
         return problems
     if room["room_id"] != room_dir.name:
@@ -560,7 +582,7 @@ def check_room(room_dir: Path, check_style_pins: bool = False, manifest_name: st
                 problems.append(f"{asset_label}: {error}")
                 asset_cache[instance["asset"]] = {}
                 continue
-            asset_problems = [f"{asset_label} {message}" for message in schema_errors(asset, "enfractal.asset")]
+            asset_problems = [f"{asset_label} {message}" for message in schema_errors(asset, "asset")]
             if not asset_problems:
                 asset_problems = check_asset(asset, asset_path.parent, asset_label)
                 if asset["asset_id"] != asset_path.parent.name:
@@ -1257,7 +1279,7 @@ def check_team_document(document: dict, label: str) -> list[str]:
     """What the team schema cannot express: knack slots open and unique, the body inside its own maxima, and Fractals in
     hand no more than were found."""
     problems = []
-    if document["schema"] == "enfractal.team":
+    if is_schema(document["schema"], "team"):
         knacks = document["knacks"]
         slots = [entry["slot"] for entry in knacks["chosen"]]
         if len(slots) != len(set(slots)):
@@ -1270,7 +1292,7 @@ def check_team_document(document: dict, label: str) -> list[str]:
         # M3's fix round (15 October): a rank set aside is for a knack in no slot.
         for name in sorted(set(knacks.get("earned", {})) & set(names)):
             problems.append(f"{label}: knacks.earned keeps a rank for {name}, which is in a slot")
-    elif document["schema"] == "enfractal.player_modes":
+    elif is_schema(document["schema"], "player_modes"):
         vitals = document["vitals"]
         if vitals["health"] > vitals["max_health"]:
             problems.append(f"{label}: health {vitals['health']} is above max_health {vitals['max_health']}")
@@ -1287,7 +1309,7 @@ def check_team_document(document: dict, label: str) -> list[str]:
 def check_message(document: dict, label: str) -> list[str]:
     """Rules a schema cannot express for results: the journal newest first with one id per entry, and map.find
     answers nearest first."""
-    if document.get("schema") != "enfractal.result" or document.get("ok") is not True:
+    if not is_schema(document.get("schema"), "result") or document.get("ok") is not True:
         return []
     problems = []
     data = document.get("data") or {}
@@ -1516,20 +1538,20 @@ def check_document(path: Path, check_style_pins: bool = False) -> list[str]:
     problems = [f"{label} {message}" for message in schema_errors(document)]
     if problems:
         return problems
-    kind = document["schema"]
-    if kind == "enfractal.room":
+    kind = kind_of(document["schema"])
+    if kind == "room":
         return check_room(path.parent, check_style_pins, manifest_name=path.name)
-    if kind == "enfractal.asset":
+    if kind == "asset":
         return check_asset(document, path.parent, label)
-    if kind == "enfractal.style":
+    if kind == "style":
         return check_style(document, label, path)
-    if kind == "enfractal.island_rules":
+    if kind == "island_rules":
         return check_rules(document, label, path)
-    if kind == "enfractal.room_state":
+    if kind == "room_state":
         return check_state(document, label, check_style_pins=check_style_pins)
     if kind in TEAM_DOCUMENTS:
         return check_team_document(document, label)
-    if kind == PLAYTEST_MANIFEST:
+    if kind == "playtest_manifest":
         return check_playtest(path.parent, manifest_name=path.name)
     return check_message(document, label)
 
@@ -1551,7 +1573,7 @@ def main(argv: list[str]) -> int:
         checked += 1
         try:
             state = load_strict(args.state)
-            errors = [f"{args.state} {m}" for m in schema_errors(state, "enfractal.room_state")]
+            errors = [f"{args.state} {m}" for m in schema_errors(state, "room_state")]
             problems += errors or check_state(state, str(args.state), args.room, args.check_style_pins)
         except (OSError, ContractError) as error:
             problems.append(f"{args.state}: {error}")

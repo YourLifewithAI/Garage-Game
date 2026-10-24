@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.enfractal.invalid/v1/menu.schema.json",
+  "$id": "https://contracts.garage-game.invalid/v1/menu.schema.json",
   "title": "EnFractal menu files: the last game played and the builds carried into Challenge",
-  "description": "Two small files the opening menu (M7, game/scripts/native/Ui/Menu/) keeps beside the team folders, never read by the companion surface. enfractal.last_game (user://teams/last_game.json, the machine's, written when a game boots as the game, so a launch with --room= counts too): which team, island and mode Continue opens. enfractal.carried_builds (user://teams/<team_id>/carried_builds.json): the islands this team has copied from Creative into Challenge (docs/game/MECHANICS.md section 3, decisions 13 and 44), each once, with the builds (creations) carried over, which count for no Challenge first, souvenir or achievement; the file is also the record that the island's one copy is used.",
+  "description": "Two small files the opening menu (M7, game/scripts/native/Ui/Menu/) keeps beside the team folders, never read by the companion surface. garage_game.last_game (user://teams/last_game.json, the machine's, written when a game boots as the game, so a launch with --room= counts too): which team, island and mode Continue opens. garage_game.carried_builds (user://teams/<team_id>/carried_builds.json): the islands this team has copied from Creative into Challenge (docs/game/MECHANICS.md section 3, decisions 13 and 44), each once, with the builds (creations) carried over, which count for no Challenge first, souvenir or achievement; the file is also the record that the island's one copy is used.",
   "type": "object",
   "required": [
     "schema"
@@ -10,6 +10,8 @@
   "properties": {
     "schema": {
       "enum": [
+        "garage_game.last_game",
+        "garage_game.carried_builds",
         "enfractal.last_game",
         "enfractal.carried_builds"
       ]
@@ -20,7 +22,10 @@
       "if": {
         "properties": {
           "schema": {
-            "const": "enfractal.last_game"
+            "enum": [
+              "garage_game.last_game",
+              "enfractal.last_game"
+            ]
           }
         },
         "required": [
@@ -35,7 +40,10 @@
       "if": {
         "properties": {
           "schema": {
-            "const": "enfractal.carried_builds"
+            "enum": [
+              "garage_game.carried_builds",
+              "enfractal.carried_builds"
+            ]
           }
         },
         "required": [
@@ -62,7 +70,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.last_game"
+          "enum": [
+            "garage_game.last_game",
+            "enfractal.last_game"
+          ]
         },
         "version": {
           "const": 1
@@ -106,7 +117,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.carried_builds"
+          "enum": [
+            "garage_game.carried_builds",
+            "enfractal.carried_builds"
+          ]
         },
         "version": {
           "const": 1

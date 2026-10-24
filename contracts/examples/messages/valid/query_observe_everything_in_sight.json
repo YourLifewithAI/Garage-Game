@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.query",
+  "schema": "garage_game.query",
   "version": 1,
   "query_id": "q-0030",
   "room_id": "garage_example",

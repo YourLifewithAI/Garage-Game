@@ -1,4 +1,4 @@
 {
-  "schema": "enfractal.command",
-  "schema": "enfractal.query"
+  "schema": "garage_game.command",
+  "schema": "garage_game.query"
 }
