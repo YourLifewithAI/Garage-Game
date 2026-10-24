@@ -20,9 +20,12 @@ public static class BubbleLaws
     public const float BoatRadiusMinM = 0.08f;
     public const float BoatRadiusMaxM = 0.3f;
 
-    // ---- durations when the control names none (the pack's duration_max_s bounds every cast: 60 s in storybook_wild v5) ----
+    // ---- durations when the player's control names none (the pack's duration_max_s bounds every cast: 60 s in storybook_wild v5):
+    // the nature.cast controls (BubbleCastArgs) and the Bubbles key (PlayerEffect, PlayerBubbleDurationS) alike ----
 
-    public const float CarryDurationDefaultS = 20f;
+    /// <summary>A bubble lasts 8 seconds (decision 95, the founder's answer of 17 October; it was 20): a carry, or a bubble to walk into.</summary>
+    public const float CarryDurationDefaultS = 8f;
+    /// <summary>The boat keeps its own minute.</summary>
     public const float BoatDurationDefaultS = 60f;
 
     // ---- motion: a bubble moves only when the Gubble leads it (decision 57), and floats up only on a lift (58) ----
