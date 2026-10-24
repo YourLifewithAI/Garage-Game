@@ -22,6 +22,7 @@ from typing import Any, Callable
 import numpy as np
 from PIL import Image
 
+from .. import ids
 from ..colours import dominant_colours
 from ..coverage.run import select_views
 from ..jsonio import json_bytes
@@ -396,7 +397,7 @@ def build_inventory(captures_root: Path, room: str, *, session: str | None = "la
         entry = next(d for d in docs if d["id"] == p["id"])
         entry["pick"] = {"rank": rank, "why": p["why"]}
     inventory = {
-        "schema": "enfractal.inventory", "version": 1, "room": scene.room, "session_id": scene.session_id,
+        "schema": ids.id_of("inventory"), "version": 1, "room": scene.room, "session_id": scene.session_id,
         "frame": "the shell's room frame: metres, +Y up, floor at y = 0, -Z up the page; walls A at z_min, B at x_max, C at z_max, D at x_min",
         "scale": {"factor": round(scene.factor, 5), "source": scene.scale_source},
         "box_convention": "size_m is [width (local X), height, depth (local Z)]; yaw_deg turns local -Z (the front) to the direction it faces, positive turning left seen from above; placement.position_m is the bottom centre",

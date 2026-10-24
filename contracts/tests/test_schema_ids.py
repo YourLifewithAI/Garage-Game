@@ -207,6 +207,18 @@ class TheOtherTables(unittest.TestCase):
         self.assertEqual(re.findall(r'"(\w+_part)"', text)[:2], list(IDS.GLB_PART_KEYS))
         self.assertEqual(re.findall(r'"(\w+_material)"', text)[:2], list(IDS.GLB_MATERIAL_KEYS))
 
+    def test_the_programs_that_load_no_code_hold_the_same_pairs(self):
+        """The playtest reader (it imports nothing that runs code), the wish runner's demo adapter (a script on its own) and
+        the turntable (inside Blender) spell their pairs out; each must be the table's."""
+        reader = (ROOT / "tools" / "playtest" / "report.py").read_text(encoding="utf-8")
+        self.assertIn(f'MANIFEST_SCHEMAS = {IDS.ids_of("playtest_manifest")!r}'.replace("'", '"'), reader)
+        demo = (ROOT / "companion" / "src" / "garage_game_companion" / "wish_demo_adapter.py").read_text(encoding="utf-8")
+        new, old = IDS.ids_of("wish_adapter")
+        self.assertIn(f'PROTOCOL = "{new}"', demo)
+        self.assertIn(f'PROTOCOLS = (PROTOCOL, "{old}")', demo)
+        turntable = (ROOT / "pipeline" / "characters" / "turntable.py").read_text(encoding="utf-8")
+        self.assertIn("extras.get('%s', extras.get('%s', {}))" % IDS.GLB_MATERIAL_KEYS, turntable)
+
     def test_gdscript_agrees(self):
         table = self.pairs(self.GDSCRIPT.read_text(encoding="utf-8"), r'"([^"]+)": \["([^"]+)", "([^"]+)"\]')
         self.assertGreaterEqual(len(table), 5)

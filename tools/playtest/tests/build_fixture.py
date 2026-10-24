@@ -296,7 +296,7 @@ def build_events() -> list[dict]:
 
 
 def build_manifest(events: list[dict]) -> dict:
-    return {"schema": "enfractal.playtest_manifest", "version": 1, "record_id": RECORD_ID, "build": "19a8924",
+    return {"schema": "garage_game.playtest_manifest", "version": 1, "record_id": RECORD_ID, "build": "19a8924",
             "room_id": "island_example", "room_sha256": ROOM_SHA256, "team_id": "example_team", "mode": "challenge",
             "difficulty": "brave", "style": {"preset_id": "storybook_painterly", "version": 1},
             "rules": {"rules_id": "storybook_wild", "version": 5}, "window": {"width": 1280, "height": 720, "fullscreen": False},

@@ -2,6 +2,7 @@
 import math
 import struct
 from pipeline.landscape.harness.common import canonical
+from .ids import GLB_GENERATOR
 from .materials import PALETTE, material
 
 
@@ -47,7 +48,7 @@ def encode(primitives):
     for p in primitives:
         grouped.setdefault(p['role'], []).append(p)
     binary = bytearray()
-    doc = {'asset': {'version': '2.0', 'generator': 'EnFractal landscape room exporter v1'},
+    doc = {'asset': {'version': '2.0', 'generator': GLB_GENERATOR},
            'scene': 0, 'scenes': [{'nodes': [0]}], 'nodes': [{'mesh': 0}],
            'meshes': [{'primitives': []}], 'materials': [], 'accessors': [],
            'bufferViews': [], 'buffers': []}

@@ -37,7 +37,7 @@ def rounded_triangles(parts):
 
 class LooseTests(unittest.TestCase):
     def setUp(self):
-        self.scratch = Path(os.environ.get('TEMP', '/tmp'))/('enfractal-loose-tests-'+uuid.uuid4().hex)
+        self.scratch = Path(os.environ.get('TEMP', '/tmp'))/('garage-game-loose-tests-'+uuid.uuid4().hex)
         os.makedirs(self.scratch)
 
     def tearDown(self):

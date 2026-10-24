@@ -55,6 +55,10 @@ FORBIDDEN_FIELDS = {"data", "picture", "base64", "token", "session_file", "save"
 MANIFEST_REQUIRED = ("schema", "version", "record_id", "build", "room_id", "room_sha256", "team_id", "mode", "style", "window",
                      "renderer", "log_file", "beat_s", "started_utc")
 MANIFEST_OPTIONAL = {"difficulty", "rules", "engine", "ended_utc", "played_s", "counts"}
+# The manifest's id in both spellings (contracts/README.md, "Schema ids"): garage_game.playtest_manifest, or
+# enfractal.playtest_manifest if a build from before the rename wrote it. The reader loads no code, so it holds the pair
+# itself; contracts/tests/test_schema_ids.py checks it against contracts/schema_ids.py.
+MANIFEST_SCHEMAS = ("garage_game.playtest_manifest", "enfractal.playtest_manifest")
 QUERY_OPS = {"room.describe", "entities.list", "entity.inspect", "capabilities.list", "observe", "jobs.status", "receipt.lookup",
              "approval.status", "journal.read", "map.find", "player.status", "nature.describe", "wishes.read", "view.look"}
 STILL_NAME = re.compile(r"^([0-9]{4})-(steady|mark-([1-9][0-9]{0,3})|keep-([1-9][0-9]{0,3})|refusal|home|mode|quit)\.jpg$")
@@ -304,6 +308,8 @@ def read_manifest(folder: Path, notes: Notes) -> dict:
     missing = [name for name in MANIFEST_REQUIRED if name not in manifest]
     if missing:
         notes.add("manifest-missing", "the manifest is missing " + ", ".join(code(m, 40) for m in missing[:12]))
+    if "schema" in manifest and manifest["schema"] not in MANIFEST_SCHEMAS:
+        notes.add("manifest-schema", "the manifest names its kind " + code(manifest["schema"], 64) + ", not a playtest manifest (read anyway)")
     extra = sorted(k for k in manifest if k not in MANIFEST_REQUIRED and k not in MANIFEST_OPTIONAL)
     if extra:
         notes.add("manifest-extra", "the manifest carries fields this reader does not know (not read): "

@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.playtest_manifest",
+  "schema": "garage_game.playtest_manifest",
   "version": 1,
   "record_id": "20261016-101500-island_example",
   "build": "19a8924",

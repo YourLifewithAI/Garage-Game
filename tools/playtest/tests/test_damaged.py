@@ -155,6 +155,18 @@ class WhatMayGoWrong(Tmp):
         if Image is not None:
             self.assertTrue((folder / "sheet.jpg").is_file())
 
+    def test_a_manifest_in_either_spelling_of_its_id_reads_and_another_is_noted(self):
+        """The rename (decision C): a record a build from before it wrote names its manifest enfractal.playtest_manifest and
+        reads as any other; a manifest named anything else is read anyway, with a note in the record's About."""
+        for spelling in ("garage_game.playtest_manifest", "enfractal.playtest_manifest"):
+            with self.subTest(schema=spelling):
+                _, text = self.report_for(self.fixture_events(), {**support.manifest_for(self.fixture_events()), "schema": spelling})
+                self.assert_whole(text)
+                self.assertNotIn("names its kind", text)
+        _, text = self.report_for(self.fixture_events(), {**support.manifest_for(self.fixture_events()), "schema": "garagegame.playtest_manifest"})
+        self.assert_whole(text)
+        self.assertIn("the manifest names its kind `garagegame.playtest_manifest`, not a playtest manifest (read anyway)", section(text, "## About this record"))
+
     def test_a_missing_manifest_field_and_no_ended_utc(self):
         manifest = support.manifest_for(self.fixture_events(), ended=False)
         for name in ("mode", "room_id", "build", "renderer", "window", "started_utc", "difficulty"):

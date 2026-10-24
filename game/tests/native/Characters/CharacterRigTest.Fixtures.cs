@@ -198,7 +198,7 @@ public partial class CharacterRigTest
         }
         var gltf = new JsonObject
         {
-            ["asset"] = new JsonObject { ["version"] = "2.0", ["generator"] = "EnFractal review fix test" },
+            ["asset"] = new JsonObject { ["version"] = "2.0", ["generator"] = "Garage Game review fix test" },
             ["scene"] = 0, ["scenes"] = new JsonArray(new JsonObject { ["nodes"] = new JsonArray(0) }),
             ["nodes"] = nodes, ["meshes"] = meshes,
             ["accessors"] = new JsonArray(
@@ -329,7 +329,7 @@ public partial class CharacterRigTest
         if (externalUri) buffer["uri"] = "../../secrets.bin";
         var gltf = new JsonObject
         {
-            ["asset"] = new JsonObject { ["version"] = "2.0", ["generator"] = "EnFractal K1 test" },
+            ["asset"] = new JsonObject { ["version"] = "2.0", ["generator"] = "Garage Game K1 test" },
             ["scene"] = 0, ["scenes"] = new JsonArray(new JsonObject { ["nodes"] = new JsonArray(0) }),
             ["nodes"] = nodes, ["meshes"] = meshes, ["accessors"] = accessors, ["bufferViews"] = views, ["buffers"] = new JsonArray(buffer),
             ["materials"] = new JsonArray(new JsonObject { ["name"] = "body", ["pbrMetallicRoughness"] = new JsonObject { ["baseColorFactor"] = new JsonArray(0.8, 0.6, 0.4, 1.0) } }),

@@ -36,7 +36,7 @@ from typing import Any
 import numpy as np
 from PIL import Image, ImageOps
 
-from . import __version__
+from . import __version__, ids
 from . import exif as exifmod
 from . import quality
 from .imageio import register_heif
@@ -350,7 +350,7 @@ def ingest(
     usable = [r["name"] for r in records if r["status"] == "ok" and "blurry" not in r["quality"].get("flags", [])]
 
     manifest = {
-        "schema": "enfractal.capture_session",
+        "schema": ids.id_of("capture_session"),
         "version": 1,
         "room": room,
         "session_id": session_id,
