@@ -124,7 +124,7 @@ public partial class CommandHost
     /// <summary>These checks run before a wish-tagged companion command. Stops remain unconditional.</summary>
     private void CheckWishCommandBudget(JsonElement root, string principal)
     {
-        if (principal != CompanionPrincipal || Str(root, "schema") != "enfractal.command") return;
+        if (principal != CompanionPrincipal || !SchemaIds.IsSchema(Str(root, "schema"), "command")) return;
         var actionId = Str(root, "action_id") ?? "";
         if (!actionId.StartsWith("w-", StringComparison.Ordinal) || StopOps.Contains(Op(root))) return;
         var active = Wishes.Active;
@@ -144,7 +144,7 @@ public partial class CommandHost
     /// </summary>
     private void ObserveWishCommand(JsonElement root, JsonObject result, string principal)
     {
-        if (principal != CompanionPrincipal || Str(root, "schema") != "enfractal.command" || Wishes.Active is not { } active ||
+        if (principal != CompanionPrincipal || !SchemaIds.IsSchema(Str(root, "schema"), "command") || Wishes.Active is not { } active ||
             root.TryGetProperty("preview", out var preview) && preview.ValueKind == JsonValueKind.True ||
             result["preview"]?.GetValue<bool>() == true || result["replayed"]?.GetValue<bool>() == true) return;
         var actionId = Str(root, "action_id") ?? "";

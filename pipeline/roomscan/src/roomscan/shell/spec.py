@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .. import ids
 from ..jsonio import sha256_hex
 
 SPEC_FILE = "shell-spec.json"
@@ -108,8 +109,8 @@ def parse_spec(document: dict[str, Any]) -> ShellSpec:
     _check_keys(document, {"schema", "version", "room", "session_id", "display_name", "description", "site", "openings",
                            "lamps", "spawns", "surface_colours", "thickness_m", "notes"},
                 {"schema", "version", "room", "session_id"}, "shell spec")
-    if document["schema"] != "enfractal.shell_spec" or document["version"] != 1:
-        raise SpecError("not an enfractal.shell_spec version 1 document")
+    if not ids.is_schema(document["schema"], "shell_spec") or document["version"] != 1:
+        raise SpecError(f"not a {ids.id_of('shell_spec')} version 1 document")
     spec = ShellSpec(room=str(document["room"]), session_id=str(document["session_id"]),
                      display_name=str(document.get("display_name", "")), description=str(document.get("description", "")))
     if not TOKEN.match(spec.room):

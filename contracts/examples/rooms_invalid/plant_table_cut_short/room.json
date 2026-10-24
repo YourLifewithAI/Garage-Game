@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.room",
+  "schema": "garage_game.room",
   "version": 1,
   "room_id": "plant_table_cut_short",
   "display_name": "Island (example manifest)",
@@ -10,7 +10,7 @@
   "source": {
     "kind": "procedural",
     "pipeline": {
-      "name": "EnFractal landscape (contract example)",
+      "name": "Garage Game landscape (contract example)",
       "version": "0.0.0-example"
     }
   },
@@ -184,8 +184,8 @@
     },
     {
       "path": "plants/broadleaf_far.glb",
-      "sha256": "48964f63f8848f00d249e9b925536239bec36fa93cfcef0d4df72256269edc0b",
-      "bytes": 828
+      "sha256": "325b60ccd74409966e896ffcfa3ba28427cea3d23fa1b1480cd98431d5f4d36e",
+      "bytes": 832
     },
     {
       "path": "plants/grass.bin",
@@ -199,7 +199,7 @@
     },
     {
       "path": "plants/grass_far.glb",
-      "sha256": "dc1345f98d495df3cd7d80562de3880f890834f0a7d35e8366592df4de3bee38",
+      "sha256": "e4019d0d34e8b8b7f7b6cea13262ce210992e69623e75dd0d766bf10e45012d1",
       "bytes": 832
     },
     {
@@ -214,18 +214,18 @@
     },
     {
       "path": "shell/terrain_grass.glb",
-      "sha256": "09def7c79c8b5a412d88257ea54ea9a9e60a91f6a1d57504664700817fadece3",
-      "bytes": 4192
+      "sha256": "26021038ca7b71c7d8a966a515ffcfe28b7d8f2e8519e51d48688992f2270ffb",
+      "bytes": 4196
     },
     {
       "path": "shell/terrain_sand.glb",
-      "sha256": "db7f74cd99abb54c35767fa081217f415c02a9c623b6be24c397789a8ccc3bbe",
-      "bytes": 1836
+      "sha256": "d8c3f99152ce00cfdf2187039191f5123f07d3b97d3640c60982b55c42a1aadc",
+      "bytes": 1840
     },
     {
       "path": "shell/water_still.glb",
-      "sha256": "c88bfbd9174984c0c81e4f6030c5a1b3b536061e281191d4cadeaa1dcc066548",
-      "bytes": 820
+      "sha256": "4ecaf5b590ed166c1ef25493bd2d024806efc1a753ba22aa0b43152837c55dda",
+      "bytes": 824
     }
   ],
   "extensions": {

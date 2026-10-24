@@ -1,12 +1,12 @@
 {
-  "schema": "enfractal.command",
+  "schema": "garage_game.command",
   "version": 1,
   "action_id": "glider-0009",
   "room_id": "garage_example",
   "op": "creation.place",
   "args": {
     "source": {
-      "schema": "enfractal.creation",
+      "schema": "garage_game.creation",
       "version": 1,
       "name": "Worn glide",
       "seed": 3,

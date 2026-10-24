@@ -12,6 +12,8 @@ from unittest.mock import AsyncMock, patch
 from jsonschema import Draft202012Validator
 
 from support import NO_HOLDS, contracts, new_host
+
+from garage_game_companion import ids
 from garage_game_companion.link import LinkClient, LinkServer, read_frame
 from garage_game_companion.server import Adapter
 from garage_game_companion import wish_demo_adapter
@@ -24,8 +26,12 @@ mode = sys.argv[1]
 def send(value):
     print(json.dumps(value), flush=True)
 hello = json.loads(sys.stdin.readline())
+if hello["protocol"] != "garage_game.wish_adapter":
+    sys.exit(3)  # the runner names the new id
 names = [tool["name"] for tool in hello["tools"]]
-send({"type":"ready","protocol":"enfractal.wish_adapter","version":1,"exclusive":True,
+# An adapter from before the rename answers the old id (decision C); a misspelt one, neither.
+protocol = {"light-before-the-rename": "enfractal.wish_adapter", "light-misspelt": "garagegame.wish_adapter"}.get(mode, "garage_game.wish_adapter")
+send({"type":"ready","protocol":protocol,"version":1,"exclusive":True,
       "tools":["effect_start", "shell"] if mode == "unsafe" else
               ["creation_place"] if mode in ("creation", "unsafe-source") else ["effect_start"]})
 wish = sys.stdin.readline()
@@ -44,7 +50,7 @@ elif mode == "bad-status":
 elif mode == "unsafe-api":
     send({"type":"tool_call","id":"outside","name":"fetch_url","arguments":{"url":"https://example.invalid"}})
 elif mode in ("creation", "unsafe-source"):
-    source = {"schema":"enfractal.creation","version":1,"name":"Unreviewed model words","seed":1,"mount":"ground",
+    source = {"schema":"garage_game.creation","version":1,"name":"Unreviewed model words","seed":1,"mount":"ground",
               "parts":[{"id":"base","shape":"box","position_m":[0,0.2,0],"rotation_deg":[0,0,0],
                         "size_m":[0.4,0.4,0.4],"material":"wood"}],"nodes":[],"edges":[]}
     if mode == "unsafe-source":
@@ -126,7 +132,7 @@ class DelayedGameLinkServer(LinkServer):
 
 class WishRunnerTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.folder = tempfile.TemporaryDirectory(prefix="enfractal-runner-test-")
+        self.folder = tempfile.TemporaryDirectory(prefix="garage-game-runner-test-")
         self.script = Path(self.folder.name) / "adapter.py"
         self.script.write_text(FAKE_ADAPTER, encoding="utf-8")
         self.control = Control()
@@ -135,7 +141,7 @@ class WishRunnerTests(unittest.IsolatedAsyncioTestCase):
 
         def game_handle(principal, message):
             result = self.host.handle(principal, message)
-            if message.get("schema") == "enfractal.command":
+            if ids.is_schema(message.get("schema"), "command"):
                 self.commands.append(message)
                 if result.get("ok") and not result.get("preview") and message["op"] in {"effect.start", "creation.place"} and self.control.active:
                     self.control.verified.append(self.control.active["wish_id"])
@@ -184,6 +190,13 @@ class WishRunnerTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.wait_for(self.runner("light", timeout=0.5).run(once=True), 3)
         self.assertEqual(self.control.reports[-1], "failed")
         self.assertEqual(self.control.finished, [("wish:" + "a" * 26, "failed")])
+
+    async def test_an_adapter_answering_either_spelling_of_the_protocol_is_relayed_and_no_other(self):
+        await self.runner("light-before-the-rename").run(once=True)
+        self.assertEqual((self.control.finished, [m["op"] for m in self.commands]), ([("wish:" + "a" * 26, "granted")], ["effect.start"]))
+        self.control.queued, self.control.finished, self.commands[:] = Control().queued, [], []
+        await self.runner("light-misspelt").run(once=True)
+        self.assertEqual((self.control.finished[0][1], self.commands), ("failed", []))
 
     async def test_unsafe_inventory_never_receives_player_intent_or_calls_game(self):
         await self.runner("unsafe").run(once=True)

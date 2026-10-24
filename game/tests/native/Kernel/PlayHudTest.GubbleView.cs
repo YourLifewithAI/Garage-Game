@@ -291,7 +291,7 @@ public partial class PlayHudTest
         var look = 0;
         Task<JsonObject> Look(string principal) => host.HandleObjectAsync(new JsonObject
         {
-            ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = $"hud-eyes-cue-{++look}", ["room_id"] = _world.Room.RoomId, ["op"] = "view.look",
+            ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = $"hud-eyes-cue-{++look}", ["room_id"] = _world.Room.RoomId, ["op"] = "view.look",
             ["args"] = new JsonObject { ["actor"] = CommandHost.CompanionAvatarId },
         }.ToJsonString(), principal);
         await Frames(50);

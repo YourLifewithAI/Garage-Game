@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.glow_progress",
+  "schema": "garage_game.glow_progress",
   "version": 3,
   "team_id": "example_team",
   "abilities": {

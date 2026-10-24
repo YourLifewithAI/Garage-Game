@@ -6,7 +6,9 @@ class_name EnfractalWorldState
 
 const COMPILER = preload("res://scripts/creation_compiler.gd")
 const JSON_KERNEL = preload("res://scripts/creation_json.gd")
-const SCHEMA := "enfractal-world-state"
+const SCHEMA_IDS = preload("res://scripts/schema_ids.gd")
+## The snapshot's id as written; one written before the rename says it the old way and is read too.
+const SCHEMA := "garage_game-world-state"
 # Version 3 pins a room manifest (the SHA-256 of room.json's bytes) instead of a map package.
 # Earlier versions pinned geography and are refused rather than migrated.
 const SCHEMA_VERSION := 3
@@ -187,7 +189,7 @@ func load_from_path(path: String, expected_pin: Dictionary, expected_world_id :=
 		last_error = "invalid_save_json"
 		return false
 	var snapshot: Dictionary = parsed.value
-	if snapshot.get("schema") != SCHEMA or _json_integer(snapshot.get("version")) != SCHEMA_VERSION:
+	if not SCHEMA_IDS.is_schema(snapshot.get("schema"), "world-state") or _json_integer(snapshot.get("version")) != SCHEMA_VERSION:
 		last_error = "unsupported_save_version"
 		return false
 	var loaded_world: Variant = snapshot.get("world_id")

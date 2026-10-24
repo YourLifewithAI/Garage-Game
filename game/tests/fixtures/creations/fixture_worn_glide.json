@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.creation", "version": 1, "name": "Fixture worn glide", "seed": 3, "mount": "avatar",
+  "schema": "garage_game.creation", "version": 1, "name": "Fixture worn glide", "seed": 3, "mount": "avatar",
   "parts": [
     {"id":"harness","shape":"box","position_m":[0,0.3,0.15],"rotation_deg":[0,0,0],"size_m":[0.55,0.6,0.25],"material":"copper"},
     {"id":"left_wing","shape":"wing","position_m":[-1.1,0.6,0],"rotation_deg":[0,0,-8],"size_m":[1.8,0.18,1.15],"material":"leaf"},

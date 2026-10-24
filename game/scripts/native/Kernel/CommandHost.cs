@@ -47,7 +47,7 @@ public sealed record CommandHandled(string Message, string Principal, string Op,
 
 /// <summary>
 /// The room's single command path (contracts/game-command.schema.json). Manual controls, the companion
-/// adapter and tests send enfractal.command and enfractal.query; the host answers enfractal.result, and
+/// adapter and tests send garage_game.command and garage_game.query; the host answers garage_game.result, and
 /// always answers: an unexpected failure is internal_error, never an exception out of Handle.
 /// The principal comes from the trusted caller, never from the message. The host fingerprints the command
 /// as received (SHA-256 of canonical JSON), checks expected_revision and expected_entities itself, keeps
@@ -389,7 +389,8 @@ public partial class CommandHost : Node
 
     // ---- entry points ----
 
-    /// <summary>Handle one enfractal.command or enfractal.query sent by a trusted adapter for principal; returns canonical enfractal.result text.</summary>
+    /// <summary>Handle one command or query (garage_game.command or .query, in either spelling of the id: SchemaIds) sent by a
+    /// trusted adapter for principal; returns canonical garage_game.result text.</summary>
     public string Handle(string message, string principal) => CanonicalJson.Text(HandleObject(message, principal));
 
     public JsonObject HandleObject(string message, string principal)
@@ -436,7 +437,7 @@ public partial class CommandHost : Node
         }
     }
 
-    /// <param name="preview">Whether the message, once parsed, is an enfractal.command whose preview is true (false before it parses).</param>
+    /// <param name="preview">Whether the message, once parsed, is a command whose preview is true (false before it parses).</param>
     private JsonObject HandleChecked(string message, string principal, out bool preview)
     {
         preview = false;
@@ -456,7 +457,7 @@ public partial class CommandHost : Node
         using (document)
         {
             var root = document.RootElement;
-            var command = root.ValueKind == JsonValueKind.Object && Str(root, "schema") == "enfractal.command";
+            var command = root.ValueKind == JsonValueKind.Object && SchemaIds.IsSchema(Str(root, "schema"), "command");
             preview = command && root.TryGetProperty("preview", out var asked) && asked.ValueKind == JsonValueKind.True;
             var stop = command && StopOps.Contains(Op(root));
             if (companion && !stop && !TakeToken()) return RateLimited(principal);
@@ -465,9 +466,10 @@ public partial class CommandHost : Node
             var canonical = CanonicalJson.Bytes(root);
             var schema = Str(root, "schema");
             JsonObject result;
-            if (schema == "enfractal.command") result = HandleCommand(root, canonical, principal);
-            else if (schema == "enfractal.query") result = HandleQuery(root, canonical, principal);
-            else result = Fail("invalid", principal, null, null, new Refusal("request_invalid", "Send an enfractal.command or an enfractal.query.", "$.schema"));
+            // Either spelling of the id is read (contracts/README.md, "Schema ids"); the answer is always garage_game.result.
+            if (SchemaIds.IsSchema(schema, "command")) result = HandleCommand(root, canonical, principal);
+            else if (SchemaIds.IsSchema(schema, "query")) result = HandleQuery(root, canonical, principal);
+            else result = Fail("invalid", principal, null, null, new Refusal("request_invalid", $"Send a {SchemaIds.Command} or a {SchemaIds.Query}.", "$.schema"));
             BeforeAnswerForTests?.Invoke(result);
             byte[] bytes;
             try { bytes = CanonicalJson.Bytes(result); }
@@ -527,7 +529,7 @@ public partial class CommandHost : Node
     {
         var command = new JsonObject
         {
-            ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = $"hud-{_session}-{++_counter}",
+            ["schema"] = SchemaIds.Command, ["version"] = 1, ["action_id"] = $"hud-{_session}-{++_counter}",
             ["room_id"] = Room.RoomId, ["op"] = op, ["args"] = args,
         };
         if (preview) command["preview"] = true;
@@ -2834,7 +2836,7 @@ public partial class CommandHost : Node
     {
         var result = new JsonObject
         {
-            ["schema"] = "enfractal.result", ["version"] = 1, ["ok"] = ok, ["op"] = op, ["principal"] = principal,
+            ["schema"] = SchemaIds.Result, ["version"] = 1, ["ok"] = ok, ["op"] = op, ["principal"] = principal,
             ["room_id"] = Room.RoomId, ["revision"] = Authority == null ? 0 : Revision, ["replayed"] = false, ["preview"] = false, ["at_utc"] = Now(),
         };
         if (actionId != null) result["action_id"] = actionId;

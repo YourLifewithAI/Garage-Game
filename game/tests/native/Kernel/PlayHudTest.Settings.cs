@@ -18,7 +18,7 @@ public partial class PlayHudTest
 {
     private static JsonObject AsGubble(CommandHost host, string op, JsonObject args) => host.HandleObject(new JsonObject
     {
-        ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = "settings-" + Guid.NewGuid().ToString("N")[..12], ["room_id"] = host.Room.RoomId, ["op"] = op, ["args"] = args,
+        ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = "settings-" + Guid.NewGuid().ToString("N")[..12], ["room_id"] = host.Room.RoomId, ["op"] = op, ["args"] = args,
     }.ToJsonString(), CommandHost.CompanionPrincipal);
 
     private async Task TestSettingsPanel()
@@ -57,7 +57,7 @@ public partial class PlayHudTest
         {
             ["source"] = new JsonObject
             {
-                ["schema"] = "enfractal.creation", ["version"] = 1, ["name"] = "Settings post", ["seed"] = 1, ["mount"] = "ground",
+                ["schema"] = "garage_game.creation", ["version"] = 1, ["name"] = "Settings post", ["seed"] = 1, ["mount"] = "ground",
                 ["parts"] = new JsonArray(new JsonObject
                 {
                     ["id"] = "base", ["shape"] = "box", ["position_m"] = new JsonArray(0, 0.06, 0), ["rotation_deg"] = new JsonArray(0, 0, 0), ["size_m"] = new JsonArray(0.12, 0.12, 0.12), ["material"] = "wood",
@@ -86,7 +86,7 @@ public partial class PlayHudTest
         await Frames(1);
         var lesson = JsonNode.Parse(host.Handle(new JsonObject
         {
-            ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "settings-journal", ["room_id"] = host.Room.RoomId, ["op"] = "journal.read",
+            ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "settings-journal", ["room_id"] = host.Room.RoomId, ["op"] = "journal.read",
             ["args"] = new JsonObject { ["kind"] = "consequence", ["limit"] = 10 },
         }.ToJsonString(), CommandHost.CompanionPrincipal))!.AsObject();
         var lines = lesson["data"]?["entries"]?.AsArray().Select(e => e?["line"]?.GetValue<string>() ?? "").ToArray() ?? Array.Empty<string>();

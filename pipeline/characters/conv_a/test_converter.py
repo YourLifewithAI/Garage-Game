@@ -22,7 +22,7 @@ HERE = Path(__file__).resolve().parent
 class ConverterTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.root = Path(os.environ.get("TEMP","/tmp"))/('enfractal-conv-a-test-'+uuid.uuid4().hex)
+        cls.root = Path(os.environ.get("TEMP","/tmp"))/('garage-game-conv-a-test-'+uuid.uuid4().hex)
         os.makedirs(cls.root)
         create(cls.root/"input")
         cls.spec = read_json(cls.root/"input/interpretation.json")
@@ -167,7 +167,7 @@ class ConverterTests(unittest.TestCase):
             self.assertEqual((outputs[0]/name).read_bytes(), (outputs[1]/name).read_bytes())
         doc, meta = audit(outputs[0])
         for part in meta["parts"]:
-            extra = doc["nodes"][part["node_index"]]["extras"]["enfractal_part"]
+            extra = doc["nodes"][part["node_index"]]["extras"]["garage_game_part"]
             self.assertEqual(extra["kind"], part["kind"])
             if part["kind"] == "effect":
                 self.assertEqual(extra["motion_hint"], part["motion_hint"])
@@ -177,7 +177,7 @@ class ConverterTests(unittest.TestCase):
         material_index = doc["meshes"][node["mesh"]]["primitives"][0]["material"]
         material = doc["materials"][material_index]
         self.assertEqual(material["name"], "bubble__body__body")
-        self.assertEqual(material["extras"]["enfractal_material"],
+        self.assertEqual(material["extras"]["garage_game_material"],
                          {**body["material_hint"], "fallback_colour": spec["palette"]["body"]})
         self.assertEqual(material["pbrMetallicRoughness"]["baseColorFactor"][3], 1)
         self.assertNotIn("alphaMode", material)

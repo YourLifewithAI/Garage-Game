@@ -121,10 +121,14 @@ public partial class CommandHostTest
             ("an extension key without x_", Variant("\"extensions\": {}", "\"extensions\": { \"look\": 1 }")),
             ("a duplicate key", Variant("\"reach_m\": 2.0,", "\"reach_m\": 2.0, \"reach_m\": 4.0,")),
             ("a trailing comma", Variant("\"extensions\": {}", "\"extensions\": {},")),
-            ("a wrong schema id", Variant("\"schema\": \"enfractal.island_rules\"", "\"schema\": \"enfractal.style_preset\"")),
+            // The shipped pack is pinned, so it names its kind as written before the rename (SchemaIds).
+            ("another kind's schema id", Variant("\"schema\": \"enfractal.island_rules\"", "\"schema\": \"garage_game.style\"")),
+            ("a misspelt schema id", Variant("\"schema\": \"enfractal.island_rules\"", "\"schema\": \"garagegame.island_rules\"")),
             ("a reach over the schema's 10 m", Variant("\"reach_m\": 2.0", "\"reach_m\": 12.0")),
         };
         foreach (var (label, pack) in schemaCases) Check(Refused(pack), "the rules loader refuses " + label);
+        Check(!Refused(Encoding.UTF8.GetBytes(PackText())) && !Refused(Variant("\"schema\": \"enfractal.island_rules\"", "\"schema\": \"garage_game.island_rules\"")),
+            "the rules loader reads a pack in either spelling of its id: the pinned pack as written, and a new one");
         // light.emit's outer limits (the schema's if/then) and the validator's extras.
         var limitCases = new (string Label, byte[] Pack)[]
         {

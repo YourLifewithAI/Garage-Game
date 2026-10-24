@@ -125,7 +125,7 @@ public partial class CharacterSheetCapture : Node
 
             var report = new Dictionary<string, object>
             {
-                ["schema"] = "enfractal.character_sheets",
+                ["schema"] = "garage_game.character_sheets",
                 ["version"] = 1,
                 ["commit"] = Arg("commit", ""),
                 ["note"] = Arg("note", ""),

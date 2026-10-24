@@ -1,4 +1,4 @@
-# EnFractal contracts
+# The Garage Game's contracts
 
 Run 0 output, 6 October 2026. These schemas are the agreements between the four tracks (Look, Capture, Play, AI companion). Parallel lanes build against them instead of against each other's code. **The integrator owns this directory.** A lane that needs a change proposes it; the integrator applies it here together with every affected example, consumer and test in one commit.
 
@@ -29,6 +29,55 @@ python -m unittest discover -s contracts/tests -v
 ```
 
 `validate.py` checks the schema and the rules a schema cannot express: unique ids, resolvable references, every referenced file listed with a matching hash and size, self-contained GLB meshes, planar shell polygons wound toward the room interior (floors up, ceilings down, walls toward a point over the floor), unit quaternions, spawns and objects inside the bounds, message size limits, and for room state: entity kinds by namespace, membership in the pinned room, bounds, revision ordering, durable receipts only, the journal (one id per entry, none newer than the store, each list oldest first by revision), the discovered map (entities as their ids say and in the pinned room, each level once, on a support the room has, its bitmap exactly its grid and inside the bounds), and optionally style pins. For island rules it checks that capabilities and categories are unique within a pack, that each param's `default` sits inside its `min` and `max`, that each default radius and duration is at most its maximum, and that a pack lives at its versioned path. For results it checks that `journal.read` answers newest first with one id per entry and `map.find` answers nearest first. For a room with plant copies it reads every table: its header against the set, the tile index, the sort order, every row's numbers (inside the bounds, its tile, its top, its flags and group, a tree's collision), the meshes' triangle counts and pivots, the group numbering and the density limit; for terrain tiles it reads each tiled part's GLB nodes (names, levels, squares, counts). The C# loader (`game/scripts/native/Room/RoomData.cs`) enforces the integrity rules again at load time and fails closed, because rooms in the player's user folder are never run through the Python validator: duplicate keys, path spelling, coordinate bounds after narrowing to float, display-text rules, self-contained GLBs and hashes.
+
+## Schema ids
+
+Every document names its kind in its `schema` field (the link and the wish runner's adapter in `protocol`). Since the rename (decision C of [docs/runs/GARAGE-GAME-RENAME.md](../docs/runs/GARAGE-GAME-RENAME.md), phase 4, 24 October 2026) **writers write `garage_game.<kind>`**; a file written before it says `enfractal.<kind>`. Pinned files keep their bytes, and so their old ids, for as long as they exist: the test room and every installed room, the style presets, the rules packs v1 to v5, the committed characters, the contract examples pinned by hash (the garage room and the room state saved before Run 2). So **readers accept both spellings for good**, not for a transition, and every schema's `schema` field is an `enum` of the two, the new first. A mutable file read with the old id (a team file, a vitals or expertise store, the menu's two files, the wish queue, an island save, the session file) is written back with the new one the next time the game saves it, through its own atomic writer; nothing rewrites a file the player did not touch, and nothing pinned is rewritten. A creation source is pinned by its hash (`source_sha256`, a repair's quote), so it keeps the spelling it was written with; a receipt keeps the result it recorded. Both companion hosts accept a request in either spelling and answer in the new one. A document in neither spelling is refused as an unknown schema.
+
+One table per language holds the pairs, and readers ask it (`is_schema(value, kind)`, in C# `SchemaIds.IsSchema`) instead of comparing strings: `contracts/schema_ids.py` for Python (the validator, the companion, roomscan, the landscape exporter, the character converter, the playtest reader, each loading it by its path), `game/scripts/native/SchemaIds.cs` for C# and `game/scripts/schema_ids.gd` for GDScript. `contracts/tests/test_schema_ids.py` checks that the three agree, that every schema takes exactly both spellings, and that every example is written with the new id but the pinned records.
+
+| Kind | Written | Read too | Where |
+|---|---|---|---|
+| command | `garage_game.command` | `enfractal.command` | `game-command.schema.json`: the one command path |
+| query | `garage_game.query` | `enfractal.query` | `game-command.schema.json` |
+| result | `garage_game.result` | `enfractal.result` | `game-command.schema.json`; a durable receipt keeps the result it recorded |
+| creation | `garage_game.creation` | `enfractal.creation` | a creation source inside commands, room state and the island save; hash-pinned, so it keeps its spelling |
+| room | `garage_game.room` | `enfractal.room` | `room-manifest.schema.json` (`room.json`): pinned, so every installed room keeps its id |
+| asset | `garage_game.asset` | `enfractal.asset` | `asset.schema.json`: pinned with its room |
+| style | `garage_game.style` | `enfractal.style` | `style-preset.schema.json`: pinned presets keep theirs |
+| room_state | `garage_game.room_state` | `enfractal.room_state` | `room-state.schema.json` |
+| island_rules | `garage_game.island_rules` | `enfractal.island_rules` | `island-rules.schema.json`: packs v1 to v5 keep theirs |
+| team | `garage_game.team` | `enfractal.team` | `team.schema.json`: `team.json` |
+| player_modes | `garage_game.player_modes` | `enfractal.player_modes` | `team.schema.json`: the vitals store |
+| glow_progress | `garage_game.glow_progress` | `enfractal.glow_progress` | `team.schema.json`: the expertise store |
+| playtest_manifest | `garage_game.playtest_manifest` | `enfractal.playtest_manifest` | `playtest-record.schema.json` |
+| last_game | `garage_game.last_game` | `enfractal.last_game` | `menu.schema.json` |
+| carried_builds | `garage_game.carried_builds` | `enfractal.carried_builds` | `menu.schema.json` |
+| companion_session | `garage_game.companion_session` | `enfractal.companion_session` | `companion-link.schema.json`: the session file |
+| companion_link | `garage_game.companion_link` | `enfractal.companion_link` | `companion-link.schema.json`: the link's `protocol` |
+| stamina_ledger_fixture | `garage_game.stamina_ledger_fixture` | `enfractal.stamina_ledger_fixture` | `examples/ledger/stamina_ledger.json` |
+| creation-world | `garage_game.creation-world` | `enfractal.creation-world` | the island save (`inventions.json`), both kernels |
+| world-state | `garage_game-world-state` | `enfractal-world-state` | the GDScript kernel's world snapshot (`world_state.gd`) |
+| wish_queue | `garage_game.wish_queue` | `enfractal.wish_queue` | the kernel's wish queue file |
+| legacy_migration | `garage_game.legacy_migration` | `enfractal.legacy_migration` | the ledger of the move from the pre-team saves (`SaveMigration.cs`) |
+| character.draft | `garage_game.character.draft` | `enfractal.character.draft` | a character's `character.json` (the converter): the committed characters keep theirs |
+| character.rig | `garage_game.character.rig` | `enfractal.character.rig` | a character's `rig.json`: the committed sidecars keep theirs |
+| character_sheets | `garage_game.character_sheets` | `enfractal.character_sheets` | the character sheets' index (`CharacterSheetCapture.cs`) |
+| companion_clients | `garage_game.companion_clients` | `enfractal.companion_clients` | the companion's `clients.json` |
+| wish_adapter | `garage_game.wish_adapter` | `enfractal.wish_adapter` | the wish runner's adapter `protocol` |
+| inventory | `garage_game.inventory` | `enfractal.inventory` | roomscan's `inventory.json` |
+| inventory_curation | `garage_game.inventory_curation` | `enfractal.inventory_curation` | roomscan's curation file (the founder's) |
+| shell_spec | `garage_game.shell_spec` | `enfractal.shell_spec` | roomscan's shell spec (the founder's) |
+| shell_plan | `garage_game.shell_plan` | `enfractal.shell_plan` | roomscan's shell plan |
+| coverage_report | `garage_game.coverage_report` | `enfractal.coverage_report` | roomscan's coverage report |
+| capture_session | `garage_game.capture_session` | `enfractal.capture_session` | roomscan's capture session |
+| landscape | `garage_game.landscape` | `enfractal.landscape` | the landscape package (`pipeline/landscape/harness`): moves with its owners' change request |
+| landscape.render-receipt | `garage_game.landscape.render-receipt` | `enfractal.landscape.render-receipt` | the harness's render receipt: moves with the package |
+| look_review_cameras | `garage_game.look_review_cameras` | `enfractal.look_review_cameras` | the Look lane's review cameras (`tools/look/*_cameras.json`): moves with its owner's change request |
+| recipe_receipt | `garage_game.recipe_receipt` | `enfractal.recipe_receipt` | the recipe runner's receipt (`pipeline/recipes`): moves with its owner's change request |
+| art.asset.v1 | `garage_game.art.asset.v1` | `enfractal.art.asset.v1` | the painterly art's metadata (`tools/art`): the committed v1 assets keep theirs |
+
+Three names inside data formats follow the same rule: a captured room's `source.pipeline.name` is written `garage-game-roomscan` (`enfractal-roomscan` before), and a character GLB's extras keys are written `garage_game_part` and `garage_game_material` by the converter, the readers accepting `enfractal_part` and `enfractal_material` too (the committed GLBs keep theirs until their next conversion). A GLB's `asset.generator` is free text: the character converter writes `Garage Game drawing converter 1`, and the landscape exporter `landscape room exporter v1`, which names no game because no byte of an exported room may spell a source label and "Garage" labels every garage (its privacy test). A few programs that load no code hold their pair themselves (the playtest reader, the wish runner's demo adapter, the turntable inside Blender); `test_schema_ids.py` checks each against the table.
 
 ## Conventions every contract shares
 
@@ -282,15 +331,15 @@ Their results carry no `data` (the Fractal or the object is in `affected`). Unti
 A **team** is one person and their Gubble, one folder the companion never sees (`team.schema.json`). Its documents and the island saves:
 
 ```text
-user://teams/<team_id>/team.json                         enfractal.team v1: profile (display name, costume), knacks and ranks,
-                                                         the Gubble's name and colour, Trust
-user://teams/<team_id>/expertise.json                    enfractal.glow_progress v3: one expertise store per team, keyed by
-                                                         ability (the union of today's per-mode Glow records)
-user://teams/<team_id>/modes/<mode>/vitals.json          enfractal.player_modes v2: the vitals store, one per mode (health and
-                                                         its maximum, the bar, climbs, recoveries, Fractals, the pool)
+user://teams/<team_id>/team.json                         garage_game.team v1: profile (display name, costume), knacks and
+                                                         ranks, the Gubble's name and colour, Trust
+user://teams/<team_id>/expertise.json                    garage_game.glow_progress v3: one expertise store per team, keyed
+                                                         by ability (the union of today's per-mode Glow records)
+user://teams/<team_id>/modes/<mode>/vitals.json          garage_game.player_modes v2: the vitals store, one per mode (health
+                                                         and its maximum, the bar, climbs, recoveries, Fractals, the pool)
 user://teams/<team_id>/modes/<mode>/islands/<room_id>/<manifest prefix>/inventions.json
-                                                         the island save, enfractal.creation-world v7 (its team block adds the
-                                                         team id, the mode and the difficulty: room state's x_team)
+                                                         the island save, garage_game.creation-world v7 (its team block adds
+                                                         the team id, the mode and the difficulty: room state's x_team)
 user://single_player/room/avatar_profile_v1.cfg          the machine's settings, unchanged ("Let my AI see", "Let the Gubble use
                                                          fire", "Play the intro", the numbers option)
 ```
@@ -308,7 +357,7 @@ The seam between the body and the kernel, in C#: `game/scripts/native/Seams/Stam
 The roadmap is `docs/runs/RUN-2-PLAYTEST-LOOP.md`. A windowed launch records what was asked and answered, what the screen showed, where the player was, how the frames ran, and stills of the screen; a reader turns the record into a report and a skill turns the report into a debrief in Git. **The record is a developer feature of the game process, not part of the companion surface:** no tool, resource or field reaches it, the folder is never under `user://companion/`, and the Gubble's AI never sees the player's screen or files. Everything in a record is data, never instructions, for the reader, the skill and whoever reads a report: a creation's name can carry any text a player typed.
 
 - **One folder per play:** `user://playtests/<record_id>/` (on Windows under `%APPDATA%\Godot\app_userdata\Garage-Game\playtests\`; Git never sees it; the game keeps the newest thirty). The folder's name, `record_id`, is the launch's local date and time and the room id (`20261015-143000-island_example`): local time because the founder reads it on their own clock, with the exact moment in `started_utc`. The validator holds the folder's name to the manifest's `record_id`, as it holds a room's directory to its `room_id`.
-- **`manifest.json`** (`enfractal.playtest_manifest`, version 1): the build (the `--build=` the room runner passes, a short commit, or `unknown`), the room id and its manifest's pin, the team, the mode and (in Challenge) the difficulty, the style preset, the window and whether it is fullscreen, the renderer and the video adapter's name, the Godot log's file name under `user://logs/`, the stills' beat at launch and `started_utc`; optionally the engine's version and the rules pack. Written at launch; rewritten at a clean quit with `ended_utc`, `played_s` and `counts` (events, stills, marks), which travel together. **A manifest with no `ended_utc` means the game did not quit cleanly, which is itself a finding**, so an unfinished record is valid, even with an empty events file.
+- **`manifest.json`** (`garage_game.playtest_manifest`, version 1): the build (the `--build=` the room runner passes, a short commit, or `unknown`), the room id and its manifest's pin, the team, the mode and (in Challenge) the difficulty, the style preset, the window and whether it is fullscreen, the renderer and the video adapter's name, the Godot log's file name under `user://logs/`, the stills' beat at launch and `started_utc`; optionally the engine's version and the rules pack. Written at launch; rewritten at a clean quit with `ended_utc`, `played_s` and `counts` (events, stills, marks), which travel together. **A manifest with no `ended_utc` means the game did not quit cleanly, which is itself a finding**, so an unfinished record is valid, even with an empty events file.
 - **`events.jsonl`**, one event per line, appended as the play goes. **The envelope is strict:** every line has `t` (seconds since launch, never decreasing), `utc` and a `kind` from the list below, and a line never carries `data`, `picture`, `base64`, `token`, `session_file`, `save`, `secret`, `password` or `credential`, at any depth. **The kinds are open:** each has the fields below, and a kind may carry fields this contract does not name, so it can grow without a contract change; the reader ignores what it does not know and reports a kind it does not know, never a crash. A line is at most 8 KiB; a play has at most 600 stills.
 
   | Kind | When | Carries |
@@ -333,6 +382,8 @@ The roadmap is `docs/runs/RUN-2-PLAYTEST-LOOP.md`. A windowed launch records wha
 Each document carries `schema` and an integer `version`. Within a version, the integrator may add optional fields. A change that would make an existing valid document invalid, or change the meaning of a field, bumps `version` and comes with a migration note in this file and a converter where saved data exists. A lane requesting a change writes the proposed diff and its reason in its run report; it does not edit `contracts/` itself.
 
 ### Migration notes
+
+**The data-format ids (the rename's phase 4, 24 October 2026), within version 1:** every schema's `schema` field (and the link's `protocol`) takes `garage_game.<kind>` beside `enfractal.<kind>` (above, "Schema ids"), so every document valid before stays valid, byte for byte, and keeps its meaning. Writers write the new id from now on; nothing converts a file, and a mutable one takes the new id the next time it is saved. The examples are regenerated with the new ids but for the two pinned records, and the schemas' `$id`s move to `https://contracts.garage-game.invalid/v1/` (a name only: every `$ref` is relative). The link's proofs are taken over the challenge's `protocol` (`companion-link.schema.json`). The companion's journal resource is `garage-game://journal`, and still answers to `enfractal://journal`.
 
 **The generator's firepits (24 October 2026), within version 1:** the manifest gains the optional extension `x_firepits` (above, "The rooms"). Every room valid before stays valid and keeps its meaning: without it the kernel spreads the firepits as it did. The landscape exporter writes it from the generator's `x_generator.firepits`, the spot of each and nothing else.
 
@@ -400,7 +451,7 @@ Each document carries `schema` and an integer `version`. Within a version, the i
 | `receipt_limit`, `state_limit` | `receipt_limit`, `activation_receipt_limit`, `state_limit` |
 | `persistence_uncertain` | a persistence sink that did not acknowledge commit |
 
-The creation manifest (`enfractal.creation`) is not duplicated here: the command contract checks only its envelope and `creation_compiler.gd` remains its authority.
+The creation manifest (`garage_game.creation`) is not duplicated here: the command contract checks only its envelope and `creation_compiler.gd` remains its authority.
 
 ## Styles are versioned files
 
@@ -408,7 +459,7 @@ A preset lives at `game/styles/<preset_id>/v<preset_version>.json`. While its st
 
 ## Island rules are versioned files
 
-An island's rules are data (`enfractal.island_rules`): the abilities it grants, each carried out by one engine primitive, with its bounds, who may cast it (`cast_by`), what it may target (`self`, the effect follows the Gubble, which carries every ability out; `point`, the effect at `area.center_m` within `reach_m` of the Gubble) and its safety tier (`auto`, `auto_undo`, `preview_commit`, `keyed_yes`: LIVE-VOICE.md's T0 to T3).
+An island's rules are data (`garage_game.island_rules`): the abilities it grants, each carried out by one engine primitive, with its bounds, who may cast it (`cast_by`), what it may target (`self`, the effect follows the Gubble, which carries every ability out; `point`, the effect at `area.center_m` within `reach_m` of the Gubble) and its safety tier (`auto`, `auto_undo`, `preview_commit`, `keyed_yes`: LIVE-VOICE.md's T0 to T3).
 
 - **The layers, each narrowing the one above.** The engine fixes each primitive's outer limits; they live in the schema as one `if`/`then` per primitive, and an island's pack sets each ability's bounds inside them. Every primitive takes `intensity` only, from 0.05 to 2.0 (1 is the look's standard), and has a radius of at most 3 m:
 
@@ -435,6 +486,6 @@ Captured rooms load at runtime from `user://rooms/`, where the raw `.glb` bytes 
 
 - Canonical JSON for command fingerprints and creation `source_sha256` must be byte-identical across GDScript, C# and Python. The golden fixture in `game/tests/fixtures/kernel/` is reproduced byte for byte by all three (`docs/engine/phase3/canonical-json.md`).
 - What a companion perceives (the team's knowledge, built in Run 2: either avatar's line of sight now, the player always known, and the team's map of what either has seen; `observe` lists only the named avatar's own sight; see `docs/companion/JOURNAL.md`) is in `docs/companion/PERCEPTION.md`; the kernel host replaces the mock's box geometry with ray casts. A remembered entity is an `entity_summary` as last seen, marked `seen: "remembered"` with `last_seen_ago_s`, `last_seen_revision` and `may_be_stale`; `observe` lists such things under `remembered`. `capabilities.list`, `jobs.status`, `journal.read`, `journal.note`, `map.find` and every op of the 13 October round are fixed by `$defs/data`; `goal.stop`'s too (since the consequences round); the `data` of `goal.set`, `effect.start` and `effect.stop` is not typed yet. A goal with a target runs as a job: its `goal.set` result carries an opaque `job_id`, and `jobs.status` reports how the host's re-check on arrival ended.
-- Later journal ops: the player removing a note (the notepad, Run 3). The journal is an MCP resource (Lane A, adapter only: `enfractal://journal`). In multiplayer the journal and the map are kept per team, which room state does not key yet.
+- Later journal ops: the player removing a note (the notepad, Run 3). The journal is an MCP resource (Lane A, adapter only: `garage-game://journal`, which also answers to `enfractal://journal`). In multiplayer the journal and the map are kept per team, which room state does not key yet.
 - Health, damage and hit primitives for the dragon scenario arrive with A4 as a version 2 command vocabulary.
 - Shared room libraries (an asset referenced by many rooms) and room-to-room portals need path forms the current `rel_path` rule forbids; they are deliberately out of version 1.

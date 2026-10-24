@@ -40,7 +40,7 @@ class Exports:
 
     @classmethod
     def setUpClass(cls):
-        cls.scratch = Path(os.environ.get('TEMP', '/tmp'))/('enfractal-fractal-tests-'+uuid.uuid4().hex)
+        cls.scratch = Path(os.environ.get('TEMP', '/tmp'))/('garage-game-fractal-tests-'+uuid.uuid4().hex)
         os.makedirs(cls.scratch)
 
     @classmethod

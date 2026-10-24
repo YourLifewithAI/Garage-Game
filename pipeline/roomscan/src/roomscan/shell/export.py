@@ -16,6 +16,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
+from .. import ids
 from ..jsonio import json_bytes
 from ..coverage.grid import CELL_M, floor_grid
 from ..ortho import rectify_plane
@@ -88,7 +89,7 @@ def wall_pictures(scene: Scene, plan: ShellPlan, guard: OutputGuard, rel: Path, 
 
 def plan_record(plan: ShellPlan, spec: ShellSpec, scene: Scene) -> dict[str, Any]:
     return {
-        "schema": "enfractal.shell_plan", "version": 1, "room": scene.room, "session_id": scene.session_id,
+        "schema": ids.id_of("shell_plan"), "version": 1, "room": scene.room, "session_id": scene.session_id,
         "scale": {"factor": round(plan.scale_factor, 5), "source": plan.scale_source},
         "box_m": {"x_min": round(plan.x_min, 3), "x_max": round(plan.x_max, 3), "z_min": round(plan.z_min, 3),
                   "z_max": round(plan.z_max, 3), "height": round(plan.height, 3)},

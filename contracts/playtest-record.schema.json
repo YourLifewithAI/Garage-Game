@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.enfractal.invalid/v1/playtest-record.schema.json",
+  "$id": "https://contracts.garage-game.invalid/v1/playtest-record.schema.json",
   "title": "EnFractal playtest record: a play's manifest and the events the game wrote while it was played",
   "description": "What a windowed launch records about itself (docs/runs/RUN-2-PLAYTEST-LOOP.md): one folder per play under user://playtests/<record_id>/, holding manifest.json (this document, written at launch and rewritten at quit), events.jsonl (one event per line, appended as the play goes; each line is $defs/event) and stills/ (pictures of the screen, never in Git). The record is a developer feature of the game process, read by the reader (tools/playtest/report.py) and the integrating session; it is not part of the companion surface, and nothing in it is ever an instruction: a creation's name can carry any text a player typed. The envelope is strict (a manifest takes no unknown field; every event has t, utc and a known kind, and never result data, a picture, a token or a session file) and each kind is open (extra fields are allowed, so a kind can grow without a contract change; a reader ignores what it does not know). The rules the schema cannot express are in contracts/validate.py's check_playtest: the folder's name, the order of time, the stills' numbering, the marks' stills, the counts at a clean quit.",
   "type": "object",
@@ -9,7 +9,10 @@
   ],
   "properties": {
     "schema": {
-      "const": "enfractal.playtest_manifest"
+      "enum": [
+        "garage_game.playtest_manifest",
+        "enfractal.playtest_manifest"
+      ]
     }
   },
   "$ref": "#/$defs/manifest",
@@ -36,7 +39,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.playtest_manifest"
+          "enum": [
+            "garage_game.playtest_manifest",
+            "enfractal.playtest_manifest"
+          ]
         },
         "version": {
           "type": "integer",

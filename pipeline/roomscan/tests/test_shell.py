@@ -37,7 +37,7 @@ def plan():
 
 
 def spec_doc(**extra):
-    doc = {"schema": "enfractal.shell_spec", "version": 1, "room": "garage", "session_id": "s-synthetic",
+    doc = {"schema": "garage_game.shell_spec", "version": 1, "room": "garage", "session_id": "s-synthetic",
            "site": {"latitude_deg": 30, "neg_z_bearing_deg": 0, "solar_noon_h": 12},
            "openings": [
                {"id": "window_a", "kind": "window", "wall": "A", "u_m": 2.0, "width_m": 1.0, "v_bottom_m": 0.9, "height_m": 1.2,
@@ -81,7 +81,10 @@ def test_the_spec_is_read_strictly():
         spec_doc(surface_colours={"A": "red"}),
         spec_doc(mystery=True),
         {"schema": "other", "version": 1, "room": "garage", "session_id": "s-x"},
+        spec_doc(schema="garagegame.shell_spec"),
     ]
+    # The founder's spec written before the rename (decision C) names its kind the old way: read as it is.
+    assert parse_spec(spec_doc(schema="enfractal.shell_spec")) == spec
     for doc in bad:
         with pytest.raises(SpecError):
             parse_spec(doc)
@@ -162,6 +165,7 @@ def test_the_manifest_validates_against_the_contract_and_is_the_same_bytes_every
     document = json.loads(raw)
     assert document["site"] == {"latitude_deg": 30, "neg_z_bearing_deg": 0, "solar_noon_h": 12}
     assert document["objects"] == [] and document["files"] == [] and document["source"]["capture"]["privacy"]["shareable"] is False
+    assert (document["schema"], document["source"]["pipeline"]["name"]) == ("garage_game.room", "garage-game-roomscan")  # the new ids
     assert document["source"]["capture"]["devices"] == ["Apple Synthetic phone"]
     # The location rules: no key of the manifest holds a longitude, a place or GPS.
     text = raw.decode().lower()

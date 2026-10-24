@@ -23,7 +23,7 @@ At startup the game listens on `127.0.0.1` (or `::1`) on an ephemeral port and w
 
 ```json
 {
-  "schema": "enfractal.companion_session",
+  "schema": "garage_game.companion_session",
   "version": 1,
   "host": "127.0.0.1",
   "port": 53817,
@@ -81,8 +81,12 @@ companion                                             game
 ```
 
 - Nonces are 256 bits from a CSPRNG, lowercase hex.
-- `server_proof = hex(HMAC-SHA256(key = bytes.fromhex(token), msg = "enfractal.companion_link/1|server|" + client_nonce + "|" + server_nonce))`
-- `client_proof = hex(HMAC-SHA256(key = bytes.fromhex(token), msg = "enfractal.companion_link/1|client|" + client_nonce + "|" + server_nonce))`
+- `server_proof = hex(HMAC-SHA256(key = bytes.fromhex(token), msg = protocol + "/1|server|" + client_nonce + "|" + server_nonce))`
+- `client_proof = hex(HMAC-SHA256(key = bytes.fromhex(token), msg = protocol + "/1|client|" + client_nonce + "|" + server_nonce))`
+- `protocol` is the challenge's own: the game names `garage_game.companion_link` whichever spelling the hello used. Since the
+  rename (decision C, contracts/README.md "Schema ids") each side accepts the id in either spelling: the game a hello naming
+  `enfractal.companion_link`, the companion a challenge naming it (a game from before the rename), proving with the one named.
+  The session file is read in either spelling too and written `garage_game.companion_session`.
 - Both sides compare proofs in constant time. The companion checks the game's proof before it sends
   its own, so a listener that does not hold the token never receives anything it could replay.
 - Proofs must be 64 lowercase hex digits; anything else is `auth_failed` (never an error left hanging).
@@ -101,15 +105,15 @@ Refusal codes: `hello_invalid`, `handshake_invalid`, `handshake_timeout`, `auth_
 ## Requests
 
 ```
-companion: {"type": "request", "seq": 1, "message": <enfractal.command or enfractal.query>}
-game:      {"type": "response", "seq": 1, "message": <enfractal.result>}
+companion: {"type": "request", "seq": 1, "message": <garage_game.command or garage_game.query>}
+game:      {"type": "response", "seq": 1, "message": <garage_game.result>}
 ```
 
 - `seq` is a positive integer the companion increments; the response echoes it. One request is in
   flight at a time.
 - `type`, `seq` and `message` are the only keys. Any other frame type (there is no approval frame, no
   principal frame, no token frame) or any extra key closes the connection with `frame_invalid`.
-- The game answers every request with an `enfractal.result`, including malformed messages
+- The game answers every request with a `garage_game.result` (a request may name its id in either spelling), including malformed messages
   (`request_invalid`, `op: "invalid"`), so the companion never has to guess. If answering fails inside
   the game, it closes that connection (`frame_invalid`) and keeps listening.
 - If the connection drops or a response does not arrive within 10 seconds, the companion closes the

@@ -92,7 +92,7 @@ PROBE = textwrap.dedent(r'''
         attempt("ctypes_load_library", lambda: ctypes.WinDLL("kernel32"))
         async def pipe_connect():
             loop = asyncio.get_running_loop()
-            await asyncio.wait_for(loop.create_pipe_connection(asyncio.Protocol, r"\\.\pipe\enfractal-no-such-pipe"), 2)
+            await asyncio.wait_for(loop.create_pipe_connection(asyncio.Protocol, r"\\.\pipe\garage-game-no-such-pipe"), 2)
         attempt("event_loop_named_pipe", lambda: asyncio.run(pipe_connect()))
         import win32api  # a native module the hook cannot see: reading file attributes goes through
         attempt("native_module_file_attributes", lambda: win32api.GetFileAttributes(str(outside)))
@@ -126,7 +126,7 @@ class ServerStartup(unittest.TestCase):
 class Lockdown(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.tmp = tempfile.TemporaryDirectory(prefix="enfractal-lockdown-")
+        cls.tmp = tempfile.TemporaryDirectory(prefix="garage-game-lockdown-")
         base = Path(cls.tmp.name)
         cls.session = base / "session.json"
         cls.session.write_bytes(b'{"ok": true}\n')

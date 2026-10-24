@@ -172,7 +172,7 @@ public static class IslandFixture
         writer.Flush();
         var json = new JsonObject
         {
-            ["asset"] = new JsonObject { ["version"] = "2.0", ["generator"] = "EnFractal tests" }, ["scene"] = 0,
+            ["asset"] = new JsonObject { ["version"] = "2.0", ["generator"] = "Garage Game tests" }, ["scene"] = 0,
             ["scenes"] = new JsonArray(new JsonObject { ["nodes"] = new JsonArray(Enumerable.Range(0, nodes.Count).Select(i => (JsonNode)i).ToArray()) }),
             ["nodes"] = nodes, ["meshes"] = meshes,
             ["materials"] = new JsonArray(new JsonObject { ["name"] = "grass", ["pbrMetallicRoughness"] = new JsonObject { ["baseColorFactor"] = new JsonArray(0.45, 0.62, 0.3, 1.0), ["metallicFactor"] = 0.0, ["roughnessFactor"] = 0.9 } }),

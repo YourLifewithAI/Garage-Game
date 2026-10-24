@@ -586,7 +586,7 @@ public partial class PlayHudTest
             var wallet = host.Nature.Wallet.GetValueOrDefault("wood");
             var grab = host.HandleObject(CanonicalJson.Text(new JsonObject
             {
-                ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = "hud-grab-log", ["room_id"] = host.Room.RoomId, ["op"] = "entity.grab",
+                ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = "hud-grab-log", ["room_id"] = host.Room.RoomId, ["op"] = "entity.grab",
                 ["args"] = new JsonObject { ["target"] = "obj:log", ["actor"] = CommandHost.PlayerAvatar },
             }), CommandHost.PlayerPrincipal);
             Check(grab["ok"]?.GetValue<bool>() == true && host.HeldBy(CommandHost.PlayerAvatar) == "obj:log", "the player picks the log up");

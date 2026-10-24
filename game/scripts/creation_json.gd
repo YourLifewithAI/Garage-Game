@@ -1,5 +1,5 @@
 extends RefCounted
-## Strict JSON and EnFractal canonical JSON v1 for the GDScript kernel.
+## Strict JSON and Garage Game canonical JSON v1 for the GDScript kernel.
 ##
 ## Every fingerprint and content hash is the SHA-256 of canonical JSON, and C#, Python and
 ## GDScript must produce the same bytes. Godot's own JSON parser reads roughly one decimal in

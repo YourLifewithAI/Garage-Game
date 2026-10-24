@@ -170,7 +170,7 @@ public partial class ScaleSuiteTest : Node3D
     }
 
     private JsonObject Command(string prefix, string op, JsonObject args) =>
-        new() { ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = $"{prefix}-{++_ids}", ["room_id"] = _world.Room.RoomId, ["op"] = op, ["args"] = args };
+        new() { ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = $"{prefix}-{++_ids}", ["room_id"] = _world.Room.RoomId, ["op"] = op, ["args"] = args };
 
     private JsonObject Send(JsonObject message) => JsonNode.Parse(_host.Handle(message.ToJsonString(), Player))!.AsObject();
 

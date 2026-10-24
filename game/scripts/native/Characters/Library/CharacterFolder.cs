@@ -14,7 +14,8 @@ namespace GarageGame.Native.Characters;
 /// </summary>
 public static class CharacterFolder
 {
-    public const string Schema = "enfractal.character.draft";
+    /// <summary>The id the converter writes; the committed characters say it as before the rename, and both are read.</summary>
+    public const string Schema = SchemaIds.CharacterDraft;
     public const int Version = 1;
     public const float HeightM = 0.10f;
     public const int MaxTriangles = 70_000;
@@ -100,7 +101,8 @@ public static class CharacterFolder
             new[] { "schema", "version", "name", "units", "up", "forward", "root_pivot_m", "height_m", "width_m", "depth_m", "bounds_m",
                 "triangles", "parts", "motion", "collision_hint", "provenance", "uncertainties" },
             new[] { "applied_notes" });
-        if (StrictJson.String(root.GetProperty("schema"), "schema", 64) != Schema) throw new CharacterLoadException($"{label}: schema must be \"{Schema}\"");
+        if (!SchemaIds.IsSchema(StrictJson.String(root.GetProperty("schema"), "schema", 64), "character.draft"))
+            throw new CharacterLoadException($"{label}: schema must be {SchemaIds.Both("character.draft")}");
         if (StrictJson.Integer(root.GetProperty("version"), "version", 0, 1000) != Version) throw new CharacterLoadException($"{label}: version must be {Version}");
         var meta = new Metadata { Name = StrictJson.String(root.GetProperty("name"), "name", 200) };
         if (meta.Name.Length == 0) throw new CharacterLoadException($"{label}: name must not be empty");

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.enfractal.invalid/v1/room-manifest.schema.json",
+  "$id": "https://contracts.garage-game.invalid/v1/room-manifest.schema.json",
   "title": "EnFractal room manifest (room.json)",
   "description": "The immutable baseline of one room: shell, object instances, spawns and light hints. Written by the capture exporter (or by hand for test rooms), read by the game. Its identity pin is the SHA-256 of the file bytes; every other file in the room directory is pinned through the files list, and each asset.json pins its own files. Runtime changes never rewrite this file; they live in room state. Every string in it is untrusted data. Captured rooms are written to the player's user data (user://rooms/<room_id>/), never into the repository.",
   "type": "object",
@@ -22,7 +22,10 @@
   ],
   "properties": {
     "schema": {
-      "const": "enfractal.room"
+      "enum": [
+        "garage_game.room",
+        "enfractal.room"
+      ]
     },
     "version": {
       "type": "integer",

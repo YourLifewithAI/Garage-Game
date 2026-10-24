@@ -214,13 +214,13 @@ public partial class BubbleTest : Node3D
 
     private JsonObject Command(string actionId, string op, JsonObject args, bool preview = false)
     {
-        var command = new JsonObject { ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = actionId, ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args.Parent == null ? args : args.DeepClone() };
+        var command = new JsonObject { ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = actionId, ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args.Parent == null ? args : args.DeepClone() };
         if (preview) command["preview"] = true;
         return command;
     }
 
     private JsonObject Query(string op, JsonObject args) =>
-        new() { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = NextId("q"), ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args };
+        new() { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = NextId("q"), ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args };
 
     /// <summary>Sends a message as principal; contractValid false keeps a deliberately malformed message out of the dump.</summary>
     private JsonObject Send(JsonObject message, string principal, bool contractValid = true)

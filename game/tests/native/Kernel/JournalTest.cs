@@ -536,13 +536,13 @@ public partial class JournalTest : Node3D
 
     private JsonObject Command(string actionId, string op, JsonObject args, int? expectedRevision = null)
     {
-        var command = new JsonObject { ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = actionId, ["room_id"] = "test_room", ["op"] = op, ["args"] = args };
+        var command = new JsonObject { ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = actionId, ["room_id"] = "test_room", ["op"] = op, ["args"] = args };
         if (expectedRevision != null) command["expected_revision"] = expectedRevision;
         return command;
     }
 
     private JsonObject Query(string op, JsonObject args, string? queryId = null) =>
-        new() { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = queryId ?? NextId("q"), ["room_id"] = "test_room", ["op"] = op, ["args"] = args };
+        new() { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = queryId ?? NextId("q"), ["room_id"] = "test_room", ["op"] = op, ["args"] = args };
 
     private JsonObject Send(JsonObject message, string principal, bool contractValid = true)
     {
@@ -560,7 +560,7 @@ public partial class JournalTest : Node3D
 
     private static JsonObject Source(string name) => new()
     {
-        ["schema"] = "enfractal.creation", ["version"] = 1, ["name"] = name, ["seed"] = 1, ["mount"] = "ground",
+        ["schema"] = "garage_game.creation", ["version"] = 1, ["name"] = name, ["seed"] = 1, ["mount"] = "ground",
         ["parts"] = new JsonArray(new JsonObject
         {
             ["id"] = "base", ["shape"] = "box", ["position_m"] = new JsonArray(0, 0.05, 0), ["rotation_deg"] = new JsonArray(0, 0, 0),

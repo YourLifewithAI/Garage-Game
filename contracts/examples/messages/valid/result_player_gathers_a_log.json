@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.result",
+  "schema": "garage_game.result",
   "version": 1,
   "ok": true,
   "op": "item.gather",

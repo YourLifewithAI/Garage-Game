@@ -12,7 +12,7 @@ using GarageGame.Native.Sandbox;
 namespace GarageGame.Tests.Kernel;
 
 /// <summary>
-/// The sandbox verbs (Run 2, P3) through enfractal.command in the real test room, with the real bodies and Jolt: the
+/// The sandbox verbs (Run 2, P3) through garage_game.command in the real test room, with the real bodies and Jolt: the
 /// player picks up the doorstop, carries it across the room and sets it on the big box; the companion carries the book
 /// and stacks; pushes slide along surfaces, stop at walls, ride over the rug's edge and fall off the box; and the
 /// refusals (too heavy, out of reach, no room, not your avatar, held, protected, something on it). Poses are saved with
@@ -73,7 +73,7 @@ public partial class SandboxVerbsTest : Node3D
             await TestFetchFloating();
             await TestCatchUp();
             await TestUnreachable();
-            GD.Print($"NATIVE_KERNEL_SANDBOX: {_checks - _failures}/{_checks} checks passed; pick up, carry, drop, place with snapping, stack and push through enfractal.command, with receipts, refusals, saved poses and a reload; fetch through the host{(_dump != null ? $"; {_dumped} messages dumped" : "")}");
+            GD.Print($"NATIVE_KERNEL_SANDBOX: {_checks - _failures}/{_checks} checks passed; pick up, carry, drop, place with snapping, stack and push through garage_game.command, with receipts, refusals, saved poses and a reload; fetch through the host{(_dump != null ? $"; {_dumped} messages dumped" : "")}");
             RemoveSave();
             // Let the wrappers this long run left to the finalizer go before the engine tears down: in the Linux container's
             // .NET, wrappers still pending at exit can abort Godot's shutdown after every check has passed.
@@ -705,14 +705,14 @@ public partial class SandboxVerbsTest : Node3D
 
     private JsonObject Command(string actionId, string op, JsonObject args, int? expectedRevision = null, bool preview = false)
     {
-        var command = new JsonObject { ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = actionId, ["room_id"] = "test_room", ["op"] = op, ["args"] = args };
+        var command = new JsonObject { ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = actionId, ["room_id"] = "test_room", ["op"] = op, ["args"] = args };
         if (expectedRevision != null) command["expected_revision"] = expectedRevision;
         if (preview) command["preview"] = true;
         return command;
     }
 
     private JsonObject Query(string op, JsonObject args, string principal) =>
-        Send(new JsonObject { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "q-" + (++_dumped), ["room_id"] = "test_room", ["op"] = op, ["args"] = args }, principal);
+        Send(new JsonObject { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "q-" + (++_dumped), ["room_id"] = "test_room", ["op"] = op, ["args"] = args }, principal);
 
     private JsonObject Send(JsonObject message, string principal, bool contractValid = true)
     {
@@ -730,7 +730,7 @@ public partial class SandboxVerbsTest : Node3D
 
     private static JsonObject Source(string name) => new()
     {
-        ["schema"] = "enfractal.creation", ["version"] = 1, ["name"] = name, ["seed"] = 1, ["mount"] = "ground",
+        ["schema"] = "garage_game.creation", ["version"] = 1, ["name"] = name, ["seed"] = 1, ["mount"] = "ground",
         ["parts"] = new JsonArray(new JsonObject
         {
             ["id"] = "base", ["shape"] = "box", ["position_m"] = new JsonArray(0, 0.05, 0), ["rotation_deg"] = new JsonArray(0, 0, 0),

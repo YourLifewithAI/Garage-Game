@@ -22,6 +22,7 @@ from typing import Any
 
 import numpy as np
 
+from .. import ids
 from .vocabulary import BY_NAME
 
 CURATION_FILE = "inventory-curation.json"
@@ -120,8 +121,8 @@ def _near(value: Any, where: str) -> Near:
 
 def parse_curation(document: dict[str, Any]) -> Curation:
     _keys(document, {"schema", "version", "room", "drop", "relabel", "add", "override", "notes"}, {"schema", "version"}, "curation")
-    if document["schema"] != "enfractal.inventory_curation" or document["version"] != 1:
-        raise CurationError("not an enfractal.inventory_curation version 1 document")
+    if not ids.is_schema(document["schema"], "inventory_curation") or document["version"] != 1:
+        raise CurationError(f"not a {ids.id_of('inventory_curation')} version 1 document")
     c = Curation()
     for i, v in enumerate(document.get("drop", [])):
         c.drop.append(_near(v, f"drop[{i}]"))

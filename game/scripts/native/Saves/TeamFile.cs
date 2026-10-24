@@ -17,7 +17,7 @@ public sealed class TeamFileException(string message) : Exception(message);
 public sealed record ChosenKnack(int Slot, string Knack, int Rank);
 
 /// <summary>
-/// The team file (contracts/team.schema.json $defs/team, enfractal.team version 1, the team folder's team.json): what belongs to the
+/// The team file (contracts/team.schema.json $defs/team, garage_game.team version 1, the team folder's team.json): what belongs to the
 /// team whatever the mode or island. The person is a profile, not an avatar (a display name and the costume worn); the knacks chosen
 /// and their ranks; the Gubble's name and colour, bound to the team for life; Trust, counted by the host from receipts and
 /// consequence facts (M8, WithTrust), never by a request. Immutable: every change is a new record. Display names
@@ -25,7 +25,7 @@ public sealed record ChosenKnack(int Slot, string Knack, int Rank);
 /// </summary>
 public sealed record TeamFile
 {
-    public const string SchemaId = "enfractal.team";
+    public const string SchemaId = SchemaIds.Team;
     public const int Version = 1;
     public const int MaxBytes = 16 * 1024;
     public const int MaxNameLength = 40;
@@ -168,7 +168,7 @@ public sealed record TeamFile
             using var document = CanonicalJson.Parse(bytes);
             var root = document.RootElement;
             Fields(root, "schema", "version", "team_id", "created_utc", "profile", "knacks", "gubble", "trust");
-            if (Text(root, "schema") != SchemaId || root.GetProperty("version").GetRawText() != "1") throw new TeamFileException("The team file has an unsupported version.");
+            if (!SchemaIds.IsSchema(Text(root, "schema"), "team") || root.GetProperty("version").GetRawText() != "1") throw new TeamFileException("The team file has an unsupported version.");
             var profile = root.GetProperty("profile");
             Fields(profile, "display_name", "costume");
             var knacks = root.GetProperty("knacks");
@@ -297,7 +297,7 @@ public sealed class TeamStore
                     _readOnly = true;
                     throw new TeamFileException("The team file changed in another session. Reload before saving.");
                 }
-                if (current != null && current.AsSpan().SequenceEqual(bytes)) return;
+                if (current != null && (current.AsSpan().SequenceEqual(bytes) || SchemaIds.OnlyTheIdDiffers(current, bytes, "team"))) return;
                 temporary = _path + "." + Guid.NewGuid().ToString("N") + ".tmp";
                 using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
                 { stream.Write(bytes); stream.Flush(flushToDisk: true); }

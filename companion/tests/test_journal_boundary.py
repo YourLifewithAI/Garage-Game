@@ -29,7 +29,7 @@ VOLATILE = ("at_utc", "query_id", "action_id")
 
 def small_creation(name: str) -> dict:
     """A one-part creation, a 10 cm wooden block (the compiler's smallest part), under the given name."""
-    return {"schema": "enfractal.creation", "version": 1, "name": name, "seed": 7, "mount": "ground",
+    return {"schema": "garage_game.creation", "version": 1, "name": name, "seed": 7, "mount": "ground",
             "parts": [{"id": "block", "shape": "box", "position_m": [0, 0.05, 0], "rotation_deg": [0, 0, 0],
                        "size_m": [0.1, 0.1, 0.1], "material": "wood"}],
             "nodes": [], "edges": []}
@@ -168,7 +168,7 @@ class ThroughMcp(unittest.IsolatedAsyncioTestCase):
             note = await h.call("journal_note", {"action_id": "n-1", "text": INJECTED_NOTE + " é\U0001F600"})
             self.assertTrue(note["ok"], note)
             tools_before = [t.name for t in (await h.client.list_tools()).tools]
-            read = await h.client.read_resource("enfractal://journal")
+            read = await h.client.read_resource("garage-game://journal")
             [contents] = read.contents
             preamble, _, line = contents.text.partition("\n")
             self.assertEqual(preamble, RESULT_PREAMBLE)
@@ -178,6 +178,9 @@ class ThroughMcp(unittest.IsolatedAsyncioTestCase):
             [entry] = data["data"]["entries"]
             self.assertEqual((entry["kind"], entry["author"], entry["untrusted"]), ("note", COMPANION, True))
             self.assertEqual(data["data"], (await h.call("journal_read", {}))["data"])
+            # The name the resource had before the rename (decision C) still reads it, answered under the new name.
+            [before] = (await h.client.read_resource("enfractal://journal")).contents
+            self.assertEqual((str(before.uri), json.loads(before.text.partition("\n")[2])["data"]), ("garage-game://journal", data["data"]))
             # Reading the note changed nothing: the same tools, nothing unlocked, no fact written.
             self.assertEqual([t.name for t in (await h.client.list_tools()).tools], tools_before)
             self.assertNotIn("protect_unlock", tools_before)
@@ -185,7 +188,7 @@ class ThroughMcp(unittest.IsolatedAsyncioTestCase):
     async def test_an_unknown_resource_is_refused(self):
         from mcp.shared.exceptions import MCPError
         async with McpHarness() as h:
-            for uri in ("enfractal://journal/../saves", "file:///etc/passwd", "enfractal://map"):
+            for uri in ("garage-game://journal/../saves", "enfractal://journal/../saves", "file:///etc/passwd", "garage-game://map", "enfractal://map"):
                 with self.subTest(uri=uri), self.assertRaises(MCPError):
                     await h.client.read_resource(uri)
 

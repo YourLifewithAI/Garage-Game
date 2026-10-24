@@ -27,7 +27,7 @@ public partial class CommandHostTest
     private async Task<JsonObject> Look(JsonObject args, string principal = Companion)
     {
         _now += TimeSpan.FromMilliseconds(50);
-        var message = new JsonObject { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "look-" + (++_dumped), ["room_id"] = "test_room", ["op"] = "view.look", ["args"] = args };
+        var message = new JsonObject { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "look-" + (++_dumped), ["room_id"] = "test_room", ["op"] = "view.look", ["args"] = args };
         var result = await _host.HandleObjectAsync(message.ToJsonString(), principal);
         if (_dump != null)
             System.IO.File.WriteAllBytes(System.IO.Path.Combine(_dump, $"{++_dumped:0000}_result.json"), CanonicalJson.Bytes(result));

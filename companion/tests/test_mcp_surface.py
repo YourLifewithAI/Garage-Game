@@ -9,6 +9,8 @@ from jsonschema import Draft202012Validator
 from mcp.shared.exceptions import MCPError
 from support import EXAMPLES, SRC, contracts, retarget, GARAGE_TO_TEST_ROOM
 
+from garage_game_companion import ids
+
 from mcp_harness import McpHarness
 
 from garage_game_companion.contract import COMMAND_ENVELOPE_FIELDS
@@ -122,7 +124,7 @@ class Surface(unittest.IsolatedAsyncioTestCase):
         caps = self.harness.client.server_capabilities
         self.assertFalse(caps.resources.subscribe)  # one resource, read on demand; no subscriptions
         self.assertEqual([str(r.uri) for r in (await self.harness.client.list_resources()).resources],
-                         ["enfractal://journal"])
+                         ["garage-game://journal"])
         with self.assertRaises(MCPError):  # no resource templates
             await self.harness.client.list_resource_templates()
         self.assertIsNone(caps.prompts)
@@ -164,10 +166,10 @@ class Surface(unittest.IsolatedAsyncioTestCase):
         checked = 0
         for path in sorted((EXAMPLES / "valid").glob("*.json")):
             message = retarget(json.loads(path.read_bytes()), GARAGE_TO_TEST_ROOM)
-            if message["schema"] == "enfractal.result" or message["op"] in contracts().player_only_ops:
+            if ids.is_schema(message["schema"], "result") or message["op"] in contracts().player_only_ops:
                 continue
             arguments = dict(message["args"])
-            if message["schema"] == "enfractal.command":
+            if ids.is_schema(message["schema"], "command"):
                 arguments.update({k: message[k] for k in COMMAND_ENVELOPE_FIELDS if k in message})
             with self.subTest(example=path.name):
                 Draft202012Validator(by_name[message["op"].replace(".", "_")].input_schema).validate(arguments)
@@ -232,10 +234,10 @@ class MinimalSchemas(unittest.TestCase):
         by_name = {s.name: s for s in contracts().tool_specs("minimal")}
         for path in sorted((EXAMPLES / "valid").glob("*.json")):
             message = retarget(json.loads(path.read_bytes()), GARAGE_TO_TEST_ROOM)
-            if message["schema"] == "enfractal.result" or message["op"] in contracts().player_only_ops:
+            if ids.is_schema(message["schema"], "result") or message["op"] in contracts().player_only_ops:
                 continue
             arguments = dict(message["args"])
-            if message["schema"] == "enfractal.command":
+            if ids.is_schema(message["schema"], "command"):
                 arguments.update({k: message[k] for k in COMMAND_ENVELOPE_FIELDS if k in message})
             with self.subTest(example=path.name):
                 Draft202012Validator(by_name[message["op"].replace(".", "_")].input_schema).validate(arguments)

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.enfractal.invalid/v1/common.schema.json",
+  "$id": "https://contracts.garage-game.invalid/v1/common.schema.json",
   "title": "EnFractal shared definitions",
   "description": "Shared building blocks for every EnFractal contract. Units are metres, kilograms, seconds and degrees. Coordinates follow Godot: +Y up, -Z forward, right-handed. The .invalid host is deliberate: these identifiers are never fetched.",
   "$defs": {

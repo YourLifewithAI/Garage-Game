@@ -130,7 +130,7 @@ def components(parts):
 class ExportTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.scratch = Path(os.environ.get('TEMP', '/tmp'))/('enfractal-export-tests-'+uuid.uuid4().hex)
+        cls.scratch = Path(os.environ.get('TEMP', '/tmp'))/('garage-game-export-tests-'+uuid.uuid4().hex)
         os.makedirs(cls.scratch)
         cls.out = cls.scratch/'a'/'landscape_reference'
         cls.stats = export_room(REFERENCE, ROOM, 'landscape_reference', cls.out)
@@ -152,6 +152,21 @@ class ExportTests(unittest.TestCase):
             data = p.read_bytes()
             self.assertNotIn(b'\r', data)
             self.assertTrue(data.endswith(b'\n'))
+
+    def test_writes_the_new_ids_and_the_garage_games_name(self):
+        """The rename (decision C, contracts/README.md "Schema ids"): the room and its assets are garage_game.<kind>, and no
+        GLB names EnFractal as its generator (nor the Garage Game, whose first word labels every garage)."""
+        self.assertEqual(self.manifest['schema'], 'garage_game.room')
+        assets = [json.loads(p.read_bytes()) for p in self.out.rglob('asset.json')]
+        self.assertTrue(assets and all(a['schema'] == 'garage_game.asset' for a in assets))
+        glbs = list(self.out.rglob('*.glb'))
+        self.assertTrue(glbs)
+        for path in glbs:
+            data = path.read_bytes()
+            length = int.from_bytes(data[12:16], 'little')
+            gltf = json.loads(data[20:20 + length])
+            self.assertEqual(gltf['asset']['generator'], 'landscape room exporter v1', path.name)
+        self.assertNotIn(b'enfractal', b''.join(p.read_bytes() for p in self.out.rglob('*') if p.is_file()).lower())
 
     def test_byte_deterministic(self):
         other = self.scratch/'b'/'landscape_reference'
@@ -771,7 +786,7 @@ class CopyTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.scratch = Path(os.environ.get('TEMP', '/tmp'))/('enfractal-copy-tests-'+uuid.uuid4().hex)
+        cls.scratch = Path(os.environ.get('TEMP', '/tmp'))/('garage-game-copy-tests-'+uuid.uuid4().hex)
         os.makedirs(cls.scratch)
         land = read_package(REFERENCE, ROOM)[1]['land']
         scatter = [dict(prototype='broadleaf', position_m=[x, 0, z], yaw_deg=0, scale=[.6, .6, .6])
@@ -1004,7 +1019,7 @@ class SeaExportTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.scratch = Path(os.environ.get('TEMP', '/tmp'))/('enfractal-sea-tests-'+uuid.uuid4().hex)
+        cls.scratch = Path(os.environ.get('TEMP', '/tmp'))/('garage-game-sea-tests-'+uuid.uuid4().hex)
         os.makedirs(cls.scratch)
         plain = cls.scratch/'plain'/'landscape_plain'
         export_room(REFERENCE, ROOM, 'landscape_plain', plain)

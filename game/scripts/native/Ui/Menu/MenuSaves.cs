@@ -20,7 +20,7 @@ public sealed class MenuSaveException(string message) : Exception(message);
 /// </summary>
 public sealed record LastGame(string TeamId, string RoomId, string Mode, string? Difficulty, DateTime WrittenUtc)
 {
-    public const string SchemaId = "enfractal.last_game";
+    public const string SchemaId = SchemaIds.LastGame;
     public const int Version = 1;
     public const int MaxBytes = 4096;
 
@@ -36,7 +36,7 @@ public sealed record LastGame(string TeamId, string RoomId, string Mode, string?
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object || root.EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal)
                     .SequenceEqual(new[] { "difficulty", "mode", "room_id", "schema", "team_id", "version", "written_utc" }, StringComparer.Ordinal) is false) return null;
-            if (Text(root, "schema") != SchemaId || root.GetProperty("version").ValueKind != JsonValueKind.Number || root.GetProperty("version").GetInt32() != Version) return null;
+            if (!SchemaIds.IsSchema(Text(root, "schema"), "last_game") || root.GetProperty("version").ValueKind != JsonValueKind.Number || root.GetProperty("version").GetInt32() != Version) return null;
             var team = Text(root, "team_id");
             var room = Text(root, "room_id");
             var mode = Text(root, "mode");
@@ -92,7 +92,7 @@ public sealed record CarriedCopy(string RoomId, string ManifestPrefix, string Di
 /// </summary>
 public static class CarriedBuilds
 {
-    public const string SchemaId = "enfractal.carried_builds";
+    public const string SchemaId = SchemaIds.CarriedBuilds;
     public const int Version = 1;
     public const int MaxLedgerBytes = 256 * 1024;
     public const int MaxSaveBytes = 4 * 1024 * 1024;
@@ -111,7 +111,7 @@ public static class CarriedBuilds
             if (new FileInfo(path).Length is 0 or > MaxLedgerBytes) throw new MenuSaveException("The list of carried builds could not be read. It was kept as it was.");
             using var document = JsonDocument.Parse(File.ReadAllBytes(path), new JsonDocumentOptions { MaxDepth = 16 });
             var root = document.RootElement;
-            if (root.GetProperty("schema").GetString() != SchemaId || root.GetProperty("version").GetInt32() != Version || root.GetProperty("team_id").GetString() != team)
+            if (!SchemaIds.IsSchema(root.GetProperty("schema").GetString(), "carried_builds") || root.GetProperty("version").GetInt32() != Version || root.GetProperty("team_id").GetString() != team)
                 throw new MenuSaveException("The list of carried builds could not be read. It was kept as it was.");
             foreach (var entry in root.GetProperty("islands").EnumerateObject())
             {

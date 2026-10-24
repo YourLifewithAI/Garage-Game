@@ -1,5 +1,5 @@
 {
-  "about": "EnFractal canonical JSON v1 golden fixture. Python, C# and GDScript must each reproduce canonical_expected.json byte for byte from this file. Number spellings here are deliberate; never re-serialize this file.",
+  "about": "Garage Game canonical JSON v1 golden fixture. Python, C# and GDScript must each reproduce canonical_expected.json byte for byte from this file. Number spellings here are deliberate; never re-serialize this file.",
   "strings": {
     "plain": "hello",
     "quote_backslash_slash": "say \"hi\" \\ path/to/thing \/ escaped slash",
@@ -425,14 +425,14 @@
   "literals": [true, false, null],
   "nested": {"empty_object": {}, "empty_array": [], "deep": [[[{"z": [true, false, null, {"y": []}]}]]]},
   "command": {
-    "schema": "enfractal.command",
+    "schema": "garage_game.command",
     "version": 1,
     "action_id": "spinner-0002",
     "room_id": "garage_example",
     "op": "creation.place",
     "args": {
       "source": {
-        "schema": "enfractal.creation",
+        "schema": "garage_game.creation",
         "version": 1,
         "name": "Spinner",
         "seed": 51,

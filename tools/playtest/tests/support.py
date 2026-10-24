@@ -101,7 +101,7 @@ def body(t: float, state: str = "standing", height: float = 0.0, distance: float
 
 def manifest_for(events: list, ended: bool = True, **overrides) -> dict:
     last = max((e["t"] for e in events), default=0.0)
-    manifest = {"schema": "enfractal.playtest_manifest", "version": 1, "record_id": RECORD, "build": "test", "room_id": "island_example",
+    manifest = {"schema": "garage_game.playtest_manifest", "version": 1, "record_id": RECORD, "build": "test", "room_id": "island_example",
                 "room_sha256": "0" * 64, "team_id": "example_team", "mode": "challenge", "difficulty": "standard",
                 "style": {"preset_id": "storybook_painterly", "version": 1}, "window": {"width": 1280, "height": 720, "fullscreen": False},
                 "renderer": {"method": "forward_plus", "adapter": "Test Adapter"}, "log_file": "godot.log", "beat_s": 10,

@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.creation", "version": 1, "name": "Fixture use rotor wind", "seed": 5, "mount": "ground",
+  "schema": "garage_game.creation", "version": 1, "name": "Fixture use rotor wind", "seed": 5, "mount": "ground",
   "parts": [
     {"id":"base","shape":"cylinder","position_m":[0,0.1,0],"rotation_deg":[0,0,0],"size_m":[1.2,0.2,1.2],"material":"stone"},
     {"id":"post","shape":"cylinder","position_m":[0,0.6,0],"rotation_deg":[0,0,0],"size_m":[0.25,0.8,0.25],"material":"wood"},

@@ -13,7 +13,7 @@ namespace GarageGame.Native.Kernel;
 public sealed class CanonicalJsonException(string message) : Exception(message);
 
 /// <summary>
-/// Strict JSON in, EnFractal canonical JSON v1 out. Fingerprints and content hashes are the SHA-256
+/// Strict JSON in, Garage Game canonical JSON v1 out. Fingerprints and content hashes are the SHA-256
 /// of these bytes, and GDScript (scripts/creation_json.gd) and Python (tools/kernel/canonical_json.py)
 /// produce the same bytes; tests/fixtures/kernel/ is the shared golden fixture. Rules: every number is
 /// the nearest double, written as an integer when whole and within 2^53, otherwise as Python's
