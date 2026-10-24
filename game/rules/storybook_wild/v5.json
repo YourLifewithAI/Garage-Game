@@ -111,7 +111,7 @@
       "bubbles": { "ordered": 2, "own_idea_factor": 0.5 },
       "fireworks": { "ordered": 2, "own_idea_factor": 0.5 },
       "grow": { "ordered": 4, "own_idea_factor": 0.5 },
-      "fire": { "ordered": 6, "own_idea_factor": 0.5 },
+      "fire": { "ordered": 2, "own_idea_factor": 0.5 },
       "bubble_carry": { "ordered": 4, "own_idea_factor": 0.5 },
       "bubble_boat": { "ordered": 4, "own_idea_factor": 0.5 },
       "bubble_lift": { "ordered": 6, "own_idea_factor": 0.5 },

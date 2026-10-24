@@ -79,16 +79,20 @@ public partial class NatureTest
         }
         Check(!FireKnows(ExpertiseLists.Fireline) && FireCasts == casts + 3, "three Fire casts in a triangle teach nothing; each committed cast is counted toward Fire's hints");
         _now += TimeSpan.FromSeconds(FireKindLaws.FirelineLearnWindowS + 1);
-        foreach (var at in new[] { a, b })
+        // The window is 5 minutes (provisional, the second playtest round; decision 78 said 2): casts 2.5 and 2.3 minutes apart, the
+        // first and the third 4.8 minutes apart, still teach it.
+        foreach (var (at, after) in new[] { (a, 150.0), (b, 140.0) })
         {
             var cast = Fire(Player, at, 0.15, 6, out _);
             Check(Ok(cast), "(a Fire cast) " + Canonical(cast["error"]));
             UndoFire();
+            _now += TimeSpan.FromSeconds(after);
         }
         var notYet = FireKnows(ExpertiseLists.Fireline);
         Check(Ok(Fire(Player, c, 0.15, 6, out _)), "(the third, along the line)");
         UndoFire();
-        Check(!notYet && FireKnows(ExpertiseLists.Fireline), "two minutes later the old casts no longer count; the third of three in a row, 0.6 m apart, teaches Fireline");
+        Check(FireKindLaws.FirelineLearnWindowS == 300 && !notYet && FireKnows(ExpertiseLists.Fireline),
+            $"past the window ({FireKindLaws.FirelineLearnWindowS} s) the old casts no longer count; three in a row, 0.6 m apart, within 5 minutes (290 s from the first to the third, past the old 2 minutes) teach Fireline");
         // The drag: the whole line catches at once; one fire, one undo step.
         var start = new Vector3(-0.3f, 0.01f, 1.2f);
         var end = new Vector3(1.2f, 0.01f, 1.2f);

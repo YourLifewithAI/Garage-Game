@@ -214,7 +214,7 @@ public partial class NatureTest
         var glowed = GubbleGlows();
         var lit = Fire(Companion, PlayerSpot(), 0.25, 6, out _);
         Steps(2);
-        Check(Ok(lit) && Pips == 4 && _host.TrustCount == before - 3, $"a consequence fact of the Gubble's paid fire costs 3 ({before} to {_host.TrustCount}, {Pips} pips left)");
+        Check(Ok(lit) && Pips == 6 && _host.TrustCount == before - 3, $"a consequence fact of the Gubble's paid fire (one pip, decision 94) costs 3 ({before} to {_host.TrustCount}, {Pips} pips left)");
         Later(61);
         Check(Ok(glowed) && _host.TrustCount == before - 3, "the windows the consequence fell in (the fire's and the Glow before it) gain nothing");
         Check(Lessons().Any(l => l.StartsWith("The Gubble's fire burned you", StringComparison.Ordinal)), "the consequence fact is the journal's, as before M8");
@@ -366,14 +366,20 @@ public partial class NatureTest
     private async Task TestTrustBands()
     {
         var prices = new List<string>();
+        var shipped = new List<string>();
         foreach (var trust in new[] { 0, 5, 15, 30 })
         {
             await EnergyWorld($"trust-band-{trust}");
             TrustTeam($"trust-band-{trust}", trust);
+            shipped.Add($"{_host.TrustBand}:{_host.PriceFor("fire", Companion)}/{_host.PriceFor("fire", Player)}");
+            // Fire at its old 6 ordered, so the discount shows at every band (v5's 2 halves to one pip, the least a price falls to).
+            UseEditedV5(pack => Price(pack, "fire", 6));
             prices.Add($"{_host.TrustBand}:{_host.PriceFor("fire", Companion)}/{_host.PriceFor("grow", Companion)}/{_host.PriceFor("glow", Companion)}/{_host.PriceFor("fire", Player)}");
         }
+        Check(shipped.SequenceEqual(new[] { "0:1/2", "1:1/2", "2:1/2", "3:1/2" }),
+            "under v5's Fire of 2 ordered (decisions 83 and 94) the Gubble's own fire is one pip at every band, never less, and the player's 2: " + string.Join(" ", shipped));
         Check(prices.SequenceEqual(new[] { "0:3/2/1/6", "1:2/2/1/6", "2:2/1/1/6", "3:1/1/1/6" }),
-            "each band widens the discount on the Gubble's own ideas, Fire included; the player's price is the pack's: " + string.Join(" ", prices));
+            "each band widens the discount on the Gubble's own ideas, Fire included (priced 6 here); the player's price is the pack's: " + string.Join(" ", prices));
         var pips = _host.Vitals.Pips;
         var lit = Fire(Companion, new Vector3(1.0f, 0.01f, 1.0f), 0.1, 3, out _);
         Check(Ok(lit) && _host.Vitals.Pips == pips - 1, $"a cast at band 3 is charged the discounted price ({pips} to {_host.Vitals.Pips} pips)");

@@ -121,7 +121,11 @@ public partial class NatureTest
         Check(Exhausted(blocked, 3, 4) && _host.Revision == revision && Pips == 3,
             "the player's Grow at four pips with three in the pool is refused energy_exhausted, carrying the balance and the price, and nothing changes: " + Canonical(blocked["error"]));
         var lit = Fire(Companion, new Vector3(0.9f, 0.01f, 1.2f), 0.15, 6, out var firePreview);
-        Check(Ok(firePreview) && Ok(lit) && Pips == 0, $"the Gubble's Fire is previewed free and costs three pips when it is lit ({Pips} left)");
+        Check(Ok(firePreview) && Ok(lit) && Pips == 2, $"the Gubble's Fire is previewed free and costs one pip when it is lit, half of 2 ordered (decisions 83 and 94; {Pips} left)");
+        // The player's own Glow spends the last two pips; put out again, so the next light is not held back by the island's count.
+        var lastTwo = GlowSelf(Player);
+        Send(Command(NextId("stop"), "effect.stop", new JsonObject { ["effect"] = "all" }), Player);
+        Check(Ok(lastTwo) && Pips == 0, $"(the player's Glow spends the last two pips: {Pips} left)");
         var effects = _host.ActiveEffectIds.Count;
         var empty = GlowSelf(Companion);
         Check(Exhausted(empty, 0, 1) && _host.ActiveEffectIds.Count == effects, "an empty pool refuses even the cheapest cast, and nothing starts: " + Canonical(empty["error"]));
