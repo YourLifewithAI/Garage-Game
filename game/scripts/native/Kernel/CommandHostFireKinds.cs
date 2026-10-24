@@ -95,7 +95,8 @@ public sealed class Wisp
 /// it burns nothing and is not the Gubble's one fire; it lasts 5 minutes, at most three (the oldest goes), is never saved (transient, like
 /// a bubble), and X removes the oldest. The first one teaches it. Priced as "will_o_wisp".</item>
 /// </list>
-/// Every Fire kind is previewed first and committed as exactly that preview (the preview's kind and outline are what the HUD shows). The
+/// Every Fire kind is previewed first and committed as exactly that preview (the preview's kind and outline are what the HUD shows); since
+/// decision 83 the player's are both in one click, back to back (PlayerFireLight), while the Gubble's stay its own two commands. The
 /// shared rules: each expertise once per team, by either of the pair, announced by Fire's camp's chime and card; a committed Fire cast of
 /// any kind counts toward Fire's hints (RecordFireCast); a fire that hurt the player or scorched a creation teaches nothing (MarkFireHarm).
 /// </summary>

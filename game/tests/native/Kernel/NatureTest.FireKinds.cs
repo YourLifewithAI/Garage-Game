@@ -49,10 +49,69 @@ public partial class NatureTest
 
     private async Task TestFireKinds()
     {
+        await TestFireOnTheClick();
         await TestFireline();
         await TestSnuff();
         await TestSnuffByBubble();
         await TestWisp();
+    }
+
+    /// <summary>
+    /// Decision 83: the player's Fire lights on the click (PlayerFireLight, what the wheel, key 6 and the Magic panel call): its preview and
+    /// the cast of exactly that preview in one call, with no hold, so the outline can flash as it lights. The recorder sees a preview then a
+    /// cast; the price is charged once; a refused preview casts nothing; the place still decides (an unlit firepit, Snuff on a fire); and
+    /// Creative's one ask about builds still holds the cast for the player's card. The Gubble's own Fire stays two commands of its own.
+    /// </summary>
+    private async Task TestFireOnTheClick()
+    {
+        await FireKindsWorld("fire-click");
+        var handled = new System.Collections.Generic.List<CommandHandled>();
+        _host.Handled += handled.Add;
+        var at = new Vector3(0.2f, 0.01f, -0.6f);
+        var revision = _host.Revision;
+        var pips = _host.Vitals.Pips;
+        var click = _host.PlayerFireLight(at, radius: 0.2f, duration: 6);
+        var fire = handled.Where(h => h.Op == "nature.cast").Select(h => $"{(h.Preview ? "preview" : "cast")}:{(h.Ok ? "ok" : h.Code)}").ToArray();
+        Check(click.Previewed && click.Lit && !click.Held && click.Kind == FireKindWords.Fire && _host.Nature.Fire?.Principal == Player && _host.Revision == revision + 1 &&
+              click.Preview["data"]?["preview_id"] != null && click.Preview["data"]?["cells"]?.AsArray().Count > 0 && click.Preview["data"]?["radius_m"]?.GetValue<double>() == 0.2 &&
+              click.Result["data"]?["started_cells"]?.GetValue<int>() > 0 && fire.SequenceEqual(new[] { "preview:ok", "cast:ok" }) && _host.Vitals.Pips == pips - 2,
+            $"one click previews and lights the fire, the preview's outline and kind in hand for the flash, a preview then a cast for the recorder, 2 pips once " +
+            $"({string.Join(", ", fire)}; pips {pips} to {_host.Vitals.Pips}): " + Canonical(click.Result["error"]));
+        var busy = _host.PlayerFireLight(at + new Vector3(0.6f, 0, 0), radius: 0.2f, duration: 6);
+        Check(!busy.Previewed && !busy.Lit && ReferenceEquals(busy.Preview, busy.Result) && Code(busy.Result) == "target_busy" && _host.Revision == revision + 1,
+            "a click while a fire burns is refused at its preview, and nothing is cast: " + Code(busy.Result));
+        UndoFire();
+        // The wheel names no size: the pack's own Fire (v5: 1.5 m, 30 s), on the same one click.
+        var wheel = _host.PlayerFireLight(at);
+        Check(wheel.Lit && wheel.Preview["data"]?["radius_m"]?.GetValue<double>() == 1.5 && _host.Nature.Fire?.RemainingS > 20,
+            "a click that names no size lights the pack's own Fire (1.5 m, 30 s): " + Canonical(wheel.Result["error"] ?? wheel.Preview["data"]?["radius_m"]));
+        UndoFire();
+        // The place decides on the click as before: an unlit firepit is lit; and once Snuff is learned (rain on the Gubble's fire), a click
+        // on the Gubble's fire is Snuff, the player's one way to end a fire (decision 82).
+        var pit = new Vector3(0.9f, 0, 1.0f);
+        _host.FirepitsForTests = new[] { pit };
+        var lit = _host.PlayerFireLight(pit + new Vector3(0, 0.01f, 0), radius: 0.05f, duration: 6);
+        Check(lit.Lit && lit.Kind == FireKindWords.Firepit && _host.IsCampfireLit("firepit:1"), "a click on an unlit firepit lights it: " + Canonical(lit.Result["error"]));
+        var gubbleFire = Fire(Companion, NearGubble, 0.3, 30, out _);
+        Steps(1);
+        _host.Nature.WeatherS = RainAtS;
+        Steps(1);
+        _host.Nature.WeatherS = 300;
+        var cell = _host.Nature.Cells.Values.FirstOrDefault(c => c.BurningS > 0)?.Position ?? NearGubble;
+        var snuff = _host.PlayerFireLight(cell, radius: 0.2f, duration: 6);
+        Check(Ok(gubbleFire) && FireKnows(ExpertiseLists.Snuff) && snuff.Lit && snuff.Kind == FireKindWords.Snuff && _host.Nature.Fire == null &&
+              !_host.Nature.Cells.Values.Any(c => c.BurningS > 0),
+            "and once Snuff is learned a click on the Gubble's fire is Snuff: it all goes out: " + Canonical(snuff.Result["error"]));
+        // Creative's one ask about builds is unchanged: the click's cast is held for the player's card, and the yes lights it.
+        await FireKindsWorld("fire-click-ask");
+        var shed = Build("Click shed", 1.5, 1.2);
+        var asks = _host.PlayerFireLight(new Vector3(1.35f, 0.01f, 1.2f), radius: 0.3f, duration: 6);
+        var request = _host.PendingApprovals.FirstOrDefault()?.RequestId;
+        var waited = _host.Nature.Fire == null;
+        var approved = request == null ? new JsonObject() : _host.Approve(request);
+        Check(shed.Length > 0 && asks.Previewed && asks.Held && !asks.Lit && asks.Preview["data"]?["requires_approval"]?.GetValue<bool>() == true && waited &&
+              Ok(approved) && _host.Nature.Fire?.Principal == Player,
+            "in Creative a click whose fire would reach a build is held for the card (the one ask), and the player's yes lights it: " + Canonical(asks.Result["error"]?["code"]));
     }
 
     /// <summary>Decision 78: three Fire casts along a line teach Fireline; then a drag lights the whole line at once, one fire under Fire's guardrails.</summary>
