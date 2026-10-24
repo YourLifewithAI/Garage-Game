@@ -378,7 +378,7 @@ public partial class PlayHudTest : Node
                 "The Gubble, your companion:",
                 "right-click asks for what fits where you point (wait or follow, fetch or put down, light the dark, go and look; on a bubble, choose it, then a spot to lead it there, a higher one to lift it); hold it for the wheel · Q come, then follow · X stop · I look through its eyes",
                 $"1 Glow{PriceWords("glow")}, 2 Grow{PriceWords("grow")}, 3 Bubbles{PriceWords("bubbles")}, 4 Fireworks{PriceWords("fireworks")}, 6 Fire" +
-                (fireLearned ? $"{PriceWords("fire")} where you point (it comes closer first if it must; at the sky, on itself) · 6 previews Fire where you point and holding right-click lights it"
+                (fireLearned ? $"{PriceWords("fire")} where you point (it comes closer first if it must; at the sky, on itself) · 6 lights Fire where you point, at once (it burns until it burns out, or Snuff puts it out)"
                     : " (locked: rest by the starting campfire first) where you point (it comes closer first if it must; at the sky, on itself)") +
                 " · 5 magic still to come · it floats after you, over water and up cliffs",
                 "Testing",

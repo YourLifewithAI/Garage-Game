@@ -86,12 +86,11 @@ public partial class PlayHudTestCapture
         _hud.AimRayForTests = (water + Vector3.Up * 0.3f, water + Vector3.Down * 0.3f);
         _hud._UnhandledInput(new InputEventKey { PhysicalKeycode = Key.Key6, Pressed = true });
         _hud._UnhandledInput(new InputEventKey { PhysicalKeycode = Key.Key6, Pressed = false });
-        // Out of the Gubble's reach or the team's sight it comes closer first, then previews (the slots' rule).
-        for (var i = 0; i < 600 && !_hud.WheelFireArmed && (_hud.CastWaiting || i < 10); i++) await NextFrame();
-        GD.Print($"PLAY_HUD_CAPTURE fire preview armed={_hud.WheelFireArmed} kind={_hud.WheelFireKind}: {_hud.NoticeText}");
+        // Out of the Gubble's reach or the team's sight it comes closer first, then lights at once (the slots' rule; decision 83).
+        for (var i = 0; i < 600 && _hud.LastFireClick == null && (_hud.CastWaiting || i < 10); i++) await NextFrame();
+        GD.Print($"PLAY_HUD_CAPTURE fire lit={_hud.LastFireClick?.Lit} kind={_hud.LastFireKind}: {_hud.NoticeText}");
+        // The outline's flash as it lights.
         await Save("fire_wisp_preview");
-        _hud.BeginWheelFireHold();
-        for (var i = 0; i < 200 && _hud.WheelFireArmed; i++) await NextFrame();
         _hud.AimRayForTests = null;
         await Frames(90);
         GD.Print($"PLAY_HUD_CAPTURE wisps {host.Wisps.Count}; notice \"{_hud.NoticeText}\"");

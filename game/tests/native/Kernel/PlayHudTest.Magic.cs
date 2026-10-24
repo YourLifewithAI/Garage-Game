@@ -7,9 +7,9 @@ using Godot;
 namespace GarageGame.Tests.Kernel;
 
 /// <summary>
-/// The Magic panel: the mode picker, Grow's button, the player's "Let the Gubble use fire", Fire's preview and
-/// deliberate hold (no cast without a host preview, a release cancels, the hold casts exactly what was previewed), the
-/// nature Undo button (Creative only), and the wish queue's curated words and Stop, all through the host's commands.
+/// The Magic panel: the mode picker, Grow's button, the player's "Let the Gubble use fire", Fire lit on one click (decision 83: no
+/// cast without a chosen spot, the host's preview and cast back to back, the outline flashing as it lights), the nature Undo button
+/// (Creative only), and the wish queue's curated words and Stop, all through the host's commands.
 /// </summary>
 public partial class PlayHudTest
 {
@@ -56,10 +56,14 @@ public partial class PlayHudTest
         Check(host.NatureConfigured && growButton != null && _hud.FindChild("FlowerTrailToggle", true, false) == null, "the Magic panel has Grow's button and no flower trail switch");
         var effects = host.ActiveEffectIds.Count;
         var natureReceipts = host.Authority.Call("receipt_count").AsInt32();
-        _hud.BeginFireConfirmation();
-        for (var i = 0; i < 30; i++) _hud.TickFireConfirmation(.1);
-        Check(!host.Nature.Cells.Values.Any(cell => cell.BurningS > 0) && host.Authority.Call("receipt_count").AsInt32() == natureReceipts && host.ActiveEffectIds.Count == effects,
-            "holding Fire without a successful preview cannot start a fire or manufacture a cast receipt");
+        // Decision 83: one click lights Fire, and with no spot chosen the click sends nothing at all.
+        var lightButton = (Button)_hud.FindChild("LightFireButton", true, false)!;
+        Check(_hud.FindChild("ConfirmFireButton", true, false) == null && _hud.FindChild("FireHoldProgress", true, false) == null && _hud.FindChild("PreviewFireButton", true, false) == null,
+            "the panel's Fire has one button: no preview button, no hold button and no hold bar (decision 83)");
+        _hud.LightFire();
+        Check(!host.Nature.Cells.Values.Any(cell => cell.BurningS > 0) && host.Authority.Call("receipt_count").AsInt32() == natureReceipts && host.ActiveEffectIds.Count == effects &&
+              _hud.MagicMessage.StartsWith("Choose a spot", StringComparison.Ordinal),
+            "lighting Fire with no spot chosen cannot start a fire or manufacture a cast receipt: " + _hud.MagicMessage);
         var previousSample = host.NatureSampleForTests;
         // The fire's cast is counted in the expertise store (Fire's shared rules): kept in memory here, so the suite's profile never
         // keeps the test's Fire (it would let rain put the starting campfire out before the camp's own test).
@@ -68,26 +72,24 @@ public partial class PlayHudTest
         host.LearnFireForTests();
         var point = FloorNearGubble(.3f);
         host.NatureSampleForTests = (x, z) => new NatureCell { X = x, Z = z, Y = point.Y, Material = "soil", Fertile = true, Fuel = 1, Moisture = .2f, Light = .6f };
+        var look = _world.GetNodeOrNull<GarageGame.Native.Look.NatureLook>("NatureLook");
         try
         {
             _hud.AimRayForTests = Down(point);
             _hud.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "Choose spot").EmitSignal(Button.SignalName.Pressed);
             Check(_hud.ChoosingMagicSpot && !_hud.MagicPanelOpen, "choosing a magic spot returns to the island for one world click");
             _hud._UnhandledInput(LeftButton(true));
-            Check(_hud.MagicPanelOpen && !_hud.ChoosingMagicSpot, "the world click freezes a target and reopens Magic without casting");
-            _hud.FindChildren("*", "Button", true, false).OfType<Button>().Single(button => button.Text == "Preview Fire at this spot").EmitSignal(Button.SignalName.Pressed);
-            var confirm = (Button)_hud.FindChild("ConfirmFireButton", true, false)!;
-            Check(_hud.FirePreviewReady && !confirm.Disabled && host.Nature.Fire == null,
-                "Fire preview prepares an exact host token and leaves the island unburnt");
-            confirm.EmitSignal(BaseButton.SignalName.ButtonDown);
-            for (var i = 0; i < 5; i++) _hud.TickFireConfirmation(.1);
-            confirm.EmitSignal(BaseButton.SignalName.ButtonUp);
-            Check(host.Nature.Fire == null && _hud.FireConfirmationProgress == 0,
-                "releasing Fire before its hold completes cancels the hold without casting");
-            confirm.EmitSignal(BaseButton.SignalName.ButtonDown);
-            for (var i = 0; i < 14; i++) _hud.TickFireConfirmation(.1);
-            Check(host.Nature.Fire != null && !_hud.FirePreviewReady,
-                "a completed deliberate hold sends the exact previewed Fire through the host");
+            Check(_hud.MagicPanelOpen && !_hud.ChoosingMagicSpot && host.Nature.Fire == null, "the world click freezes a target and reopens Magic without casting");
+            await Frames(12);
+            Check(!lightButton.Disabled && _hud.FireWords == GarageGame.Native.RoomHud.FireReadyWords, "with Fire learned the button waits for the click, and the words say it lights at once: " + _hud.FireWords);
+            lightButton.EmitSignal(Button.SignalName.Pressed);
+            var flashed = _hud.FireFlashing && look is { FirePreviewVisible: true };
+            Check(host.Nature.Fire != null && _hud.LastFireClick is { Previewed: true, Lit: true } && host.Authority.Call("receipt_count").AsInt32() == natureReceipts + 1,
+                "one click of \"Light Fire at this spot\" lights it through the host: the preview and the cast back to back, one cast receipt");
+            Check(flashed && _hud.FireWords.StartsWith("The fire is lit.", StringComparison.Ordinal) && _hud.FireWords.Contains("burns itself out", StringComparison.Ordinal),
+                "the outline flashes as it lights, and the panel says it burns until it burns out or is Snuffed: " + _hud.FireWords);
+            for (var i = 0; i < 120 && _hud.FireFlashing; i++) await Frames(1);
+            Check(!_hud.FireFlashing && look is { FirePreviewVisible: false }, $"the outline's flash is over after {GarageGame.Native.RoomHud.FireFlashS} s, the fire drawn by the look");
             ((Button)_hud.FindChild("NatureUndoButton", true, false)!).EmitSignal(Button.SignalName.Pressed);
             Check(host.Nature.Fire == null && !host.Nature.Cells.Values.Any(cell => cell.BurningS > 0),
                 "the nature Undo button removes the fire through the host");

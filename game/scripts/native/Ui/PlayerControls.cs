@@ -48,7 +48,7 @@ public static class Act
     public static readonly StringName GubbleSlot3 = "gubble_slot_3";
     public static readonly StringName GubbleSlot4 = "gubble_slot_4";
     public static readonly StringName GubbleSlot5 = "gubble_slot_5";
-    /// <summary>6: Fire (decision 77): a tap previews the fire where you point, a drag (once Fireline is learned) a line; a hold of the ask lights it.</summary>
+    /// <summary>6: Fire (decisions 77 and 83): a tap lights the fire where you point at once, a drag (once Fireline is learned) a line.</summary>
     public static readonly StringName GubbleSlot6 = "gubble_slot_6";
     /// <summary>The slot actions in slot order (index 0 is slot 1).</summary>
     public static readonly StringName[] GubbleSlots = { GubbleSlot1, GubbleSlot2, GubbleSlot3, GubbleSlot4, GubbleSlot5, GubbleSlot6 };
@@ -73,7 +73,7 @@ public static class Act
     public static readonly StringName HudHelp = "hud_help";
     /// <summary>C: the settings panel (it was the Customize panel; the input action keeps its name, hud_customize, until project.godot renames it).</summary>
     public static readonly StringName HudCustomize = "hud_customize";
-    /// <summary>M: the Magic panel (the Gubble's magic: Grow, Fire's preview and hold, Glow's lights, wishes), opened and closed again.</summary>
+    /// <summary>M: the Magic panel (the Gubble's magic: Grow, Fire on the click, Glow's lights, wishes), opened and closed again.</summary>
     public static readonly StringName HudMagic = "hud_magic";
     /// <summary>The journal, the leather book at the lower right: opens it at its index, and closes it again.</summary>
     public static readonly StringName Journal = "journal";

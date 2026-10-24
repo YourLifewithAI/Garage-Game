@@ -41,7 +41,7 @@ public partial class RoomHud
         _magicTargetText = WrapMagicLabel("Choose a spot, or cast a light on the Gubble."); column.AddChild(_magicTargetText);
         var aim = new HBoxContainer(); column.AddChild(aim);
         AddButton(aim, "Choose spot", () => PickMagicSpot(), 26);
-        AddButton(aim, "On the Gubble", () => { _magicAim = default; CancelFirePreview(); RefreshMagicPanel(); }, 26);
+        AddButton(aim, "On the Gubble", () => { _magicAim = default; RefreshMagicPanel(); }, 26);
         _magicTabs = new TabContainer { Name = "MagicTabs", SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         column.AddChild(_magicTabs);
         BuildNaturePage(MagicPage("Island"));
@@ -80,7 +80,6 @@ public partial class RoomHud
             if (SettingsOpen) ToggleSettings();
             _pickingMagicSpot = false;
         }
-        else CancelFirePreview();
         _magicPanel.Visible = open;
         Player.SetInputEnabled(!ReadingPanelOpen);
         Input.MouseMode = Input.MouseModeEnum.Visible;
@@ -136,7 +135,7 @@ public partial class RoomHud
                 "target_protected" or "permission_denied" => "That place is protected, or this action is not allowed.",
                 "budget_exceeded" => "There is no room for another effect yet. Stop one and try again.",
                 "revision_conflict" or "approval_mismatch" => "Something changed. Choose the spot and preview it again.",
-                // The host's own words (they say what is busy, and how the Gubble's fire can be put out).
+                // The host's own words (they say what is busy: one fire at a time, which burns out or is Snuffed).
                 "target_busy" => result["error"]?["message"]?.GetValue<string>() ?? "Let the current action finish first.",
                 "not_ready" => "The journal or connection is not ready. Your earlier progress is safe.",
                 "unsupported_capability" => "That magic is not available here yet.",
@@ -152,7 +151,6 @@ public partial class RoomHud
 
     private void TickMagicPanel(double delta)
     {
-        TickFireConfirmation(delta);
         _magicRefreshAge += delta;
         if (_magicRefreshAge < .15) return;
         _magicRefreshAge = 0;

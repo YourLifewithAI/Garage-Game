@@ -321,7 +321,8 @@ public static class JournalPages
             "light.emit" => "A small light",
             "particles.burst" => "A burst of fireworks",
             "growth.seed" => "Flowers that take root",
-            "element.ignite" => "A fire that stays inside the area you preview, lit only when you hold to confirm",
+            // Decisions 82 and 83: lit at once on the click, and burning until it burns itself out or Snuff puts it out (X stops the Gubble, never a fire).
+            "element.ignite" => "A fire lit at once, inside its outlined circle, that burns until it burns itself out or Snuff puts it out",
             _ => "Magic",
         };
         var point = ability.Targets.Contains("point");

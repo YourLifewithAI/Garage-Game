@@ -670,7 +670,7 @@ public partial class RoomHud : CanvasLayer
         _wheel.Tick(delta);
         if (GubblePaused) return;
         TickMagicPanel(delta);
-        TickWheelFire(delta);
+        TickFireFlash(delta);
         TickGubbleView();
         if (ViewMode >= 2 || Orbiting) PlaceDioramaRig(snap: false, (float)delta);
         else if (ViewMode == 1) _dioramaArm.SpringLength = OrbitFromM;
@@ -834,9 +834,7 @@ public partial class RoomHud : CanvasLayer
                 return;
             }
         }
-        // The ask button's hold that lights a wheel or key-6 Fire preview ends on its release; key 6 coming up ends its tap or drag
-        // (RoomHud.FireWheel.cs).
-        if (_wheelFireHolding && PlayerControls.Released(press, Act.GubbleAsk)) { EndWheelFireHold(); GetViewport().SetInputAsHandled(); return; }
+        // Key 6 coming up ends its tap or drag, which lights Fire at once (RoomHud.FireWheel.cs).
         if (_fireKeyStart != null && PlayerControls.Released(press, Act.GubbleSlot6)) { FireKeyUp(); GetViewport().SetInputAsHandled(); return; }
         // The ask button held: the mouse is the wheel's (a flick picks a wedge), and its release is the tap or the choice.
         if (_wheel.Held)
@@ -884,9 +882,8 @@ public partial class RoomHud : CanvasLayer
                 if (SettingsOpen) ToggleSettings();
                 if (MagicPanelOpen) SetMagicPanelOpen(false);
                 EndDrag();
-                // Esc lets go of the bubble the smart ask chose (RoomHud.Bubble.cs), and calls off a wheel Fire preview (RoomHud.FireWheel.cs).
+                // Esc lets go of the bubble the smart ask chose (RoomHud.Bubble.cs).
                 ClearBubbleSelection();
-                CancelWheelFire();
             }
             if (PlayerControls.Hit(press, Act.HudCustomize)) ToggleSettings();
             // M opens and closes the Magic panel (it was only a button inside the H help), from the game or the settings panel.
@@ -912,18 +909,16 @@ public partial class RoomHud : CanvasLayer
             else if (PlayerControls.Hit(press, Act.SeasonStep)) StepSeason();
             else if (PlayerControls.Hit(press, Act.TimeStep)) StepTimeOfDay();
             // The Gubble's keys are the player's commands, carried out by the Gubble, on the same path as the companion's own.
-            // While a Fire preview waits, the ask button's hold lights it instead of opening the wheel (decision 77).
             else if (PlayerControls.Hit(press, Act.GubbleAsk))
             {
-                if (WheelFireArmed) BeginWheelFireHold();
-                else BeginAsk();
+                BeginAsk();
                 GetViewport().SetInputAsHandled();
             }
             else if (PlayerControls.Hit(press, Act.GubbleRecall)) Recall();
             else if (PlayerControls.Hit(press, Act.GubbleStop)) StopGubble();
             else if (SlotPressed(press) is { } slot)
             {
-                // 6 is Fire: its press starts a tap or a drag, its release previews (RoomHud.FireWheel.cs).
+                // 6 is Fire: its press starts a tap or a drag, its release lights it (RoomHud.FireWheel.cs).
                 if (slot == GubbleMagic.FireSlot) FireKeyDown();
                 else CastSlot(slot, AimNow());
             }

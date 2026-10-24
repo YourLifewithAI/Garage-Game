@@ -107,9 +107,9 @@ public partial class RoomHud
         var later = Enumerable.Range(0, Act.GubbleSlots.Length).Where(i => SlotAbility(i) == null).Select(i => K(Act.GubbleSlots[i])).ToArray();
         var parts = new System.Collections.Generic.List<string>();
         if (known.Length > 0) parts.Add($"{string.Join(", ", known)} where you point (it comes closer first if it must; at the sky, on itself)");
-        // Fire's key (decision 77): a tap previews, a hold of the ask lights it, a drag is a Fireline once learned.
+        // Fire's key (decisions 77, 82 and 83): a tap lights it at once, a drag is a Fireline once learned; it burns until it burns out or is Snuffed.
         if (SlotAbility(GubbleMagic.FireSlot) != null && SlotLockedWords(GubbleMagic.FireSlot) == null)
-            parts.Add($"{K(Act.GubbleSlot6)} previews {SlotName(GubbleMagic.FireSlot)} where you point and holding {K(Act.GubbleAsk)} lights it" +
+            parts.Add($"{K(Act.GubbleSlot6)} lights {SlotName(GubbleMagic.FireSlot)} where you point, at once (it burns until it burns out, or Snuff puts it out)" +
                 (Host?.FirelineLearned == true ? $"; hold {K(Act.GubbleSlot6)} and sweep the aim for a Fireline" : ""));
         if (later.Length > 0) parts.Add($"{string.Join("/", later)} magic still to come");
         parts.Add("it floats after you, over water and up cliffs");
@@ -247,9 +247,7 @@ public partial class RoomHud
             _askTag.Visible = false;
             return;
         }
-        // A wheel or key-6 Fire preview waits for the hold (RoomHud.FireWheel.cs): the tag says so, and how far the hold has come.
-        if (WheelFireArmed) _askTag.Text = WheelFireTag();
-        else if (_askAge >= FocusQueryS)
+        if (_askAge >= FocusQueryS)
         {
             _askAge = 0;
             AskPreview = DecideAsk(AimNow());
@@ -316,7 +314,7 @@ public partial class RoomHud
     {
         // A release the window never sees (it lost focus) must not leave the game paused under the wheel, or a drag held.
         if (what == NotificationApplicationFocusOut && _wheel != null && _wheel.Held) CancelAsk();
-        if (what == NotificationApplicationFocusOut) { EndDrag(); EndWheelFireHold(); _fireKeyStart = null; }
+        if (what == NotificationApplicationFocusOut) { EndDrag(); _fireKeyStart = null; }
     }
 
     /// <summary>The smart ask's rule, carried out.</summary>
@@ -374,7 +372,7 @@ public partial class RoomHud
             _cue.Shrug(icon);
             return;
         }
-        // Fire (decision 77): locked until the first rest, the HUD's own words and no command; then a preview, lit by the hold of the ask.
+        // Fire (decision 77): locked until the first rest, the HUD's own words and no command; then lit at once where you point (decision 83).
         if (SlotLockedWords(slot) is { } locked)
         {
             _cue.Shrug(icon, locked);
@@ -405,13 +403,13 @@ public partial class RoomHud
         var host = Host;
         if (host == null) return;
         _cue.Think(GubbleMagic.SlotIcons[slot]);
-        // Fire after the Gubble came closer (UpdateCastAfter): the preview, its line if it was a drag.
+        // Fire after the Gubble came closer (UpdateCastAfter): lit at once, along its line if it was a drag.
         if (ability.Capability == "fire")
         {
             var line = _castAfterLine;
             _castAfterLine = null;
-            if (line is { } drag) PreviewWheelFire(drag.Start, drag.End);
-            else if (point is { } fireAt) PreviewWheelFire(fireAt);
+            if (line is { } drag) LightWheelFire(drag.Start, drag.End);
+            else if (point is { } fireAt) LightWheelFire(fireAt);
             return;
         }
         if (ability.Capability == "grow" && point == null) { _cue.Shrug(GubbleMagic.SlotIcons[slot], "choose a spot to grow"); return; }
