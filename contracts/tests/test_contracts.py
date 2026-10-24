@@ -1824,7 +1824,9 @@ class MechanicsRoundTests(unittest.TestCase):
                          "v5 carries the example pack's blocks (contracts/examples/build_examples.py MECHANICS)")
         traits = self.v5["traits"]
         self.assertEqual(traits["hearts"], {"health_per_quarter": 5, "start_hearts": 5, "cap_hearts": 30, "heal_quarter_every_s": 2.5,
-                                            "heal_after_unharmed_s": 10})
+                                            "heal_after_unharmed_s": 10, "heal_outside_camp": False, "camp_heal_quarter_every_s": 1,
+                                            "heal_while_closed": False},
+                         "decisions 84, 91 and 93: hearts heal only at a camp, a quarter a second there, and not while the game is closed")
         self.assertEqual(traits["harm"], {"fire_quarters_per_s": 1})
         stamina = traits["stamina"]
         self.assertEqual((stamina["start_m"], stamina["band_m"], stamina["bands"], stamina["bands_per_bar"]), (0.4, 0.4, 10, 5))
@@ -1837,7 +1839,7 @@ class MechanicsRoundTests(unittest.TestCase):
         self.assertEqual(traits["pips"], {"start": 8, "expertise_per_pip": 5, "ceiling": 40, "refill_near_every_s": 5,
                                           "refill_near_within_m": 2, "refill_far_every_s": 15, "camp_fraction": 0.5})
         prices = {name: (p["ordered"], round(p["ordered"] * p["own_idea_factor"])) for name, p in self.v5["cost"]["prices"].items()}
-        self.assertEqual(prices, {"glow": (2, 1), "bubbles": (2, 1), "fireworks": (2, 1), "grow": (4, 2), "fire": (6, 3),
+        self.assertEqual(prices, {"glow": (2, 1), "bubbles": (2, 1), "fireworks": (2, 1), "grow": (4, 2), "fire": (2, 1),
                                   "bubble_carry": (4, 2), "bubble_boat": (4, 2), "bubble_lift": (6, 3),
                               "fireline": (8, 4), "snuff": (2, 1), "will_o_wisp": (4, 2)})
         self.assertEqual(self.v5["cost"]["torch_fire"], 0, "decision O")

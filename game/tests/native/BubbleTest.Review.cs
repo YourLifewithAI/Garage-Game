@@ -255,7 +255,7 @@ public partial class BubbleTest
         Wait(61);
         _host.SettleTrust();
         Check(Ok(carry) && Ok(lit) && Ok(led) && hurt && facts.Count == 1 && facts[0]["actor"]?.GetValue<string>() == Companion && facts[0]["pin_m"] != null &&
-              afterHarm == cost && _host.TrustCount == cost && Pips == (paid ? 0 : 2),
+              afterHarm == cost && _host.TrustCount == cost && Pips == (paid ? 4 : 6),
             (paid ? "the Gubble's lead carrying the player, in the carry it paid for, into the player's own fire writes one consequence fact, costs 3 and earns nothing"
                   : "the Gubble's free carry, led (no lift) into the player's own fire, writes the same consequence fact and moves no Trust (decision 69)") +
             $" (hurt {hurt}, {facts.Count} fact, Trust {afterHarm} then {_host.TrustCount}, {Pips} pips): " + Canonical(facts.FirstOrDefault()));

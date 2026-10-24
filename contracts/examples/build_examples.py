@@ -912,7 +912,9 @@ LEAD_SPOT = [1.1, 0.3, 0.2]
 # The design's starting numbers as a rules pack's blocks, exactly as storybook_wild v5 ships them (MechanicsRoundTests).
 MECHANICS = {
     "traits": {
-        "hearts": {"health_per_quarter": 5, "start_hearts": 5, "cap_hearts": 30, "heal_quarter_every_s": 2.5, "heal_after_unharmed_s": 10},
+        "hearts": {"health_per_quarter": 5, "start_hearts": 5, "cap_hearts": 30, "heal_quarter_every_s": 2.5, "heal_after_unharmed_s": 10,
+                   # Decisions 84, 91 and 93 (the second playtest round): hearts heal only at a camp, a quarter a second there, never while closed.
+                   "heal_outside_camp": False, "camp_heal_quarter_every_s": 1, "heal_while_closed": False},
         "harm": {"fire_quarters_per_s": 1},
         "stamina": {"start_m": 0.4, "band_m": 0.4, "bands": 10, "bands_per_bar": 5, "running_m_per_s": 0.02, "refill_m_per_s": 0.1,
                     "deep_water_m_per_s": 0.02, "dive_m_per_s": 0.04, "climb_m_per_bar_m": 1.5, "holding_m_per_s": 0,
@@ -923,7 +925,7 @@ MECHANICS = {
     },
     "cost": {
         "prices": {name: {"ordered": ordered, "own_idea_factor": 0.5} for name, ordered in (
-            ("glow", 2), ("bubbles", 2), ("fireworks", 2), ("grow", 4), ("fire", 6), ("bubble_carry", 4), ("bubble_boat", 4), ("bubble_lift", 6),
+            ("glow", 2), ("bubbles", 2), ("fireworks", 2), ("grow", 4), ("fire", 2), ("bubble_carry", 4), ("bubble_boat", 4), ("bubble_lift", 6),
             # Fire's kinds (decisions 78 to 80): a Fireline 8, a Snuff 2, a Will-o'-wisp 4 when the player orders it, half as the Gubble's idea.
             ("fireline", 8), ("snuff", 2), ("will_o_wisp", 4))},
         "torch_fire": 0,

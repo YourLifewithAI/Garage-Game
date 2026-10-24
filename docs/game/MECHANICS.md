@@ -47,7 +47,7 @@ The menu writes the team file and launches the room with team, island, mode and 
 
 ## 4. The baseline traits
 
-Every starting value is data in the island's **rules pack** (the data file that says what an island allows), in a new optional block defaulting to today's numbers. **Every harm and every heal is counted in quarters of a heart,** rounded at the moment of harm, not on the screen: a quarter is 5 health at base, and the Big heart knack makes a quarter worth more (5.5, then 6), so a tougher character takes fewer quarters from the same fall. A heart is four quarters: 20 health at base. The player starts with 5 hearts (100 health) and may reach 30 (600 health, or 720 with Big heart at full rank). The bar likewise tops out at 4.0 m for everyone, and Big bar at full rank takes it to 4.8 m: that extra is the advantage a player chose (the founder, 15 October), so the contract's bound is 4.8 m only so the advantage can be shown. The maximum, a constant in the code and in the contract today (100 health, 3 m of stamina), becomes a field, and the contract's bounds rise with it. Knockout is all hearts gone, as today. **Fall damage stays in health points,** so more hearts really do survive bigger falls, and the tumble's look (a stumble past 0.30 m, a flop at about 0.5 m, the knockout flop at about 1.6 m, three constants in two files today) keeps its own thresholds in health points (decided: absolute, so hearts count against falls). Healing lands in whole quarters, one every 2.5 s, after 10 s without harm and only on safe ground: today's rule, kept.
+Every starting value is data in the island's **rules pack** (the data file that says what an island allows), in a new optional block defaulting to today's numbers. **Every harm and every heal is counted in quarters of a heart,** rounded at the moment of harm, not on the screen: a quarter is 5 health at base, and the Big heart knack makes a quarter worth more (5.5, then 6), so a tougher character takes fewer quarters from the same fall. A heart is four quarters: 20 health at base. The player starts with 5 hearts (100 health) and may reach 30 (600 health, or 720 with Big heart at full rank). The bar likewise tops out at 4.0 m for everyone, and Big bar at full rank takes it to 4.8 m: that extra is the advantage a player chose (the founder, 15 October), so the contract's bound is 4.8 m only so the advantage can be shown. The maximum, a constant in the code and in the contract today (100 health, 3 m of stamina), becomes a field, and the contract's bounds rise with it. Knockout is all hearts gone, as today. **Fall damage stays in health points,** so more hearts really do survive bigger falls, and the tumble's look (a stumble past 0.30 m, a flop at about 0.5 m, the knockout flop at about 1.6 m, three constants in two files today) keeps its own thresholds in health points (decided: absolute, so hearts count against falls). Healing lands in whole quarters, after 10 s without harm and only on safe ground; since decisions 84 and 91 (17 October) only at a camp, one quarter a second there (five hearts in 20 s), and never away from one; `storybook_wild` v5 carries it as `heal_outside_camp`, `camp_heal_quarter_every_s` and `heal_while_closed`, with packs that name none healing as before (one every 2.5 s anywhere).
 
 | Trait | What it does | Shown as | Start (provisional) | How it grows (provisional) |
 |---|---|---|---|---|
@@ -64,7 +64,7 @@ Every starting value is data in the island's **rules pack** (the data file that 
 
 **Deferred, with ids reserved:** armour; hunger, thirst and sanity; building speed, crops and hitting (their verbs do not exist yet); carry growth; puzzle and combat firsts (section 6); any number for the Gubble, which stays a ghost.
 
-**While the player is away** the world keeps living, as decided: hearts heal and the pool wakes half full, as at camp; the Gubble's cooldown runs out; a Trust window closes.
+**While the player is away** the world keeps living, as decided: the pool wakes half full, as at camp (hearts no longer heal while the game is closed: decision 93, v5's `heal_while_closed` false); the Gubble's cooldown runs out; a Trust window closes.
 
 ## 5. The Gubble connection energy (pips)
 
@@ -78,7 +78,7 @@ Every starting value is data in the island's **rules pack** (the data file that 
 | Bubbles | 2 | 1 |
 | Fireworks | 2 | 1 |
 | Grow (was Bloom; decision 52) | 4 | 2 |
-| Fire | 6 | 3 |
+| Fire | 2 | 1 |
 | Bubble carry (a Bubbles expertise) | 4 | 2 |
 | Bubble boat (a Bubbles expertise; decided 15 October) | 4 | 2 |
 | Bubble lift (a Bubbles expertise) | 6 | 3 |
@@ -302,7 +302,7 @@ Multiplayer is a later phase and out of scope for the engine work now.
 **Decided by the founder on Fire's behaviours (17 October; the integrator's proposal of the same night, built "as planned for now")**:
 
 77. **Fire on the wheel:** key 6 and a ninth wedge just after Fireworks, the other seven keeping their clockwise order. Until the first rest it shows a lock and "Rest by the starting campfire first."; then a tap previews the outlined fire at the aimed spot and a hold lights it, as the Magic panel does. The place decides, as for the Bubble: on an unlit firepit it lights the firepit, on water it makes a Will-o'-wisp, on a fire it is Snuff once learned, dragged it is Fireline once learned, elsewhere plain Fire.
-78. **Fireline:** learned by three Fire casts within 2 minutes, at least 0.5 m apart, whose centres lie along one line; then a drag of up to 3 m is outlined and held to light, the whole line catching at once and spreading within Fire's limits. One fire (one undo in Creative, Fire's guardrails); 8 ordered, 4 as the Gubble's idea.
+78. **Fireline:** learned by three Fire casts within 5 minutes (provisional since 24 October; the design said 2), at least 0.5 m apart, whose centres lie along one line; then a drag of up to 3 m is outlined and held to light, the whole line catching at once and spreading within Fire's limits. One fire (one undo in Creative, Fire's guardrails); 8 ordered, 4 as the Gubble's idea.
 79. **Snuff:** learned by rain falling on a fire the Gubble started, or a Bubble cast on a fire (decision 63); then Fire aimed at something burning puts out everything in its 1.5 m circle, campfires included (decision 73), the ground damp and unable to catch for 30 s. The Gubble's own-idea Snuff of a lit campfire waits for the player's yes (it is the player's camp); a wild fire asks nothing. 2 ordered, 1 as the Gubble's idea.
 80. **Will-o'-wisp:** once Fire is learned, Fire cast on water makes a cold, ghostly flame hovering about 15 cm over the water and drifting slowly, a lantern at night and a floating flame by day; it burns nothing and is not the Gubble's one fire; it lasts 5 minutes, at most 3 at a time, and is not saved, like a bubble. The first one teaches the expertise. 4 ordered, 2 as the Gubble's idea. Fish rising toward it wait (decision 63).
 

@@ -643,6 +643,13 @@ def command_result(e: Ev) -> tuple:
     return (ok if isinstance(ok, bool) else None), clean(result.get("code"), 40), clean(result.get("message"))
 
 
+def command_is_preview(e: Ev) -> bool:
+    """Whether a command was a preview (its result's `preview`, the command's own flag as the host received it): a refused
+    preview, such as the reticle's lead preview the pool cannot pay, is the HUD asking, never a refusal the player met."""
+    result = e.d.get("result")
+    return isinstance(result, dict) and result.get("preview") is True
+
+
 @dataclass
 class Refusal:
     ev: Ev
@@ -660,7 +667,7 @@ def match_refusals(play: Play, stills: list) -> tuple:
     for e in play.timeline:
         if e.kind == "command":
             ok, rcode, message = command_result(e)
-            if ok is False:
+            if ok is False and not command_is_preview(e):
                 refusals.append(Refusal(e, rcode or "(no code)", message))
     notices = [e for e in play.timeline if e.kind == "notice"]
     used: set = set()
@@ -705,10 +712,11 @@ class CommandRow:
     refused: int = 0
     unknown: int = 0
     slowest_ms: float = 0.0
+    previews_refused: int = 0  # refused previews: the HUD asking, never counted as refused
 
     @property
     def total(self) -> int:
-        return self.ok + self.refused + self.unknown
+        return self.ok + self.refused + self.unknown + self.previews_refused
 
 
 def principal_class(value: object) -> str:
@@ -731,6 +739,8 @@ def command_rows(play: Play) -> list:
         ok, _code, _message = command_result(e)
         if ok is True:
             row.ok += 1
+        elif ok is False and command_is_preview(e):
+            row.previews_refused += 1
         elif ok is False:
             row.refused += 1
         else:
@@ -842,7 +852,8 @@ def event_line(e: Ev, base: float) -> str:
     if k == "command":
         ok, rcode, message = command_result(e)
         who, op = code(d.get("principal"), 40), code(op_of(e), 40)
-        outcome = "ok" if ok else (f"refused {code(rcode, 40)} {code(message)}" if ok is False else "result unreadable")
+        refused = "preview refused" if command_is_preview(e) else "refused"
+        outcome = "ok" if ok else (f"{refused} {code(rcode, 40)} {code(message)}" if ok is False else "result unreadable")
         summary = request_summary(d.get("request"), 100)
         ms = num(d.get("ms"))
         return (prefix + f"{who} {op} {outcome}" + (f", asked {code(summary, 100)}" if summary else "") + (f", {ms:.1f} ms" if ms is not None else ""))
@@ -966,11 +977,13 @@ def section_glance(play: Play, stills: list, marks: list, refusals: list, frames
     off, keep = sum(1 for k in marks if k.flag == "off"), sum(1 for k in marks if k.flag == "keep")
     parts = ([f"{off} \"something's off\""] if off else []) + ([f"{keep} \"keep this\""] if keep else []) + ([f"{len(marks) - off - keep} other"] if len(marks) - off - keep else [])
     bullets.append(f"**Marks:** {len(marks)}" + (f" ({', '.join(parts)})" if marks else ""))
+    previews = sum(1 for e in play.timeline if e.kind == "command" and command_result(e)[0] is False and command_is_preview(e))
+    aside = f"; {previews} refused preview{'s' if previews != 1 else ''} not counted (the HUD asking, not a refusal)" if previews else ""
     if refusals:
         hidden = sum(1 for r in refusals if r.notice is None)
-        bullets.append(f"**Refusals:** {len(refusals)}, {len(refusals) - hidden} shown on screen, {hidden} not shown on screen")
+        bullets.append(f"**Refusals:** {len(refusals)}, {len(refusals) - hidden} shown on screen, {hidden} not shown on screen{aside}")
     else:
-        bullets.append("**Refusals:** none")
+        bullets.append("**Refusals:** none" + aside)
     if frames:
         worst = max(frames, key=lambda f: (f.longest_ms, f.mean_ms))
         hitches = sum(1 for f in frames if f.longest_ms > HITCH_MS)
@@ -982,7 +995,7 @@ def section_glance(play: Play, stills: list, marks: list, refusals: list, frames
     sessions = [e for e in play.timeline if e.kind == "session" and e.d.get("state") == "started"]
     companion_commands = [e for e in play.timeline if e.kind == "command" and is_companion(clean(e.d.get("principal"), 40))]
     if sessions or companion_commands:
-        refused = sum(1 for e in companion_commands if command_result(e)[0] is False)
+        refused = sum(1 for e in companion_commands if command_result(e)[0] is False and not command_is_preview(e))
         bullets.append(f"**Companion:** joined {len(sessions)} time{'s' if len(sessions) != 1 else ''}, {len(companion_commands)} commands ({refused} refused)")
     return ["## At a glance", ""] + [f"- {b}" for b in bullets] + [""]
 
@@ -1063,10 +1076,11 @@ def section_commands(play: Play, *_ignored) -> list:
         return out + ["No commands went through the host.", ""]
 
     def render(selected: list) -> list:
-        body = [[code(r.principal, 40), code(r.op, 40), r.total, r.ok, r.refused, f"{r.slowest_ms:.1f}"] for r in selected]
+        body = [[code(r.principal, 40), code(r.op, 40), r.total, r.ok, r.refused, r.previews_refused, f"{r.slowest_ms:.1f}"] for r in selected]
         body.append(["**total**", "", sum(r.total for r in selected), sum(r.ok for r in selected), sum(r.refused for r in selected),
-                     f"{max((r.slowest_ms for r in selected), default=0):.1f}"])
-        return table(["Principal", "Op", "Commands", "OK", "Refused", "Slowest ms"], body, ["---", "---", "---:", "---:", "---:", "---:"])
+                     sum(r.previews_refused for r in selected), f"{max((r.slowest_ms for r in selected), default=0):.1f}"])
+        return table(["Principal", "Op", "Commands", "OK", "Refused", "Refused previews", "Slowest ms"], body,
+                     ["---", "---", "---:", "---:", "---:", "---:", "---:"])
 
     others = [r for r in rows if not is_companion(r.principal)]
     mine = [r for r in rows if is_companion(r.principal)]

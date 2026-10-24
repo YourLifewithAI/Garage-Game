@@ -111,7 +111,7 @@ class OnTheMock(unittest.TestCase):
         """The price is a function of the ability and the principal alone (the mock reads it; M1 charges it)."""
         rules = load_rules(contracts(), rules_path(rules_version=5))
         self.assertEqual(list(inspect.signature(rules.price).parameters), ["capability", "principal"])
-        self.assertEqual((rules.price("fire", PLAYER), rules.price("fire", COMPANION)), (6, 3))
+        self.assertEqual((rules.price("fire", PLAYER), rules.price("fire", COMPANION)), (2, 1))
         for smuggled in ("price", "cost", "ordered", "own_idea_factor", "directed_by", "ordered_by"):
             with self.subTest(field=smuggled):
                 result = self.send(COMPANION, "nature.cast", {"capability": "grow", "center_m": IN_THE_OPEN, "radius_m": 0.25,
