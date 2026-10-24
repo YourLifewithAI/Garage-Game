@@ -5255,7 +5255,7 @@
             "maximum": 1000000
           },
           "fires_put_out": {
-            "description": "1 when the Gubble's fire went out (one fire at a time).",
+            "description": "Retired by decision 82 (24 October): no stop puts a fire out, so the hosts no longer write it; kept so that earlier documents stay valid (it was 1 when the Gubble's fire went out).",
             "type": "integer",
             "minimum": 1,
             "maximum": 1

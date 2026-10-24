@@ -646,7 +646,8 @@ class MagicModesWishesAndNatureTests(unittest.TestCase):
                          self.defs["result"]["properties"]["notices"]["maxItems"])
         self.assertEqual(kernel_set(KERNEL / "CommandHostJournal.cs", "JournalKinds"), set(self.defs["journal_kind"]["enum"]))
         host = (KERNEL / "CommandHost.cs").read_text(encoding="utf-8")
-        self.assertIn('data["fires_put_out"] = 1', host)
+        # Decision 82 (24 October): no stop puts a fire out, so the hosts no longer write fires_put_out (the schema keeps it for older documents).
+        self.assertNotIn('fires_put_out', host)
         self.assertIn('new JsonObject { ["effects_stopped"] = stopped }', host)
         self.assertIn('data["avatars_in_area"] = AvatarsInArea(area, principal);', (KERNEL / "CommandHostNature.cs").read_text(encoding="utf-8"))
 

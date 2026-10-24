@@ -139,7 +139,7 @@ class OnTheMock(unittest.TestCase):
 
 class TheBubbleOnTheMock(unittest.TestCase):
     """The Bubble on the mock (M9 and its follow-up, decisions 55 to 60; no physics: a bubble neither drifts nor deflates, and
-    the kernel suite native_kernel_bubble holds the body's side, the deflate and the lift's rise among it): the place deciding,
+    the kernel suite native_kernel_bubble holds the body's side, the fall out of a bubble and the lift's rise among it): the place deciding,
     one bubble at a time, the room's cap, the Gubble's lead, the security notes' row by name (extended to the lead), and the
     receipt the player marks."""
 

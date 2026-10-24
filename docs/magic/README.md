@@ -157,7 +157,7 @@ Manual direction and future wishes earn exactly the same discoveries for the sam
 
 **Bubbles** (`bubbles`; the founder's redesign of the evening of 15 October, MECHANICS.md decisions 55 to 60): one player-sized bubble cast at a spot, like Glow, and where it lands decides what it does. The list so far:
 
-1. `bubble_carry`, **Bubble carry**: the Bubble cast on the player (the ghost first); learned by the first carry that sets the player down safely, by the player's pop, its timer or its deflate.
+1. `bubble_carry`, **Bubble carry**: the Bubble cast on the player (the ghost first); learned by the first carry that sets the player down safely, by the player's pop or its timer (since decision 88 a pop in the air is a fall, and a fall that hurt sets no one down safely).
 2. `bubble_boat`, **Bubble boat**: the Bubble cast on water becomes a boat; learned by casting it there (the first boat the player steps into).
 3. `bubble_lift`, **Bubble lift**: a bubble led to a higher spot floats up there; learned the first time that works.
 4. and 5. Not chosen yet (candidates: a bubble led all the way to the marked spot without popping; Glow cast on a bubble).
