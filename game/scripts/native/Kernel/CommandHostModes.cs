@@ -433,6 +433,8 @@ public partial class CommandHost
         _recoveredAt = Player.GlobalPosition;
         _fireQuarters = 0;
         _healS = 0;
+        // Waking at camp is no rest (decision 84), even where the player last sat: they wake with half the hearts and sit down again to heal.
+        _resting = false;
         MakeRecoverySafe(Player.GlobalPosition);
         _vitalsDirty = true;
         return true;

@@ -800,14 +800,26 @@ public partial class CommandHost
         var changed = Nature.Step(NatureLaws.StepS, Sample, NatureFireproof, Active);
         changed |= BurnNatureObjects(NatureLaws.StepS);
         changed |= BurnPlants(NatureLaws.StepS);
-        if (Player != null && IsInstanceValid(Player) && Nature.Cells.Values.Any(c => c.BurningS > 0 && c.Position.DistanceTo(Player.GlobalPosition) < NatureLaws.PlayerBurnM))
+        if (Player != null && IsInstanceValid(Player))
         {
             var at = Player.GlobalPosition;
-            var source = Nature.Fire ?? fire;
-            if (BurnPlayer(NatureLaws.StepS) is { } harm && source != null)
+            var inCells = Nature.Cells.Values.Any(c => c.BurningS > 0 && c.Position.DistanceTo(at) < NatureLaws.PlayerBurnM);
+            // Decision 85: a lit campfire hurts a player standing in its flames as any fire does, at the same quarter a second (one burn a
+            // step however many fires reach them); the resting spot beside it is safe (CampLaws.FlamesM). A campfire is the player's camp,
+            // no fire of the Gubble's: its harm is no consequence of the Gubble's, unless its lead carried the player into it (NoteLeadHarm).
+            var inCampfire = !inCells && CampfireFlamesAt(at) != null;
+            if (inCells || inCampfire)
             {
-                NoteFireHarm(source, harm, at);
-                MarkFireHarm(source);
+                var source = Nature.Fire ?? fire;
+                if (BurnPlayer(NatureLaws.StepS) is { } harm)
+                {
+                    if (inCells && source != null)
+                    {
+                        NoteFireHarm(source, harm, at);
+                        MarkFireHarm(source);
+                    }
+                    else if (inCampfire) NoteLeadHarm(at);
+                }
             }
         }
         SeeCompanionFire();

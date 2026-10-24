@@ -28,6 +28,14 @@ public static class CampLaws
     public const float RestRadiusM = 0.3f;
     public const float RestRiseM = 0.15f;
     /// <summary>
+    /// A lit campfire's flames (decision 85: it hurts a player standing in it, as any fire does, at the pack's fire quarters a second): a
+    /// body whose feet stand within this of its centre (the look's 4.5 cm ring of stones, CampfireLook.RingRadiusM, and half a stone), at
+    /// most FlamesRiseM above its ground (over the flames, a hop included) and RestRiseM below. Everywhere else within RestRadiusM is the
+    /// resting spot beside it, which is safe: the rest key never sits a body down in the flames (PlayerRest). Provisional.
+    /// </summary>
+    public const float FlamesM = 0.05f;
+    public const float FlamesRiseM = 0.08f;
+    /// <summary>
     /// The island's land for the firepits (decision 74): standable dry ground probed on a grid this fine, each point standing for
     /// this step squared of land; the candidates are those points, never within FirepitFractalClearM of a Fractal.
     /// </summary>
@@ -166,18 +174,24 @@ public static class CampLaws
 /// (CampLaws.SpreadFirepits), as many as its area asks. Unlit at first; a Fire cast on one lights it (LightFirepit, from CastFire) and
 /// it is a campfire from then on, saved with the island (with its spot: a saved firepit whose spot moved is unlit, and the island
 /// loads); the first one lit teaches Campfire.</item>
-/// <item><b>Only rain or Snuff puts a campfire out</b> (73): rain on a lit campfire for CampLaws.RainOutS puts it out (StepCampfireRain);
-/// the X stop never does; Snuff, a later packet, calls PutOutCampfire. A campfire that is out is no camp until the Gubble's Fire
+/// <item><b>Only rain or Snuff puts a campfire out</b> (73, and 82 for every fire): rain on a lit campfire for CampLaws.RainOutS puts it
+/// out (StepCampfireRain); the X stop never does; Snuff calls PutOutCampfire. A campfire that is out is no camp until the Gubble's Fire
 /// relights it, on the firepit path, the starting campfire included. Until the team has learned Fire nothing could relight the starting
 /// campfire, so until then rain spares it (the integrator's provisional choice). Out and lit are saved with the island.</item>
 /// <item><b>No Fire until the first rest</b> (72): a Fire cast, whoever asks and in every mode, is refused until the team's store holds
 /// first_fire (RequireFireLearned).</item>
 /// <item><b>A lit campfire is a full camp</b> (71): PlayerAtCamp is true within CampRadiusM of the starting camp (while its campfire
-/// burns) or of any lit campfire, so Fractals are spent and knacks chosen there; hearts heal there at the pack's camp pace (v5: a quarter
-/// a second, decision 91; CampHeartsFactor times faster by default) and, under v5, nowhere else (84; HealQuarterEveryHereS); and the
-/// campfire the player last sat at is the camp they wake at (a knockout's recovery lands there, with the pool at least half full).</item>
+/// burns) or of any lit campfire, so Fractals are spent and knacks chosen there; and the campfire the player last sat at is the camp they
+/// wake at (a knockout's recovery lands there, with half the hearts and the pool at least half full).</item>
+/// <item><b>Resting heals</b> (84, 91): under a pack that heals hearts only at camp (v5, heal_outside_camp false) hearts heal only while
+/// the player rests, sitting by a lit campfire (PlayerResting), at the pack's camp pace (a quarter a second); standing at the camp heals
+/// nothing. A pack that heals outside a camp (every pack before decision 84) heals as before: its pace anywhere, its camp pace at a camp
+/// (HealQuarterEveryHereS). Nothing heals while the game is closed under v5 (93, CaughtUp); food waits for D1.</item>
+/// <item><b>A campfire's flames hurt</b> (85): a player standing in a lit campfire (CampLaws.FlamesM) is hurt as by any fire, at the pack's
+/// fire quarters a second, in Challenge and Live (CampfireFlamesAt, from the nature step); the resting spot beside it is safe.</item>
 /// <item><b>Resting is sitting down by a fire</b> (70): PlayerRest, the HUD's rest key, within RestRadiusM of a lit campfire, on the
-/// ground. The first rest at the starting campfire teaches Fire (61), once per team. The host verifies it from the body itself.</item>
+/// ground, out of its flames. The first rest at the starting campfire teaches Fire (61), once per team. The host verifies it from the body
+/// itself. PlayerCanRest answers the same without sitting down, for the HUD's prompt.</item>
 /// <item><b>The start spot</b> (49): the island save's team block keeps where the player and the Gubble last stood, one spot per mode
 /// (the block "camp"); a spot that is not safe ground (water, mid-air, inside something) falls back to the starting campfire, and the
 /// first load of an island starts there. The island's clock record (x_clock) is kept in the same block's neighbour, "clock".</item>
@@ -189,6 +203,8 @@ public partial class CommandHost
     public const string RestOnGround = "Stand on the ground by the fire to sit down.";
     public const string RestUnlit = "This firepit is not lit yet: ask the Gubble to cast Fire on it.";
     public const string RestOut = "This campfire is out: ask the Gubble to relight it.";
+    /// <summary>Decision 85: the player stands in the campfire's flames, which hurt; the resting spot is beside it.</summary>
+    public const string RestInFlames = "You are standing in the fire: step out of the flames to sit down beside it.";
     /// <summary>Decision 72's refusal (permission_denied, as the fifth light's lock on Constellation's controls): the companion's mock says the same.</summary>
     public const string FireNotLearned = "The Gubble has not learned Fire yet: rest by the starting campfire first.";
 
@@ -401,13 +417,34 @@ public partial class CommandHost
     }
 
     /// <summary>
-    /// Seconds per quarter of a heart healed where the player stands now, hearts in quarters (the pack's traits.hearts; decisions 84
-    /// and 91): the camp's pace at a camp (camp_heal_quarter_every_s, 1 s in v5; by default heal_quarter_every_s / CampHeartsFactor,
-    /// decision 62's), heal_quarter_every_s elsewhere, or null where the pack heals hearts only at camp (heal_outside_camp false, v5).
-    /// P1's resting (sitting, the campfire's harm, food) builds on it; this only reads the rates.
+    /// Seconds per quarter of a heart healed where the player is now, hearts in quarters (the pack's traits.hearts; decisions 84 and 91),
+    /// or null where nothing heals. Under a pack that heals only at camp (heal_outside_camp false, v5) the player heals only while resting,
+    /// sat by a lit campfire (PlayerResting, decision 70's rest): at the camp's pace (camp_heal_quarter_every_s, a quarter a second in v5);
+    /// standing at the camp, or anywhere else, heals nothing. A pack that heals outside a camp heals as before: the camp's pace at a camp
+    /// (by default heal_quarter_every_s / CampHeartsFactor, decision 62's), heal_quarter_every_s elsewhere. Food (D1) adds its own heal later.
     /// </summary>
-    internal double? HealQuarterEveryHereS() =>
-        PlayerAtCamp() ? _vitalsRules.CampHealQuarterEveryS : _vitalsRules.HealsOutsideCamp ? _vitalsRules.HealQuarterEveryS : null;
+    internal double? HealQuarterEveryHereS()
+    {
+        if (_vitalsRules.HealsOutsideCamp) return PlayerAtCamp() ? _vitalsRules.CampHealQuarterEveryS : _vitalsRules.HealQuarterEveryS;
+        return PlayerResting && PlayerAtCamp() ? _vitalsRules.CampHealQuarterEveryS : null;
+    }
+
+    /// <summary>
+    /// The lit campfire whose flames these feet stand in (decision 85; CampLaws.FlamesM, FlamesRiseM), or null. Allocates nothing once the
+    /// camps are known (the nature step asks it every step).
+    /// </summary>
+    internal CampSite? CampfireFlamesAt(Vector3 feet)
+    {
+        if (Room == null || !feet.IsFinite()) return null;
+        var camps = EnsureCamps();
+        for (var i = 0; i < camps.Count; i++)
+        {
+            var camp = camps[i];
+            var rise = feet.Y - camp.PositionM.Y;
+            if (CampLaws.Flat(feet, camp.PositionM) <= CampLaws.FlamesM && rise <= CampLaws.FlamesRiseM && rise >= -CampLaws.RestRiseM && IsCampfireLit(camp.Id)) return camp;
+        }
+        return null;
+    }
 
     private CampSite? NearestCampfire(Vector3 at, float within, bool litOnly)
     {
@@ -427,17 +464,16 @@ public partial class CommandHost
     // ---- resting: sitting down by a fire (decision 70) ----
 
     /// <summary>
-    /// The player's rest key: sit down by a lit campfire. The host checks the body itself (on the ground, not swimming, within
-    /// RestRadiusM of a lit campfire). The first rest at the starting campfire teaches Fire, once per team (RecordExpertise); the
-    /// campfire becomes the camp the player wakes at. Not a command in the contract: a trusted HUD call, never on the companion's surface.
+    /// The player's rest key: sit down by a lit campfire. The host checks the body itself (RestCheck: on the ground, not swimming, within
+    /// RestRadiusM of a lit campfire, out of its flames). The first rest at the starting campfire teaches Fire, once per team
+    /// (RecordExpertise); the campfire becomes the camp the player wakes at; and while the player sits there hearts heal at the camp's
+    /// pace (HealQuarterEveryHereS, decision 84). Not a command in the contract: a trusted HUD call, never on the companion's surface.
     /// </summary>
     public RestOutcome PlayerRest()
     {
-        if (Player == null || !IsInstanceValid(Player) || Room == null) return new(false, "There is no one here to sit down.");
-        if (!Player.IsOnFloor() || Player.IsSwimming) return new(false, RestOnGround);
-        var at = Player.GlobalPosition;
-        if (NearestCampfire(at, CampLaws.RestRadiusM, litOnly: true) is not { } campfire)
-            return new(false, NearestCampfire(at, CampLaws.RestRadiusM, litOnly: false) is { } dark ? IsCampfireOut(dark.Id) ? RestOut : RestUnlit : RestNearFire);
+        var check = RestCheck(out var campfire);
+        if (!check.Ok || campfire == null) return check;
+        var at = Player!.GlobalPosition;
         _resting = true;
         _restAt = at;
         var learned = campfire.Starting && RecordExpertise(ExpertiseLists.Fire, ExpertiseLists.FirstFire);
@@ -448,6 +484,30 @@ public partial class CommandHost
         if (newCamp) NoteCampChanged();
         var words = campfire.Starting ? "You sit down by the campfire and rest." : "You sit down by the campfire and rest. This is your camp now: you will wake here.";
         return new(true, words, campfire.Id, learned, newCamp);
+    }
+
+    /// <summary>
+    /// Whether the rest key would sit the player down here now, and the words it would say, without sitting them down or changing anything
+    /// (the HUD's prompt at the fire, decision 86): the same checks as PlayerRest. Ok carries the campfire and no words (the prompt's words
+    /// are the HUD's); a refusal carries the words PlayerRest would answer, and the campfire when one is near.
+    /// </summary>
+    public RestOutcome PlayerCanRest() => RestCheck(out _);
+
+    /// <summary>
+    /// The rest key's checks, from the body itself: on the ground, not swimming, within RestRadiusM of a lit campfire, and out of its flames
+    /// (decision 85: the resting spot beside it is safe, so no one sits down in the fire). The campfire, or the refusal's words.
+    /// </summary>
+    private RestOutcome RestCheck(out CampSite? campfire)
+    {
+        campfire = null;
+        if (Player == null || !IsInstanceValid(Player) || Room == null) return new(false, "There is no one here to sit down.");
+        if (!Player.IsOnFloor() || Player.IsSwimming) return new(false, RestOnGround);
+        var at = Player.GlobalPosition;
+        if (NearestCampfire(at, CampLaws.RestRadiusM, litOnly: true) is not { } lit)
+            return new(false, NearestCampfire(at, CampLaws.RestRadiusM, litOnly: false) is { } dark ? IsCampfireOut(dark.Id) ? RestOut : RestUnlit : RestNearFire);
+        if (CampfireFlamesAt(at) != null) return new(false, RestInFlames, lit.Id);
+        campfire = lit;
+        return new(true, "", lit.Id);
     }
 
     /// <summary>The player stands up (any key that moves them does it too, by moving the body).</summary>

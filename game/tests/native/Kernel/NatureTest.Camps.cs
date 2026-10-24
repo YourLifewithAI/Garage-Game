@@ -29,6 +29,84 @@ public partial class NatureTest
         await TestFireLock();
         await TestCampfireRain();
         await TestFirepitSpotsSaved();
+        await TestCampfireHurts();
+        await TestRestingHeals();
+    }
+
+    /// <summary>
+    /// Decision 85 (the second recorded play: "The campfire doesn't hurt the player when they stand over it. It should hurt them."): a lit
+    /// campfire hurts a player standing in its flames as any fire does, a quarter a second under v5 in Challenge; the resting spot beside it
+    /// is safe, the rest key never sits anyone down in the flames, a campfire that is out hurts no one, and in Creative nothing hurts.
+    /// </summary>
+    private async Task TestCampfireHurts()
+    {
+        await NewWorld(SavePath("camp-flames"), challenge: true);
+        var fire = _host.StartingCampfire!.PositionM;
+        var spawn = _room.SpawnFor("player").PositionM;
+        Check(_player.TryTeleportTo(fire + new Vector3(0.01f, 0.005f, 0)) && _host.CampfireFlamesAt(_player.GlobalPosition)?.Id == CampLaws.StartingId,
+            "(the player stands in the starting campfire's flames)");
+        await Frames(3);
+        var before = _host.Vitals.Health;
+        Steps(1);
+        var half = _host.Vitals.Health;
+        Steps(1);
+        var one = _host.Vitals.Health;
+        Steps(2);
+        Check(before == 100 && half == 100 && one == 95 && _host.Vitals.Health == 90 && _host.LastDamageSource == PlayerDamageSource.Fire,
+            $"standing in a lit campfire hurts as any fire does, a quarter a second ({before}, {half}, {one}, {_host.Vitals.Health})");
+        var inFlames = _host.PlayerRest();
+        var canRest = _host.PlayerCanRest();
+        Check(!inFlames.Ok && inFlames.Words == CommandHost.RestInFlames && !_host.PlayerResting && !canRest.Ok && canRest.Words == CommandHost.RestInFlames,
+            "the rest key never sits the player down in the flames: " + inFlames.Words);
+        // The resting spot beside it is safe: the spawn, 0.2 m from the fire, and anywhere out of its flames.
+        Check(_player.TryTeleportTo(spawn) && _host.CampfireFlamesAt(_player.GlobalPosition) == null, "(the player steps back to the resting spot)");
+        await Frames(3);
+        var beside = _host.Vitals.Health;
+        var sit = _host.PlayerRest();
+        Steps(8);
+        Check(sit.Ok && _host.PlayerResting && _host.Vitals.Health == beside, $"the resting spot beside it is safe: sitting there 4 s costs nothing ({beside}, {_host.Vitals.Health})");
+        Check(_player.TryTeleportTo(fire + new Vector3(CampLaws.FlamesM + 0.02f, 0.005f, 0)), "(the player stands just outside the ring of stones)");
+        await Frames(3);
+        var edge = _host.Vitals.Health;
+        Steps(4);
+        Check(_host.Vitals.Health == edge, $"just outside the flames ({CampLaws.FlamesM + 0.02f:0.00} m from the centre) nothing burns ({edge}, {_host.Vitals.Health})");
+        // A campfire that is out burns no one.
+        Check(_host.PutOutCampfire(CampLaws.StartingId) && _player.TryTeleportTo(fire + new Vector3(0.01f, 0.005f, 0)), "(rain puts the campfire out; the player stands on its logs)");
+        await Frames(3);
+        var dark = _host.Vitals.Health;
+        Steps(4);
+        Check(_host.Vitals.Health == dark && _host.CampfireFlamesAt(_player.GlobalPosition) == null, $"a campfire that is out hurts no one ({dark}, {_host.Vitals.Health})");
+        // Creative: nothing hurts.
+        await NewWorld(SavePath("camp-flames-creative"));
+        Check(_player.TryTeleportTo(_host.StartingCampfire!.PositionM + new Vector3(0.01f, 0.005f, 0)), "(in Creative, the player stands in the campfire)");
+        await Frames(3);
+        Steps(6);
+        Check(_host.Vitals.Health == 100, $"in Creative the campfire hurts no one ({_host.Vitals.Health})");
+    }
+
+    /// <summary>
+    /// Decision 84 under v5 (heal_outside_camp false; decisions 91 and 93): hearts heal only while the player rests, sitting by a lit
+    /// campfire, a quarter a second after the unharmed wait; standing at the camp heals nothing, nor does standing up, walking away, or the
+    /// campfire going out under them; a knockout wakes at camp with half the hearts, not resting.
+    /// </summary>
+    private async Task TestRestingHeals()
+    {
+        await NewWorld(SavePath("camp-heal"), challenge: true);
+        var spawn = _room.SpawnFor("player").PositionM;
+        Check(_player.TryTeleportTo(spawn) && _host.PlayerAtCamp(), "(the player stands at the camp)");
+        await Frames(3);
+        _host.ApplyPlayerDamage(_host.Vitals.Health - 5, PlayerDamageSource.Fall);
+        for (var i = 0; i < 30; i++) _player.VitalsTick!(1f, true);
+        var standing = _host.Vitals.Health;
+        var sat = _host.PlayerRest();
+        for (var i = 0; i < 4; i++) _player.VitalsTick!(1f, true);
+        var rested = _host.Vitals.Health;
+        Check(standing == 5 && sat.Ok && _host.PlayerResting && rested == 25,
+            $"half a minute standing at the camp heals nothing; sitting down by the fire, four seconds heal four quarters ({standing}, then {rested})");
+        // The campfire going out under them ends the rest: no camp, no heal.
+        Check(_host.PutOutCampfire(CampLaws.StartingId) && !_host.PlayerResting, "(rain puts the campfire out: the player is no longer resting)");
+        for (var i = 0; i < 5; i++) _player.VitalsTick!(1f, true);
+        Check(_host.Vitals.Health == 25 && _host.HealQuarterEveryHereS() == null, $"a campfire that is out heals no one sitting by it ({_host.Vitals.Health})");
     }
 
     /// <summary>Spread checks on made-up land (decision 74), each named: every land point within this of a site (the starting campfire or a firepit)...</summary>
@@ -183,9 +261,10 @@ public partial class NatureTest
             "the Gubble's Fire cast on the firepit lights it, one durable revision, and nothing else catches: " + (lit["error"]?["message"]?.GetValue<string>() ?? ""));
         Check(_host.GlowProgress.Has(ExpertiseLists.Fire, ExpertiseLists.Campfire) && store.Saves == 1, "the first firepit lit teaches Campfire");
         // A lit campfire is a full camp: the camp's spends and knacks (PlayerAtCamp), its hearts' pace, and the camp the player wakes at.
-        Check(_host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == 1, "beside the lit campfire the player is at a camp, and hearts heal there, a quarter a second (v5, decision 91)");
+        Check(_host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == null, "beside the lit campfire the player is at a camp, where hearts heal only once they sit down (v5, decision 84)");
         var rest = _host.PlayerRest();
-        Check(rest.Ok && rest.NewCamp && _host.HomeCamp == "firepit:1" && !rest.LearnedFire, "sitting by it makes it the player's camp: " + rest.Words);
+        Check(rest.Ok && rest.NewCamp && _host.HomeCamp == "firepit:1" && !rest.LearnedFire && _host.HealQuarterEveryHereS() == 1,
+            "sitting by it makes it the player's camp, and hearts heal there while they rest, a quarter a second (v5, decision 91): " + rest.Words);
         var sat = _player.GlobalPosition;
         Check(_player.TryTeleportTo(spawn) && _player.RecoverAtSpawn() && CampLaws.Flat(_player.GlobalPosition, sat) < 0.05f, "and a knockout's recovery wakes the player there");
         // Lit campfires are saved with the island.
