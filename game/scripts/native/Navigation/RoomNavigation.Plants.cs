@@ -55,9 +55,8 @@ public partial class RoomNavigation
     /// <summary>The copy an id names when it obstructs (a tree, or a solid copy with a hull), else null.</summary>
     private (PlantSet Set, int Row)? ObstructingCopy(string id)
     {
-        if (_obstructing.TryGetValue(id, out var known)) return known;
         if (Room?.Copies is not { } copies) return null;
-        // Only an id of an obstructing set is read (exactly, as the room reads ids); grass and flowers are told apart by their prefix.
+        // Only an id of an obstructing set is read (exactly, as the room reads ids); grass and flowers are told apart by their prefix, with no lookup.
         if (_obstructingPrefixes == null)
         {
             var prefixes = new List<string>();
@@ -69,6 +68,7 @@ public partial class RoomNavigation
         foreach (var prefix in _obstructingPrefixes)
             if (id.StartsWith(prefix, StringComparison.Ordinal)) { named = true; break; }
         if (!named) return null;
+        if (_obstructing.TryGetValue(id, out var known)) return known;
         (PlantSet, int)? found = copies.TryResolve(id, out var set, out var row) && Obstructs(set) ? (set, row) : null;
         _obstructing[id] = found;
         return found;
@@ -88,21 +88,21 @@ public partial class RoomNavigation
         var started = Stopwatch.GetTimestamp();
         try
         {
+            // The trees and solid copies among the plants nature keeps at other than their natural size (grass and flowers are left at once).
             _plantScratch.Clear();
-            foreach (var (id, plant) in _nature.Nature.Plants)
-                if (plant.Shown != 1f) _plantScratch[id] = plant.Shown;
-            var obstructing = 0;
             var differs = false;
-            foreach (var (id, factor) in _plantScratch)
+            foreach (var (id, plant) in _nature.Nature.Plants)
             {
-                if (ObstructingCopy(id) == null) continue;
-                obstructing++;
-                if (!_plantsSeen.TryGetValue(id, out var was) || was.Factor != factor) differs = true;
+                if (plant.Shown == 1f || ObstructingCopy(id) == null) continue;
+                _plantScratch[id] = plant.Shown;
+                if (!differs && (!_plantsSeen.TryGetValue(id, out var was) || was.Factor != plant.Shown)) differs = true;
             }
-            if (!differs && obstructing == _plantsSeen.Count) return false;
-            var next = new Dictionary<string, PlantSize>(obstructing, StringComparer.Ordinal);
+            if (!differs && _plantScratch.Count == _plantsSeen.Count) return false;
+            // A tree whose size did not change keeps its record (a bake after one tree changed makes one).
+            var next = new Dictionary<string, PlantSize>(_plantScratch.Count, StringComparer.Ordinal);
             foreach (var (id, factor) in _plantScratch)
-                if (ObstructingCopy(id) is { } copy) next[id] = new PlantSize(id, copy.Set, copy.Row, factor);
+                if (_plantsSeen.TryGetValue(id, out var kept) && kept.Factor == factor) next[id] = kept;
+                else if (ObstructingCopy(id) is { } copy) next[id] = new PlantSize(id, copy.Set, copy.Row, factor);
             var marked = 0;
             foreach (var (id, size) in next)
                 if (!_plantsSeen.TryGetValue(id, out var was) || was.Factor != size.Factor) { MarkPlantDirty(size, was?.Factor ?? 1f); marked++; }
