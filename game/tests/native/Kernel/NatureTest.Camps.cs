@@ -29,6 +29,8 @@ public partial class NatureTest
         await TestFireLock();
         await TestCampfireRain();
         await TestFirepitSpotsSaved();
+        // The generator's firepits (NatureTest.Firepits.cs): the manifest's x_firepits, checked on the island, the spread filling in.
+        await TestManifestFirepits();
         await TestCampfireHurts();
         await TestRestingHeals();
     }
@@ -363,8 +365,9 @@ public partial class NatureTest
     }
 
     /// <summary>
-    /// Decision 74's saves: a lit firepit keeps its id while its spot is the same (the spot is saved beside it); one whose spot moved is
-    /// unlit and the island loads; a save written before the change (no spots) is matched by the old rule's spots (the test room has none).
+    /// Decision 74's saves: a lit firepit keeps its id while its spot is the same (the spot is saved beside it); where the island's own
+    /// firepit of that id moved, the saved spot wins (no save changes meaning) and the island loads; a save written before the change (no
+    /// spots) is matched by the old rule's spots (the test room has none, so its firepits are unlit).
     /// </summary>
     private async Task TestFirepitSpotsSaved()
     {
@@ -382,7 +385,10 @@ public partial class NatureTest
         Check(camp["pits_m"]?["firepit:1"] is JsonArray && camp["pits_m"]?["firepit:2"] is JsonArray, "each lit firepit's spot is saved beside it");
         await NewWorld(SavePath("camp-moved"));
         _host.FirepitsForTests = new[] { pits[0] + new Vector3(0.5f, 0, 0), pits[1] };
-        Check(!_host.IsCampfireLit("firepit:1") && _host.IsCampfireLit("firepit:2"), "a lit firepit whose spot moved is unlit and the island loads; one whose spot is the same keeps its id, lit");
+        var one = _host.CampSites.FirstOrDefault(c => c.Id == "firepit:1");
+        Check(_host.IsCampfireLit("firepit:1") && one != null && one.PositionM.DistanceTo(pits[0]) < 0.01f && _host.IsCampfireLit("firepit:2") &&
+              !_host.CampSites.Any(c => c.PositionM.DistanceTo(pits[0] + new Vector3(0.5f, 0, 0)) < 0.01f),
+            "a lit firepit whose island spot moved keeps its saved spot, lit (the save wins over the spread), and the island loads; one whose spot is the same keeps its id, lit");
         camp.Remove("pits_m");
         await NewWorld(SavePath("camp-older"));
         _host.FirepitsForTests = pits;

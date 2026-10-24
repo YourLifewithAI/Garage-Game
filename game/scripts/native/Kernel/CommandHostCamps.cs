@@ -8,7 +8,7 @@ using GarageGame.Native.Room;
 
 namespace GarageGame.Native.Kernel;
 
-/// <summary>A campfire's spot (bottom centre, on the ground): the island's starting campfire, or a firepit the kernel chose.</summary>
+/// <summary>A campfire's spot (bottom centre, on the ground): the island's starting campfire, or a firepit (the manifest's, or the kernel's spread).</summary>
 public sealed record CampSite(string Id, Vector3 PositionM, bool Starting);
 
 /// <summary>What sitting down by a fire answered: whether the player sits, the words, the campfire, and what it taught or changed.</summary>
@@ -47,8 +47,19 @@ public static class CampLaws
     public const int MaxFirepitsByArea = 12;
     /// <summary>Lloyd's relaxation of the farthest-point seed over the land: this many rounds of moving each firepit to its share's centre.</summary>
     public const int SpreadIterations = 24;
-    /// <summary>A saved lit (or put out) firepit keeps its id while its spot moved less than this; past it, it is unlit and the island loads.</summary>
+    /// <summary>
+    /// A saved lit (or put out) firepit is this island's firepit of its id while their spots are this close; past it, the saved spot
+    /// wins (the island save's meaning never changes) while a body still stands on it, else the firepit is unlit and the island loads.
+    /// </summary>
     public const float SameSpotM = 0.05f;
+    /// <summary>
+    /// Two campfires nearer than this would share a resting spot (twice RestRadiusM): a manifest's firepit this near the starting
+    /// campfire or one kept before it is left out, and so is a firepit this near a saved spot that won.
+    /// </summary>
+    public const float SameCampM = 2 * RestRadiusM;
+    /// <summary>A manifest's firepit (or a saved spot) stands on the island's ground within this of its height (probed from FirepitProbeM above it).</summary>
+    public const float FirepitGroundM = 0.1f;
+    public const float FirepitProbeM = 0.25f;
     /// <summary>The rule before decision 74 (farthest-point sampling from the bench Fractals, then a 3 m grid), kept only to read a save written then.</summary>
     public const int LegacyFirepitCount = 6;
     public const float LegacyFirepitSpacingM = 4f;
@@ -82,12 +93,21 @@ public static class CampLaws
     /// (firepit:1, firepit:2, ...) are stable for an island on every load and machine. The count follows the land's area
     /// (FirepitCountFor, each sample standing for cellAreaM2), at most the candidates there are.
     /// </summary>
-    public static List<Vector3> SpreadFirepits(Vector3 start, IReadOnlyList<Vector3> land, IReadOnlyList<Vector3> candidates, float cellAreaM2)
+    public static List<Vector3> SpreadFirepits(Vector3 start, IReadOnlyList<Vector3> land, IReadOnlyList<Vector3> candidates, float cellAreaM2) =>
+        SpreadFirepits(start, land, candidates, FirepitCountFor(land.Count * cellAreaM2), Array.Empty<Vector3>());
+
+    /// <summary>
+    /// The same spread for <paramref name="count"/> firepits among sites already standing (<paramref name="fixedSites"/>: the
+    /// manifest's firepits that checked, whose left-out places these fill): the seeds keep farthest from them as from the starting
+    /// campfire, and they hold their share of the land as it does. With no fixed sites it is decision 74's rule above, exactly.
+    /// </summary>
+    public static List<Vector3> SpreadFirepits(Vector3 start, IReadOnlyList<Vector3> land, IReadOnlyList<Vector3> candidates, int count, IReadOnlyList<Vector3> fixedSites)
     {
-        var count = Math.Min(FirepitCountFor(land.Count * cellAreaM2), candidates.Count);
+        count = Math.Min(count, candidates.Count);
         if (count <= 0) return new List<Vector3>();
-        var sites = LegacyChooseFirepits(start, candidates, count, 0).Select(p => new Vector2(p.X, p.Z)).ToList();
+        var sites = LegacyChooseFirepits(start, candidates, count, 0, fixedSites).Select(p => new Vector2(p.X, p.Z)).ToList();
         var origin = new Vector2(start.X, start.Z);
+        var held = fixedSites.Select(p => new Vector2(p.X, p.Z)).ToList();
         var share = new int[land.Count];
         for (var round = 0; round <= SpreadIterations; round++)
         {
@@ -98,6 +118,7 @@ public static class CampLaws
                 var at = new Vector2(land[i].X, land[i].Z);
                 var best = -1;
                 var bestDistance = at.DistanceSquaredTo(origin);
+                foreach (var site in held) bestDistance = Math.Min(bestDistance, at.DistanceSquaredTo(site));
                 for (var s = 0; s < sites.Count; s++)
                 {
                     var distance = at.DistanceSquaredTo(sites[s]);
@@ -137,10 +158,11 @@ public static class CampLaws
     /// <summary>
     /// Farthest-point sampling from the starting campfire: each pick is the candidate farthest (on the ground plane) from the starting
     /// campfire and every pick so far, the first listed on a tie; it stops at <paramref name="count"/> or when the farthest left is
-    /// nearer than <paramref name="spacing"/>. SpreadFirepits' seed; before decision 74 it was the whole rule (read now only for a save
-    /// written then, LegacyFirepitSpots), which pushed the firepits to the island's edges.
+    /// nearer than <paramref name="spacing"/>. SpreadFirepits' seed (<paramref name="taken"/>: sites already standing, kept as far
+    /// from as the starting campfire); before decision 74 it was the whole rule (read now only for a save written then,
+    /// LegacyFirepitSpots), which pushed the firepits to the island's edges.
     /// </summary>
-    public static List<Vector3> LegacyChooseFirepits(Vector3 start, IReadOnlyList<Vector3> candidates, int count, float spacing)
+    public static List<Vector3> LegacyChooseFirepits(Vector3 start, IReadOnlyList<Vector3> candidates, int count, float spacing, IReadOnlyList<Vector3>? taken = null)
     {
         var chosen = new List<Vector3>();
         var left = candidates.ToList();
@@ -151,6 +173,7 @@ public static class CampLaws
             for (var i = 0; i < left.Count; i++)
             {
                 var nearest = Flat(left[i], start);
+                if (taken != null) foreach (var site in taken) nearest = Math.Min(nearest, Flat(left[i], site));
                 foreach (var pick in chosen) nearest = Math.Min(nearest, Flat(left[i], pick));
                 if (nearest > best) { best = nearest; at = i; }
             }
@@ -169,11 +192,13 @@ public static class CampLaws
 /// <list type="bullet">
 /// <item><b>The starting campfire</b> (61): every island has one, CampLaws.StartingFireAheadM in front of the player's spawn, lit from
 /// the start for now (the opening scene will put it out and have the Gubble relight it). The camp is where it burns.</item>
-/// <item><b>Firepits</b> (62, 74): spread evenly over any island by the kernel, without a generator change: the island's standable dry
-/// land probed on a FirepitGridStepM grid, the firepits at the candidates nearest the centres of a centroidal split of that land
-/// (CampLaws.SpreadFirepits), as many as its area asks. Unlit at first; a Fire cast on one lights it (LightFirepit, from CastFire) and
-/// it is a campfire from then on, saved with the island (with its spot: a saved firepit whose spot moved is unlit, and the island
-/// loads); the first one lit teaches Campfire.</item>
+/// <item><b>Firepits</b> (62, 74): spread evenly over any island. The generator chooses them where it can (the manifest's x_firepits,
+/// read and checked on the island by CommandHostFirepits: an entry that does not check is left out and the spread below fills its
+/// place); a manifest without them (every room exported before it, the test room) has the kernel's own spread: the island's
+/// standable dry land probed on a FirepitGridStepM grid, the firepits at the candidates nearest the centres of a centroidal split of
+/// that land (CampLaws.SpreadFirepits), as many as its area asks. Unlit at first; a Fire cast on one lights it (LightFirepit, from
+/// CastFire) and it is a campfire from then on, saved with the island with its spot, and the saved spot wins over the manifest's and
+/// the spread's (no save changes meaning) while a body still stands on it; the first one lit teaches Campfire.</item>
 /// <item><b>Only rain or Snuff puts a campfire out</b> (73, and 82 for every fire): rain on a lit campfire for CampLaws.RainOutS puts it
 /// out (StepCampfireRain); the X stop never does; Snuff calls PutOutCampfire. A campfire that is out is no camp until the Gubble's Fire
 /// relights it, on the firepit path, the starting campfire included. Until the team has learned Fire nothing could relight the starting
@@ -308,44 +333,79 @@ public partial class CommandHost
         var camps = new List<CampSite> { new(CampLaws.StartingId, start, true) };
         // Before the room has physics only the starting campfire is known (not kept: the firepits are probed once it can be).
         if (!IsInsideTree()) return camps;
-        IReadOnlyList<Vector3> pits;
-        if (_firepitsForTests != null) pits = _firepitsForTests;
+        List<(int Number, Vector3 Spot)> pits;
+        var (land, candidates) = FirepitLand(CampLaws.FirepitGridStepM, out var fractals);
+        _campLandM2 = land.Count * CampLaws.FirepitGridStepM * CampLaws.FirepitGridStepM;
+        _campLand = land;
+        if (_firepitsForTests != null)
+        {
+            pits = _firepitsForTests.Select((p, i) => (i + 1, p)).ToList();
+            _campSource = "the test seam";
+        }
+        else if (ManifestFirepits is { } listed)
+        {
+            // The generator's firepits (decision 74, CommandHostFirepits): each checked on the island, a left-out one's place filled by the spread.
+            pits = IslandFirepits(listed, start, land, candidates);
+            _campSource = $"the manifest ({pits.Count} for its {listed.Count})";
+        }
         else
         {
-            var (land, candidates) = FirepitLand(CampLaws.FirepitGridStepM, out var fractals);
-            _campLandM2 = land.Count * CampLaws.FirepitGridStepM * CampLaws.FirepitGridStepM;
-            _campLand = land;
             pits = CampLaws.SpreadFirepits(start, land, candidates.Where(c => fractals.All(f => CampLaws.Flat(c, f) >= CampLaws.FirepitFractalClearM)).ToList(),
-                CampLaws.FirepitGridStepM * CampLaws.FirepitGridStepM);
+                CampLaws.FirepitGridStepM * CampLaws.FirepitGridStepM).Select((p, i) => (i + 1, p)).ToList();
+            _campSource = "the kernel's spread";
         }
-        for (var i = 0; i < pits.Count && i < CampLaws.MaxFirepits; i++) camps.Add(new CampSite(CampLaws.FirepitPrefix + (i + 1), pits[i], false));
+        foreach (var (number, spot) in pits.Where(p => p.Number <= CampLaws.MaxFirepits)) camps.Add(new CampSite(CampLaws.FirepitPrefix + number, spot, false));
         _camps = camps;
         ResolveSavedPits(camps, start);
         return camps;
     }
 
     /// <summary>
-    /// A saved camp block's firepits matched to this island's (once the room has physics): each lit or put-out firepit keeps its id while
-    /// its saved spot (or, for a save written before decision 74, the spot the old rule gave it) is within CampLaws.SameSpotM of this
-    /// island's firepit of that id; one whose spot moved is unlit (forgotten), with the home camp if it was that one, and the island loads.
+    /// A saved camp block's firepits matched to this island's (once the room has physics): each lit or put-out firepit keeps its id and
+    /// its saved spot (or, for a save written before decision 74, the spot the old rule gave it). Where this island's firepit of that id
+    /// stands within CampLaws.SameSpotM of it, they are one; elsewhere the saved spot wins over the manifest's and the spread's (so no save
+    /// changes meaning) while a body still stands on it (FirepitGround), and a firepit of the island's own within CampLaws.SameCampM of a
+    /// saved spot that won is left out. One whose saved spot is no longer standable ground, or that has no spot, is unlit (forgotten),
+    /// with the home camp if it was that one, and the island loads.
     /// </summary>
     private void ResolveSavedPits(List<CampSite> camps, Vector3 start)
     {
         if (_savedPits is not { } saved) return;
         _savedPits = null;
         var legacy = saved.Spots == null && saved.Lit.Concat(saved.Out).Any(id => id != CampLaws.StartingId) ? LegacyFirepitSpots(start) : null;
+        var won = new List<Vector3>();
         bool Kept(string id)
         {
             if (id == CampLaws.StartingId) return true;
-            var site = camps.FirstOrDefault(c => c.Id == id);
+            var index = camps.FindIndex(c => c.Id == id);
             var number = int.Parse(id[CampLaws.FirepitPrefix.Length..], System.Globalization.CultureInfo.InvariantCulture);
             Vector3? spot = saved.Spots != null ? saved.Spots.GetValueOrDefault(id) : legacy != null && number <= legacy.Count ? legacy[number - 1] : null;
-            var kept = site != null && spot is { } at && site.PositionM.DistanceTo(at) <= CampLaws.SameSpotM;
-            if (!kept) GD.Print($"CAMP saved {id} no longer stands where it was saved: it is unlit");
-            return kept;
+            if (spot is not { } at)
+            {
+                GD.Print($"CAMP saved {id} has no spot of its own on this island: it is unlit");
+                return false;
+            }
+            if (index >= 0 && camps[index].PositionM.DistanceTo(at) <= CampLaws.SameSpotM) return true;
+            if (FirepitGround(at) == null)
+            {
+                GD.Print($"CAMP saved {id} no longer stands on the island's ground where it was saved: it is unlit");
+                return false;
+            }
+            // The saved spot wins: the island save said a campfire burns there, and it still does.
+            var site = new CampSite(id, at, false);
+            if (index >= 0) camps[index] = site;
+            else camps.Add(site);
+            won.Add(at);
+            GD.Print(System.FormattableString.Invariant($"CAMP saved {id} keeps its saved spot ({at.X:0.00}, {at.Y:0.00}, {at.Z:0.00}) over the island's own"));
+            return true;
         }
-        foreach (var id in saved.Lit.Where(Kept)) _litCampfires.Add(id);
-        foreach (var id in saved.Out.Where(Kept)) _outCampfires.Add(id);
+        var lit = saved.Lit.Where(Kept).ToList();
+        var dark = saved.Out.Where(Kept).ToList();
+        var savedIds = lit.Concat(dark).ToHashSet(StringComparer.Ordinal);
+        if (won.Count > 0)
+            camps.RemoveAll(c => !c.Starting && !savedIds.Contains(c.Id) && won.Any(w => CampLaws.Flat(c.PositionM, w) < CampLaws.SameCampM));
+        foreach (var id in lit) _litCampfires.Add(id);
+        foreach (var id in dark) _outCampfires.Add(id);
         if (_homeCamp != null && _homeCamp != CampLaws.StartingId && !_litCampfires.Contains(_homeCamp) && !_outCampfires.Contains(_homeCamp))
         {
             _homeCamp = null;
@@ -381,6 +441,7 @@ public partial class CommandHost
     {
         var land = new List<Vector3>();
         fractals = AllFractals.Select(f => f.PositionM).ToList();
+        if (_firepitLandForTests != null) return (_firepitLandForTests.ToList(), _firepitLandForTests.ToList());
         if (Room.Terrain == null && Room.Sea == null) return (land, land);
         var bounds = Room.Bounds;
         for (var x = bounds.Position.X + step * 0.5f; x < bounds.End.X; x += step)
@@ -677,9 +738,9 @@ public partial class CommandHost
         _spotNoted = Player.LastSafePosition;
         var camps = EnsureCamps();
         var nearest = camps.SelectMany((a, i) => camps.Skip(i + 1).Select(b => CampLaws.Flat(a.PositionM, b.PositionM))).DefaultIfEmpty(0).Min();
-        var cover = _campLand.Select(p => camps.Min(c => CampLaws.Flat(p, c.PositionM))).DefaultIfEmpty(0).Max();
-        GD.Print(System.FormattableString.Invariant($"CAMP start spot {placed} ({Mode}); campfires {camps.Count} ({camps.Count(c => IsCampfireLit(c.Id))} lit, {_outCampfires.Count} out) ") +
-            System.FormattableString.Invariant($"over {_campLandM2:0} m2 of land, the nearest two {nearest:0.0} m apart, every land point within {cover:0.0} m of one: ") +
+        var (cover, farthest) = _campLand.Select(p => (camps.Min(c => CampLaws.Flat(p, c.PositionM)), p)).DefaultIfEmpty((0f, Vector3.Zero)).MaxBy(f => f.Item1);
+        GD.Print(System.FormattableString.Invariant($"CAMP start spot {placed} ({Mode}); campfires {camps.Count} ({camps.Count(c => IsCampfireLit(c.Id))} lit, {_outCampfires.Count} out; firepits from {_campSource}) ") +
+            System.FormattableString.Invariant($"over {_campLandM2:0} m2 of land, the nearest two {nearest:0.0} m apart, every land point within {cover:0.0} m of one (the farthest at ({farthest.X:0.0}, {farthest.Y:0.00}, {farthest.Z:0.0})): ") +
             string.Join(", ", camps.Select(c => System.FormattableString.Invariant($"{c.Id} ({c.PositionM.X:0.0}, {c.PositionM.Y:0.00}, {c.PositionM.Z:0.0})"))));
         return placed;
     }
