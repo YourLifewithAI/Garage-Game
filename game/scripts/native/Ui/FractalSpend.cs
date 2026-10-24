@@ -6,7 +6,8 @@ namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// Spending Fractals at will (docs/game/MECHANICS.md section 6 and decision 41, the founder on 15 October): the player's own
-/// fractal.spend, with no key of its own. The journal's Character page shows the Fractals in hand and, at the camp, two buttons,
+/// fractal.spend, with no key of its own. The camp's screen (sitting by a campfire, decision 87) and the journal's Character page show the
+/// Fractals in hand and, at the camp, two buttons,
 /// "A new heart" and "The next band", each with its price; away from the camp it says to go back; a short hint points to the
 /// journal when the player stands at the camp with enough in hand. Everything here is read from the host (its rules, the body, the
 /// camp) and the one thing it does is the player's command through the host's one path (CommandHost.PlayerSpendFractals); the
@@ -48,9 +49,9 @@ public static class FractalSpend
     public static bool CanAfford(CommandHost host) =>
         OfferFor(host, HeartGrow) is { Affordable: true } || OfferFor(host, BandGrow) is { Affordable: true };
 
-    /// <summary>The short hint: the Fractals in hand, and where to spend them.</summary>
-    public static string HintWords(CommandHost host, string journalKey) =>
-        $"You have {host.Vitals.Fractals.Unspent} {MeterWords.Name(host, "fractals")}! Open the journal ({journalKey}) and turn to {JournalPages.Character} to grow a heart or the next band.";
+    /// <summary>The short hint: the Fractals in hand, and where to spend them (the camp's screen when you sit, decision 87, or the journal).</summary>
+    public static string HintWords(CommandHost host, string journalKey, string sitKey) =>
+        $"You have {host.Vitals.Fractals.Unspent} {MeterWords.Name(host, "fractals")}! Sit by the campfire ({sitKey}) to spend them on a heart or the next band, or open the journal ({journalKey}) at {JournalPages.Character}.";
 
     /// <summary>
     /// The Fractals section of the Character page: what is in hand and a picture of the way to the next spend, then at the camp

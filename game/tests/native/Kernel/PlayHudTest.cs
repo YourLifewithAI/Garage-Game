@@ -131,6 +131,8 @@ public partial class PlayHudTest : Node
             await TestCampHud();
             // E, the one interaction key, and its prompt (PlayHudTest.Interact.cs).
             await TestInteractKey();
+            // The camp's screen: sitting opens it (PlayHudTest.CampScreen.cs).
+            await TestCampScreen();
             // The Fire behaviours packet (PlayHudTest.FireBehaviours.cs): Fractals collected by touch, the Magic panel's key, Fire on the wheel.
             await TestFractalTouch();
             await TestMagicKey();

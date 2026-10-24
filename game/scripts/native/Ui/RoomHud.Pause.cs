@@ -291,7 +291,8 @@ public partial class RoomHud
 
     /// <summary>
     /// The first Esc (decision 97): lets go of whatever the player is in the middle of, as Esc always did: the settings and the Magic
-    /// panel, a look drag, key 6 held for a Fireline, the bubble the smart ask chose. True when something was let go; false when nothing
+    /// panel, a look drag, key 6 held for a Fireline, the bubble the smart ask chose; then the sit by the fire with its camp (a panel over
+    /// the camp closes first, so the next Esc stands you up). True when something was let go; false when nothing
     /// was going on, and the Esc is the menu's. (The wheel, a spot being chosen, the Gubble's eyes and the journal take their Esc earlier.)
     /// </summary>
     private bool CancelWhatIsGoingOn()
@@ -302,6 +303,8 @@ public partial class RoomHud
         if (_drag.Pressed) { EndDrag(); going = true; }
         if (_fireKeyStart != null) { _fireKeyStart = null; going = true; }
         if (SelectedBubble != null) { ClearBubbleSelection(); going = true; }
+        // Sitting by the fire with the camp open: the first Esc stands you up and closes it (RoomHud.CampScreen.cs).
+        if (!going && _sitting) { RestKey(); going = true; }
         return going;
     }
 }

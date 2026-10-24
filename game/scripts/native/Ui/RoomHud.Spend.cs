@@ -79,7 +79,7 @@ public partial class RoomHud
         // A held island's notice says why it is held (RoomHud._Process); nothing is said over it.
         if (JournalOpen || host.IslandHeld) return;
         SpendHintCount++;
-        _noticeText = SpendHint = FractalSpend.HintWords(host, K(Act.Journal));
+        _noticeText = SpendHint = FractalSpend.HintWords(host, K(Act.Journal), K(Act.Interact));
     }
 
     // ---- the journal's pulse (decision 53) ----

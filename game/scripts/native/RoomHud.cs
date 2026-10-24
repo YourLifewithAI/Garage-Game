@@ -337,6 +337,8 @@ public partial class RoomHud : CanvasLayer
         BuildGubbleControls(compactTheme);
         BuildSwimHint(compactTheme);
         BuildMagicPanel(actions, _statusLines, theme);
+        // The camp's screen, where the Magic panel opens, under the journal (RoomHud.CampScreen.cs).
+        BuildCampScreen(theme);
         // The settings read last in the status lines, under the mode line the Magic panel's builder added (RoomHud.Screen.cs).
         BuildSettingsLine(_statusLines);
         // The journal last: the book opens over everything else on screen (RoomHud.Journal.cs). Then the eye icon above its dock,
@@ -691,7 +693,10 @@ public partial class RoomHud : CanvasLayer
         // An island held because its mode could not be set (M3's fix round) says why, once, without waiting for a refused change.
         if (Host is { IslandHeld: true, TeamNotice: { Length: > 0 } heldWords } && !ReferenceEquals(heldWords, _teamNoticeShown)) _noticeText = _teamNoticeShown = heldWords;
         // The notice under the reticle, fading after about four seconds (RoomHud.Notice.cs).
+        PromptCost.CloseFrame();
+        var noticeStart = PromptCost.Begin();
         UpdateNotice(delta);
+        PromptCost.End(noticeStart, PromptCost.Piece.Notice);
         UpdateFocus(delta);
         // Fractals are collected by walking into them (RoomHud.Pickup.cs).
         UpdatePickup(delta);
@@ -758,12 +763,16 @@ public partial class RoomHud : CanvasLayer
                 _focusId = focus.Id ?? "";
                 _focusKernelTag = focus.Tag ?? "";
                 // E's prompt (RoomHud.Interact.cs), asked at the focus's pace: on the focus tag when E works on the thing it lights.
+                var decideStart = PromptCost.Begin();
                 _interact = DecideInteract(host, focus);
+                PromptCost.End(decideStart, PromptCost.Piece.Decide);
                 SetFocus(string.IsNullOrEmpty(focus.Id) ? null : host.ObjectNodeOf(focus.Id), focus.Box, _interact.OnFocus ? _interact.Words : _focusKernelTag);
             }
         }
         PlaceFocusTag();
+        var promptStart = PromptCost.Begin();
         PlaceInteractPrompt();
+        PromptCost.End(promptStart, PromptCost.Piece.Prompt);
     }
 
     private void SetFocus(Node3D? node, Aabb box, string tag)

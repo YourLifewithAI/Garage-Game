@@ -277,24 +277,7 @@ public static class JournalPages
     private static JournalPage AbilitiesPage(CommandHost host)
     {
         var lines = new List<JournalLine> { Heading($"{CompanionName(host)}'s magic here") };
-        if (host.Rules is not { } rules) lines.Add(Text("This island's magic is not ready yet."));
-        else
-            foreach (var ability in rules.Abilities)
-            {
-                var slot = Array.IndexOf(GubbleMagic.SlotCategories, ability.Category);
-                var name = KernelJson.DisplayText(ability.DisplayName, 24);
-                lines.Add(Title(slot >= 0 && slot < Act.GubbleSlots.Length ? $"{K(Act.GubbleSlots[slot])} · {name}" : $"{name} · in the Magic panel"));
-                lines.Add(Text(AbilityWords(ability)));
-                // Decision 72: Fire is listed, locked, until the first rest by the starting campfire teaches it.
-                if (ability.Primitive == "element.ignite" && !host.FireLearned) lines.Add(Faint(FireLocked));
-                var limit = host.EffectiveEffectLimit(ability.Capability);
-                lines.Add(Faint($"Reaches {Distance(ability.ReachM)} from the Gubble · {(limit == 1 ? "one at a time" : $"up to {limit} at once")}"));
-                // What it costs you in pips (the ordered price: the player's order, never a field).
-                if (host.PriceFor(ability.Capability, CommandHost.PlayerPrincipal) is > 0 and var cost)
-                    lines.Add(Faint($"Costs {cost} {MeterWords.Counted(host, "pips", cost)}"));
-                if (ability.Category == "light" && host.GlowProgress.Discoveries.Count > 0)
-                    lines.Add(Faint("Learned together: " + string.Join(", ", GlowDiscoveries.Where(d => host.GlowProgress.HasDiscovery(d.Id)).Select(d => d.Title))));
-            }
+        lines.AddRange(AbilityLines(host));
         lines.Add(Heading("Asking the Gubble"));
         lines.Add(Text($"{K(Act.GubbleAsk)}: ask for what fits where you point · hold it for the magic wheel"));
         lines.Add(Text($"{K(Act.GubbleAsk)} on a bubble chooses it, then on a spot leads it there · a higher spot lifts it · {K(Act.MouseRelease)} lets it go"));
@@ -308,6 +291,35 @@ public static class JournalPages
         var home = host.Player is { } body && GodotObject.IsInstanceValid(body) ? body.HomeName : "the start";
         lines.Add(Text($"{K(Act.BodyHome)} back to {home} · {K(Act.BodyRecover)} recover"));
         return new(lines, false, "Keys as your controls have them now.");
+    }
+
+    /// <summary>
+    /// The island's abilities as the Abilities page lists them (the camp's Magic page reads the same): each by its key and name, what it
+    /// does, Fire's lock until the first rest, its reach and limit, and its price to the player. The island's rules pack and the host only.
+    /// </summary>
+    public static IEnumerable<JournalLine> AbilityLines(CommandHost host)
+    {
+        if (host.Rules is not { } rules)
+        {
+            yield return Text("This island's magic is not ready yet.");
+            yield break;
+        }
+        foreach (var ability in rules.Abilities)
+        {
+            var slot = Array.IndexOf(GubbleMagic.SlotCategories, ability.Category);
+            var name = KernelJson.DisplayText(ability.DisplayName, 24);
+            yield return Title(slot >= 0 && slot < Act.GubbleSlots.Length ? $"{K(Act.GubbleSlots[slot])} · {name}" : $"{name} · in the Magic panel");
+            yield return Text(AbilityWords(ability));
+            // Decision 72: Fire is listed, locked, until the first rest by the starting campfire teaches it.
+            if (ability.Primitive == "element.ignite" && !host.FireLearned) yield return Faint(FireLocked);
+            var limit = host.EffectiveEffectLimit(ability.Capability);
+            yield return Faint($"Reaches {Distance(ability.ReachM)} from the Gubble · {(limit == 1 ? "one at a time" : $"up to {limit} at once")}");
+            // What it costs you in pips (the ordered price: the player's order, never a field).
+            if (host.PriceFor(ability.Capability, CommandHost.PlayerPrincipal) is > 0 and var cost)
+                yield return Faint($"Costs {cost} {MeterWords.Counted(host, "pips", cost)}");
+            if (ability.Category == "light" && host.GlowProgress.Discoveries.Count > 0)
+                yield return Faint("Learned together: " + string.Join(", ", GlowDiscoveries.Where(d => host.GlowProgress.HasDiscovery(d.Id)).Select(d => d.Title)));
+        }
     }
 
     /// <summary>What an ability does, from its engine primitive and where it may land (its targets): only what the game does.</summary>
