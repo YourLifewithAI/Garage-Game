@@ -150,9 +150,8 @@ class GlowAndModes(unittest.TestCase):
                 result = self.cast(point=IN_THE_OPEN, variant=variant)
                 self.assertEqual(result["error"]["code"], "unavailable")
                 self.assertIn("needs the game itself", result["error"]["message"])
+        # Nature is hosted by the mock since the nature packet (test_nature.py); the wish queue still needs the game.
         messages = [
-            ("nature.cast", {"capability": "grow", "center_m": IN_THE_OPEN, "radius_m": 0.25, "duration_s": 30}),
-            ("nature.repair", {"target": "creation:unbuilt"}),
             ("wish.submit", {"text": "Help me make a garden"}),
             ("wish.stop", {}),
         ]
@@ -162,9 +161,7 @@ class GlowAndModes(unittest.TestCase):
                 result = self.send(op, args)
                 self.assertEqual(result["error"]["code"], "unavailable", result)
                 self.assertIn("needs the game itself", result["error"]["message"])
-        for op in ("nature.describe", "wishes.read"):
-            result = self.host.handle(PLAYER, query(op, {}))
-            self.assertEqual(result["error"]["code"], "unavailable")
+        self.assertEqual(self.host.handle(PLAYER, query("wishes.read", {}))["error"]["code"], "unavailable")
         self.assertEqual(self.host.handle(COMPANION, query("wishes.read", {}))["error"]["code"], "permission_denied")
         self.assertEqual((self.host.revision, len(self.host.receipts), len(self.host.transient)), before)
         self.assertEqual(self.host.glow_progress.discoveries, set())
@@ -180,9 +177,9 @@ def outcome(result: dict):
 
 
 class NatureInTheMock(unittest.TestCase):
-    """The mock does not simulate nature yet (contracts/README.md "Nature"): it checks the nature commands as the kernel does
-    before its nature runs (CommandHostNature.CheckNatureArgs; the expectations; a companion's repair target in sight), then
-    answers unavailable. room.undo, with no nature change to take back, answers as the kernel does for any other change."""
+    """The nature commands' arguments as the kernel checks them (CommandHostNature.CheckNatureArgs; the expectations; a companion's
+    repair target in sight), and room.undo of a change that is no nature change, answered as the kernel answers it. What nature
+    itself does on the mock is test_nature.py's."""
 
     BLOOM = {"capability": "grow", "center_m": IN_THE_OPEN, "radius_m": 0.25, "duration_s": 30}
 
@@ -220,21 +217,19 @@ class NatureInTheMock(unittest.TestCase):
             with self.subTest(label):
                 self.assertEqual(self.send(op, args, **options), expected)
 
-    def test_valid_nature_commands_are_unavailable_and_change_nothing(self):
-        # Decision 72: Fire is valid only once the team has learned it (the kernel's first rest; the mock host's own learn_fire).
+    def test_refused_nature_commands_change_nothing(self):
+        """Grow where no plant grows, the retired trail and a repair of a build that is not there are refused as the kernel refuses
+        them, and nothing moves: no revision, no receipt."""
         self.host.learn_fire()
         before = (self.host.revision, len(self.host.receipts), len(self.host.transient))
-        fire = {**self.BLOOM, "capability": "fire"}
-        for op, args, options in (("nature.cast", self.BLOOM, {}), ("nature.cast", fire, {"preview": True}),
+        for op, args, options in (("nature.cast", self.BLOOM, {}), ("nature.cast", self.BLOOM, {"preview": True}),
                                   ("nature.trail", {"enabled": False}, {}), ("nature.repair", {"target": "creation:unbuilt"}, {})):
             for principal in (PLAYER, COMPANION):
                 with self.subTest(op=op, principal=principal, **options):
-                    unseen = op == "nature.repair" and principal == COMPANION
-                    # The flower trail went with Bloom (decision 52): refused in the kernel's words, never unavailable.
-                    expected = (("target_not_found", "$.args.target") if unseen else ("unsupported_capability", "$.op") if op == "nature.trail"
-                                else ("unavailable", "$.op"))
+                    expected = (("target_not_found", "$.args.target") if op == "nature.repair" else ("unsupported_capability", "$.op")
+                                if op == "nature.trail" else ("invalid_args", "$.args.center_m"))
                     self.assertEqual(self.send(op, args, principal, **options), expected)
-        self.assertEqual(outcome(self.host.handle(COMPANION, query("nature.describe", {}))), ("unavailable", "$.op"))
+        self.assertEqual(outcome(self.host.handle(COMPANION, query("nature.describe", {}))), "ok")
         self.assertEqual((self.host.revision, len(self.host.receipts), len(self.host.transient)), before)
 
     def test_undo_takes_back_only_nature_changes_so_here_nothing(self):
