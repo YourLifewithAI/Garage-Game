@@ -130,7 +130,7 @@ The generator already plants by these rules:
 | **Conifers** | Ridges, high ground and shade, below the treeline (about 14.5 m) | A little slower | Catch easily, burn hot | Owls roost in them | Climb; gather cones and wood |
 | **Shrubs** | Grove edges, banks | About a day | Medium | Cover for rabbits; berries for foxes | Hide; gather berries; a soft landing |
 | **Grass** | Wherever soil gets light, on slopes under about 34° | Minutes from ash (built) | Fastest when dry and gold | Rabbits graze it | The fire's road when dry |
-| **Flowers** | Morning sun, open meadow | Minutes (Bloom is built) | Light fuel | Rabbits eat them | Pick; Bloom |
+| **Flowers** | Morning sun, open meadow | Minutes (Bloom is built) | Light fuel | Rabbits eat them | Pick; Bloom (Bloom is Grow since decision 52) |
 | **Heather** | High, dry tops | Days from ash | Burns hot | Cover | Walk through |
 | **Ferns** | Shade, damp | Often first back after fire | Dry in autumn | Cover | Hide |
 | **Reeds** | Where feet get wet | Quick | Barely | Fish shelter below | Hide; a soft landing |
