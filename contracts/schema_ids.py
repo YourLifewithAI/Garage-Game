@@ -56,6 +56,11 @@ IDS: dict[str, tuple[str, str]] = {
     # The landscape package (pipeline/landscape/harness), which its owners move to the new id.
     "landscape": ("garage_game.landscape", "enfractal.landscape"),
     "landscape.render-receipt": ("garage_game.landscape.render-receipt", "enfractal.landscape.render-receipt"),
+    # Other owners' files, named in the rename's change requests: the Look lane's review cameras, the recipe runner's
+    # receipt, the painterly art's metadata (whose committed v1 assets keep the old id).
+    "look_review_cameras": ("garage_game.look_review_cameras", "enfractal.look_review_cameras"),
+    "recipe_receipt": ("garage_game.recipe_receipt", "enfractal.recipe_receipt"),
+    "art.asset.v1": ("garage_game.art.asset.v1", "enfractal.art.asset.v1"),
 }
 
 # Names that are not schema ids but carry the game's name inside a data format, written new and read either way.
