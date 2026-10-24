@@ -26,8 +26,11 @@ namespace GarageGame.Native.Kernel;
 ///   only once they walk in. A boat holds them once they step aboard, and an empty bubble or boat never moves under or onto them.
 /// - The exit: the dive key (the body) or X (the player's goal.stop) pops it at any moment, whoever cast it and whoever leads it;
 ///   leaving a boat by the dive key or by walking off its rim. Nothing the companion sends can hold a player in.
-/// - The deflate: a bubble that pops in the air, by the player, its timer or anything else, lets the body down slowly (the body's
-///   ride, SmallPlayerController.Bubble.cs), so a carry never ends in a fall, and Lift rises anywhere.
+/// - Out of a bubble is a fall (decision 88, replacing 43's and 60's deflate): a bubble that pops in the air, by the player, its timer,
+///   the Gubble or anything else, leaves the body falling from where it is (the body's ride, SmallPlayerController.Bubble.cs), hurt by the
+///   landing as by any fall (decision 24), a climbable face within reach grabbed as from a jump. When the Gubble popped it by its own
+///   action (BubbleEnd.PoppedByGubble) and the fall hurts the player, that is a consequence fact that costs Trust (decision 96,
+///   CommandHostConsequences.NotePopFall); the timer's pop and the player's own never are. In Creative nothing hurts.
 /// - Moving: a bubble moves only while the Gubble leads it (goal.set lead, decision 57), like a balloon on a string; it moves the
 ///   player only while it holds them. A bubble that holds the player rises to its hover; it keeps its height otherwise, rising
 ///   ground lifting it at most BubbleLaws.DriftStepM: only a lift (a lead to a higher spot, paid at the rise) raises it.
@@ -57,8 +60,10 @@ public partial class CommandHost
     /// <summary>A ghost preview of a carry on the player: whose, for exactly which cast, when made, until when.</summary>
     private sealed record BubbleGhost(string Principal, string Signature, Vector3 Center, float Radius, DateTime Made, DateTime Expires);
     private readonly Dictionary<string, BubbleGhost> _bubbleGhosts = new(StringComparer.Ordinal);
-    /// <summary>A carry that held the player ended: the carry is learned once the body is down (OnBubbleLearned).</summary>
+    /// <summary>A carry that held the player ended: the carry is learned once the body is down (OnBubbleLearned), unless the fall hurt.</summary>
     private bool _carrySetDownPending;
+    /// <summary>The fall after that carry's end hurt the player (ObservePlayerFall): it did not set them down safely.</summary>
+    private bool _carryFallHurt;
     private Func<SmallPlayerController.BubbleHold?>? _priorBubbleHold;
     private Action<bool>? _priorBubbleLeft;
     private bool _bubblesBound;
@@ -349,12 +354,15 @@ public partial class CommandHost
 
     /// <summary>
     /// A new bubble: round the player (a carry on them), on the water (a boat), or resting at its point waiting for the walk-in. One at
-    /// a time: whatever bubble was there pops first (decision 59), its body deflating if it held the player.
+    /// a time: whatever bubble was there pops first (decision 59), the body it held falling from there (decision 88); a recast of the
+    /// Gubble's is its own pop (decision 96).
     /// </summary>
     private Bubble FormBubble(string capability, BubbleKind kind, string op, string principal, string action, string fingerprint, string? target, Vector3 center,
         float radius, float duration, float? surface)
     {
-        for (var i = _bubbles.Count - 1; i >= 0; i--) EndBubble(_bubbles[i], BubbleEnd.Popped);
+        for (var i = _bubbles.Count - 1; i >= 0; i--) EndBubble(_bubbles[i], principal == CompanionPrincipal ? BubbleEnd.PoppedByGubble : BubbleEnd.Popped);
+        // A carry round the player holds them from its cast: a fall still pending from an earlier pop has ended in this bubble.
+        if (target != null) ForgetPopFall();
         var body = Player!;
         var sweep = SweepRadius(body);
         var at = kind == BubbleKind.Boat ? new Vector3(center.X, surface!.Value + BubbleLaws.BoatDeckAboveWaterM, center.Z)
@@ -485,7 +493,7 @@ public partial class CommandHost
     /// <summary>
     /// The body left the bubble that held it (SmallPlayerController.BubbleLeft): by the dive key or a trip home (byKey), which pops a
     /// carry as the player's own pop, even mid-lead, and steps off a boat; or by walking off a boat's rim, which leaves the boat
-    /// floating. Either way the body deflates if it is in the air. The dive key also turns away any ghost round them.
+    /// floating. Either way the body falls if it is in the air (decision 88). The dive key also turns away any ghost round them.
     /// </summary>
     private void PlayerLeftBubble(bool byKey)
     {
@@ -504,7 +512,8 @@ public partial class CommandHost
 
     /// <summary>
     /// goal.stop of the Gubble and effect.stop: the bubbles this principal may stop (the player any, X among them; a companion its
-    /// own), one by id or all. The player's stop also turns away every ghost round them. Returns the ids popped.
+    /// own, by its own action: decision 96), one by id or all. The player's stop also turns away every ghost round them. Returns the ids
+    /// popped.
     /// </summary>
     private List<string> PopBubbles(string principal, string which)
     {
@@ -520,7 +529,7 @@ public partial class CommandHost
             var bubble = _bubbles[i];
             if ((!player && bubble.Principal != principal) || (which != "all" && bubble.Id != which)) continue;
             popped.Add(bubble.Id);
-            EndBubble(bubble, player ? BubbleEnd.PoppedByPlayer : BubbleEnd.Popped);
+            EndBubble(bubble, player ? BubbleEnd.PoppedByPlayer : principal == CompanionPrincipal ? BubbleEnd.PoppedByGubble : BubbleEnd.Popped);
         }
         popped.Reverse();
         return popped;
@@ -528,12 +537,19 @@ public partial class CommandHost
 
     /// <summary>
     /// A bubble ends: its receipt says how, a lead taking it somewhere ends with it (it popped before it got there), the look lets it
-    /// go, and a body it held deflates (the body sees no hold).
+    /// go, and a body it held falls from there (the body sees no hold; decision 88). A carry the Gubble popped by its own action while
+    /// it held the player leaves that fall pending: if its landing hurts, that is the Gubble's consequence (NotePopFall, decision 96).
     /// </summary>
     private void EndBubble(Bubble bubble, BubbleEnd end)
     {
         if (!_bubbles.Remove(bubble)) return;
-        if (bubble.Kind == BubbleKind.Carry && bubble.Holding) _carrySetDownPending = true;
+        if (bubble.Kind == BubbleKind.Carry && bubble.Holding)
+        {
+            _carrySetDownPending = true;
+            _carryFallHurt = false;
+            if (end == BubbleEnd.PoppedByGubble) NotePopFallPending();
+            else ForgetPopFall();
+        }
         bubble.Holding = false;
         UpdateBubbleReceipt(bubble, "ended", Bubble.EndWord(end));
         if (bubble.Lead is { } lead) EndLead(bubble, lead, Bubble.EndWord(end), new Refusal("target_not_found", LeadPoppedWords, "$.args.target"));
@@ -606,10 +622,21 @@ public partial class CommandHost
         var body = Player != null && IsInstanceValid(Player) && Player.IsInsideTree() ? Player : null;
         // The dive key held while a ghost shows turns the offer away.
         if (body != null && body.BubblePopKeyHeld) DropPlayerGhosts();
-        if (_carrySetDownPending && body != null && body.Ride == SmallPlayerController.BubbleRide.None && (body.IsOnFloor() || body.IsSwimming))
+        if (_carrySetDownPending && body != null && body.Ride == SmallPlayerController.BubbleRide.None)
         {
-            _carrySetDownPending = false;
-            Learned("bubble_carry");
+            // A fall that ends on a face it grabbed (decision 88): the bar decides the rest, under the climb's own rules; no set-down,
+            // and whatever follows is the climb's, never the pop's.
+            if (body.IsClimbing)
+            {
+                _carrySetDownPending = false;
+                ForgetPopFall();
+            }
+            // Down on the ground or in the water: the carry is learned when it set the player down safely, a fall that hurt not.
+            else if (body.IsOnFloor() || body.IsSwimming)
+            {
+                _carrySetDownPending = false;
+                if (!_carryFallHurt) Learned("bubble_carry");
+            }
         }
         for (var i = _bubbles.Count - 1; i >= 0; i--)
         {
@@ -642,6 +669,7 @@ public partial class CommandHost
             bubble.Holding = bubble.Carried = true;
             bubble.BaseY = bubble.Center.Y;
             UpdateBubbleReceipt(bubble, "carried", true);
+            ForgetPopFall();
         }
         var lead = LiveLead(bubble);
         // A bubble moves only while the Gubble leads it; one that holds the player still rises to its hover.
@@ -712,9 +740,10 @@ public partial class CommandHost
             if (off > bubble.Radius + BubbleLaws.StepInClearanceM) bubble.BoardLatch = false;
         }
         else if (off <= bubble.Radius && feet.Y >= bubble.Center.Y - BubbleLaws.BoardBelowDeckM && feet.Y <= bubble.Center.Y + BubbleLaws.BoardAboveDeckM &&
-                 HoldsPlayer() == null && body.Ride is SmallPlayerController.BubbleRide.None or SmallPlayerController.BubbleRide.Deflating)
+                 HoldsPlayer() == null && body.Ride == SmallPlayerController.BubbleRide.None)
         {
             bubble.Holding = true;
+            ForgetPopFall();
             if (!bubble.Carried)
             {
                 bubble.Carried = true;

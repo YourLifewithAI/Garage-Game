@@ -11,7 +11,7 @@ namespace GarageGame.Tests;
 /// <summary>
 /// The Gubble's lead (goal.set lead, decisions 57, 58 and 60): arriving, popping short, the Gubble's own stop popping what it leads,
 /// a new lead re-aiming; the lift (floating up to a higher spot, charged when it starts to rise to whoever set the lead, refused
-/// without pips, the 1.2 m rise); a deflate into deep water from a lift; and the HUD's view of the one bubble.
+/// without pips, the 1.2 m rise); a fall into deep water from a lift (decision 88); and the HUD's view of the one bubble.
 /// </summary>
 public partial class BubbleTest
 {
@@ -51,7 +51,7 @@ public partial class BubbleTest
             $"the Gubble's own lead takes the bubble holding the player where it leads ({arrived}, {LevelGap(_player.GlobalPosition, from):0.00} m)");
         await DiveKey();
         await UntilDown();
-        // Popping short: a bubble whose time runs out on the way pops there, and the player drifts down where it popped.
+        // Popping short: a bubble whose time runs out on the way pops there, and the player falls where it popped (from its hover).
         await PlayerAt(feet);
         var brief = TheBubbleOnThePlayer(Companion, duration: 2.5);
         var far = feet + new Vector3(-1.2f, 0, -0.9f);
@@ -61,7 +61,7 @@ public partial class BubbleTest
         var landing = await UntilDown();
         Check(Ok(away) && ended == "failed" && JobError(Companion, away)?["code"]?.GetValue<string>() == "target_not_found" &&
               JobError(Companion, away)?["message"]?.GetValue<string>() == CommandHost.LeadPoppedWords && ReceiptData(Companion, away)?["ended"]?.GetValue<string>() == "timed_out" &&
-              ReceiptData(Companion, brief)?["ended"]?.GetValue<string>() == "timed_out" && LevelGap(where, far) > 0.3f && landing <= 0.01f,
+              ReceiptData(Companion, brief)?["ended"]?.GetValue<string>() == "timed_out" && LevelGap(where, far) > 0.3f && landing < BodyKnacks.None.SafeLandingSpeedMps,
             $"a bubble may pop before it arrives: its time ran out on the way, the lead failed (the bubble popped), its receipt says timed_out, and the player came down " +
             $"short of the spot ({LevelGap(where, far):0.00} m short, landing {landing:0.000} m/s)");
     }
@@ -82,14 +82,15 @@ public partial class BubbleTest
               ReceiptData(Companion, first)?["ended"]?.GetValue<string>() == "stopped",
             "a new lead of the same bubble re-aims it: the bubble stays and the first lead's receipt says stopped");
         await Frames(40);
-        // The Gubble's own stop pops the bubble it leads, a player's bubble too, and the player drifts down gently where it popped.
+        // The Gubble's own stop pops the bubble it leads, a player's bubble too, and the player falls where it popped (from its hover:
+        // unhurt, so no consequence is written; APopInTheAirIsAFall has the hurt).
         var stop = Send(Command(NextId("stop"), "goal.stop", new JsonObject()), Companion);
         var where = _player.GlobalPosition;
         var landing = await UntilDown();
         Check(Ok(stop) && !_host.PlayerInBubble && stop["affected"]?.AsArray().Any(n => n!.GetValue<string>() == BubbleOf(carry)) == true && JobState(Companion, second) == "cancelled" &&
               ReceiptData(Companion, second)?["ended"]?.GetValue<string>() == "stopped" && ReceiptData(Player, carry)?["ended"]?.GetValue<string>() == "popped" &&
-              LevelGap(_player.GlobalPosition, where) < 0.05f && landing <= 0.01f && Health == health,
-            $"the Gubble's own stop pops the bubble it leads (popped), even the player's; the player comes down where it popped, unhurt ({landing:0.000} m/s, health {Health})");
+              LevelGap(_player.GlobalPosition, where) < 0.05f && landing < BodyKnacks.None.SafeLandingSpeedMps && Health == health && Facts(CommandHost.PopFallPrefix) == 0,
+            $"the Gubble's own stop pops the bubble it leads (popped), even the player's; the player falls where it popped, unhurt from the hover, and no fact is written ({landing:0.000} m/s, health {Health})");
         // Any other new goal of the Gubble's pops it too.
         var again = TheBubbleOnThePlayer(Companion, duration: 60);
         var third = Lead(Companion, BubbleOf(again), feet + new Vector3(-0.6f, 0, -0.3f));
@@ -134,7 +135,7 @@ public partial class BubbleTest
             $"it floats the player up onto the box ({_player.GlobalPosition.Y:0.00} m), the lead arrives, and the first lift that works teaches Lift: {string.Join(",", _learned)}");
         await DiveKey();
         await UntilDown();
-        Check(_player.IsOnFloor() && Math.Abs(_player.GlobalPosition.Y - BoxTop.Y) < 0.03f, $"popped, the player drifts down onto the box top ({_player.GlobalPosition.Y:0.000} m)");
+        Check(_player.IsOnFloor() && Math.Abs(_player.GlobalPosition.Y - BoxTop.Y) < 0.03f, $"popped, the player drops onto the box top ({_player.GlobalPosition.Y:0.000} m)");
         // The rise stays 1.2 m (to test): a spot higher than that floats the bubble up 1.2 m, and the lead ends there, blocked.
         await NewWorld("lift-high");
         var high = TheBubbleOnThePlayer(Companion, duration: 60);
@@ -152,7 +153,8 @@ public partial class BubbleTest
         Check(held.DistanceTo(_player.GlobalPosition) < 0.01f, "after the lead the bubble stays where it got to, the player inside");
         _host.PlayerGoal("stop");
         var landing = await UntilDown(1800);
-        Check(landing <= 0.01f, $"and X lets the player down from up there softly ({landing:0.000} m/s)");
+        Check(landing > BodyKnacks.None.SafeLandingSpeedMps && Health == 100 && _player.IsOnFloor(),
+            $"and X pops it up there: the player falls the 1.2 m (decision 88), and in Creative it hurts no one ({landing:0.00} m/s, health {Health})");
     }
 
     // ---- the lift's price: by the principal who set the lead, at the rise; no pips, no rise ----
@@ -197,11 +199,11 @@ public partial class BubbleTest
         Check(Ok(shadow) && shadowState == "succeeded" && Pips == 0, $"in Creative the shadow pool never refuses a lift ({shadowState})");
     }
 
-    // ---- a deflate over deep water ----
+    // ---- a fall into deep water ----
 
-    private async Task TestDeflateIntoWater()
+    private async Task TestFallIntoWater()
     {
-        await NewWorld("deflate-water", mode: "challenge");
+        await NewWorld("fall-water", mode: "challenge");
         var health = Health;
         var carry = TheBubbleOnThePlayer(Companion, duration: 60);
         var over = new Vector3((PoolMin.X + PoolMax.X) / 2, 0.7f, (PoolMin.Y + PoolMax.Y) / 2);
@@ -211,8 +213,8 @@ public partial class BubbleTest
         _host.PlayerGoal("stop");
         var landing = await UntilDown();
         await Frames(30);
-        Check(Ok(carry) && Ok(led) && state == "succeeded" && height > 0.5f && _player.IsSwimming && Health == health && landing <= 0.01f,
-            $"a lift over deep water popped {height:0.00} m up deflates into it and the body just swims (swimming {_player.IsSwimming}, " +
+        Check(Ok(carry) && Ok(led) && state == "succeeded" && height > 0.5f && _player.IsSwimming && Health == health && landing > BodyKnacks.None.SafeLandingSpeedMps,
+            $"a lift over deep water popped {height:0.00} m up falls into it, the water takes the landing, and the body just swims (swimming {_player.IsSwimming}, " +
             $"landing {landing:0.000} m/s, health {health} to {Health})");
     }
 

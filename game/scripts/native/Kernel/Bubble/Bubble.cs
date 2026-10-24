@@ -9,8 +9,12 @@ namespace GarageGame.Native.Kernel;
 /// </summary>
 public enum BubbleKind { Carry, Boat }
 
-/// <summary>How a bubble ended (its receipt's ended): the player's dive key or X, its timer, or anything else.</summary>
-public enum BubbleEnd { PoppedByPlayer, TimedOut, Popped }
+/// <summary>
+/// How a bubble ended: the player's dive key or X, its timer, the Gubble's own action (its stop, effect.stop, a new goal ending its lead,
+/// a recast; decision 96: a fall that hurts after it is the Gubble's consequence), or anything else. The receipt's ended words are the
+/// contract's: the Gubble's own pop is "popped", as anything else.
+/// </summary>
+public enum BubbleEnd { PoppedByPlayer, TimedOut, PoppedByGubble, Popped }
 
 /// <summary>
 /// One bubble in the room: transient, like an effect (it lives for the session and nothing about it is saved), held by the command

@@ -6,12 +6,14 @@ using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using GarageGame.Native;
 using GarageGame.Native.Kernel;
+using GarageGame.Native.Room;
 
 namespace GarageGame.Tests;
 
 /// <summary>
-/// The body and the bubble: the ride, the deflate (no harm, no tumble, a slow drift down wherever a bubble pops in the air), the
-/// walk-in, the boat on water, the security row's tests by name, and the budgets.
+/// The body and the bubble: the ride, the fall out of it (decision 88: a fall from wherever a bubble pops in the air, hurting as any
+/// fall, a face grabbed on the way down; replacing 43's deflate), the walk-in, the boat on water, the security row's tests by name, and
+/// the budgets.
 /// </summary>
 public partial class BubbleTest
 {
@@ -19,7 +21,7 @@ public partial class BubbleTest
 
     /// <summary>
     /// Frames until the body stands (or the water has it) and no bubble moves it, at most maxFrames; the largest landing speed it
-    /// reported on the way (a fall with no deflate reports its speed here, and hurts).
+    /// reported on the way (a fall out of a bubble reports its speed here, and hurts past the safe drop).
     /// </summary>
     private async Task<float> UntilDown(int maxFrames = 900)
     {
@@ -34,9 +36,9 @@ public partial class BubbleTest
         return landing;
     }
 
-    // ---- the ride and the deflate ----
+    // ---- the ride and the fall out of it ----
 
-    private async Task TestRideAndDeflate()
+    private async Task TestRideAndFall()
     {
         await NewWorld("ride", mode: "challenge");
         var start = _player.GlobalPosition;
@@ -55,12 +57,12 @@ public partial class BubbleTest
         GubbleAt(_room.SpawnFor("companion", _room.SpawnFor("player")).PositionM);
         await DiveKey();
         var poppedRide = _player.Ride;
-        Check(!_host.PlayerInBubble && _player.BubblePops == 1 && poppedRide is SmallPlayerController.BubbleRide.Deflating or SmallPlayerController.BubbleRide.None &&
+        Check(!_host.PlayerInBubble && _player.BubblePops == 1 && poppedRide == SmallPlayerController.BubbleRide.None &&
               ReceiptData(Companion, carry)?["ended"]?.GetValue<string>() == "popped_by_player",
             $"the dive key pops the Gubble's carry at once, popped by the player ({poppedRide}): " + Canonical(ReceiptData(Companion, carry)));
         var landing = await UntilDown();
-        Check(_player.Ride == SmallPlayerController.BubbleRide.None && _player.IsOnFloor() && Health == health && landing <= 0.01f,
-            $"the body drifts down and stands, unhurt ({health} to {Health}), reporting no landing speed ({landing:0.000} m/s)");
+        Check(_player.Ride == SmallPlayerController.BubbleRide.None && _player.IsOnFloor() && Health == health && landing > 0.1f && landing < BodyKnacks.None.SafeLandingSpeedMps,
+            $"the body falls the carry's hover and stands, unhurt ({health} to {Health}): a landing under the safe drop ({landing:0.000} m/s)");
         Check(_learned.Contains("bubble_carry") && _host.GlowProgress.Has(ExpertiseLists.Bubbles, ExpertiseLists.BubbleCarry),
             "a carry that set the player down safely is a carry learned, kept in the team's expertise store: " + string.Join(",", _learned));
         // Put down somewhere else while it holds them (a recovery, a teleport), the body has left the bubble: it pops and never drags them back.
@@ -168,7 +170,8 @@ public partial class BubbleTest
     private async Task TestSecurityRow()
     {
         await TheDiveKeyPopsItAtAnyMoment();
-        await APopInTheAirDeflates();
+        await APopInTheAirIsAFall();
+        await AFallFromABubbleCanGrabAWall();
         await EveryOtherAbilityStillRefusesThePlayersAvatar();
         await TheCompanionCannotKeepAPlayerInABubbleThePlayerWantsOutOf();
         await ACompanionCastNeverTargetsThePlayerWithoutThePreviewOrTheStepIn();
@@ -205,30 +208,99 @@ public partial class BubbleTest
         Check(asItForms && popped == moments.Length, $"the dive key pops it at any moment: as it forms ({asItForms}), mid-lead, lifted up on the box, in a tumble ({popped} of {moments.Length})");
     }
 
-    private async Task APopInTheAirDeflates()
+    /// <summary>The journal's consequence facts in the Gubble's lessons (journal.read kind consequence) whose line starts so.</summary>
+    private int Facts(string prefix) =>
+        Send(Query("journal.read", new JsonObject { ["kind"] = "consequence" }), Companion)["data"]?["entries"]?.AsArray()
+            .Count(e => e?["line"]?.GetValue<string>().StartsWith(prefix, StringComparison.Ordinal) == true) ?? 0;
+
+    /// <summary>
+    /// Decision 88 (replacing 43's and 60's slow drift): out of a bubble is a fall. Each way a carry pops high in the air (the dive key, X,
+    /// its timer, the Gubble's own stop, the Gubble's new goal, the Gubble's recast) leaves the player falling from where they are, with the
+    /// landing's fall damage as any fall in Challenge (decision 24); the fall that hurts after the Gubble's own pop is a consequence fact
+    /// that costs Trust (decision 96), the timer's and the player's own pops never are; in Creative nothing hurts.
+    /// </summary>
+    private async Task APopInTheAirIsAFall()
     {
         var results = new System.Collections.Generic.List<string>();
-        // Each way a bubble pops in the air: X, the timer, the Gubble's own stop; each in a fresh Challenge world (its full pool).
-        foreach (var how in new[] { "x", "timer", "gubble" })
+        var safe = BodyKnacks.None.SafeLandingSpeedMps;
+        // Each in a fresh Challenge world (its full pool and Trust at base).
+        foreach (var how in new[] { "dive", "x", "timer", "gubble-stop", "gubble-goal", "gubble-recast" })
         {
-            await NewWorld("security-deflate-" + how, mode: "challenge");
+            await NewWorld("security-fall-" + how, mode: "challenge");
             var start = _player.GlobalPosition;
             var health = Health;
+            var trust = _host.TrustCount;
             var lift = TheBubbleOnThePlayer(Companion, duration: how == "timer" ? 6 : 60);
-            var led = Lead(Companion, BubbleOf(lift), start + new Vector3(0.05f, 0.8f, 0));
+            // A spot above the 1.2 m rise: the lead is still rising when the bubble pops (a new goal pops only a bubble that is led).
+            var led = Lead(Companion, BubbleOf(lift), start + new Vector3(0.05f, 1.6f, 0));
             await Frames(60 * 6 - 20);
-            if (how == "x") _host.PlayerGoal("stop");
-            if (how == "gubble") Send(Command(NextId("stop"), "goal.stop", new JsonObject()), Companion);
-            await Frames(30);
-            var ride = _player.Ride;
             var height = _player.GlobalPosition.Y - start.Y;
+            if (how == "dive") await DiveKey();
+            if (how == "x") _host.PlayerGoal("stop");
+            if (how == "gubble-stop") Send(Command(NextId("stop"), "goal.stop", new JsonObject()), Companion);
+            if (how == "gubble-goal") Send(Command(NextId("follow"), "goal.set", new JsonObject { ["actor"] = CommandHost.CompanionAvatarId, ["goal"] = "follow" }), Companion);
+            if (how == "gubble-recast") CastTheBubble(Companion, start + new Vector3(0.25f, 0, 0.35f));
+            await Frames(how == "timer" ? 30 : 4);
+            var ride = _player.Ride;
+            var falling = !_player.IsOnFloor() && _player.Velocity.Y < -0.1f;
             var landing = await UntilDown();
-            results.Add($"{how}: {ride} at {height:0.00} m, landed {landing:0.000} m/s, ended {ReceiptData(Companion, lift)?["ended"]}");
-            Check(Ok(lift) && Ok(led) && ride == SmallPlayerController.BubbleRide.Deflating && height > 0.3f && landing <= 0.01f && Health == health,
-                $"a pop in the air deflates ({how}): {results.Last()}, health {Health}");
+            var facts = Facts(CommandHost.PopFallPrefix);
+            var gubbles = how.StartsWith("gubble", StringComparison.Ordinal);
+            results.Add($"{how}: {ride} falling {falling} from {height:0.00} m, landed {landing:0.00} m/s, health {health} to {Health}, facts {facts}, Trust {trust} to {_host.TrustCount}, " +
+                        $"ended {ReceiptData(Companion, lift)?["ended"]}");
+            Check(Ok(lift) && Ok(led) && ride == SmallPlayerController.BubbleRide.None && falling && height > 0.5f && landing > safe && Health < health &&
+                  facts == (gubbles ? 1 : 0) && _host.TrustCount == (gubbles ? trust + TrustLaws.PerConsequence : trust),
+                $"a pop in the air is a fall ({how}): {results.Last()}");
         }
         var ends = results.Select(r => r[(r.LastIndexOf(' ') + 1)..]).ToArray();
-        Check(ends.SequenceEqual(new[] { "popped_by_player", "timed_out", "popped" }), "each pop's receipt says how it ended: " + string.Join("; ", results));
+        Check(ends.SequenceEqual(new[] { "popped_by_player", "popped_by_player", "timed_out", "popped", "popped", "popped" }),
+            "each pop's receipt says how it ended: " + string.Join("; ", results));
+        // In Creative nothing hurts, and nothing is the Gubble's to answer for.
+        await NewWorld("security-fall-creative", mode: "creative");
+        var top = _player.GlobalPosition;
+        var carry = TheBubbleOnThePlayer(Companion, duration: 60);
+        Lead(Companion, BubbleOf(carry), top + new Vector3(0.05f, 0.8f, 0));
+        await Frames(60 * 6 - 20);
+        Send(Command(NextId("stop"), "goal.stop", new JsonObject()), Companion);
+        var fell = await UntilDown();
+        Check(fell > safe && Health == 100 && Facts(CommandHost.PopFallPrefix) == 0, $"in Creative the same fall hurts no one and writes no fact ({fell:0.00} m/s, health {Health})");
+    }
+
+    /// <summary>
+    /// Decision 88's wall: popped out beside a climbable face, the player falling and pushing into it grabs it as from a jump, and from
+    /// there the bar decides the rest (the climb's own rules); a fall that ends on a face is no landing, so nothing hurts and no fact is the
+    /// Gubble's, even after its own pop.
+    /// </summary>
+    private async Task AFallFromABubbleCanGrabAWall()
+    {
+        await NewWorld("security-fall-wall", mode: "challenge");
+        var start = _player.GlobalPosition;
+        // A tall face 7 cm in front of the player (the body faces -Z): the lift rises beside it, clear of it.
+        var wall = new StaticBody3D { Name = "Wall", Position = start + new Vector3(0, 0.6f, -0.12f), CollisionLayer = RoomBuilder.WorldLayer, CollisionMask = 0 };
+        wall.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(0.4f, 1.2f, 0.1f) } });
+        _world!.AddChild(wall);
+        await Frames(2);
+        var health = Health;
+        var lift = TheBubbleOnThePlayer(Companion, duration: 60);
+        var led = Lead(Companion, BubbleOf(lift), start + new Vector3(0, 0.8f, 0));
+        await Frames(60 * 6 - 20);
+        var height = _player.GlobalPosition.Y - start.Y;
+        _player.SetControlInput(new Vector2(0, 1));
+        Send(Command(NextId("stop"), "goal.stop", new JsonObject()), Companion);
+        for (var i = 0; i < 90 && !_player.IsClimbing; i++) await Frames(1);
+        var grabbedAt = _player.GlobalPosition.Y - start.Y;
+        Check(Ok(lift) && Ok(led) && height > 0.5f && _player.IsClimbing && grabbedAt > 0.2f && Health == health && Facts(CommandHost.PopFallPrefix) == 0,
+            $"popped beside a face, the falling player pushing into it grabs it ({height:0.00} m up, grabbed at {grabbedAt:0.00} m), unhurt, and nothing is the Gubble's");
+        // The bar decides the rest: hold on and the climb drains it; let go and it is a fall of the player's own.
+        _player.SetControlInput(Vector2.Zero);
+        await Frames(30);
+        Check(_player.IsClimbing && _host.Vitals.Stamina <= _host.Vitals.MaxStamina, $"holding on, the climb's own rules hold the body ({_host.Vitals.Stamina:0.000} m of bar)");
+        _player.SetControlInput(Vector2.Zero, jump: true);
+        for (var i = 0; i < 30 && _player.IsClimbing; i++) await Frames(1);
+        await UntilDown();
+        Check(!_player.IsClimbing && _player.IsOnFloor() && Facts(CommandHost.PopFallPrefix) == 0,
+            $"a fall from the face later is the climb's, never the Gubble's pop's (health {Health})");
+        wall.QueueFree();
     }
 
     private async Task EveryOtherAbilityStillRefusesThePlayersAvatar()

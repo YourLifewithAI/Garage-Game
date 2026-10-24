@@ -4,22 +4,23 @@ using GarageGame.Native.Kernel;
 namespace GarageGame.Native;
 
 /// <summary>
-/// The body's side of the Bubble (docs/game/MECHANICS.md section 5, decision 43; Kernel/Bubble/CommandHostBubble.cs): the ride.
+/// The body's side of the Bubble (docs/game/MECHANICS.md section 5, decision 88; Kernel/Bubble/CommandHostBubble.cs): the ride.
 /// The kernel decides whether a bubble holds this body and where that bubble is; the body rides it and owns its own exit.
 /// - Enveloped (a carry or a lift): the body follows the bubble's centre, with gravity, walking and jumps off; it moves only with the
 ///   bubble, which moves it only while it holds it.
 /// - Aboard (the boat): the body stands on the deck, carried by it, and walks about on it; past the rim it has walked off.
 /// - The exit is the body's own and always works: the dive key held (or a trip home) leaves at once, whatever holds it, read even
 ///   while a tumble holds control; holding it as a bubble forms pops it straight away.
-/// - Deflating: a bubble gone while the body is in the air, popped by the player, its timer or anything else, lets it down slowly
-///   (BubbleLaws.DeflateDescentMps, the player steering a little) until it stands or the water takes it. A deflate landing reports no
-///   landing speed, so it never hurts and never tumbles; landing in water just swims.
+/// - Out of a bubble is a fall (decision 88, replacing decisions 43's and 60's slow drift down): a bubble gone while the body is in the
+///   air, popped by the player, its timer, the Gubble or anything else, leaves the body falling from where it is, with the motion it had
+///   and none of the bubble's lift, under the body's own rules: the landing reports its speed, so it hurts as any fall (decision 24) and
+///   tumbles; a climbable face pushed into on the way down is grabbed as from a jump, and the bar decides the rest; deep water catches it.
 /// Unbound (no kernel, the Gubble's own body) none of this runs.
 /// </summary>
 public partial class SmallPlayerController
 {
-    /// <summary>How the body rides a bubble now.</summary>
-    public enum BubbleRide { None, Enveloped, Aboard, Deflating }
+    /// <summary>How the body rides a bubble now (since decision 88 there is no deflate: out of a bubble the body is on its own, falling or not).</summary>
+    public enum BubbleRide { None, Enveloped, Aboard }
 
     /// <summary>The bubble that holds this body: its centre (a boat's deck, at its middle), radius, motion, and whether it is the boat.</summary>
     public readonly record struct BubbleHold(Vector3 CenterM, float RadiusM, Vector3 VelocityMps, bool Boat);
@@ -31,9 +32,9 @@ public partial class SmallPlayerController
     public BubbleRide Ride { get; private set; }
     /// <summary>Whether the dive key is held this tick (the kernel turns a ghost away with it).</summary>
     public bool BubblePopKeyHeld { get; private set; }
-    /// <summary>Times the body left a bubble by its own key, and landings at the end of a deflate (tests).</summary>
+    /// <summary>Times the body left a bubble by its own key, and times a bubble's end left it in the air, falling (tests).</summary>
     public int BubblePops { get; private set; }
-    public int DeflateLandings { get; private set; }
+    public int BubbleFalls { get; private set; }
 
     /// <summary>The ride's tick, first in the movement chain: true when the bubble moved the body this tick (nothing else moves it then).</summary>
     private bool RideBubble(float dt, Vector3 wish)
@@ -71,10 +72,8 @@ public partial class SmallPlayerController
             case BubbleRide.Aboard when hold is { } boat:
                 RideBoat(boat, dt, wish);
                 return true;
-            case BubbleRide.Deflating:
-                Deflate(wish);
-                return true;
             default:
+                // Out of it: the walk, the fall and the grab take the body from this very tick (decision 88).
                 return false;
         }
     }
@@ -96,13 +95,27 @@ public partial class SmallPlayerController
         LeaveRide();
     }
 
-    /// <summary>Out of the bubble: in the air it deflates, on the ground or in deep water it simply stands or swims.</summary>
+    /// <summary>
+    /// Out of the bubble (decision 88): on the ground or in deep water the body simply stands or swims; in the air it falls from where it
+    /// is, keeping the level motion the ride gave it (within a led carry's pace) and none of its rise, so gravity, the landing's
+    /// speed and its fall damage, the tumble and the grab of a face are the body's own from the next step. No jump is left buffered.
+    /// </summary>
     private void LeaveRide()
     {
-        Ride = IsOnFloor() || InSwimmingWater ? BubbleRide.None : BubbleRide.Deflating;
+        Ride = BubbleRide.None;
         _airDescentMps = 0;
         _vitalsLandingSpeedMps = 0;
-        if (Ride == BubbleRide.None) Velocity = Vector3.Zero;
+        _jumpBuffer = 0;
+        _coyote = 0;
+        if (IsOnFloor() || InSwimmingWater)
+        {
+            Velocity = Vector3.Zero;
+            return;
+        }
+        // The level motion a led bubble had (at most its drift's pace: the ride's catch-up is the bubble's, not the body's), no rise.
+        var level = new Vector3(Velocity.X, 0, Velocity.Z).LimitLength(BubbleLaws.CarrySpeedMps);
+        Velocity = new Vector3(level.X, Mathf.Min(0, Velocity.Y), level.Z);
+        BubbleFalls++;
     }
 
     /// <summary>Enveloped: the body's middle goes where the bubble's centre is, as fast as it needs (within the ride's limit).</summary>
@@ -128,23 +141,6 @@ public partial class SmallPlayerController
         LeaveRide();
     }
 
-    /// <summary>Water deep enough to swim, with the feet at or under its surface: it catches a deflating body.</summary>
+    /// <summary>Water deep enough to swim, with the feet at or under its surface: a body left there just swims.</summary>
     private bool InSwimmingWater => Water.Wet && Water.DepthM >= SwimDepthM && Water.Under(GlobalPosition) > 0;
-
-    /// <summary>The deflate: a slow drift down the player steers a little, until the body stands or deep water takes it.</summary>
-    private void Deflate(Vector3 wish)
-    {
-        var drift = wish * BubbleLaws.DeflateSteerMps;
-        Velocity = new Vector3(drift.X, -BubbleLaws.DeflateDescentMps, drift.Z);
-        _jumpBuffer = 0;
-        _airDescentMps = 0;
-        MoveAndSlide();
-        // Shallow water is waded: the drift goes on down to its bed. Deep water takes the body at its surface, and it swims.
-        if (!IsOnFloor() && !InSwimmingWater) return;
-        Ride = BubbleRide.None;
-        Velocity = Vector3.Zero;
-        DeflateLandings++;
-        // Deep water takes it at once: it swims from this tick, so no tick of falling in between reports a landing speed.
-        if (!IsOnFloor() && CanSwim && !_swimming) StartSwim();
-    }
 }

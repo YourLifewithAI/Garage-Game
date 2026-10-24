@@ -3,7 +3,7 @@ namespace GarageGame.Native.Kernel;
 /// <summary>
 /// The Bubble's numbers (docs/game/MECHANICS.md section 5 and decisions 55 to 60 name none but the prices, which the rules pack
 /// holds): one table of provisional values, in the manner of NatureLaws, for the founder to tune by playing. The kernel reads them
-/// for the bubble (CommandHostBubble, CommandHostBubbleLead) and the body for its ride and the deflate (SmallPlayerController.Bubble.cs).
+/// for the bubble (CommandHostBubble, CommandHostBubbleLead) and the body for its ride (SmallPlayerController.Bubble.cs).
 /// Metres, seconds, m/s.
 /// </summary>
 public static class BubbleLaws
@@ -65,12 +65,7 @@ public static class BubbleLaws
     /// <summary>The Gubble walks to within this of the spot (CompanionAvatar.GoTo's arrival), beside it rather than under it, and the bubble drifts the rest.</summary>
     public const float LeadGubbleStopM = 0.3f;
 
-    // ---- the deflate: a bubble that pops in the air lets the body down slowly (decision 43) ----
-
-    /// <summary>The deflate's descent, far under the safe landing (1.45 m/s), so a carry never ends in a fall.</summary>
-    public const float DeflateDescentMps = 0.18f;
-    /// <summary>How fast the player may steer their own drift down.</summary>
-    public const float DeflateSteerMps = 0.08f;
+    // ---- no deflate: since decision 88 a bubble that pops in the air leaves the body falling (SmallPlayerController.Bubble.cs) ----
 
     // ---- the boat ----
 

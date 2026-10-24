@@ -28,6 +28,9 @@ namespace GarageGame.Native.Kernel;
 ///   lit it (one fact per lead, NoteLeadHarm). Decision 69: a fire is traced to its cast by its revision (PaidFire), a carry to its
 ///   lead's Lift or the Gubble's cast of the bubble (PaidCarry); a fact from a free action is written all the same, as the AI's
 ///   lesson, and moves no Trust.
+/// - The fall after the Gubble's own pop (decision 96, the second playtest round): the Gubble popped the bubble holding the player by
+///   its own action and the fall hurt them: one fact per pop, which costs Trust (NotePopFall). A pop at the time limit or by the
+///   player's own cancel never writes one; nor does a fall that ends on a face the player grabbed.
 /// </summary>
 public partial class CommandHost
 {
@@ -247,6 +250,38 @@ public partial class CommandHost
 
     /// <summary>The start of a lead's consequence fact (the mock simulates no fire, so writes none).</summary>
     public const string LeadHarmPrefix = "The Gubble's bubble carried you into fire";
+
+    /// <summary>The start of the consequence fact for a fall that hurt the player after the Gubble popped their bubble (decision 96).</summary>
+    public const string PopFallPrefix = "The Gubble popped your bubble and you fell";
+
+    /// <summary>
+    /// The Gubble popped the carry holding the player by its own action (its stop, its effect.stop, a new goal of its own ending its lead,
+    /// its recast; BubbleEnd.PoppedByGubble), and the fall from there has not ended yet (decision 96).
+    /// </summary>
+    private bool _popFallPending;
+
+    private void NotePopFallPending() => _popFallPending = true;
+
+    /// <summary>The fall after the Gubble's pop ended some other way: a face grabbed (the climb's from then on), a bubble holding them again, a recovery.</summary>
+    private void ForgetPopFall() => _popFallPending = false;
+
+    /// <summary>
+    /// Decision 96 ("yes, but only for a pop the Gubble causes by its own action, never the time limit or the player's own cancel"): the
+    /// landing that ends the fall after the Gubble's own pop (ObservePlayerFall, the body's first grounded or water-caught tick), when it
+    /// hurt the player, is one consequence fact in the game's own words ("The Gubble popped your bubble and you fell near ..."), saved
+    /// with the journal at once, that costs Trust and spoils the windows open over it, as the Gubble's fire's harm does (decision 96 names
+    /// the pop itself as the action, whoever cast or lifted the bubble). A landing that did not hurt ends it with nothing written. In
+    /// Creative nothing hurts, so nothing is written.
+    /// </summary>
+    private void NotePopFall(PlayerHarm? harm, Vector3 at)
+    {
+        if (harm is not { } hurt) return;
+        var place = NearestKnownPlace(at);
+        var line = PopFallPrefix + (place == null ? "" : " near " + Quoted(place)) + (hurt.Recovered || hurt.After <= 0 ? " until you had to recover." : ".");
+        AddHistory(Fact("consequence", line, CompanionPrincipal, CompanionPrincipal, null, null, at));
+        NoteTrustConsequence(paid: true);
+        SaveTeam();
+    }
 
     /// <summary>The name of the thing the team knows nearest a place, within ConsequencePlaceM; null when it knows none there.</summary>
     private string? NearestKnownPlace(Vector3 at)

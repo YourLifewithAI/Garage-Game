@@ -416,8 +416,21 @@ public partial class CommandHost
         return true;
     }
 
-    private void ObservePlayerFall(float landingSpeedMps, bool deepWater) =>
-        ApplyPlayerDamage((Player?.Knacks ?? BodyKnacks.None).FallDamage(landingSpeedMps, deepWater), PlayerDamageSource.Fall);
+    /// <summary>
+    /// The body's landing report (each grounded or water-caught tick): its fall damage as any fall (decision 24), and, out of a bubble
+    /// (decision 88), what the landing means for the carry that ended: a hurt carry set no one down safely, and the landing that ends the
+    /// fall after the Gubble's own pop is its consequence when it hurt (NotePopFall, decision 96).
+    /// </summary>
+    private void ObservePlayerFall(float landingSpeedMps, bool deepWater)
+    {
+        // Taken before the hurt: a landing that knocks the player out recovers them at camp inside it (which forgets the pop's fall).
+        var popFall = _popFallPending;
+        _popFallPending = false;
+        var at = Player?.GlobalPosition ?? Vector3.Zero;
+        var harm = ApplyPlayerDamage((Player?.Knacks ?? BodyKnacks.None).FallDamage(landingSpeedMps, deepWater), PlayerDamageSource.Fall);
+        if (harm != null && _carrySetDownPending) _carryFallHurt = true;
+        if (popFall) NotePopFall(harm, at);
+    }
 
     /// <summary>
     /// Injury recovery at the spawn (the camp, today): half the hearts and the bar, the pool at least half full, a moment when
@@ -435,6 +448,8 @@ public partial class CommandHost
         _healS = 0;
         // Waking at camp is no rest (decision 84), even where the player last sat: they wake with half the hearts and sit down again to heal.
         _resting = false;
+        // A fall still pending after the Gubble's pop has ended here (its landing, if that was what put them down, was already counted).
+        ForgetPopFall();
         MakeRecoverySafe(Player.GlobalPosition);
         _vitalsDirty = true;
         return true;
