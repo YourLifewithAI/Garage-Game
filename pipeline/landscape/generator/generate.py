@@ -24,7 +24,7 @@ from . import sea as Sea
 from . import scale as world
 from .climb import give_lips, knife_edges
 from .detail import Detail, plane_ok_fine
-from . import fractals as Fractals, reach as Reach, sites as Sites
+from . import firepits as Firepits, fractals as Fractals, reach as Reach, sites as Sites
 
 GENERATOR = {'name': 'landscape-generator', 'version': '5'}
 SEED = 20261008
@@ -896,11 +896,41 @@ def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, 
     if plant_salt:
         rest['plant_salt'] = plant_salt
     if fx_plan is not None:
-        rest['fractals'] = _finish_fractals(fx_plan, final, grid, h, fslope, detail, (px, pz), typed_fractals)
+        rest['fractals'] = _finish_fractals(fx_plan, _climb_reach(final, grid, h, fslope, detail, fx_plan.keep), (px, pz),
+                                            typed_fractals)
         summit = Fractals.summit_record(rest['fractals'])
         if summit is not None:
             rest['summit'] = summit    # the exporter writes it as the manifest's x_summit
         _tick('fractal reach')
+    # The island's firepits (firepits.py), on every island: the exporter writes them as the manifest's x_firepits and the
+    # kernel reads them there. Each claim is made on the package as it will be read back (single precision, the land grid read
+    # from its mesh: checks.firepit_checks's own reading), so the written package proves it; nothing else in it changes.
+    fdoc = dict(probe, x_generator=dict(look, **({'detail': rest['detail']} if detail else {}),
+                                        **({'fractals': rest['fractals']} if 'fractals' in rest else {})))
+    if W != 1:
+        fmeshes, fterr, floods = walk_meshes, terr, {(px, pz): final}
+    else:
+        names = {r['mesh'] for r in terrain_records+water_records} | {'distant_islands'}
+        fmeshes = {k: (as_written(v) if k in names else v) for k, v in meshes.items()}
+        fterr, floods = Terrain(fdoc, fmeshes), {}
+    from .checks import _base_reach
+    fwalk, fbase = _base_reach(fdoc, fmeshes, fterr, room, floods)
+    keep_fx = fx_plan.keep if fx_plan is not None else set()
+    jroot = None if jetty is None else jetty['root']
+
+    def no_firepit(q, x, z):
+        return q in keep_fx or paths[q] >= Firepits.PATH_CLEAR or pads[q] > 0 or \
+            (jroot is not None and math.hypot(x-jroot[0], z-jroot[1]) < Firepits.JETTY_CLEAR_M)
+    start = (px, pz)   # the spawn: the kernel's starting campfire burns 0.2 m in front of it
+    fractal_xz = [(it['position_m'][0], it['position_m'][2]) for it in rest.get('fractals', {}).get('items', ())]
+    fp_land, fp_area, fp_spots = Firepits.land_and_spots(
+        grid, h, fslope, inside, wet, sea, [blocked[q] and q not in keep_fx for q in range(grid.n)], no_firepit,
+        fwalk.walker, fbase, objects, start, fractal_xz, Sea.SEA_Y)
+    rest['firepits'] = Firepits.choose(fp_land, fp_area, fp_spots, start,
+                                       None if hamlet is None else (hamlet['x'], hamlet['z']), houses)
+    if W != 1:
+        print('LANDSCAPE_FIREPITS', Firepits.report_line(rest['firepits']), flush=True)
+    _tick('firepits')
     if tutorial:
         rest['tutorial'] = True
 
@@ -937,13 +967,16 @@ def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, 
     return doc
 
 
-def _finish_fractals(plan, final, grid, h, fslope, detail, spawn, typed):
-    """The climb-aware reach of the planted island (`final`: the exact walk's flood from the spawn), the benches proved
-    and the Fractals placed (fractals.finish): the package block."""
-    # The faces in a detail block are not the grid's (read at 2.5 cm), except a flight's, which keeps the base's surface.
+def _climb_reach(final, grid, h, fslope, detail, keep=()):
+    """The climb-aware reach of the planted island (`final`: the exact walk's flood from the spawn). The faces in a detail
+    block are not the grid's (read at 2.5 cm), except a flight's (`keep`), which keeps the base's surface."""
     nx = grid.nx
-    skip = None if detail is None else (lambda i, j: (i//10, j//10) in detail.block_set and j*nx+i not in plan.keep)
-    cr = Reach.ClimbReach(final.walker, final, grid, h, fslope=fslope, skip=skip)
+    skip = None if detail is None else (lambda i, j: (i//10, j//10) in detail.block_set and j*nx+i not in keep)
+    return Reach.ClimbReach(final.walker, final, grid, h, fslope=fslope, skip=skip)
+
+
+def _finish_fractals(plan, cr, spawn, typed):
+    """The benches proved and the Fractals placed on the climb-aware reach `cr` (fractals.finish): the package block."""
     block = Fractals.finish(plan, cr, spawn, typed=typed)
     c = block['counts']
     print('LANDSCAPE_FRACTALS placed %d (first run %d, out of reach %d) by_band %s benches %d proved %d routes %d' % (

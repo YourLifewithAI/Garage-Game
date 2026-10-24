@@ -117,6 +117,8 @@ public partial class LandscapePlayTest : Node3D
             await TestClimbATree();
             await TestClimbATreeWithKeys();
             await MeasureASwim();
+            // The generator's firepits (LandscapePlayTest.Firepits): last, since a lit campfire becomes the player's camp.
+            await TestFirepitsFromTheGenerator(directory);
             Finish();
         }
         catch (Exception error)
@@ -1752,7 +1754,7 @@ public partial class LandscapePlayTest : Node3D
 
     private void Finish()
     {
-        GD.Print($"NATIVE_KERNEL_LANDSCAPE: {_checks - _failures}/{_checks} checks passed; both bodies held inside the bounds, the companion's go_to and fetch and the player's carry on the land, every promised destination reached, cliffs and a tree climbed");
+        GD.Print($"NATIVE_KERNEL_LANDSCAPE: {_checks - _failures}/{_checks} checks passed; both bodies held inside the bounds, the companion's go_to and fetch and the player's carry on the land, every promised destination reached, cliffs and a tree climbed, the generator's firepits");
         RemoveSaves();
         CommandHost.SaveRoot = CommandHost.DefaultSaveRoot;
         // Let the wrappers this long run left to the finalizer go before the engine tears down: in the Linux container's

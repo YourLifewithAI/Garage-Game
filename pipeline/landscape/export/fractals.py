@@ -13,6 +13,11 @@ the generator's exact walk reaches it. Nothing descriptive is copied, and nothin
 `x_summit` is the generator's `x_generator.summit` (the second contract round, 15 October): the top of the island's one
 summit, `center_m` on its ground, `radius_m` covering that top, the landmark's id and the band its highest ledge needs
 (the contract's `x_summit`; `contracts/validate.py` checks the centre lies inside the island). Four fields, nothing else.
+
+`x_firepits` is the generator's `x_generator.firepits` (decisions 62 and 74; the generator's real firepits, Lane C): each
+firepit's spot, bottom centre on its ground in room metres, in the generator's order (nearest the start first), which is the
+order the kernel numbers them in (firepit:1, firepit:2, ...). At most MAX_FIREPITS; numbers finite and bounded, no two at
+one spot. Nothing else travels: not why the generator chose a spot, its reach band, its landmark, the counts or the notes.
 """
 import re
 
@@ -25,6 +30,7 @@ KINDS = ('heart', 'band')
 FRACTAL_ID = re.compile(r'fractal:[a-z0-9]{1,32}')
 TOKEN = re.compile(r'[a-z][a-z0-9_-]{0,63}')    # the contract's token
 SUMMIT_RADIUS_MAX_M = 50                        # the contract's bound
+MAX_FIREPITS = 16     # the manifest schema's ceiling (the kernel's CampLaws.MaxFirepits)
 
 
 def fractals_data(gen):
@@ -69,6 +75,17 @@ def summit_data(gen):
         require(type(summit['top_band']) is int, 'invalid summit band')
         row['top_band'] = number(summit['top_band'], 1, 20)
     return dict(sorted(row.items()))
+
+
+def firepits_data(gen):
+    """The manifest's `x_firepits` record from the package's x_generator, or None for a package without firepits."""
+    fp = gen.get('firepits') if isinstance(gen, dict) else None
+    if fp is None:
+        return None
+    require(isinstance(fp, dict), 'invalid firepits record')
+    items = [{'position_m': vector(item['position_m'], 3, -BOUND_M, BOUND_M)} for item in records(fp['items'], MAX_FIREPITS)]
+    require(len({tuple(i['position_m']) for i in items}) == len(items), 'two firepits at one spot')
+    return {'items': items}
 
 
 def tutorial_flag(gen):

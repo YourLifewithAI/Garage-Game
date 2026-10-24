@@ -501,6 +501,8 @@ def build_island(base: Path, room_id: str = "island_example", variant: str | Non
             "x_island_tutorial": True,
             # The second contract round (15 October): the summit, here the first tree's top.
             "x_summit": {"center_m": [-5.0, 0.94, -9.0], "radius_m": 0.3, "landmark": "first_tree", "top_band": 3},
+            # Decision 74 (24 October): the island's firepits as the generator chose them, nearest the start first.
+            "x_firepits": {"items": [{"position_m": [-8.0, 0.0, -4.0]}, {"position_m": [8.0, 0.0, -12.0]}]},
         },
     }
     room_path = folder / "room.json"

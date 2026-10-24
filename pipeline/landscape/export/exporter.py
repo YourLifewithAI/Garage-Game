@@ -7,7 +7,7 @@ from pipeline.landscape.harness.kit import SIZES, prototype
 from pipeline.landscape.harness.package import read_package, world_scale
 from .materials import CONTRACT_ROLES, PALETTE, hex_color, material
 from .copies import build_copies, classify, MAX_SETS
-from .fractals import fractals_data, summit_data, tutorial_flag
+from .fractals import firepits_data, fractals_data, summit_data, tutorial_flag
 from .mesh import encode, transform
 from .sea import sea_data
 from .source import source_data
@@ -74,6 +74,8 @@ def _export(land, package_folder, source_room_folder, room_id, out):
     fractals = fractals_data(doc.get('x_generator'))
     tutorial = tutorial_flag(doc.get('x_generator'))
     summit = summit_data(doc.get('x_generator'))
+    # The island's firepits (decision 74), chosen by the generator: the manifest's x_firepits, which the kernel reads.
+    firepits = firepits_data(doc.get('x_generator'))
     margin = doc['x_generator'].get('margin_m') if sea is not None else None
     sea, bounds = sea_data(sea, intro_source['bounds'], margin) if sea is not None else (None, intro_source['bounds'])
     require(doc['terrain'], 'landscape has no terrain')
@@ -423,6 +425,7 @@ def _export(land, package_folder, source_room_folder, room_id, out):
                        **({'x_landscape_sea': sea} if sea is not None else {}),
                        **({'x_fractals': fractals} if fractals is not None else {}),
                        **({'x_summit': summit} if summit is not None else {}),
+                       **({'x_firepits': firepits} if firepits is not None else {}),
                        **({'x_island_tutorial': tutorial} if tutorial is not None else {})},
     }
     blobs['room.json'] = canonical(room)
