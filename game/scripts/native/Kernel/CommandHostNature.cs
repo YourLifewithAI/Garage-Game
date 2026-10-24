@@ -655,7 +655,8 @@ public partial class CommandHost
             ["wallet"] = new JsonObject(Nature.Wallet.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => KeyValuePair.Create(p.Key, (JsonNode?)p.Value))),
             ["scorched"] = new JsonArray(Nature.Objects.Values.Where(o => o.Creation && o.Burn > 0 && knows(o.Id)).Select(o => o.Id).OrderBy(id => id, StringComparer.Ordinal).Select(id => (JsonNode?)id).ToArray()),
             ["can_undo"] = NatureCanUndo,
-            ["notice"] = KernelJson.DisplayText(NatureNotice, 200),
+            // An empty notice stays empty (the contract: "empty otherwise"): DisplayText answers "Refused." for empty text.
+            ["notice"] = NatureNotice.Length == 0 ? "" : KernelJson.DisplayText(NatureNotice, 200),
         };
     }
 

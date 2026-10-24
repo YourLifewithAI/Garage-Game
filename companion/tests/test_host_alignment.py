@@ -241,10 +241,7 @@ class AlignmentScenarios:
         data = dict(described["data"])
         weather = data.pop("weather")
         notice = data.pop("notice")
-        if "nature.describe's empty notice" in self.known_gaps:
-            self.assertEqual(notice, "Refused.", "the host's notice is the contract's now: drop the known gap")
-        else:
-            self.assertEqual(notice, "", "nature waits for nothing: its notice is empty (the contract)")
+        self.assertEqual(notice, "", "nature waits for nothing: its notice is empty (the contract)")
         self.assertIn(weather["pattern"], ("fair", "showers", "rain"))
         self.assertTrue(0 <= weather["rain"] <= 1 and len(weather["wind_mps"]) == 3, weather)
         # A fresh island under storybook_wild v5: no nature change yet, nothing burning, the pack's wallet (decision 26: empty).
