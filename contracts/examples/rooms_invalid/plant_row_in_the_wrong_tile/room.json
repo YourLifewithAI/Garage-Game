@@ -270,6 +270,24 @@
       "radius_m": 0.3,
       "landmark": "first_tree",
       "top_band": 3
+    },
+    "x_firepits": {
+      "items": [
+        {
+          "position_m": [
+            -8.0,
+            0.0,
+            -4.0
+          ]
+        },
+        {
+          "position_m": [
+            8.0,
+            0.0,
+            -12.0
+          ]
+        }
+      ]
     }
   }
 }

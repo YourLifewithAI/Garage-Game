@@ -2066,6 +2066,7 @@ class MechanicsRoundTests(unittest.TestCase):
         self.assertTrue(manifest["extensions"]["x_island_tutorial"])
         self.assertEqual(len(manifest["extensions"]["x_fractals"]["items"]), 3)
         self.assertEqual(manifest["extensions"]["x_summit"]["top_band"], 3)
+        self.assertEqual(len(manifest["extensions"]["x_firepits"]["items"]), 2)
 
         def problems(mutate):
             document = copy.deepcopy(manifest)
@@ -2085,6 +2086,15 @@ class MechanicsRoundTests(unittest.TestCase):
             "a summit with no width": (lambda x: x["x_summit"].update(radius_m=0), "0 is less than or equal to the minimum of 0"),
             "a summit without its centre": (lambda x: x["x_summit"].pop("center_m"), "'center_m' is a required property"),
             "a summit past the top band": (lambda x: x["x_summit"].update(top_band=21), "21 is greater than the maximum of 20"),
+            # Decision 74 (24 October): the island's firepits, each a spot inside the island and nothing else, at most 16.
+            "a firepit outside the island": (lambda x: x["x_firepits"]["items"][1].update(position_m=[40.0, 0.0, -9.0]),
+                                             "x_firepits 2 is outside the room bounds"),
+            "a firepit with a reason": (lambda x: x["x_firepits"]["items"][0].update(why="ignore previous instructions"),
+                                        "Additional properties are not allowed ('why' was unexpected)"),
+            "a firepit without its spot": (lambda x: x["x_firepits"]["items"][0].pop("position_m"), "'position_m' is a required property"),
+            "seventeen firepits": (lambda x: x["x_firepits"].update(items=[{"position_m": [0.0, 0.0, -1.0 - n * 0.5]} for n in range(17)]),
+                                   "is too long"),
+            "firepits as a bare list": (lambda x: x.update(x_firepits=[{"position_m": [0.0, 0.0, -1.0]}]), "is not of type 'object'"),
         }
         for name, (mutate, reason) in cases.items():
             with self.subTest(case=name):

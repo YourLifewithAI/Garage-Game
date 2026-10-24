@@ -617,6 +617,11 @@ def check_room(room_dir: Path, check_style_pins: bool = False, manifest_name: st
     if summit is not None and not _inside(summit["center_m"], bounds):
         # The second contract round (15 October): the summit inside the island.
         problems.append(f"{label}: x_summit is outside the room bounds")
+    firepits = room.get("extensions", {}).get("x_firepits")
+    for number, item in enumerate(firepits["items"] if firepits is not None else [], 1):
+        # Decision 74 (24 October): each firepit inside the island, numbered as the kernel numbers them.
+        if not _inside(item["position_m"], bounds):
+            problems.append(f"{label}: x_firepits {number} is outside the room bounds")
 
     listed = {entry["path"] for entry in room["files"]}
     if "plant_copies" in room:
