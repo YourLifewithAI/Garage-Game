@@ -35,6 +35,8 @@ namespace GarageGame.Native.Navigation;
 /// The 10x world (S5, S6): trees and stones are plant copies whose collision is built from the room's rows, not scene nodes, and
 /// the land is tiled terrain. Given the room (Room), each tile also bakes the trunks and solid stones round it as obstructions and
 /// the tiled ground, both from the room's data (IslandNavigation), on the bake's workers, first bake and re-bakes alike.
+/// The trees are those the island's nature leaves (RoomNavigation.Plants.cs): a grown tree's trunk at its grown size, a burnt-down
+/// tree's none, the tiles round a tree that changed baked again when the command host says nature moved.
 /// </para>
 /// </summary>
 public partial class RoomNavigation : Node
@@ -296,7 +298,9 @@ public partial class RoomNavigation : Node
         // An island bakes its land only: the sea floor out to the reef doubled the bake (garage: 86-114 ms against 50-57 ms),
         // and nobody walks there (swimmers swim, the Gubble floats).
         var bounds = world.Room.Sea?.LandBounds(world.Room.Bounds) ?? world.Room.Bounds;
-        var navigation = Create(world, world.Built, bounds, WorldScaleProfile.Companion, world.Companion.StepHeightM, room: world.Room);
+        // The trees as the island's nature has them (grown ones larger, burnt ones gone): read from the command host, which the
+        // room world attached before this (RoomNavigation.Plants.cs).
+        var navigation = Create(world, world.Built, bounds, WorldScaleProfile.Companion, world.Companion.StepHeightM, room: world.Room, nature: Kernel.CommandHost.Of(world));
         world.Companion.BindNavigation(navigation);
         return navigation;
     }
@@ -307,11 +311,13 @@ public partial class RoomNavigation : Node
     /// degrees, the body's own steepest walkable floor.
     /// </param>
     /// <param name="room">The room sourceRoot was built from, for the sources its data gives (see Room); null bakes the scene alone.</param>
-    public static RoomNavigation Create(Node parent, Node3D sourceRoot, Aabb bounds, WorldScaleProfile agent, float maxClimbM, float cellM = CellSizeM, RoomData? room = null)
+    /// <param name="nature">The command host whose nature the trees follow (grown ones larger, burnt ones gone); null leaves every tree at its natural size, as the room's data has it.</param>
+    public static RoomNavigation Create(Node parent, Node3D sourceRoot, Aabb bounds, WorldScaleProfile agent, float maxClimbM, float cellM = CellSizeM, RoomData? room = null,
+        Kernel.CommandHost? nature = null)
     {
         var navigation = new RoomNavigation
         {
-            Name = "RoomNavigation", SourceRoot = sourceRoot, CellM = cellM, Room = room,
+            Name = "RoomNavigation", SourceRoot = sourceRoot, CellM = cellM, Room = room, _nature = nature,
             BakeBounds = new Aabb(bounds.Position - new Vector3(0, 0.1f, 0), bounds.Size + new Vector3(0, 0.2f, 0)),
             // Whole cells, as the baker rounds them anyway (and warns when it has to). For the 10 cm companion:
             // 2 + 2 cm clearance is 4 cm, the height 10 cm, and its 2 cm step a 2 cm climb.
@@ -344,6 +350,7 @@ public partial class RoomNavigation : Node
         NavigationServer3D.RegionSetMap(_marker, Map);
         GetTree().NodeAdded += SceneChanged;
         GetTree().NodeRemoved += SceneChanged;
+        if (_nature != null) _nature.NatureChanged += OnNatureChanged;
         _dirtyAll = true;
         StartGeneration();
         // Today's rooms bake within this, and are ready the moment they are built, as they always were.
@@ -355,6 +362,7 @@ public partial class RoomNavigation : Node
         _closed = true;
         GetTree().NodeAdded -= SceneChanged;
         GetTree().NodeRemoved -= SceneChanged;
+        if (_nature != null && IsInstanceValid(_nature)) _nature.NatureChanged -= OnNatureChanged;
         // A bake in flight stops after the tile it is on (it checks _closed); let it, so no worker calls the server at shutdown.
         _generation?.Task.Wait(TimeSpan.FromSeconds(10));
         _generation = null;
@@ -411,6 +419,13 @@ public partial class RoomNavigation : Node
             _sinceChange += delta;
             if (_sincePoll < PollIntervalS) return;
             _sincePoll = 0;
+            // The trees as nature has them: a difference marks the tiles round the trees that changed, and bakes them at once
+            // (nothing is still moving: a cast or a burnt-down tree is a step, not a drag).
+            if (DetectPlants())
+            {
+                _changed = true;
+                _sinceChange = Math.Max(_sinceChange, SettleS);
+            }
             var signature = Signature();
             if (signature != _signature)
             {
@@ -575,6 +590,9 @@ public partial class RoomNavigation : Node
         var started = Stopwatch.GetTimestamp();
         var toRoot = SourceRoot.GlobalTransform.AffineInverse();
         var bodies = Snapshot(toRoot, out var signature);
+        // The trees' sizes this bake takes (the poll may not have looked since nature last changed: a bake asked for now sees it).
+        DetectPlants();
+        var plants = _plantsSeen;
         var all = _dirtyAll;
         var boxes = _dirtyBoxes.ToList();
         var records = _records;
@@ -586,7 +604,7 @@ public partial class RoomNavigation : Node
         var tiles = _tiles;
         var islandsLayout = new NavigationSeams.Layout(_tileX0, _tileZ0, _tileStep, TileColumns, TileRows, CellM);
         var generation = new Generation { Number = number, Started = started, StartedFrame = Engine.GetPhysicsFrames(), Collections = GC.CollectionCount(2) };
-        generation.Task = System.Threading.Tasks.Task.Factory.StartNew(() => RunGeneration(generation, all, boxes, bodies, records, tiles, islandsLayout),
+        generation.Task = System.Threading.Tasks.Task.Factory.StartNew(() => RunGeneration(generation, all, boxes, bodies, records, tiles, islandsLayout, plants),
             CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         _generation = generation;
         _generation.SnapshotMs = _generation.MainMs = Elapsed(started);
@@ -594,7 +612,7 @@ public partial class RoomNavigation : Node
 
     /// <summary>On a worker: which bodies changed, which tiles they touch, and those tiles baked (in parallel), then the islands.</summary>
     private GenerationResult RunGeneration(Generation generation, bool all, List<Aabb> boxes, List<BodySource> bodies, Dictionary<ulong, BodyRecord> previous,
-        Tile[] tiles, NavigationSeams.Layout layout)
+        Tile[] tiles, NavigationSeams.Layout layout, Dictionary<string, PlantSize> plants)
     {
         var number = generation.Number;
         var clock = Stopwatch.StartNew();
@@ -657,6 +675,8 @@ public partial class RoomNavigation : Node
             result.RoomGroundTriangles = ground.Sum(g => g.Triangles.Length / 9);
         }
         var obstructed = 0;
+        // The trees nature resized: their natural trunks are left out of every tile and their trunks as they are now put in, made once here.
+        var standing = PlantObstacles.Resized(plants.Values, _standing);
         result.ReadMs = clock.Elapsed.TotalMilliseconds;
         var baked = new NavigationIslands.TileGeometry?[chosen.Count];
         var next = -1;
@@ -686,10 +706,11 @@ public partial class RoomNavigation : Node
                     var source = new NavigationMeshSourceGeometryData3D();
                     source.AppendArrays(floats.AsSpan(0, count * 9), indices.AsSpan(0, count * 3));
                     foreach (var block in blocks[tile.Index]) source.AddProjectedObstruction(block.Corners, block.Bottom, block.Height, false);
-                    // The trunks and solid stones that reach into the tile's bake box, from the room's rows (see Room).
+                    // The trunks and solid stones that reach into the tile's bake box, from the room's rows (see Room), the trees as
+                    // nature has them (RoomNavigation.Plants.cs).
                     if (room != null)
-                        Interlocked.Add(ref obstructed, IslandNavigation.AddTo(room, source,
-                            new Rect2(tile.BakeBox.Position.X, tile.BakeBox.Position.Z, tile.BakeBox.Size.X, tile.BakeBox.Size.Z), ground: false));
+                        Interlocked.Add(ref obstructed, PlantObstacles.AddTo(room, source,
+                            new Rect2(tile.BakeBox.Position.X, tile.BakeBox.Position.Z, tile.BakeBox.Size.X, tile.BakeBox.Size.Z), plants, standing));
                     var mesh = TileSettings(tile);
                     NavigationServer3D.BakeFromSourceGeometryData(mesh, source);
                     if (mesh.GetPolygonCount() > 0) baked[k] = NavigationIslands.TileGeometry.From(tile.Index, mesh);
@@ -848,7 +869,7 @@ public partial class RoomNavigation : Node
         LastBakeMainThreadMs = owner.MainMs + ms;
         RoomGroundTriangles = result.RoomGroundTriangles;
         LastRoomObstructions = result.RoomObstructions;
-        var fromRoom = Room == null ? "" : $"from the room's data {result.RoomGroundTriangles} ground triangles and {result.RoomObstructions} obstructions in the tiles baked; ";
+        var fromRoom = Room == null ? "" : $"from the room's data {result.RoomGroundTriangles} ground triangles and {result.RoomObstructions} obstructions in the tiles baked ({PlantsFollowed} copies at other than natural size, {PlantsBurnt} burnt down); ";
         GD.Print(string.Create(System.Globalization.CultureInfo.InvariantCulture,
             $"ROOM_NAVIGATION bake {_appliedRevision}: {PolygonCount} polygons in {LastBakeMs:0.0} ms ({LastTilesBaked} of {TileCount} tiles of {_tileStep:0.##} m baked on worker threads, {result.Changed.Count} handed over: reading {result.ReadMs:0} ms, baking {result.BakeMs:0} ms, seams {result.SeamsMs:0} ms, islands {result.IslandsMs:0} ms; " +
             $"{fromRoom}the main thread {LastBakeMainThreadMs:0.0} ms in all, reading the scene {owner.SnapshotMs:0.0} ms, handing over {ms:0.0} ms; {GC.CollectionCount(2) - owner.Collections} full collections; " +
