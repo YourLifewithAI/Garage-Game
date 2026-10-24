@@ -57,12 +57,13 @@ public partial class NatureTest
         await TestVitalsFixRound();
     }
 
-    /// <summary>A world under v5 with a body of our choosing in a mode (and difficulty).</summary>
+    /// <summary>A world under v5 (or v5 edited, before the body is read) with a body of our choosing in a mode (and difficulty).</summary>
     private async Task<EnergyStore> EnergyWorld(string name, string mode = "challenge", int pips = 8, string difficulty = "standard", Func<PlayerVitals, PlayerVitals>? body = null,
-        DateTime? written = null, RoomData? room = null)
+        DateTime? written = null, RoomData? room = null, Action<JsonObject>? editPack = null)
     {
         await NewWorld(SavePath(name), roomOverride: room);
         _host.LoadRules("storybook_wild", 5);
+        if (editPack != null) UseEditedV5(editPack);
         _host.UseDifficulty(difficulty);
         var rules = VitalsRules.For(_host.Rules, mode, difficulty);
         var vitals = rules.Fresh().With(pips: pips);
@@ -121,7 +122,11 @@ public partial class NatureTest
         Check(Exhausted(blocked, 3, 4) && _host.Revision == revision && Pips == 3,
             "the player's Grow at four pips with three in the pool is refused energy_exhausted, carrying the balance and the price, and nothing changes: " + Canonical(blocked["error"]));
         var lit = Fire(Companion, new Vector3(0.9f, 0.01f, 1.2f), 0.15, 6, out var firePreview);
-        Check(Ok(firePreview) && Ok(lit) && Pips == 0, $"the Gubble's Fire is previewed free and costs three pips when it is lit ({Pips} left)");
+        Check(Ok(firePreview) && Ok(lit) && Pips == 2, $"the Gubble's Fire is previewed free and costs one pip when it is lit, half of 2 ordered (decisions 83 and 94; {Pips} left)");
+        // The player's own Glow spends the last two pips; put out again, so the next light is not held back by the island's count.
+        var lastTwo = GlowSelf(Player);
+        Send(Command(NextId("stop"), "effect.stop", new JsonObject { ["effect"] = "all" }), Player);
+        Check(Ok(lastTwo) && Pips == 0, $"(the player's Glow spends the last two pips: {Pips} left)");
         var effects = _host.ActiveEffectIds.Count;
         var empty = GlowSelf(Companion);
         Check(Exhausted(empty, 0, 1) && _host.ActiveEffectIds.Count == effects, "an empty pool refuses even the cheapest cast, and nothing starts: " + Canonical(empty["error"]));
@@ -224,12 +229,41 @@ public partial class NatureTest
         var gentleEarly = _host.Vitals.Health;
         Steps(1);
         Check(gentleEarly == 100 && _host.Vitals.Health == 95, $"Gentle halves fire and removes none: one quarter every 2 s ({gentleEarly}, then {_host.Vitals.Health})");
+        // Under v5 hearts heal only at a camp (decision 84), a quarter a second there (91): away from it a minute's rest heals nothing.
         await EnergyWorld("energy-heal");
-        // Away from the camp, the pack's own pace: at a camp hearts refill CampLaws.CampHeartsFactor times faster (Fire's camp, below).
         var camp = _room.SpawnFor("player").PositionM;
-        Check(_player.TryTeleportTo(camp + new Vector3(0.8f, 0, 0)) && !_host.PlayerAtCamp(), "(the player stands away from the camp)");
+        var away = camp + new Vector3(0.8f, 0, 0);
+        Check(_player.TryTeleportTo(away) && !_host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == null, "(the player stands away from the camp, where v5 heals nothing)");
         _host.ApplyPlayerDamage(14, PlayerDamageSource.Fall);
         var hurt = _host.Vitals.Health;
+        for (var i = 0; i < 60; i++) _player.VitalsTick!(1f, true);
+        Check(hurt == 85 && _host.Vitals.Health == 85,
+            $"a hurt of 14 health takes three quarters (85), and a minute's rest on safe ground away from a camp heals none of it (decision 84; {_host.Vitals.Health})");
+        Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == 1, "(the player stands at the camp, by the starting campfire)");
+        _host.ApplyPlayerDamage(_host.Vitals.Health - 5, PlayerDamageSource.Fall);
+        var low = _host.Vitals.Health;
+        _player.VitalsTick!(9.9f, true);
+        _player.VitalsTick!(0.2f, true);
+        var waited = _host.Vitals.Health;
+        for (var i = 0; i < 4; i++) _player.VitalsTick!(1f, true);
+        var fourSeconds = _host.Vitals.Health;
+        Check(_player.TryTeleportTo(away) && !_host.PlayerAtCamp(), "(the player walks away from the camp)");
+        for (var i = 0; i < 10; i++) _player.VitalsTick!(1f, true);
+        var leftCamp = _host.Vitals.Health;
+        Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp(), "(and back to the camp)");
+        for (var i = 0; i < 15; i++) _player.VitalsTick!(1f, true);
+        Check(low == 5 && waited == 5 && fourSeconds == 25 && leftCamp == 25 && _host.Vitals.Health == 100,
+            $"at a camp nothing heals for 10 s after harm, then a quarter every second (decision 91: five hearts in 20 s; 19 quarters in 19 s here), and nothing while away from it " +
+            $"({low}, {waited}, {fourSeconds}, {leftCamp}, {_host.Vitals.Health})");
+        _host.ApplyPlayerDamage(PlayerVitals.ContractMaxHealth, PlayerDamageSource.Fall);
+        var status = Send(Query("player.status", new JsonObject()), Companion)["data"];
+        Check(_host.Vitals.Recoveries == 1 && _host.Vitals.Health == 50 && Pips >= 4 && status?["hearts"]?["quarters"]?.GetValue<int>() == 10,
+            $"a knockout wakes at camp with half the hearts (10 quarters) and the pool at least half full ({Pips})");
+        // A pack that names none of the three (as every pack before decision 84): the pack's own pace anywhere, twice as fast at a camp.
+        await EnergyWorld("energy-heal-before", editPack: HealsAsBefore);
+        Check(_player.TryTeleportTo(away) && !_host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == 2.5, "(the player stands away from the camp)");
+        _host.ApplyPlayerDamage(14, PlayerDamageSource.Fall);
+        hurt = _host.Vitals.Health;
         _player.VitalsTick!(9.9f, true);
         var waiting = _host.Vitals.Health;
         _player.VitalsTick!(0.2f, true);
@@ -237,17 +271,13 @@ public partial class NatureTest
         var healed = _host.Vitals.Health;
         _player.VitalsTick!(5.1f, true);
         Check(hurt == 85 && waiting == 85 && healed == 90 && _host.Vitals.Health == 100,
-            $"a hurt of 14 health takes three quarters (85); nothing heals for 10 s, then a whole quarter every 2.5 s on safe ground ({waiting}, {healed}, {_host.Vitals.Health})");
-        Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp(), "(the player stands at the camp, by the starting campfire)");
+            $"without them, a hurt of 14 health takes three quarters (85); nothing heals for 10 s, then a whole quarter every 2.5 s on safe ground ({waiting}, {healed}, {_host.Vitals.Health})");
+        Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == 1.25, "(the player stands at the camp, by the starting campfire)");
         _host.ApplyPlayerDamage(14, PlayerDamageSource.Fall);
         _player.VitalsTick!(9.9f, true);
         _player.VitalsTick!(0.2f, true);
         _player.VitalsTick!(2.4f, true);
-        Check(_host.Vitals.Health == 95, $"at a camp the same 2.6 s heal twice as much: two quarters, not one (Fire's camp, decision 62; {_host.Vitals.Health})");
-        _host.ApplyPlayerDamage(PlayerVitals.ContractMaxHealth, PlayerDamageSource.Fall);
-        var status = Send(Query("player.status", new JsonObject()), Companion)["data"];
-        Check(_host.Vitals.Recoveries == 1 && _host.Vitals.Health == 50 && Pips >= 4 && status?["hearts"]?["quarters"]?.GetValue<int>() == 10,
-            $"a knockout wakes at camp with half the hearts (10 quarters) and the pool at least half full ({Pips})");
+        Check(_host.Vitals.Health == 95, $"and at a camp the same 2.6 s heal twice as much: two quarters, not one (Fire's camp, decision 62; {_host.Vitals.Health})");
         var bigHeart = await EnergyWorld("energy-big-heart");
         _host.UseKnacks(new Dictionary<string, int> { ["big_heart"] = 2 });
         var fall = PlayerVitals.FallDamage(MathF.Sqrt(2 * 3.5f * 1.5f), false);
@@ -257,13 +287,23 @@ public partial class NatureTest
             $"with Big heart at full rank the maximum is 120 and the same 1.5 m fall takes 16 quarters of 6, not 19 ({_host.Vitals.Health} left)");
     }
 
+    /// <summary>v5 without its three healing fields (decisions 84, 91 and 93): hearts heal as every pack before them did.</summary>
+    private static void HealsAsBefore(JsonObject pack)
+    {
+        var hearts = pack["traits"]!["hearts"]!.AsObject();
+        foreach (var name in new[] { "heal_outside_camp", "camp_heal_quarter_every_s", "heal_while_closed" }) hearts.Remove(name);
+    }
+
     private async Task TestVitalsTimeAway()
     {
         await EnergyWorld("energy-away", pips: 1, body: v => v.With(health: 50, stamina: 0), written: _now - TimeSpan.FromSeconds(60));
+        Check(_host.Vitals.Health == 50 && Pips == 4 && Math.Abs(_host.Vitals.Stamina - _host.Vitals.MaxStamina) < 1e-6,
+            $"a minute away under v5: the hearts as they were (decision 93: no healing while the game is closed), the bar refilled, and the pool woke half full ({_host.Vitals.Health}, {Pips}, {_host.Vitals.Stamina})");
+        await EnergyWorld("energy-away-before", pips: 1, body: v => v.With(health: 50, stamina: 0), written: _now - TimeSpan.FromSeconds(60), editPack: HealsAsBefore);
         Check(_host.Vitals.Health == 100 && Pips == 4 && Math.Abs(_host.Vitals.Stamina - _host.Vitals.MaxStamina) < 1e-6,
-            $"a minute away: the hearts healed at the resting pace, the bar refilled, and the pool woke half full ({_host.Vitals.Health}, {Pips}, {_host.Vitals.Stamina})");
-        await EnergyWorld("energy-away-short", pips: 6, body: v => v.With(health: 50), written: _now - TimeSpan.FromSeconds(12.5));
-        Check(_host.Vitals.Health == 55 && Pips == 6, $"12.5 s away heals one quarter after the 10 s wait, and a fuller pool keeps what it had ({_host.Vitals.Health}, {Pips})");
+            $"a pack that names no heal_while_closed heals as before: a minute away, the hearts healed at the resting pace, the bar refilled, the pool half full ({_host.Vitals.Health}, {Pips}, {_host.Vitals.Stamina})");
+        await EnergyWorld("energy-away-short", pips: 6, body: v => v.With(health: 50), written: _now - TimeSpan.FromSeconds(12.5), editPack: HealsAsBefore);
+        Check(_host.Vitals.Health == 55 && Pips == 6, $"and 12.5 s away heals one quarter after the 10 s wait, and a fuller pool keeps what it had ({_host.Vitals.Health}, {Pips})");
         await EnergyWorld("energy-away-never", pips: 1, body: v => v.With(health: 50));
         Check(_host.Vitals.Health == 50 && Pips == 1, "a mode never written by this host has no time away to catch up");
     }

@@ -90,7 +90,10 @@
     }
   ],
   "traits": {
-    "hearts": { "health_per_quarter": 5, "start_hearts": 5, "cap_hearts": 30, "heal_quarter_every_s": 2.5, "heal_after_unharmed_s": 10 },
+    "hearts": {
+      "health_per_quarter": 5, "start_hearts": 5, "cap_hearts": 30, "heal_quarter_every_s": 2.5, "heal_after_unharmed_s": 10,
+      "heal_outside_camp": false, "camp_heal_quarter_every_s": 1, "heal_while_closed": false
+    },
     "harm": { "fire_quarters_per_s": 1 },
     "stamina": {
       "start_m": 0.4, "band_m": 0.4, "bands": 10, "bands_per_bar": 5,
@@ -111,7 +114,7 @@
       "bubbles": { "ordered": 2, "own_idea_factor": 0.5 },
       "fireworks": { "ordered": 2, "own_idea_factor": 0.5 },
       "grow": { "ordered": 4, "own_idea_factor": 0.5 },
-      "fire": { "ordered": 6, "own_idea_factor": 0.5 },
+      "fire": { "ordered": 2, "own_idea_factor": 0.5 },
       "bubble_carry": { "ordered": 4, "own_idea_factor": 0.5 },
       "bubble_boat": { "ordered": 4, "own_idea_factor": 0.5 },
       "bubble_lift": { "ordered": 6, "own_idea_factor": 0.5 },

@@ -23,6 +23,7 @@ public partial class CommandHostTest
     private async Task TestPlaytestTap()
     {
         TestTapOncePerMessage();
+        TestTapPreviewIsTheCommands();
         TestTapCannotAlter();
         await TestTapRecord();
     }
@@ -68,6 +69,41 @@ public partial class CommandHostTest
         var refused = _host.HandleObject("{}", "guest:someone");
         _host.Handled -= Unknown;
         Check(Code(refused) == "principal_unknown" && unknown.Count == 0, "a caller the host does not admit is no player's or companion's message: nothing is raised");
+    }
+
+    /// <summary>
+    /// The preview flag is the command's as received (the second recorded play's reader finding, 17 October): a refused result carries
+    /// no preview of its own, so a refused lead preview was heard, and recorded, as a refused command. A refused preview is heard as a
+    /// preview, a refused command that is none is not, an accepted preview still is, and a query is never one.
+    /// </summary>
+    private void TestTapPreviewIsTheCommands()
+    {
+        var heard = new List<CommandHandled>();
+        void Heard(CommandHandled handled) => heard.Add(handled);
+        JsonObject Through(JsonObject message, string principal)
+        {
+            _now += TimeSpan.FromMilliseconds(50);
+            return _host.HandleObject(message.ToJsonString(), principal);
+        }
+        _host.Handled += Heard;
+        var unlockPreview = Unlock("obj:table");
+        unlockPreview["preview"] = true;
+        var refusedPreview = Through(unlockPreview, Companion);
+        var refusedCommand = Through(Unlock("obj:table"), Companion);
+        var note = Command("tap-preview-note", "journal.note", new JsonObject { ["text"] = "A preview's note." });
+        note["preview"] = true;
+        var acceptedPreview = Through(note, Player);
+        var query = Through(new JsonObject { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "tap-preview-q", ["room_id"] = "test_room", ["op"] = "room.describe", ["args"] = new JsonObject() }, Player);
+        _host.Handled -= Heard;
+        Check(heard.Count == 4, $"four messages, four events ({heard.Count})");
+        if (heard.Count != 4) return;
+        Check(!Ok(refusedPreview) && Code(refusedPreview) != null && refusedPreview["preview"]?.GetValue<bool>() != true &&
+              heard[0] is { Ok: false, Preview: true, Op: "protect.unlock" } && heard[0].Code == Code(refusedPreview),
+            "a refused preview's result says no preview, and the tap hears it as a preview all the same: the command's flag as received: " + heard[0]);
+        Check(!Ok(refusedCommand) && heard[1] is { Ok: false, Preview: false } && heard[1].Code == Code(refusedCommand), "a refused command that is no preview is heard as a refusal: " + heard[1]);
+        Check(Ok(acceptedPreview) && acceptedPreview["preview"]?.GetValue<bool>() == true && heard[2] is { Ok: true, Preview: true, Op: "journal.note" },
+            "an accepted preview is heard as one, as before: " + heard[2]);
+        Check(Ok(query) && heard[3] is { Ok: true, Preview: false, Op: "room.describe" }, "a query is never a preview: " + heard[3]);
     }
 
     /// <summary>The tapped host's answers are byte for byte the untapped host's, with a listener that throws and one that hoards what it hears.</summary>
@@ -136,6 +172,11 @@ public partial class CommandHostTest
                 ["text"] = "hi", ["token"] = "SECRET-1", ["session_file"] = "SECRET-2", ["save"] = new JsonObject { ["slot"] = "SECRET-3" }, ["base64"] = "SECRET-4",
                 ["credential"] = "SECRET-5", ["deep"] = new JsonObject { ["password"] = "SECRET-6", ["picture"] = "SECRET-7" },
             }), Companion, contractValid: false);
+            // A refused preview (a reticle's lead preview the pool cannot pay, in the debrief of 17 October): recorded as a preview.
+            var refusedPreview = Unlock("obj:table");
+            refusedPreview["preview"] = true;
+            var previewId = refusedPreview["action_id"]!.GetValue<string>();
+            var previewCode = Code(Send(refusedPreview, Companion));
             _now += TimeSpan.FromSeconds(10);
             _host.SetGubbleEyes(true);
             using var source = Image.CreateEmpty(64, 36, false, Image.Format.Rgba8);
@@ -165,6 +206,10 @@ public partial class CommandHostTest
             Check(secrets != null && !text.Contains("SECRET", StringComparison.Ordinal) && !text.Contains("session_file", StringComparison.Ordinal) && !text.Contains("\"token\"", StringComparison.Ordinal) &&
                   !text.Contains("\"save\"", StringComparison.Ordinal) && !text.Contains("password", StringComparison.Ordinal),
                 "nothing of a token, a session file, a save, a credential or a picture reaches the record, at any depth: " + secrets?.ToJsonString());
+            var previewLine = commands.FirstOrDefault(c => c["action_id"]?.GetValue<string>() == previewId);
+            Check(previewLine?["result"] is JsonObject previewResult && previewResult["ok"]?.GetValue<bool>() == false && previewResult["preview"]?.GetValue<bool>() == true &&
+                  previewCode != null && previewResult["code"]?.GetValue<string>() == previewCode && previewResult["message"] != null,
+                "a refused preview is recorded as a preview (result.preview), with its refusal's code and words: " + previewLine?.ToJsonString());
             Check(lines.Last()["kind"]?.GetValue<string>() == "quit" && PlaytestRecords.Manifest(folder)["ended_utc"] != null, "the record ends cleanly");
             var shape = PlaytestRecords.Shape(folder);
             Check(shape.Count == 0, "the record holds to the contract's shape: " + string.Join("; ", shape));

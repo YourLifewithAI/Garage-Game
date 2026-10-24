@@ -100,7 +100,8 @@ public partial class CommandHost
     /// <summary>
     /// The HUD's ability keys: the player's effect.start, carried out by the Gubble, like PlayerGoal. No point is the
     /// Gubble's own glow (targets its avatar); a point is a light there. The area's radius and the duration are the
-    /// pack's defaults, and so are the params (left out). Returns the result for the HUD to show.
+    /// pack's defaults, and so are the params (left out), except a bubble's time at a spot: the Bubble's own (8 s, a boat
+    /// 60 s; PlayerBubbleDurationS). Returns the result for the HUD to show.
     /// </summary>
     public JsonObject PlayerEffect(string capability, Vector3? point = null, string variant = "auto", string? touch = null)
     {
@@ -111,7 +112,7 @@ public partial class CommandHost
             // An ability the island lacks still goes through the host, which answers why (unsupported_capability).
             ["capability"] = capability, ["params"] = new JsonObject(),
             ["area"] = new JsonObject { ["center_m"] = KernelJson.Vector(centre), ["radius_m"] = ability?.AreaRadiusDefaultM ?? 0.5 },
-            ["duration_s"] = ability?.DurationDefaultS ?? 1.0,
+            ["duration_s"] = ability is { Primitive: "particles.float" } && point is { } spot ? PlayerBubbleDurationS(ability, spot) : ability?.DurationDefaultS ?? 1.0,
         };
         if (point == null) args["targets"] = new JsonArray(CompanionAvatarId);
         if (capability == "glow")

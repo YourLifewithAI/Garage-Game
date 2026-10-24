@@ -48,15 +48,17 @@ public partial class NatureTest
 
     /// <summary>
     /// One launch in the game's order (RoomWorld): the vitals store as the host is attached, then the island's rules, then the
-    /// team's knacks and the boot's one set-mode (TeamBoot.Apply), all before the first frame.
+    /// team's knacks and the boot's one set-mode (TeamBoot.Apply), all before the first frame. editPack: the island's pack is v5 so
+    /// edited (UseEditedV5), as the pack the launch loads.
     /// </summary>
-    private async Task Launch(string team, IReadOnlyDictionary<string, int> knacks, RoomData? room = null, bool packLoads = true)
+    private async Task Launch(string team, IReadOnlyDictionary<string, int> knacks, RoomData? room = null, bool packLoads = true, Action<JsonObject>? editPack = null)
     {
         JsonObject? booted = null;
         await NewWorld(SavePath("launch-" + team), roomOverride: room,
             beforeRules: () => _host.ConfigurePlayerVitals(new LocalPlayerVitalsStore(TeamVitals(team, "challenge"))),
             afterRules: () =>
             {
+                if (editPack != null) UseEditedV5(editPack);
                 // A pack that did not load leaves the host with no rules (LoadRules' notice), as before teams.
                 if (!packLoads) _host.UseRules(null, "The island's rules did not load (a test).");
                 _host.UseKnacks(knacks);
@@ -89,13 +91,19 @@ public partial class NatureTest
             Check(saved.Health == 60 && saved.MaxHealth == 120 && saved.Stamina == body.Stamina && saved.MaxStamina == body.MaxStamina,
                 $"and leaves it saved as it was: {saved.Health}/{saved.MaxHealth}, {saved.Stamina}/{saved.MaxStamina} m");
         }
-        // 12.5 s away: one quarter heals after the 10 s wait, a quarter of 6 (the island's pace with the team's knack), once.
+        // 12.5 s away under a pack that heals while the game is closed (every pack before decision 93): one quarter heals after the
+        // 10 s wait, a quarter of 6 (the island's pace with the team's knack), once.
         _now += TimeSpan.FromSeconds(12.5);
-        await Launch("hearty", BigHeart);
+        await Launch("hearty", BigHeart, editPack: HealsAsBefore);
         Check(_host.BodyRules.Quarters(_host.Vitals) == 11 && _host.Vitals.Health == 66, "time away heals one quarter of 6 under the island's rules: " + Quarters());
         await FreeWorld();
-        await Launch("hearty", BigHeart);
+        await Launch("hearty", BigHeart, editPack: HealsAsBefore);
         Check(_host.Vitals.Health == 66 && SavedBody("hearty", "challenge").Health == 66, "and the next launch heals nothing more: " + Quarters());
+        await FreeWorld();
+        // Under v5 (decision 93) the time away heals nothing: the player comes back with the hearts they had.
+        _now += TimeSpan.FromSeconds(12.5);
+        await Launch("hearty", BigHeart);
+        Check(_host.Vitals.Health == 66 && SavedBody("hearty", "challenge").Health == 66, "under v5 12.5 s away heals nothing (decision 93): " + Quarters());
         await FreeWorld();
     }
 

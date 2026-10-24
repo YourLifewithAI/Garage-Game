@@ -60,6 +60,8 @@ public partial class NatureTest : Node3D
             await TestGrowExpertise();
             // Fire's behaviours (NatureTest.FireKinds.cs): Fireline, Snuff, Will-o'-wisp, the place deciding.
             await TestFireKinds();
+            // The Bubble's time (NatureTest.BubbleTime.cs, decision 95): 8 s, the boat's minute.
+            await TestBubbleTime();
             await FreeWorld();
             OS.RemoveLogger(_errors);
             Check(_errors.Count == 0, $"no script or engine error while the suite ran ({_errors.Count}; first: {_errors.First})");

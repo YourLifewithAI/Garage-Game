@@ -313,8 +313,10 @@ public partial class PlayHudTest
         await Frames(JournalMoveFrames);
         _hud.Journal.OpenPage(JournalPages.Abilities);
         var abilities = _hud.Journal.PageText;
-        Check(abilities.Contains("Costs 2 pips", StringComparison.Ordinal) && abilities.Contains("Costs 4 pips", StringComparison.Ordinal) && abilities.Contains("Costs 6 pips", StringComparison.Ordinal),
-            "the journal's Abilities page names each ability's cost in pips (Glow 2, Grow 4, Fire 6)");
+        var fireAt = abilities.IndexOf("· Fire", StringComparison.Ordinal);
+        Check(abilities.Contains("Costs 2 pips", StringComparison.Ordinal) && abilities.Contains("Costs 4 pips", StringComparison.Ordinal) && !abilities.Contains("Costs 6 pips", StringComparison.Ordinal) &&
+              fireAt >= 0 && abilities.IndexOf("Costs 2 pips", fireAt, StringComparison.Ordinal) > fireAt,
+            "the journal's Abilities page names each ability's cost in pips (Glow 2, Grow 4, Fire 2: decision 83)");
         _hud.Journal.OpenPage(JournalPages.Character);
         var sheet = _hud.Journal.PageText;
         Check(sheet.Contains("Pips 0/8", StringComparison.Ordinal) && sheet.Contains("In your wallet: ", StringComparison.Ordinal) && sheet.Contains("Health ", StringComparison.Ordinal),

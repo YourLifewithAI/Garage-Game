@@ -27,8 +27,11 @@ public static class FireKindWords
 public static class FireKindLaws
 {
     // Fireline (78).
-    /// <summary>Learning it: three committed Fire casts within this many seconds (decision 78: 2 minutes)...</summary>
-    public const double FirelineLearnWindowS = 120;
+    /// <summary>
+    /// Learning it: three committed Fire casts within this many seconds: 5 minutes, provisional (decision 78 said 2 minutes; the status
+    /// page's next-session list, "perhaps 5 minutes", for the second playtest round)...
+    /// </summary>
+    public const double FirelineLearnWindowS = 300;
     /// <summary>...each at least this far from the others (decision 78)...</summary>
     public const float FirelineLearnApartM = 0.5f;
     /// <summary>...whose centres all lie within this of one straight line (provisional: the decision says "along one line").</summary>
@@ -81,7 +84,8 @@ public sealed class Wisp
 /// <item><b>Fireline</b> (78): a cast that names end_m, once learned, lights every ground cell along the line from center_m to end_m (at
 /// most 3 m) that can catch, at once; the fire spreads within Fire's caps round the line's middle. One fire, one undo step in Creative,
 /// every Fire guardrail, both ends and the middle within reach and sight (CheckFireline). Learned by three committed Fire casts within
-/// 2 minutes, at least 0.5 m apart, along one line (NoteFireForFireline). Priced as "fireline".</item>
+/// 5 minutes (FireKindLaws.FirelineLearnWindowS, provisional; decision 78 said 2), at least 0.5 m apart, along one line
+/// (NoteFireForFireline). Priced as "fireline".</item>
 /// <item><b>Snuff</b> (79): once learned, Fire aimed at something burning puts out every burning cell in a 1.5 m circle and every lit
 /// campfire in it (PutOutCampfire); the ground there cannot catch for 30 s (InSnuffZone). It never hurts anyone, is no fire, and is
 /// allowed while the Gubble's fire budget waits; the Gubble's own-idea Snuff of a lit campfire waits for the player's yes. A simulation

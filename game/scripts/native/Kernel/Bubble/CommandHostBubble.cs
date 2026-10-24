@@ -106,6 +106,19 @@ public partial class CommandHost
         return PlayerCommand("nature.cast", args);
     }
 
+    /// <summary>
+    /// The time the Bubbles key names (PlayerEffect), as the nature.cast controls name theirs (BubbleCastArgs): where the place makes a
+    /// boat (water away from the player's feet, PlaceTheBubble's rule) the boat's BubbleLaws.BoatDurationDefaultS, anywhere else a
+    /// bubble's CarryDurationDefaultS (8 s, decision 95), never past the island's duration_max_s. Before decision 95 the key sent the
+    /// pack's duration_default_s (20 s in v5) for every bubble, the boat's too; the pack's default no longer decides a bubble's time.
+    /// </summary>
+    internal double PlayerBubbleDurationS(IslandAbility ability, Vector3 spot)
+    {
+        var onFeet = Player != null && IsInstanceValid(Player) && Player.GlobalPosition.DistanceTo(spot) <= BubbleLaws.CarryRadiusDefaultM + BubbleLaws.EnvelopReachM;
+        var boat = !onFeet && Room != null && WaterForBoat(spot) != null;
+        return Math.Min(boat ? BubbleLaws.BoatDurationDefaultS : BubbleLaws.CarryDurationDefaultS, ability.DurationMaxS);
+    }
+
     /// <summary>The player's own pop, as the dive key gives it (the body calls it; tests too): whether a bubble popped or a boat was left.</summary>
     public bool PlayerPopsBubble()
     {

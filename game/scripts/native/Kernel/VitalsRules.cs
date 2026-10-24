@@ -71,10 +71,25 @@ public sealed class VitalsRules
     public int MaxPips { get; }
     /// <summary>At camp, and after time away, the pool wakes at least this full.</summary>
     public int CampPips { get; }
-    /// <summary>Healing lands one quarter every this many seconds (today: 2 health a second) ...</summary>
+    /// <summary>Healing lands one quarter every this many seconds away from a camp (today: 2 health a second) ...</summary>
     public double HealQuarterEveryS => Hearts?.HealQuarterEveryS ?? 2.5;
-    /// <summary>... once this many seconds have passed without harm, on safe ground.</summary>
+    /// <summary>... once this many seconds have passed without harm, on safe ground, at a camp or (HealsOutsideCamp) anywhere.</summary>
     public double HealAfterUnharmedS => Hearts?.HealAfterUnharmedS ?? 10;
+    /// <summary>
+    /// Whether hearts heal away from a camp: the pack's heal_outside_camp, true without it (today's: anywhere on safe ground); false
+    /// in v5 (decision 84: hearts heal by resting at a camp, and later by food).
+    /// </summary>
+    public bool HealsOutsideCamp => Hearts?.HealOutsideCamp ?? true;
+    /// <summary>
+    /// At a camp one quarter every this many seconds: the pack's camp_heal_quarter_every_s, 1 in v5 (decision 91: a quarter a second,
+    /// five hearts in 20 s); without it HealQuarterEveryS / CampLaws.CampHeartsFactor (decision 62's twice as fast, today's).
+    /// </summary>
+    public double CampHealQuarterEveryS => Hearts?.CampHealQuarterEveryS ?? HealQuarterEveryS / CampLaws.CampHeartsFactor;
+    /// <summary>
+    /// Whether the time the game was closed heals hearts (CommandHost.CaughtUp): the pack's heal_while_closed, true without it
+    /// (MECHANICS.md "While the player is away", today's); false in v5 (decision 93: you come back with what you had).
+    /// </summary>
+    public bool HealsWhileClosed => Hearts?.HealWhileClosed ?? true;
     public double RefillMPerS => Stamina?.RefillMPerS ?? PlayerVitals.GroundRecoveryPerSecond;
     /// <summary>
     /// The metres a climber rises for each metre of bar, before Steady climber: the pack's climb_m_per_bar_m (1.5 in v5, decision 65);

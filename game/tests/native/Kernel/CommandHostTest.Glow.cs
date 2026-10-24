@@ -339,6 +339,9 @@ public partial class CommandHostTest
               look.KindOf(bubble) == LookDirector.EffectKind.None && !look.HasGlow(bubble) && look.KindOf(burst) == LookDirector.EffectKind.Fireworks && !look.HasGlow(burst) &&
               look.EffectCount == 3,
             "PlayerEffect of bubbles is one bubble at a spot (none on the Gubble, no stream of small bubbles); fireworks at a spot start the look's fireworks, not a glow");
+        Check(BubbleLaws.CarryDurationDefaultS == 8f && blown["data"]?["duration_s"]?.GetValue<double>() == 8 &&
+              blown["data"]?["expires_utc"]?.GetValue<string>() == KernelJson.Utc(_now + TimeSpan.FromSeconds(8)),
+            "the Bubbles key's bubble lasts 8 seconds (decision 95; it was 20), not the pack's duration_default_s: " + Canonical(blown["data"]));
         // goal.stop of the Gubble ends its effects too, of every kind (the contract: an actor's goals and its effects), and pops its bubble.
         var goalStop = _host.PlayerGoal("stop");
         Check(Ok(goalStop) && goalStop["data"]!["effects_stopped"]!.GetValue<int>() == 4 && look.EffectCount == 0 && _host.ActiveEffectIds.Count == 0 && _host.ActiveBubbles.Count == 0,

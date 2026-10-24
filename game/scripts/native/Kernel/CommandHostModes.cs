@@ -282,12 +282,17 @@ public partial class CommandHost
         var heal = _damageRestS >= _vitalsRules.HealAfterUnharmedS && vitals.Health < vitals.MaxHealth;
         if (safelyGrounded && (vitals.Stamina < vitals.MaxStamina || heal))
         {
+            // In quarters the pack says where hearts heal and how fast (HealQuarterEveryHereS): at a camp its camp pace, elsewhere its
+            // own or, where it heals only at camp (v5, decision 84), not at all.
+            var every = heal && _vitalsRules.InQuarters ? HealQuarterEveryHereS() : null;
+            if (heal && _vitalsRules.InQuarters && every == null) heal = false;
             vitals = _vitalsRules.Rest(vitals, rest, heal);
-            // In quarters the heal lands whole: one quarter every heal_quarter_every_s.
-            if (heal && _vitalsRules.InQuarters)
+            // In quarters the heal lands whole: one quarter every `every` seconds, counted against heal_quarter_every_s so the camp's
+            // pace and the outside one share the count (a second at a camp counts heal_quarter_every_s / camp_heal_quarter_every_s:
+            // 2 by default, decision 62's; 2.5 under v5's quarter a second, decision 91).
+            if (heal && every is { } quarterS)
             {
-                // At a camp (the starting one or any lit campfire) hearts refill faster (decision 62; CampLaws.CampHeartsFactor).
-                _healS += seconds * CampHeartsFactorNow();
+                _healS += seconds * (_vitalsRules.HealQuarterEveryS / quarterS);
                 while (_healS >= _vitalsRules.HealQuarterEveryS && vitals.Health < vitals.MaxHealth)
                 {
                     _healS -= _vitalsRules.HealQuarterEveryS;
@@ -458,9 +463,10 @@ public partial class CommandHost
 
     /// <summary>
     /// While the player is away the world keeps living (MECHANICS section 4): the time since this mode was last written heals
-    /// hearts at the resting pace (after the unharmed wait), refills the bar, and wakes the pool at least half full, as at
-    /// camp. Nothing in Creative needs it but the shadow pool. A mode never written by this host (fresh, or only in a version
-    /// 1 save) has no time away. Applied to the body as read (BroughtTo), only once rules are loaded: never under none.
+    /// hearts at the resting pace (after the unharmed wait) where the pack lets it (heal_while_closed; v5 says not, decision 93: you
+    /// come back with the hearts you had), refills the bar, and wakes the pool at least half full, as at camp. Nothing in Creative
+    /// needs it but the shadow pool. A mode never written by this host (fresh, or only in a version 1 save) has no time away.
+    /// Applied to the body as read (BroughtTo), only once rules are loaded: never under none.
     /// </summary>
     private PlayerVitals CaughtUp(VitalsRules rules, PlayerVitals vitals, DateTime? written)
     {
@@ -471,7 +477,7 @@ public partial class CommandHost
         if (!rules.Consequences) return pips == vitals.Pips ? vitals : vitals.With(pips: pips);
         var resting = Math.Max(0, away - rules.HealAfterUnharmedS);
         var health = vitals.Health;
-        if (resting > 0 && health > 0)
+        if (resting > 0 && health > 0 && rules.HealsWhileClosed)
             health = rules.InQuarters
                 ? (float)(Math.Min(rules.MaxQuarters(vitals), rules.Quarters(vitals) + Math.Floor(resting / rules.HealQuarterEveryS)) * rules.HealthPerQuarter)
                 : (float)Math.Min(vitals.MaxHealth, health + 2 * resting);
