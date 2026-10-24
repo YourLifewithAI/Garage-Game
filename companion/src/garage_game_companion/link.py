@@ -37,13 +37,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from . import canonical
+from . import canonical, ids
 
-log = logging.getLogger("enfractal.link")
+log = logging.getLogger("garage_game.link")
 
-PROTOCOL = "enfractal.companion_link"
+# The ids this side writes; it reads either spelling of each (ids.is_schema), the one from before the rename too.
+PROTOCOL = ids.id_of("companion_link")
 LINK_VERSION = 1
-SESSION_SCHEMA = "enfractal.companion_session"
+SESSION_SCHEMA = ids.id_of("companion_session")
 LOOPBACK_HOSTS = ("127.0.0.1", "::1")  # the only spellings a session file or a listener may use
 MAX_HANDSHAKE_FRAME = 1024
 # A command or query is at most 65,536 bytes of canonical JSON, and a frame is that plus an envelope
@@ -63,8 +64,15 @@ COMPANION_AVATAR = "avatar:companion"
 _HEX64 = re.compile(r"[0-9a-f]{64}")
 _TOKEN = re.compile(r"[a-z][a-z0-9_-]{0,63}")
 _CODE = re.compile(r"[a-z_]{1,32}")
-_SERVER_LABEL = f"{PROTOCOL}/{LINK_VERSION}|server|".encode("ascii")
-_CLIENT_LABEL = f"{PROTOCOL}/{LINK_VERSION}|client|".encode("ascii")
+
+
+def _labels(protocol: str) -> tuple[bytes, bytes]:
+    """The proofs' labels for the protocol id a challenge names (companion-link.schema.json): server's, then client's."""
+    return f"{protocol}/{LINK_VERSION}|server|".encode("ascii"), f"{protocol}/{LINK_VERSION}|client|".encode("ascii")
+
+
+# A listener's challenge always names PROTOCOL, so its proofs use these.
+_SERVER_LABEL, _CLIENT_LABEL = _labels(PROTOCOL)
 
 
 class LinkError(Exception):
@@ -181,8 +189,8 @@ def parse_session(raw: bytes) -> SessionInfo:
     expected = {"schema", "version", "host", "port", "token", "room_id", "pid", "created_utc"}
     if set(document) - expected:
         raise LinkError("session file has fields this companion does not understand")
-    if document.get("schema") != SESSION_SCHEMA or document.get("version") != LINK_VERSION:
-        raise LinkError("session file is not an enfractal.companion_session version 1")
+    if not ids.is_schema(document.get("schema"), "companion_session") or document.get("version") != LINK_VERSION:
+        raise LinkError(f"session file is not a {SESSION_SCHEMA} version 1")
     host, port, token, room_id = (document.get(k) for k in ("host", "port", "token", "room_id"))
     pid, created = document.get("pid"), document.get("created_utc")
     if (pid is not None and (not isinstance(pid, int) or isinstance(pid, bool) or not 0 < pid < 2 ** 32)) \
@@ -380,7 +388,7 @@ class LinkServer:
     async def _handshake(self, reader, writer) -> bool:
         hello = await read_frame(reader, MAX_HANDSHAKE_FRAME)
         if (set(hello) != {"type", "protocol", "version", "client_nonce"} or hello.get("type") != "hello"
-                or hello.get("protocol") != PROTOCOL or hello.get("version") != LINK_VERSION
+                or not ids.is_schema(hello.get("protocol"), "companion_link") or hello.get("version") != LINK_VERSION
                 or not _is_hex64(hello.get("client_nonce"))):
             await self._refuse(writer, "hello_invalid")
             return False
@@ -533,13 +541,16 @@ class LinkClient:
             raise LinkError(f"the game refused the connection ({_safe_code(challenge.get('code'))})")
         server_nonce = challenge.get("server_nonce")
         server_proof = challenge.get("server_proof")
-        if (challenge.get("type") != "challenge" or challenge.get("protocol") != PROTOCOL
+        # The challenge names the protocol in either spelling (a game from before the rename names the old id), and both
+        # proofs are taken over the one it names.
+        named = challenge.get("protocol")
+        if (challenge.get("type") != "challenge" or not ids.is_schema(named, "companion_link")
                 or challenge.get("version") != LINK_VERSION or not _is_hex64(server_nonce)
                 or not _is_hex64(server_proof)
-                or not hmac.compare_digest(server_proof, _proof(info.token, _SERVER_LABEL, client_nonce, server_nonce))):
+                or not hmac.compare_digest(server_proof, _proof(info.token, _labels(named)[0], client_nonce, server_nonce))):
             raise LinkError("the listener could not prove it is this game session; refusing to send anything")
         writer.write(encode_frame({"type": "auth",
-                                   "client_proof": _proof(info.token, _CLIENT_LABEL, client_nonce, server_nonce)}))
+                                   "client_proof": _proof(info.token, _labels(named)[1], client_nonce, server_nonce)}))
         await writer.drain()
         ready = await read_frame(reader, MAX_HANDSHAKE_FRAME)
         if ready.get("type") == "refused":

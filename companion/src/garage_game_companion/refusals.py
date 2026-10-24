@@ -9,9 +9,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from . import textsafety
+from . import ids, textsafety
 
-RESULT_SCHEMA = "enfractal.result"
+RESULT_SCHEMA = ids.id_of("result")
 _ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
 
 
@@ -171,7 +171,7 @@ def base_result(*, principal: str, room_id: str, revision: int, at_utc: str, mes
         "replayed": False, "preview": False, "at_utc": at_utc,
     }
     if isinstance(message, dict):
-        key = {"enfractal.command": "action_id", "enfractal.query": "query_id"}.get(message.get("schema"))
+        key = {"command": "action_id", "query": "query_id"}.get(ids.kind_of(message.get("schema")))
         value = message.get(key) if key else None
         if isinstance(value, str) and _ID.fullmatch(value):
             result[key] = value

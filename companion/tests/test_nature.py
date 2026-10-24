@@ -31,7 +31,7 @@ RAINING_AT_S = 160.0  # the weather clock in full rain (the kernel's six-minute 
 
 
 def block(name: str, material: str = "wood") -> dict:
-    return {"schema": "enfractal.creation", "version": 1, "name": name, "seed": 7, "mount": "ground",
+    return {"schema": "garage_game.creation", "version": 1, "name": name, "seed": 7, "mount": "ground",
             "parts": [{"id": "block", "shape": "box", "position_m": [0, 0.05, 0], "rotation_deg": [0, 0, 0],
                        "size_m": [0.1, 0.1, 0.1], "material": material}], "nodes": [], "edges": []}
 

@@ -301,7 +301,7 @@ class LinkSessionFile(RealHostCase):
         document = json.loads(raw)
         self.assertEqual(set(document), {"schema", "version", "host", "port", "token", "room_id", "pid", "created_utc"})
         self.assertEqual((document["schema"], document["version"], document["host"], document["room_id"]),
-                         ("enfractal.companion_session", 1, "127.0.0.1", "test_room"))
+                         ("garage_game.companion_session", 1, "127.0.0.1", "test_room"))
         self.assertEqual(parse_session(raw).port, self.info.port)
         runner_raw = GAME.session_path.with_name("wish-runner.json").read_bytes()
         self.assertNotIn(b"\r", runner_raw)
@@ -384,7 +384,7 @@ class LinkFrames(RealHostCase):
         for _ in range(100):
             cursor["a"] = {}
             cursor = cursor["a"]
-        for message in ({"schema": "enfractal.command"}, [], "text", {"schema": "enfractal.query", "version": 1, "deep": deep}):
+        for message in ({"schema": "garage_game.command"}, [], "text", {"schema": "garage_game.query", "version": 1, "deep": deep}):
             with self.subTest(message=str(message)[:40]):
                 result = await self.ask(client, message)
                 self.assertEqual(result["error"]["code"], "request_invalid")

@@ -125,7 +125,7 @@ A **follow** or **come** shows only as the current state in "Working on" ("follo
 |---|---|
 | **`journal.note`** (new command, the companion's) | Writes one of its notes. A durable receipt; it changes no world state |
 | **`journal.read`** (new query) | By default, every open task plus the last 20 entries (*start*), newest first. Filters: kind, a subject, since a time. This is the short context a model should read at the start of a session or after a pause, with its lessons (kind `consequence`) |
-| **The journal as an MCP resource** | The same view as `journal.read` with no filters, at `enfractal://journal`, for harnesses that read resources (built: Lane A, Run 2). Read on demand: no subscription or change notice yet |
+| **The journal as an MCP resource** | The same view as `journal.read` with no filters, at `garage-game://journal` (and, as before the rename, `enfractal://journal`), for harnesses that read resources (built: Lane A, Run 2). Read on demand: no subscription or change notice yet |
 | `entities.list`, `entity.inspect` | Anything the team knows: live if in sight now, otherwise as last seen, with the existing `seen`, `last_seen_ago_s`, `last_seen_revision` and `may_be_stale` fields. `seen: "remembered"` comes to mean "known to the team, not in sight now" |
 | `observe` | Unchanged: what the companion's own eyes see now, for looking and pointing |
 | **`map.find`** (new query, proposed) | "Where have we seen X?" by category or name, nearest first, small answers. It lets a model look things up instead of listing the room |

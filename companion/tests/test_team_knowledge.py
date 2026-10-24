@@ -293,7 +293,7 @@ NEAR_THE_HIDING_PLACES = [-1.2, 0.0, -1.4]  # both hiding places see it
 
 def block(name: str) -> dict:
     """A 10 cm wooden block, the creation compiler's smallest part."""
-    return {"schema": "enfractal.creation", "version": 1, "name": name, "seed": 7, "mount": "ground",
+    return {"schema": "garage_game.creation", "version": 1, "name": name, "seed": 7, "mount": "ground",
             "parts": [{"id": "block", "shape": "box", "position_m": [0, 0.05, 0], "rotation_deg": [0, 0, 0],
                        "size_m": [0.1, 0.1, 0.1], "material": "wood"}], "nodes": [], "edges": []}
 

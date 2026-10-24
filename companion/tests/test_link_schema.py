@@ -13,6 +13,7 @@ from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
 from support import COMPANION_DIR, CONTRACTS, EXAMPLES, command, new_host, query
 
+from garage_game_companion import ids
 from garage_game_companion import link
 from garage_game_companion.link import LinkClient, LinkServer
 
@@ -203,9 +204,9 @@ class LinkSchema(unittest.IsolatedAsyncioTestCase):
         checked = 0
         for path in sorted((EXAMPLES / "valid").glob("*.json")):
             message = json.loads(path.read_bytes())
-            if message["schema"] not in {"enfractal.command", "enfractal.query", "enfractal.result"}:
+            if ids.kind_of(message["schema"]) not in {"command", "query", "result"}:
                 continue
-            kind = "response" if message["schema"] == "enfractal.result" else "request"
+            kind = "response" if ids.is_schema(message["schema"], "result") else "request"
             with self.subTest(example=path.name):
                 self.assertValid(framed(message, kind))
                 self.assertFalse(self.validator.is_valid(framed(message, "request" if kind == "response" else "response")))
@@ -216,13 +217,13 @@ class LinkSchema(unittest.IsolatedAsyncioTestCase):
         for frame in ({"type": "request", "seq": 1, "message": {}, "principal": "player:local"},
                       {"type": "auth", "client_proof": "a" * 64, "token": "b" * 64},
                       {"type": "player_decision", "request_id": "c" * 32, "approve": True},
-                      {"type": "hello", "protocol": "enfractal.companion_link", "version": 1, "client_nonce": "d" * 64,
+                      {"type": "hello", "protocol": "garage_game.companion_link", "version": 1, "client_nonce": "d" * 64,
                        "principal": "player:local"}):
             with self.subTest(frame=frame["type"]):
                 self.assertFalse(self.validator.is_valid(frame))
 
     def test_the_schema_refuses_a_session_file_off_loopback(self):
-        document = {"schema": "enfractal.companion_session", "version": 1, "host": "10.0.0.2", "port": 4000,
+        document = {"schema": "garage_game.companion_session", "version": 1, "host": "10.0.0.2", "port": 4000,
                     "token": "e" * 64, "room_id": "test_room", "pid": 1, "created_utc": "2026-10-06T00:00:00Z"}
         self.assertFalse(self.validator.is_valid(document))
         document["host"] = "127.0.0.1"

@@ -14,6 +14,8 @@ from support import (
     query, retarget,
 )
 
+from garage_game_companion import ids
+
 
 class HostCase(unittest.TestCase):
     policy: HostPolicy | None = None
@@ -587,10 +589,10 @@ class SizeLimits(HostCase):
         self.assertEqual(self.host.active_effect_ids(), [])
 
     def test_refuses_duplicate_keys_and_non_finite_numbers(self):
-        for raw in (b'{"schema":"enfractal.command","schema":"enfractal.query"}',
-                    b'{"schema":"enfractal.query","version":1,"query_id":"q","room_id":"test_room","op":"observe",'
+        for raw in (b'{"schema":"garage_game.command","schema":"garage_game.query"}',
+                    b'{"schema":"garage_game.query","version":1,"query_id":"q","room_id":"test_room","op":"observe",'
                     b'"args":{"actor":"avatar:companion","radius_m":NaN}}',
-                    b'{"schema":"enfractal.query","version":1,"query_id":"q","room_id":"test_room","op":"observe",'
+                    b'{"schema":"garage_game.query","version":1,"query_id":"q","room_id":"test_room","op":"observe",'
                     b'"args":{"actor":"avatar:companion","radius_m":1e999}}',
                     b"\xff\xfe not utf-8"):
             with self.subTest(raw=raw[:40]):
@@ -647,7 +649,7 @@ class RateLimits(HostCase):
             self.send(self.goal(i))
         self.assertTrue(self.send(command("goal.stop", {}, "stop-1"))["ok"])
         self.assertTrue(self.send(command("effect.stop", {"effect": "all"}, "stop-2"))["ok"])
-        stop = self.host.handle_bytes(COMPANION, b'{"schema":"enfractal.command","version":1,"action_id":"stop-3",'
+        stop = self.host.handle_bytes(COMPANION, b'{"schema":"garage_game.command","version":1,"action_id":"stop-3",'
                                                  b'"room_id":"test_room","op":"goal.stop","args":{}}')
         self.host.emitted.append(stop)
         self.assertTrue(stop["ok"], stop)  # with no budget left, text that may be a stop is still parsed
@@ -676,7 +678,7 @@ class ContractShape(HostCase):
         from support import EXAMPLES
         for path in sorted((EXAMPLES / "valid").glob("*.json")):
             message = retarget(json.loads(path.read_bytes()), GARAGE_TO_TEST_ROOM)
-            if message["schema"] == "enfractal.result":
+            if ids.is_schema(message["schema"], "result"):
                 continue
             with self.subTest(example=path.name):
                 result = self.send(message)

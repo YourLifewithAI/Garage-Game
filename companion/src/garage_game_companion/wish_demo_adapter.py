@@ -6,6 +6,10 @@ Run through wish_runner's generated demo configuration, not as the real AI compa
 import json
 import sys
 
+# Run on its own, so it holds the pair itself (contracts/schema_ids.py): it answers the new id and accepts either.
+PROTOCOL = "garage_game.wish_adapter"
+PROTOCOLS = (PROTOCOL, "enfractal.wish_adapter")
+
 
 def send(value):
     print(json.dumps(value, ensure_ascii=True), flush=True)
@@ -13,9 +17,9 @@ def send(value):
 
 def main():
     hello = json.loads(sys.stdin.readline())
-    if hello.get("protocol") != "enfractal.wish_adapter" or "effect_start" not in [tool["name"] for tool in hello.get("tools", [])]:
+    if hello.get("protocol") not in PROTOCOLS or "effect_start" not in [tool["name"] for tool in hello.get("tools", [])]:
         return 1
-    send({"type": "ready", "protocol": "enfractal.wish_adapter", "version": 1, "exclusive": True, "tools": ["effect_start"]})
+    send({"type": "ready", "protocol": PROTOCOL, "version": 1, "exclusive": True, "tools": ["effect_start"]})
     wish = json.loads(sys.stdin.readline())
     if not any(word in wish.get("wish", {}).get("text", "").lower() for word in ("glow", "light", "lantern")):
         send({"type": "done", "status": "unsupported"})

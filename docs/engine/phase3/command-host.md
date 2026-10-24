@@ -1,6 +1,6 @@
 # The command host
 
-> **Kernel record, 6 October 2026, revised after the Lane P review the same night, and on 7 October for the kernel round (Lane A's gaps P1 to P8 in [kernel-host-gaps.md](../../companion/proposals/kernel-host-gaps.md), perception memory, goal jobs and `world.set_physics`).** `game/scripts/native/Kernel/CommandHost.cs` is the room's single command path for [game-command.schema.json](../../../contracts/game-command.schema.json). Manual controls, the companion adapter (A1/A2) and tests send `enfractal.command` and `enfractal.query` as JSON text; the host answers `enfractal.result`, and it always answers: anything unexpected becomes `internal_error`, never an exception out of `Handle`.
+> **Kernel record, 6 October 2026, revised after the Lane P review the same night, and on 7 October for the kernel round (Lane A's gaps P1 to P8 in [kernel-host-gaps.md](../../companion/proposals/kernel-host-gaps.md), perception memory, goal jobs and `world.set_physics`).** `game/scripts/native/Kernel/CommandHost.cs` is the room's single command path for [game-command.schema.json](../../../contracts/game-command.schema.json). Manual controls, the companion adapter (A1/A2) and tests send `garage_game.command` and `garage_game.query` as JSON text (either spelling of the id: contracts/README.md, "Schema ids"); the host answers `garage_game.result`, and it always answers: anything unexpected becomes `internal_error`, never an exception out of `Handle`.
 
 ## Wiring
 

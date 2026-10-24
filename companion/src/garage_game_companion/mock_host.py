@@ -1,7 +1,7 @@
 """A mock game host that implements the command contract faithfully enough for P1's host to replace it.
 
 It loads a real room (`game/rooms/test_room` by default) through the room contract and answers
-`enfractal.command` and `enfractal.query` messages with `enfractal.result` messages:
+`garage_game.command` and `garage_game.query` messages (either spelling of each id: ids.py) with `garage_game.result` messages:
 
 - the principal comes from the caller (the trusted transport), never from the message;
 - every message is validated against the contract (with ECMA-262 patterns), plus the value rules
@@ -99,7 +99,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from . import eyes, perception, textsafety
+from . import eyes, ids, perception, textsafety
 from .mock_energy import ENERGY_EXHAUSTED_MESSAGE, EnergyMixin  # noqa: F401
 from .mock_journal import JournalMixin
 from .mock_nature import (FIRE_NOT_LEARNED, FRESH_WALLET, UNDO_NOT_EARLIER, UNDO_ONLY_NATURE,  # noqa: F401
@@ -120,7 +120,7 @@ from .contract import (
 from .refusals import (FRACTAL_REFUSAL, HostError, base_result, effect_args_error, failure, forbidden_key_error,  # noqa: F401
                        lead_args_error, map_schema_errors, names_a_fractal, nature_args_error, value_error)
 
-log = logging.getLogger("enfractal.mock_host")
+log = logging.getLogger("garage_game.mock_host")
 
 PLAYER = "player:local"
 COMPANION = "companion:local"
@@ -518,7 +518,7 @@ def parse_rules(contracts: Contracts, pack: Any, raw: bytes | None = None, path:
     if not hasattr(validate, "check_rules"):
         raise RulesError("these contracts have no island rules")
     try:
-        problems = validate.schema_errors(pack, "enfractal.island_rules")
+        problems = validate.schema_errors(pack, "island_rules")
         if not problems:
             problems = validate.check_rules(pack, "rules", path)
     except Exception as error:  # a validator that cannot read it refuses it
@@ -606,7 +606,7 @@ def _is_bubble(message: Any) -> bool:
 
 
 def _is_stop(message: Any) -> bool:
-    return isinstance(message, dict) and message.get("schema") == COMMAND_SCHEMA and message.get("op") in STOP_OPS
+    return isinstance(message, dict) and ids.is_schema(message.get("schema"), "command") and message.get("op") in STOP_OPS
 
 
 def _might_be_stop(raw: bytes) -> bool:
@@ -1175,9 +1175,9 @@ class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin):
     # ------------------------------------------------------------------ dispatch
 
     def _handle(self, principal: str, message: Any) -> dict:
-        if not isinstance(message, dict) or message.get("schema") not in (COMMAND_SCHEMA, QUERY_SCHEMA):
-            raise HostError("request_invalid", "Send an enfractal.command or enfractal.query.")
-        is_command = message["schema"] == COMMAND_SCHEMA
+        if not isinstance(message, dict) or ids.kind_of(message.get("schema")) not in ("command", "query"):
+            raise HostError("request_invalid", f"Send a {COMMAND_SCHEMA} or a {QUERY_SCHEMA}.", field_path="$.schema")
+        is_command = ids.is_schema(message["schema"], "command")
         op = message.get("op") if isinstance(message.get("op"), str) else None
         self._check_schema(message)
         if message["room_id"] != self.room_id:
@@ -1199,7 +1199,7 @@ class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin):
 
     def _check_schema(self, message: dict) -> None:
         problems = value_problems(message)
-        if message.get("schema") == COMMAND_SCHEMA and message.get("op") in STOP_OPS:
+        if ids.is_schema(message.get("schema"), "command") and message.get("op") in STOP_OPS:
             # A stop ignores revisions, so a revision outside int64 is no reason to refuse it.
             problems = [(path, kind) for path, kind in problems
                         if not (kind == "integer_range" and path[:1] in (["expected_revision"], ["expected_entities"]))]
@@ -1216,11 +1216,11 @@ class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin):
         errors = list(self.contracts.iter_errors(message))
         if errors:
             error = map_schema_errors(errors)
-            if message.get("schema") == COMMAND_SCHEMA and message.get("op") == "effect.start":
+            if ids.is_schema(message.get("schema"), "command") and message.get("op") == "effect.start":
                 error = effect_args_error(error)
-            if message.get("schema") == COMMAND_SCHEMA and message.get("op") in NATURE_OPS:
+            if ids.is_schema(message.get("schema"), "command") and message.get("op") in NATURE_OPS:
                 error = nature_args_error(error)
-            if message.get("schema") == COMMAND_SCHEMA:
+            if ids.is_schema(message.get("schema"), "command"):
                 error = lead_args_error(error, message)
             raise error
         for path, source in creation_sources(message):

@@ -30,7 +30,7 @@ class McpHarness:
         from mcp import Client
 
         self._stack = AsyncExitStack()
-        tmp = self._stack.enter_context(tempfile.TemporaryDirectory(prefix="enfractal-mcp-"))
+        tmp = self._stack.enter_context(tempfile.TemporaryDirectory(prefix="garage-game-mcp-"))
         self.session_path = Path(tmp) / "session.json"
         self.game = LinkServer(self.handler or self.host.handle, self.host.room_id,
                                on_session=None if self.handler else self.host.session_event)

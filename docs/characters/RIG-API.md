@@ -224,14 +224,16 @@ Effective values: `StrideAt(speed)` (the walk stride × `stride`, lengthened at 
 `SquashAmount` × `squash` × `Bounce`; `SettleS` = `SettleTimeS` × `settle`. The other multipliers are read as
 `Multipliers.HopHeight`, `.Drift`, `.Lean`, `.Sway`, `.ArmSwing`: K3 scales its own base shapes by them.
 
-## 7. rig.json, the sidecar (schema `enfractal.character.rig`, version 1)
+## 7. rig.json, the sidecar (schema `garage_game.character.rig`, version 1)
 
 Optional, hand-written, beside `character.json`; validated strictly: an unknown key, part or role, a repeated rigid
-entry, or a number out of range refuses the whole character with the reason.
+entry, or a number out of range refuses the whole character with the reason. The committed sidecars, written before the
+rename, say `enfractal.character.rig` (and their `character.json` `enfractal.character.draft`); the loader reads either
+spelling (contracts/README.md, "Schema ids").
 
 ```json
 {
-  "schema": "enfractal.character.rig",
+  "schema": "garage_game.character.rig",
   "version": 1,
   "notes": "Free text for people, up to 2000 characters.",
   "roles": { "wing_screen_left": "arm" },

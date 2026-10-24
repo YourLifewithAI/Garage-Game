@@ -123,7 +123,7 @@ class RealGame:
         env["DOTNET_NOLOGO"] = "1"
         env.setdefault("GODOT_SILENCE_ROOT_WARNING", "1")
         if self.isolated:
-            root = self.shared_root or Path(tempfile.mkdtemp(prefix="enfractal-real-game-"))
+            root = self.shared_root or Path(tempfile.mkdtemp(prefix="garage-game-real-game-"))
             self._user_root = None if self.shared_root else root
             for name in ("APPDATA", "LOCALAPPDATA", "XDG_DATA_HOME", "XDG_CONFIG_HOME"):
                 env[name] = str(root)
@@ -134,7 +134,7 @@ class RealGame:
             base = Path(env.get("APPDATA") or Path.home() / "AppData" / "Roaming") if os.name == "nt" \
                 else Path(env.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
             self.session_path = session_file_under(base)
-            self.quit_file = Path(tempfile.gettempdir()) / f"enfractal-real-game-quit-{os.getpid()}"
+            self.quit_file = Path(tempfile.gettempdir()) / f"garage-game-real-game-quit-{os.getpid()}"
             self.quit_file.unlink(missing_ok=True)
         arguments = [str(self.engine)]
         if not self.window:

@@ -30,16 +30,17 @@ from typing import Any
 
 from jsonschema import ValidationError, validators
 
-from . import canonical, textsafety
+from . import canonical, ids, textsafety
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 # companion/src/garage_game_companion/contract.py -> repository root is three levels above the package.
 DEFAULT_CONTRACTS_DIR = PACKAGE_DIR.parents[2] / "contracts"
 DEFAULT_REPO_ROOT = PACKAGE_DIR.parents[2]
 
-COMMAND_SCHEMA = "enfractal.command"
-QUERY_SCHEMA = "enfractal.query"
-RESULT_SCHEMA = "enfractal.result"
+# What the companion writes; it reads either spelling of each (ids.is_schema).
+COMMAND_SCHEMA = ids.id_of("command")
+QUERY_SCHEMA = ids.id_of("query")
+RESULT_SCHEMA = ids.id_of("result")
 CONTRACT_VERSION = 1
 INT64_MIN, INT64_MAX = -(2 ** 63), 2 ** 63 - 1
 
@@ -266,8 +267,8 @@ class Contracts:
     def schema_errors(self, document: Any) -> list[str]:
         """Every reason `document` is not a valid contract message: the schema (ECMA patterns),
         the value rules (hidden characters, int64, finite numbers) and the size limits."""
-        if not isinstance(document, dict) or document.get("schema") not in (COMMAND_SCHEMA, QUERY_SCHEMA, RESULT_SCHEMA):
-            return ["$: document must be an enfractal command, query or result"]
+        if not isinstance(document, dict) or ids.kind_of(document.get("schema")) not in ("command", "query", "result"):
+            return ["$: document must be a garage_game command, query or result"]
         problems = [f"{textsafety.field_path(e.absolute_path)}: {e.message[:200]}" for e in self.iter_errors(document)]
         problems += [f"{textsafety.field_path(path)}: {kind}" for path, kind in value_problems(document)]
         if not problems:
@@ -482,7 +483,7 @@ _OP_DESCRIPTIONS = {
     "entity.set_part": "Set a part of an entity (a door, a lid) to a value from 0 to 1.",
     "entity.remove": "Remove an entity from the room. Destructive: name expected_entities or expected_revision. The game may hold it for the player's approval.",
     "entity.transform": "Turn an entity into a creation while keeping its identity. Destructive: name expected_entities or expected_revision. The game may hold it for the player's approval.",
-    "creation.place": "Place a new creation from an enfractal.creation manifest.",
+    "creation.place": "Place a new creation from a garage_game.creation manifest.",
     "creation.revise": "Change a creation's manifest or placement. Destructive: name expected_entities or expected_revision. The game may hold it for the player's approval.",
     "creation.activate": "Trigger a creation's interact behaviour.",
     "protect.lock": "Protect entities so they resist changes. Only the player can unlock them. Destructive: name expected_entities or expected_revision.",
@@ -550,7 +551,7 @@ def dumps_compact(document: Any) -> str:
 
 def creation_sources(document: Any) -> list[tuple[str, dict]]:
     """(path, source) for the creation manifests a command carries."""
-    if not isinstance(document, dict) or document.get("schema") != COMMAND_SCHEMA:
+    if not isinstance(document, dict) or not ids.is_schema(document.get("schema"), "command"):
         return []
     args = document.get("args") if isinstance(document.get("args"), dict) else {}
     into = args.get("into") if isinstance(args.get("into"), dict) else {}

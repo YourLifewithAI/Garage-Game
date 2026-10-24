@@ -21,7 +21,7 @@ The PostgreSQL save/travel service was removed in the room-scale cleanup (restor
 
 ```text
 user://saves/rooms/<room_id>/<manifest prefix>/inventions.json
-                     the room save: schema enfractal.creation-world, version 6, written by the command host
+                     the room save: schema garage_game.creation-world (enfractal.creation-world before the rename), version 6, written by the command host
                      (<manifest prefix> is the first 16 hex characters of the room manifest's hash)
 user://single_player/progression/player_modes_v1.json   the vitals, one record per mode (version 1)
 user://single_player/progression/glow_trial_v1.json     the Glow record, kept once per mode today (file version 2)

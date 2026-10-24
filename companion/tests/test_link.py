@@ -9,6 +9,7 @@ import struct
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from support import COMPANION, command, contract_problems, example, new_host, query
 
@@ -18,16 +19,17 @@ from garage_game_companion.link import (
 )
 
 
-async def raw_connect(info: SessionInfo, *, client_proof: str | None = None, verify_server: bool = True):
+async def raw_connect(info: SessionInfo, *, client_proof: str | None = None, verify_server: bool = True, protocol: str | None = None):
     """A hand-rolled client, so tests can misbehave in ways LinkClient never would."""
     reader, writer = await asyncio.open_connection(info.host, info.port)
     nonce = secrets.token_hex(32)
-    writer.write(encode_frame({"type": "hello", "protocol": link.PROTOCOL, "version": 1, "client_nonce": nonce}))
+    writer.write(encode_frame({"type": "hello", "protocol": protocol or link.PROTOCOL, "version": 1, "client_nonce": nonce}))
     await writer.drain()
     challenge = await read_frame(reader, 4096)
     if challenge.get("type") != "challenge":
         return reader, writer, challenge
     if verify_server:
+        assert challenge["protocol"] == link.PROTOCOL, challenge  # whichever spelling the hello used
         assert challenge["server_proof"] == link._proof(info.token, link._SERVER_LABEL, nonce, challenge["server_nonce"])
     proof = client_proof or link._proof(info.token, link._CLIENT_LABEL, nonce, challenge["server_nonce"])
     writer.write(encode_frame({"type": "auth", "client_proof": proof}))
@@ -51,7 +53,7 @@ class LinkCase(unittest.IsolatedAsyncioTestCase):
         self.host = new_host()  # loads the room from disk; keep it off the event loop
 
     async def asyncSetUp(self):
-        self.tmp = tempfile.TemporaryDirectory(prefix="enfractal-link-")
+        self.tmp = tempfile.TemporaryDirectory(prefix="garage-game-link-")
         self.session_path = Path(self.tmp.name) / "session.json"
         self.server = LinkServer(self.host.handle, self.host.room_id, handshake_timeout_s=self.handshake_timeout_s)
         self.info = await self.server.start(self.session_path)
@@ -80,6 +82,30 @@ class Handshake(LinkCase):
         result = await client.request(query("room.describe", {}))
         self.assertTrue(result["ok"])
         self.assertEqual(result["principal"], COMPANION)
+
+    async def test_a_hello_in_either_spelling_of_the_protocol_is_answered_in_the_new_one(self):
+        """The rename (decision C): the game accepts a hello naming garage_game.companion_link or the enfractal id written
+        before it, and its challenge names the new id, proven with the new id's label; any other id is refused."""
+        for named, outcome in (("garage_game.companion_link", "ready"), ("enfractal.companion_link", "ready"),
+                               ("garagegame.companion_link", "refused"), ("enfractal.companion_session", "refused")):
+            with self.subTest(protocol=named):
+                reader, writer, reply = await raw_connect(self.info, protocol=named)
+                self.assertEqual(reply["type"], outcome, reply)
+                if outcome == "refused":
+                    self.assertEqual(reply, {"type": "refused", "code": "hello_invalid"})
+                writer.close()
+                await asyncio.sleep(0.05)
+        self.assertEqual(link.PROTOCOL, "garage_game.companion_link")
+
+    async def test_the_client_proves_itself_to_a_game_from_before_the_rename(self):
+        """A game from before the rename names enfractal.companion_link in its challenge and proves with that id's
+        label: the client accepts the challenge in either spelling and answers with the label of the id it names."""
+        old_server, old_client = link._labels("enfractal.companion_link")
+        with mock.patch.object(link, "PROTOCOL", "enfractal.companion_link"), \
+                mock.patch.object(link, "_SERVER_LABEL", old_server), mock.patch.object(link, "_CLIENT_LABEL", old_client):
+            ready = await self.client().connect()
+        self.assertEqual((ready["type"], ready["principal"]), ("ready", COMPANION))
+        self.assertNotEqual(old_server, link._SERVER_LABEL)
 
     async def test_refuses_a_client_that_does_not_know_the_token(self):
         reader, writer, reply = await raw_connect(self.info, client_proof="0" * 64)
@@ -266,7 +292,7 @@ class SessionFiles(unittest.TestCase):
     TOKEN = "ab" * 32
 
     def doc(self, **changes):
-        document = {"schema": "enfractal.companion_session", "version": 1, "host": "127.0.0.1", "port": 40000,
+        document = {"schema": "garage_game.companion_session", "version": 1, "host": "127.0.0.1", "port": 40000,
                     "token": self.TOKEN, "room_id": "test_room", "pid": 1, "created_utc": "2026-10-06T00:00:00Z"}
         document.update(changes)
         return json.dumps(document).encode()
@@ -276,10 +302,22 @@ class SessionFiles(unittest.TestCase):
             with self.subTest(host=host), self.assertRaisesRegex(LinkError, "not loopback"):
                 parse_session(self.doc(host=host))
 
+    def test_a_session_file_is_read_in_either_spelling_of_its_id_and_written_in_the_new_one(self):
+        for spelling in ("garage_game.companion_session", "enfractal.companion_session"):
+            with self.subTest(schema=spelling):
+                self.assertEqual(parse_session(self.doc(schema=spelling)).port, 40000)
+        for wrong in ("garagegame.companion_session", "garage_game.companion_link", "enfractal.companion_sessions"):
+            with self.subTest(schema=wrong), self.assertRaisesRegex(LinkError, "not a garage_game.companion_session version 1"):
+                parse_session(self.doc(schema=wrong))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "session.json"
+            write_session_file(path, SessionInfo("127.0.0.1", 41000, self.TOKEN, "test_room"))
+            self.assertEqual(json.loads(path.read_bytes())["schema"], "garage_game.companion_session")
+
     def test_refuses_malformed_session_files(self):
         for raw in (self.doc(token="short"), self.doc(token=self.TOKEN.upper()), self.doc(port=0), self.doc(port=True),
                     self.doc(version=2), self.doc(extra="x"), self.doc(room_id="Bad Room"),
-                    b'{"schema":"enfractal.companion_session","schema":"x"}', b"not json", b"[]"):
+                    b'{"schema":"garage_game.companion_session","schema":"x"}', b"not json", b"[]"):
             with self.subTest(raw=raw[:60]), self.assertRaises(LinkError):
                 parse_session(raw)
 
@@ -334,7 +372,7 @@ class ReviewFixes(LinkCase):
     async def test_client_refuses_a_listener_whose_proof_is_malformed(self):
         async def squatter(reader, writer):
             await read_frame(reader, 4096)
-            body = ('{"type":"challenge","protocol":"enfractal.companion_link","version":1,'
+            body = ('{"type":"challenge","protocol":"garage_game.companion_link","version":1,'
                     '"server_nonce":"%s","server_proof":"%s"}' % (secrets.token_hex(32), chr(0xE9))).encode("utf-8")
             writer.write(struct.pack(">I", len(body)) + body)
             await writer.drain()
@@ -406,7 +444,7 @@ class Loopback(unittest.IsolatedAsyncioTestCase):
             with self.subTest(host=literal):
                 with self.assertRaises(ValueError):
                     LinkServer(host.handle, "test_room", host=literal)
-                document = {"schema": "enfractal.companion_session", "version": 1, "host": literal, "port": 4000,
+                document = {"schema": "garage_game.companion_session", "version": 1, "host": literal, "port": 4000,
                             "token": "ab" * 32, "room_id": "test_room", "pid": 1, "created_utc": "2026-10-06T00:00:00Z"}
                 with self.assertRaises(LinkError):
                     parse_session(json.dumps(document).encode())
@@ -425,7 +463,7 @@ class Loopback(unittest.IsolatedAsyncioTestCase):
         await server.close()
 
     def test_a_session_token_with_a_trailing_newline_is_refused(self):
-        document = {"schema": "enfractal.companion_session", "version": 1, "host": "127.0.0.1", "port": 4000,
+        document = {"schema": "garage_game.companion_session", "version": 1, "host": "127.0.0.1", "port": 4000,
                     "token": "ab" * 32 + "\n", "room_id": "test_room", "pid": 1, "created_utc": "2026-10-06T00:00:00Z"}
         with self.assertRaisesRegex(LinkError, "token"):
             parse_session(json.dumps(document).encode())
@@ -457,7 +495,7 @@ class CanonicalFrames(LinkCase):
                     command("goal.set", {"actor": "avatar:companion", "goal": "stay"}, "g-1",
                             note="caf" + chr(0xE9) + " " + tags[:100]),
                     query("observe", {"actor": "avatar:companion", "radius_m": 2.0}),
-                    {"schema": "enfractal.result", "version": 1, "ok": True, "op": "observe", "principal": COMPANION,
+                    {"schema": "garage_game.result", "version": 1, "ok": True, "op": "observe", "principal": COMPANION,
                      "room_id": "test_room", "revision": 3, "replayed": False, "preview": False,
                      "at_utc": "2026-10-06T00:00:00Z", "data": {"bounds": [[1.0, -0.0, 2.5]] * 500, "text": tags}}]
         for message in messages:
@@ -482,7 +520,7 @@ class SessionFileLimits(unittest.TestCase):
     TOKEN = "ab" * 32
 
     def document(self, **changes) -> dict:
-        document = {"schema": "enfractal.companion_session", "version": 1, "host": "127.0.0.1", "port": 40000,
+        document = {"schema": "garage_game.companion_session", "version": 1, "host": "127.0.0.1", "port": 40000,
                     "token": self.TOKEN, "room_id": "test_room", "pid": 1, "created_utc": "2026-10-06T00:00:00Z"}
         document.update(changes)
         return document

@@ -34,7 +34,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from . import __version__, canonical, eyes, lockdown, textsafety
+from . import __version__, canonical, eyes, ids, lockdown, textsafety
 from .canonical import CanonicalJsonError
 from .contract import (COMMAND_SCHEMA, CONTRACT_VERSION, PACKAGE_DIR, QUERY_SCHEMA, Contracts, ToolSpec, dumps_compact,
                        find_forbidden_key, is_authority_key, value_problems)
@@ -42,13 +42,15 @@ from .link import LinkClient, LinkError, SessionInfo, default_session_path
 from .refusals import (FRACTAL_REFUSAL, HostError, base_result, effect_args_error, failure, forbidden_key_error, lead_args_error,
                        map_schema_errors, names_a_fractal, value_error)
 
-log = logging.getLogger("enfractal.companion")
+log = logging.getLogger("garage_game.companion")
 
 SERVER_NAME = "garage-game-companion"
 STOP_OPS = frozenset({"goal.stop", "effect.stop"})
 # The journal as an MCP resource (docs/companion/JOURNAL.md, "What the AI reads"): the same view as journal_read
-# with no filters. A name in the game's own scheme, never a location anything fetches.
-JOURNAL_URI = "enfractal://journal"
+# with no filters. A name in the game's own scheme, never a location anything fetches. The name it had before the rename
+# (decision C) is still read; the list names the new one.
+JOURNAL_URI = "garage-game://journal"
+JOURNAL_URIS = frozenset({JOURNAL_URI, "enfractal://journal"})
 
 INSTRUCTIONS = (
     "You are the player's companion in the Garage Game, a game set in a real room. You act only through these "
@@ -284,7 +286,7 @@ class Adapter:
         if not isinstance(result, dict):
             return "not an object"
         problems = self.contracts.schema_errors(result)
-        if problems or result.get("schema") != "enfractal.result":
+        if problems or not ids.is_schema(result.get("schema"), "result"):
             return "does not validate against the contract"
         if result["principal"] != self.principal:
             return "names another principal"
@@ -292,7 +294,7 @@ class Adapter:
             return "names another room"
         if result["op"] not in (message["op"], "invalid"):
             return "answers another op"
-        key = "action_id" if message["schema"] == COMMAND_SCHEMA else "query_id"
+        key = "action_id" if ids.is_schema(message["schema"], "command") else "query_id"
         if key in message and result.get(key) not in (None, message[key]):
             return "answers another request"
         return None
@@ -370,7 +372,7 @@ def build_server(adapter: Adapter):
         return types.ListResourcesResult(resources=[journal])
 
     async def read_resource(ctx, params):
-        if str(params.uri) != JOURNAL_URI:
+        if str(params.uri) not in JOURNAL_URIS:
             raise MCPError(code=types.INVALID_PARAMS, message="Unknown resource. This server offers only the journal.")
         result = await adapter.call("journal_read", {})
         return types.ReadResourceResult(contents=[types.TextResourceContents(uri=JOURNAL_URI, mime_type="text/plain",

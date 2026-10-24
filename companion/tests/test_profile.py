@@ -24,7 +24,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from mcp import Client, StdioServerParameters
-from support import contract_problems, contracts
+from support import SRC, contract_problems, contracts
 
 from garage_game_companion import profile
 
@@ -303,7 +303,7 @@ class ClientFormats(unittest.TestCase):
         self.assertEqual(profile.server_launch(python=AWKWARD, windows=True).command, AWKWARD)
         session = "D:\\Play\\companion\\session.json"
         self.assertEqual(profile.server_launch(session_file=session, windows=True).args[-1], session)
-        posix = "/opt/enfractal/companion/.venv/bin/python"
+        posix = "/opt/garage-game/companion/.venv/bin/python"
         self.assertEqual(profile.server_launch(python=posix, windows=False).command, posix)
         self.assertEqual(profile.server_launch(python="venv/python", windows=ON_WINDOWS).command,
                          str(Path("venv/python").absolute()))
@@ -368,10 +368,13 @@ class ClientFormats(unittest.TestCase):
 class LaunchedFromTheProfile(unittest.IsolatedAsyncioTestCase):
     async def test_a_client_launched_from_the_profile_sees_the_game_and_nothing_else(self):
         server = printed("--mock")["mcpServers"]["garage-game-companion"]
-        parameters = StdioServerParameters(command=server["command"], args=server["args"], env=server.get("env"))
+        # The profile's environment, plus the path of the package under test: a virtual environment shared by several
+        # checkouts names one of them in its path file, which in another worktree is not this code.
+        env = {**(server.get("env") or {}), "PYTHONPATH": str(SRC)}
+        parameters = StdioServerParameters(command=server["command"], args=server["args"], env=env)
         async with Client(parameters, mode="legacy") as client:
             capabilities = client.server_capabilities
-            self.assertEqual([str(r.uri) for r in (await client.list_resources()).resources], ["enfractal://journal"])
+            self.assertEqual([str(r.uri) for r in (await client.list_resources()).resources], ["garage-game://journal"])
             self.assertIsNone(capabilities.prompts)
             tools = (await client.list_tools()).tools
             self.assertEqual({t.name for t in tools}, {s.name for s in contracts().tool_specs()})

@@ -36,6 +36,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
+from . import ids
+
 SERVER_KEY = "garage-game-companion"
 CATALOGUE = Path(__file__).resolve().parent / "clients.json"
 DEFAULT_SYSTEMROOT = "C:\\Windows"
@@ -94,8 +96,8 @@ def play_only_profile(*, mock: bool = False, session_file: Path | None = None, p
 
 def clients() -> list[dict]:
     document = json.loads(CATALOGUE.read_bytes())
-    if document.get("schema") != "enfractal.companion_clients" or document.get("version") != 1:
-        raise ValueError("clients.json is not an enfractal.companion_clients version 1")
+    if not ids.is_schema(document.get("schema"), "companion_clients") or document.get("version") != 1:
+        raise ValueError(f"clients.json is not a {ids.id_of('companion_clients')} version 1")
     return document["clients"]
 
 

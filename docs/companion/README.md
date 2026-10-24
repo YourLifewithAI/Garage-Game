@@ -27,6 +27,7 @@ any MCP client or harness --stdio--> garage-game-companion --loopback link--> ga
 | `.../real_game.py` | Starts the real game host (the room with the kernel's command host and the companion link) headless, for an AI client or the suite: `python -m garage_game_companion.real_game` |
 | `.../link.py` | The loopback link: session file, mutual HMAC handshake, canonical frames |
 | `.../canonical.py` | Canonical JSON v1, byte for byte as Lane P defined it: fingerprints, size limits, frames |
+| `.../ids.py` | The data-format ids: `contracts/schema_ids.py` (the one Python table) loaded by its path; the companion writes `garage_game.<kind>` and reads either spelling (contracts/README.md, "Schema ids") |
 | `.../mock_host.py`, `.../mock_game.py` | The mock game host (with perception memory and goal jobs), and a console that runs it as a stand-in game |
 | `.../mock_nature.py`, `.../mock_energy.py` | The mock's nature (Grow, Fire and its kinds, the campfires, repair, undo, `nature.describe`, as the kernel's `CommandHostNature*`, `CommandHostGrow`, `CommandHostFireKinds` and `CommandHostCamps` answer them, minus physics) and its pool (the price by principal, the kernel's `CommandHostEnergy`) |
 | `.../perception.py` | Line of sight and the 10 cm body for the mock host |
@@ -61,11 +62,11 @@ sender owns: `action_id` (required, except for the two stops, where the adapter 
 requires one. Nothing else is accepted: no principal, no approval, no room. Numbers are sent as canonical
 JSON v1 writes them (`2.0` is sent as `2`).
 
-When the adapter refuses a call before sending it, it answers with a contract-valid `enfractal.result` of
+When the adapter refuses a call before sending it, it answers with a contract-valid `garage_game.result` of
 its own (same error codes as the host). Its `field_path` names the tool argument for unknown or
 forbidden fields (`$.principal`) and the contract message otherwise (`$.args.target`), as the host does.
 
-Each result is the game's `enfractal.result`, returned twice in the same call: as `structuredContent`,
+Each result is the game's `garage_game.result`, returned twice in the same call: as `structuredContent`,
 and as a text block holding a fixed preamble line and one line of ASCII-escaped JSON. `isError` is true
 when `ok` is false. Published input schemas inline every `$ref` and drop `if`/`then`/`not`, which older
 clients reject; `--schema-profile minimal` keeps only the most widely supported JSON Schema keywords. The

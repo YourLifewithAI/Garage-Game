@@ -22,7 +22,7 @@ HIDDEN_SPOT = [-0.9, 0.0, -1.42]  # behind the table: neither avatar sees it fro
 
 def block(name: str) -> dict:
     """A 10 cm wooden block, the creation compiler's smallest part."""
-    return {"schema": "enfractal.creation", "version": 1, "name": name, "seed": 7, "mount": "ground",
+    return {"schema": "garage_game.creation", "version": 1, "name": name, "seed": 7, "mount": "ground",
             "parts": [{"id": "block", "shape": "box", "position_m": [0, 0.05, 0], "rotation_deg": [0, 0, 0],
                        "size_m": [0.1, 0.1, 0.1], "material": "wood"}], "nodes": [], "edges": []}
 
@@ -87,6 +87,24 @@ class AlignmentScenarios:
     def next_id(self, prefix: str) -> str:
         self._n = getattr(self, "_n", 0) + 1
         return f"{prefix}-{id(self) % 100000}-{self._n}"
+
+    async def test_a_request_in_either_spelling_of_its_id_is_answered_in_the_new_one(self):
+        """The rename (decision C): both hosts read a command or a query named garage_game.<kind> or enfractal.<kind> (the
+        spelling written before it), answer garage_game.result either way, and refuse any other id at $.schema in the same
+        words."""
+        outcome = {}
+        for spelling in ("garage_game", "enfractal"):
+            asked = await self.ask({**query("room.describe", {}, self.next_id("q")), "schema": f"{spelling}.query"})
+            told = await self.ask({**command("goal.set", {"actor": "avatar:companion", "goal": "stay"}, self.next_id("stay")),
+                                   "schema": f"{spelling}.command"})
+            outcome[spelling] = (refusal(asked), asked["schema"], refusal(told), told["schema"])
+        wrong = await self.ask({**query("room.describe", {}, self.next_id("q")), "schema": "garagegame.query"})
+        outcome["misspelt"] = (wrong["schema"], refusal(wrong), None if wrong["ok"] else wrong["error"]["message"])
+        self.assertEqual(outcome, {
+            "garage_game": ("ok", "garage_game.result", "ok", "garage_game.result"),
+            "enfractal": ("ok", "garage_game.result", "ok", "garage_game.result"),
+            "misspelt": ("garage_game.result", ("request_invalid", "$.schema"), "Send a garage_game.command or a garage_game.query."),
+        })
 
     async def test_a_target_only_the_player_sees_is_in_sight_and_its_arrival_succeeds(self):
         await self.companion_to(BEHIND_THE_BOX)
