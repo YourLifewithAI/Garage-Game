@@ -118,16 +118,19 @@ public partial class NatureTest
         }, preview: true), Player, contractValid: false);
         Check(Code(tooLong) == "invalid_args" && Code(far) == "out_of_bounds" && Code(grow) == "request_invalid",
             "a line longer than 3 m is refused, one whose end is beyond the Gubble's reach waits for it to come closer, and only Fire names an end");
-        // The Gubble's Fireline keeps every Fire guardrail: the player's switch, one fire of its own, X, and the wait after its last.
+        // The Gubble's Fireline keeps every Fire guardrail: the player's switch, one fire of its own, and the wait after its last; X stops
+        // the Gubble and puts no fire out (decision 82), so the line burns out first.
         _host.SetGubbleFire(false);
         var off1 = Send(Command(NextId("line-off"), "nature.cast", LineArgs(start, end), preview: true), Companion);
         _host.SetGubbleFire(true);
         var gubble = Fireline(Companion, start, end, out _);
         var second = Send(Command(NextId("line-second"), "nature.cast", LineArgs(start, end), preview: true), Companion);
         var x = Send(Command(NextId("x"), "goal.stop", new JsonObject { ["actor"] = CommandHost.CompanionAvatarId }), Player);
+        var burnsOn = _host.Nature.Fire != null;
+        for (var i = 0; i < 200 && _host.Nature.Fire != null; i++) Steps(1);
         var wait = Send(Command(NextId("line-wait"), "nature.cast", LineArgs(start, end), preview: true), Companion);
-        Check(Code(off1) == "permission_denied" && Ok(gubble) && Code(second) == "target_busy" && Ok(x) && _host.Nature.Fire == null && Code(wait) == "rate_limited",
-            $"the Gubble's Fireline: refused while the player's switch is off, lit when on, one at a time, put out by X, then the wait: {Code(off1)}, {Code(second)}, {Code(wait)}");
+        Check(Code(off1) == "permission_denied" && Ok(gubble) && Code(second) == "target_busy" && Ok(x) && burnsOn && _host.Nature.Fire == null && Code(wait) == "rate_limited",
+            $"the Gubble's Fireline: refused while the player's switch is off, lit when on, one at a time, burning on past X until it burns out, then the wait: {Code(off1)}, {Code(second)}, {Code(wait)}");
         // The island saved with Fireline receipts in it loads again, every receipt read back.
         var saved = _host.Revision;
         await NewWorld(SavePath("fire-kinds-line"));
@@ -193,7 +196,8 @@ public partial class NatureTest
         Steps((int)Math.Ceiling(FireKindLaws.SnuffDampS / NatureLaws.StepS) + 1);
         var gubbleFire = Fire(Companion, p, 0.15, 6, out _);
         Check(Ok(gubbleFire), "(the Gubble lights a fire) " + Canonical(gubbleFire["error"]));
-        Send(Command(NextId("x"), "goal.stop", new JsonObject { ["actor"] = CommandHost.CompanionAvatarId }), Player);
+        // It burns out (decision 82: X would put it out no more), and the Gubble's wait starts.
+        for (var i = 0; i < 200 && _host.Nature.Fire != null; i++) Steps(1);
         var waiting = Send(Command(NextId("wait"), "nature.cast", Cast("fire", p, 0.15, 6), preview: true), Companion);
         Check(Ok(Fire(Player, p + new Vector3(-0.6f, 0, 0), 0.3, 30, out _)), "(the player lights a fire, away from the firepit)");
         Steps(2);

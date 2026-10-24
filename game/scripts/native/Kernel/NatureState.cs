@@ -107,7 +107,7 @@ public static class NatureLaws
 
     // ---- the guardrails on the Gubble's fire (the founder, 13 October: consequences with guardrails, not holds) ----
 
-    /// <summary>After the Gubble's fire goes out (burnt out, put out or taken back), it waits this long before lighting another. The player never waits for it.</summary>
+    /// <summary>After the Gubble's fire goes out (burnt out, snuffed or taken back), it waits this long before lighting another. The player never waits for it.</summary>
     public const float CompanionFireCooldownS = 20f;
     /// <summary>After an injury recovery, fire cannot hurt the player for this long.</summary>
     public const float RecoveryFireGraceS = 5f;
@@ -692,15 +692,6 @@ public sealed class NatureState
             }
         }
         return false;
-    }
-
-    /// <summary>Puts out the one fire and every burning cell (the player's Stop of the Gubble's fire, the player's own Fire replacing it).</summary>
-    public bool PutOutFire()
-    {
-        var any = Fire != null || Cells.Values.Any(c => c.BurningS > 0);
-        Fire = null;
-        foreach (var cell in Cells.Values) cell.BurningS = 0;
-        return any;
     }
 
     /// <summary>Puts out the burning cells within radius of a point, horizontally (where the player recovers).</summary>

@@ -13,8 +13,9 @@ namespace GarageGame.Native.Kernel;
 /// held for the player's sake; it is kept in bounds by guardrails, and what it does comes back to the AI:
 /// - guardrails: the player's own setting "Let the Gubble use fire" (the profile's gubble_fire, on unless the player turns
 ///   it off; only the player's control changes it, no command reaches it), one fire of its own at a time, and
-///   NatureLaws.CompanionFireCooldownS after its last one went out. The player is never slowed by them: the player's own
-///   Fire puts the Gubble's out. The player's Stop (X) puts the Gubble's fire out at once, whatever any budget says.
+///   NatureLaws.CompanionFireCooldownS after its last one went out. Since decision 82 (the second recorded play) nothing but
+///   burning out or Snuff ends a fire: the player's Stop (X) stops the Gubble and puts no fire out, and the player's own Fire
+///   waits for the Gubble's as for any fire (one fire on the island at a time), unless it is Snuff aimed at it.
 /// - feedback: when the Gubble's fire hurts the player, a fixed-format notice (what happened, which fire, health before and
 ///   after, whether the player had to recover; no prose from anyone) rides on the Gubble's next result, of any kind, once.
 ///   Until then any query returns it (player.status is the cheapest).
@@ -95,24 +96,6 @@ public partial class CommandHost
     private void SeeCompanionFire()
     {
         if (Nature.Fire?.Principal == CompanionPrincipal) _companionFireSeenS = Nature.WeatherS;
-    }
-
-    /// <summary>
-    /// The player's Stop of the Gubble (and the Gubble's own stop): its fire goes out at once, every cell of it. Like a fire
-    /// burning out, this is the simulation's change, not a room revision, so no ledger, budget or rate limit can refuse it;
-    /// it is saved at once when the save is there. Returns whether a fire went out.
-    /// </summary>
-    internal bool PutOutCompanionFire()
-    {
-        // The same X removes the oldest Will-o'-wisp (decision 80; CommandHostFireKinds), whoever cast it: it is no fire, and counts none.
-        RemoveOldestWisp();
-        if (!NatureConfigured || Nature.Fire is not { Principal: CompanionPrincipal }) return false;
-        _companionFireSeenS = Nature.WeatherS;
-        Nature.PutOutFire();
-        _natureDirty = true;
-        NatureChanged?.Invoke();
-        SaveNature();
-        return true;
     }
 
     // ---- the feedback ----

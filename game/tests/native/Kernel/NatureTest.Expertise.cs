@@ -25,10 +25,11 @@ public partial class NatureTest
         var steps = 0;
         while (_host.Nature.Fire != null && steps++ < 200) Steps(1);
         var companion = Fire(Companion, new Vector3(0.5f, 0.01f, -0.6f), 0.05, 6, out _);
-        Steps(2);
-        var stopped = _host.PlayerGoal("stop");
-        Check(Ok(preview) && Ok(lit) && Ok(companion) && Ok(stopped) && _host.Nature.Cells.Values.Any(c => c.Ash > 0) && _host.Nature.Fire == null,
-            "a fire was previewed, lit and burnt out by the player, and lit by the Gubble and put out");
+        // Decision 82: no stop puts a fire out; the Gubble's burns out too.
+        steps = 0;
+        while (_host.Nature.Fire != null && steps++ < 200) Steps(1);
+        Check(Ok(preview) && Ok(lit) && Ok(companion) && _host.Nature.Cells.Values.Any(c => c.Ash > 0) && _host.Nature.Fire == null,
+            "a fire was previewed, lit and burnt out by the player, and lit by the Gubble and burnt out");
         Check(_host.GlowProgress.Others.Keys.SequenceEqual(new[] { "fire" }) && _host.ExpertiseCount() == 1 && _host.GlowProgress.Of("fire")!.SuccessfulCasts == 2 &&
               _host.GlowProgress.Of("fire")!.DeliveredHints.Count == 0 && store.Saves == 2 && _host.GlowProgressNotice.Length == 0,
             "and none of it taught anything beyond Fire itself (the test's rest): a fire teaches nothing by burning; the two committed casts are counted toward Fire's hints");

@@ -389,9 +389,12 @@ public partial class NatureTest
         _host.SetGubbleFire(false);
         var off = AnotherFire();
         _host.SetGubbleFire(true);
+        // Decision 82: X stops the Gubble and puts no fire out; its fire burns out (3 s) and the wait starts.
         var stop = Send(Command(NextId("x"), "goal.stop", new JsonObject { ["actor"] = CommandHost.CompanionAvatarId }), Player);
-        Check(Code(second) == "target_busy" && Code(off) == "permission_denied" && stop["data"]?["fires_put_out"]?.GetValue<int>() == 1 && _host.Nature.Fire == null,
-            $"band 3 never touches the guardrails: one Gubble fire at a time ({Code(second)}), the player's switch ({Code(off)}), X puts it out");
+        var burnsOn = _host.Nature.Fire != null;
+        for (var i = 0; i < 20 && _host.Nature.Fire != null; i++) Steps(1);
+        Check(Code(second) == "target_busy" && Code(off) == "permission_denied" && Ok(stop) && stop["data"]?["fires_put_out"] == null && burnsOn && _host.Nature.Fire == null,
+            $"band 3 never touches the guardrails: one Gubble fire at a time ({Code(second)}), the player's switch ({Code(off)}); X puts no fire out, it burns out");
         var cooling = AnotherFire();
         Check(Code(cooling) == "rate_limited", "and the wait after its last fire stands: " + Code(cooling));
 
