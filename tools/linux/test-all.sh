@@ -41,7 +41,6 @@ landscape_fixture() { # 1 or 10; prints the exported room's folder, built first 
     if [ ! -f "$final/fixture.json" ]; then
       part="$variant/$key.partial"; rm -rf "$part"; mkdir -p "$part"
       if ! (cd "$REPO" && if [ "$scale" != 1 ]; then
-              python3 -B -m pipeline.landscape.generator.scale --room "$source" --factor "$scale" --out "$part/room" && source="$part/room" &&
               python3 -B -m pipeline.landscape.generator.generate --room "$source" --world-scale "$scale" --cell .1 --out "$part/package" --tutorial
             else python3 -B -m pipeline.landscape.generator.generate --room "$source" --out "$part/package"; fi &&
             python3 -B -S -m pipeline.landscape.export --package "$part/package" --room "$source" --room-id landscape_garage_nominal --out "$part/landscape_garage_nominal") \
@@ -183,7 +182,7 @@ if (cd "$REPO/pipeline/roomscan" && uv run --locked python -B -m unittest discov
   echo "PASS landscape corpus: $(grep -E '^Ran' "$LOG/corpus.log")"
 else cat "$LOG/corpus.log"; failed=1; fi
 echo "== landscape exporter (a package to a game room, validated against the contracts)"
-if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" -B -m unittest pipeline.landscape.export.tests.test_export pipeline.landscape.export.tests.test_loose > "$LOG/landscape_export.log" 2>&1); then
+if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" -B -m unittest pipeline.landscape.export.tests.test_export pipeline.landscape.export.tests.test_loose pipeline.landscape.export.tests.test_fractals > "$LOG/landscape_export.log" 2>&1); then
   echo "PASS landscape exporter: $(grep -E '^Ran' "$LOG/landscape_export.log") $(grep -E '^OK' "$LOG/landscape_export.log")"
 else echo "FAIL landscape exporter"; tail -20 "$LOG/landscape_export.log"; failed=1; fi
 echo "== landscape harness (package format and views; its Blender tests skip without Blender)"
@@ -191,7 +190,7 @@ if (cd "$REPO" && python3 -B -S -m unittest pipeline.landscape.harness.tests.tes
   echo "PASS landscape harness: $(grep -E '^Ran' "$LOG/harness.log") $(grep -E '^OK' "$LOG/harness.log")"
 else cat "$LOG/harness.log"; failed=1; fi
 echo "== landscape generator (determinism and the design's principles on corpus rooms)"
-if (cd "$REPO" && python3 -B -m unittest pipeline.landscape.generator.tests.test_generator > "$LOG/landscape_generator.log" 2>&1); then
+if (cd "$REPO" && python3 -B -m unittest pipeline.landscape.generator.tests.test_generator pipeline.landscape.generator.tests.test_firepits > "$LOG/landscape_generator.log" 2>&1); then
   echo "PASS landscape generator: $(grep -E '^Ran' "$LOG/landscape_generator.log") $(grep -E '^OK' "$LOG/landscape_generator.log")"
 else echo "FAIL landscape generator"; tail -20 "$LOG/landscape_generator.log"; failed=1; fi
 
