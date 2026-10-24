@@ -567,10 +567,10 @@ class NatureMixin:
     def _advance_nature(self) -> None:
         """The simulation, in whole STEP_S steps up to the host's clock (the kernel's AdvanceNature): the fire burns what it reaches
         and ends at its time, rain on the Gubble's fire teaches Snuff, rain puts the campfires out, a fire burning outside Creative
-        seals its undo step, and old snuffs dry. Time past a day is dropped, as the kernel drops what it cannot catch up."""
+        seals its undo step, and old snuffs dry. Time past an hour is dropped, as the kernel drops what it cannot catch up."""
         now = self._weather_s()
-        if now - self._nature_t > 86400:
-            self._nature_t = now - 86400
+        if now - self._nature_t > 3600:
+            self._nature_t = now - 3600
         while self._nature_t + STEP_S <= now:
             self._nature_t += STEP_S
             self._nature_step(self._nature_t)
@@ -1204,7 +1204,6 @@ class NatureMixin:
         self.fire = Fire(principal, self._approved_by_for(principal), list(area_center), area_radius, intensity, new_revision,
                          self._weather_s() + duration, creations, {key: (centre, surface) for key, centre, surface in eligible},
                          paid=price > 0)
-        self._nature_t = max(self._nature_t, self._weather_s() - STEP_S)  # the fire burns from now on, not over past steps
         self._nature_previews.pop(token, None)
         self.nature_changed_at = new_revision
         self._charge_energy(price)

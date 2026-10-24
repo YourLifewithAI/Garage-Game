@@ -1,4 +1,5 @@
-"""New command parity: host-observed Glow, cosmetic touches, mode isolation, nature checked then unavailable."""
+"""New command parity: host-observed Glow, cosmetic touches, mode isolation, the nature commands' args checked (nature itself is
+test_nature.py's)."""
 from __future__ import annotations
 
 import copy

@@ -37,15 +37,18 @@ It loads a real room (`game/rooms/test_room` by default) through the room contra
 - protection is the player's: `protect.unlock` (every op in `$defs/player_only_ops`) is refused
   from companion principals, and no companion command changes a protected entity or any protection
   state except adding a lock;
-- nature (Grow, Fire, repair; contracts/README.md "Nature") is not simulated here yet:
-  `nature.cast` and `nature.repair` are checked as the kernel checks them before its
-  nature runs (the contract's args, refused request_invalid as CheckNatureArgs does; the revisions; a
-  companion's repair target in sight; a Fire cast before the team learned Fire, refused permission_denied in the kernel's words,
-  decision 72), then answered `unavailable`, and so is `nature.describe`. `nature.trail`
-  went with Bloom (decision 52): checked the same way, then refused unsupported_capability in the kernel's words. With no
-  nature change to take back, `room.undo` answers as the kernel's does for any other change: an earlier
-  revision is unsupported_capability, a revision that is not earlier is invalid_args; outside Creative it is
-  refused before anything else (there is no undo in Challenge or Live);
+- nature (Grow, Fire and its kinds, the campfires, repair, undo; contracts/README.md "Nature") is hosted by mock_nature.py as
+  the kernel's nature answers it, minus physics: the nature ops' args checked as CheckNatureArgs checks them (request_invalid,
+  field_unknown), then Grow growing the island's plant copies the game side gives it (`add_plant`), Fire previewed and cast as
+  exactly that preview, burning its circle by the fire rule (Creative's one ask before a build burns, the player's no sparing it),
+  a Fireline once learned, Snuff (transient: no revision), the starting campfire and the manifest's `x_firepits` that Fire lights
+  and 30 s of rain puts out, `player_rests` (the rest key: the first rest by the starting campfire teaches Fire, decision 72),
+  `nature.repair`, `room.undo` of the latest nature steps (in Creative only: outside it, refused before anything else) and
+  `nature.describe`. The box world has no water, so never a Will-o'-wisp or a waterpad. `nature.trail` went with Bloom
+  (decision 52): checked the same way, then refused unsupported_capability in the kernel's words;
+- the price follows the principal (mock_energy.py, the kernel's CommandHostEnergy): one pool per mode, the player's commands paying
+  the pack's ordered price and the Gubble's its own-idea price, once, at commit; an empty pool refuses with energy_exhausted, its
+  balance and price; the shadow pool in Creative never refuses;
 - the Bubble as the founder redesigned it (decisions 55 to 60; the kernel's Kernel/Bubble) is hosted abstractly, with the
   kernel's refusals in its order and its receipts: effect.start of Bubbles casts one player-sized bubble at a spot and the
   place decides (on the player a carry, the companion's previewed first, its ghost shown and the same cast committed a moment
@@ -59,16 +62,17 @@ It loads a real room (`game/rooms/test_room` by default) through the room contra
   (position_m inside the island: the kernel's InsideIsland, the room's bounds without a sea, the top and the bottom round an
   island), set by the player or the companion; the job ends on `goal_arrived` (the bubble at the spot), `goal_blocked`
   (target_unreachable), or the bubble popping first (target_not_found); the Gubble's own stop or a new goal pops the bubble it
-  leads; the goal.set receipt says how the lead ended. A spot higher than the bubble's is a lift (data.lift, lift_price); the
-  mock keeps no pool, so a lift is never refused for pips here. The mock has no physics: a bubble does not drift, and nothing
-  falls out of one (the kernel's fall out of a bubble, decision 88, and the consequence fact of a fall that hurt after the
-  Gubble's own pop, decision 96, need the body: native_kernel_bubble holds them);
+  leads; the goal.set receipt says how the lead ended. A spot higher than the bubble's is a lift (data.lift, lift_price), refused
+  energy_exhausted at the lead when the setter's pool cannot pay it, and charged at the rise (here, the arrival: the lead ends
+  no_pips when it cannot be paid then). The mock has no physics: a bubble does not drift, and nothing falls out of one (the
+  kernel's fall out of a bubble, decision 88, needs the body); the game side says whether a landing hurt (`player_lands`), and
+  the fall after the Gubble's own pop that hurt is a consequence fact in the kernel's words that costs Trust (decision 96);
 - unknown, removed, foreign and unperceived entity ids all fail with the same `target_not_found`;
 - the island's abilities come from its rules pack, the one the kernel host loads (game/rules/storybook_wild/v5.json:
   Glow, Bubbles, Fireworks, Grow and Fire; checked fail-closed; a pinned pack's Bloom, growth.seed, is read as Grow): `capabilities.list` answers from it, and `effect.start` follows the
   kernel's rules, order of refusals, codes and result data (CommandHostEffects.cs), the same for every primitive
   (light.emit, particles.float, particles.burst). Grow and Fire are cast with nature.cast, never effect.start, and
-  what needs the game itself (terrain-aware Glow, nature, the wish queue) is answered `unavailable`. The Gubble
+  what needs the game itself (terrain-aware Glow, the wish queue) is answered `unavailable`. The Gubble
   carries every ability out: a companion may target only its own avatar (self) or name no targets (a point within
   reach and in the team's sight); effect ids are
   opaque; effects end at their duration, on `effect.stop` (the player any, a companion its own) and on a `goal.stop`
@@ -490,7 +494,7 @@ class IslandRules:
     def price(self, capability: str, principal: str) -> int:
         """What casting `capability` costs `principal` outside Creative, in whole pips. The price follows the principal
         alone: the player's order pays the ordered price, every command on the Gubble's connection the own-idea price.
-        An ability the pack does not price costs nothing. The mock reads prices; it charges nothing yet (M1, M8)."""
+        An ability the pack does not price costs nothing. The pool charges it (mock_energy.py), with Trust's discount (M8)."""
         for name, ordered, factor in self.prices:
             if name == capability:
                 return ordered if principal.startswith("player:") else round(ordered * factor)
@@ -1521,6 +1525,7 @@ class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin):
     def player_decide(self, request_id: str, approve: bool) -> dict:
         """The player's click in the game UI. Never reachable from the companion's connection."""
         with self._lock:
+            self._advance_nature()
             self._expire()
             approval = self.approvals.get(request_id)
             if approval is None:
@@ -1808,6 +1813,7 @@ class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin):
         if not apply:
             return {"affected": [target.id]}
         target.removed = True
+        self.burn_records.pop(target.id, None)  # a removed build's scorch record goes with it (the kernel's NatureWithout)
         if target.held_by:
             self.holding.pop(target.held_by, None)
             target.held_by = None
@@ -2640,7 +2646,8 @@ class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin):
 
     def _lead(self, principal: str, message: dict, actor: str, apply: bool) -> dict:
         """goal.set lead: the bubble by its id (the companion names only one the team sees now), the spot inside the island; then the
-        Gubble's goal is replaced and the lead starts as a job. A spot higher than the bubble is a lift (the mock has no pool)."""
+        Gubble's goal is replaced and the lead starts as a job. A spot higher than the bubble is a lift, which the setter's pool must
+        be able to pay (the kernel's LeadRefusal before anything moves)."""
         args = message["args"]
         player = principal.startswith("player:")
         bubble = self.bubbles.get(args["target"])

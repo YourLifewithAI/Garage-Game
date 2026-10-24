@@ -14,6 +14,11 @@ command. Type at the console, as the player:
     move <entity> <x> <y> <z>  the world moves something (out of the companion's sight, say)
     arrive               the companion's avatar reaches its goal; the game re-checks the target (a fetch
                          arrives twice: at the thing, which it picks up, then back beside the player)
+    rest                 you sit down by a lit campfire (the first rest by the starting one teaches the Gubble Fire)
+    plant <id> <x> <y> <z> <height> [fuel]  one of the island's plants for Grow (id plant:<set>-<row>; fuel grass,
+                         herb, shrub, broadleaf or conifer)
+    gubble-fire on|off   your setting "Let the Gubble use fire"
+    land hurt|soft       your landing after a fall (after the Gubble popped your bubble, a hurting one is its lesson)
     quit                 stop the game
 
 The console is the player's UI. Nothing typed into the MCP client can reach it.
@@ -91,7 +96,8 @@ async def _serve(host: MockHost, session_path: Path) -> None:
             pass
 
 
-COMMANDS = "list | approve <id> | deny <id> | say <entity> <text> | walk <x> <y> <z> | move <entity> <x> <y> <z> | arrive | quit"
+COMMANDS = ("list | approve <id> | deny <id> | say <entity> <text> | walk <x> <y> <z> | move <entity> <x> <y> <z> | arrive | rest | "
+            "plant <id> <x> <y> <z> <height> [fuel] | gubble-fire on|off | land hurt|soft | quit")
 
 
 def _position(words: list[str]) -> list[float] | None:
@@ -154,6 +160,23 @@ def _console(host: MockHost, line: str) -> None:
             print(f"  the goal {host.goal_arrived('avatar:companion')}", flush=True)
         except KeyError:
             print("  the companion has no goal with a target running", flush=True)
+    elif word == "rest":
+        outcome = host.player_rests()
+        print(f"  {outcome['words']}" + (" The Gubble has learned Fire." if outcome.get("learned_fire") else ""), flush=True)
+    elif word == "plant" and len(line.split()) in (6, 7) and _position(line.split()[2:5]) is not None:
+        words = line.split()
+        try:
+            host.add_plant(words[1], _position(words[2:5]), float(words[5]), words[6] if len(words) == 7 else "grass")
+        except ValueError:
+            print("  a plant is plant:<set>-<row> <x> <y> <z> <height> [fuel]", flush=True)
+            return
+        print(f"  {words[1]} grows there", flush=True)
+    elif word == "gubble-fire" and len(parts) == 2 and parts[1] in ("on", "off"):
+        host.set_gubble_fire(parts[1] == "on")
+        print(f"  Let the Gubble use fire: {parts[1]}", flush=True)
+    elif word == "land" and len(parts) == 2 and parts[1] in ("hurt", "soft"):
+        written = host.player_lands(hurt=parts[1] == "hurt")
+        print("  the Gubble's lesson is in the journal" if written else "  you land", flush=True)
     else:
         print(f"  commands: {COMMANDS}", flush=True)
 
