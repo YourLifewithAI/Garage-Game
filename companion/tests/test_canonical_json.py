@@ -17,7 +17,7 @@ from support import COMPANION, REPO, command, new_host
 
 from garage_game_companion import canonical
 
-GOLDEN_SHA256 = "a08519e8874d0895f7d9fded02fccb92ebf508101829de3db7c6ad9df2c85589"
+GOLDEN_SHA256 = "ad3d1a8594e808790c035c49f00fc39fd49d49325d3237bb03bba6166fbccc94"  # the Garage Game golden fixture (the rename, 24 October 2026)
 _SHARED = Path(os.environ.get("GARAGE_GAME_KERNEL_FIXTURE_DIR") or REPO / "game" / "tests" / "fixtures" / "kernel")
 FIXTURE = _SHARED if (_SHARED / "canonical_expected.json").is_file() else \
     Path(__file__).resolve().parent / "fixtures" / "canonical_json_v1"

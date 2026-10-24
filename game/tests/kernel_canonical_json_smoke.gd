@@ -8,6 +8,8 @@ var guard = GUARD.new()
 const JSON_KERNEL = preload("res://scripts/creation_json.gd")
 const COMPILER = preload("res://scripts/creation_compiler.gd")
 const FIXTURE := "res://tests/fixtures/kernel/"
+## The golden digest, pinned here as in the C# and Python checks (the Garage Game fixture, since the rename's phase 4).
+const GOLDEN_SHA256 := "ad3d1a8594e808790c035c49f00fc39fd49d49325d3237bb03bba6166fbccc94"
 
 var checks := 0
 var failures := 0
@@ -19,6 +21,7 @@ func _initialize() -> void:
 	var expected := FileAccess.get_file_as_bytes(FIXTURE + "canonical_expected.json")
 	var digest := FileAccess.get_file_as_string(FIXTURE + "canonical_expected.sha256").strip_edges()
 	_check(not source.is_empty() and expected.size() > 0 and digest.length() == 64, "golden fixture files are present")
+	_check(digest == GOLDEN_SHA256, "canonical_expected.sha256 is the pinned golden digest " + GOLDEN_SHA256)
 	var parsed: Dictionary = JSON_KERNEL.parse(source)
 	_check(parsed.ok, "strict parser reads the fixture input: " + str(parsed.get("error", "")))
 	if parsed.ok:
