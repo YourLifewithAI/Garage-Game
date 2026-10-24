@@ -566,15 +566,22 @@ public partial class PlayHudTest
             var hud = world.GetNode<RoomHud>("RoomHud");
             var notice = (Label)hud.FindChild("Notice", true, false)!;
             world.Player.ReadKeyboard = false;
-            Check(PlayerControls.Label(Act.ItemGather) == "E" && PlayerControls.Specs.Any(spec => spec.Action == Act.ItemGather) && InputMap.HasAction(Act.ItemGather),
-                "the gather key is E, an input action of its own in the map and in the list of controls");
-            Check(hud.FindChild("HandActions", true, false)!.GetChildren().OfType<Button>().Any(b => b.Text == "E Gather"), "the hands' row has its button, naming the key");
-
+            Check(PlayerControls.Label(Act.Interact) == "E" && Act.Interact == "item_gather" && PlayerControls.Specs.Any(spec => spec.Action == Act.Interact) && InputMap.HasAction(Act.Interact),
+                "the interaction key is E, the input map's item_gather action (its name is from when E only gathered) and in the list of controls");
+            Check(hud.FindChild("HandActions", true, false)!.GetChildren().OfType<Button>().Any(b => b.Text == "E Use"), "the hands' row has its button, naming the key");
+            // Away from the campfire and facing nothing, with empty hands: E has nothing to do and says what it works on.
+            var spawnAt = world.Player.GlobalPosition;
+            Check(world.Player.TryTeleportTo(spawnAt + new Vector3(-0.45f, 0, 0)), "(the player steps away from the campfire and the log)");
+            world.Player.Rotation = new Vector3(0, Mathf.Pi / 2, 0);
+            await Frames(40);
             var revision = host.Revision;
+            var idle = hud.Interaction;
             hud._UnhandledInput(Press(Key.E));
             await Frames(2);
-            Check(host.Revision == revision && notice.Text.Contains("Hold a loose log or stone", StringComparison.Ordinal),
-                "E with empty hands changes nothing and says to pick one up first, in the host's words: " + notice.Text);
+            Check(idle.Kind == RoomHud.InteractKind.None && host.Revision == revision && notice.Text == hud.InteractNothingWords() && host.HeldBy(CommandHost.PlayerAvatar) == null,
+                "E with empty hands and nothing in front changes nothing and says what it works on: " + notice.Text);
+            Check(world.Player.TryTeleportTo(spawnAt), "(back by the log)");
+            await Frames(10);
             // The log in hand (picked up as the player, a command); a thing that is no log is refused.
             var wallet = host.Nature.Wallet.GetValueOrDefault("wood");
             var grab = host.HandleObject(CanonicalJson.Text(new JsonObject
@@ -583,6 +590,10 @@ public partial class PlayHudTest
                 ["args"] = new JsonObject { ["target"] = "obj:log", ["actor"] = CommandHost.PlayerAvatar },
             }), CommandHost.PlayerPrincipal);
             Check(grab["ok"]?.GetValue<bool>() == true && host.HeldBy(CommandHost.PlayerAvatar) == "obj:log", "the player picks the log up");
+            await Frames(40);
+            Check(hud.Interaction.Kind == RoomHud.InteractKind.Gather && hud.Interaction.Words.StartsWith("E: gather ", StringComparison.Ordinal) && hud.Interaction.Words.EndsWith(" into your wallet", StringComparison.Ordinal) &&
+                  hud.InteractPrompt.Visible && hud.InteractPrompt.Text == hud.Interaction.Words,
+                "holding the log, E's prompt says it gathers it (the hands first, by the campfire too): " + hud.Interaction.Words);
             revision = host.Revision;
             hud._UnhandledInput(Press(Key.E));
             await Frames(2);
@@ -593,8 +604,9 @@ public partial class PlayHudTest
                 "and the notice says what the wallet holds now: " + notice.Text);
             hud._UnhandledInput(Press(Key.E));
             await Frames(2);
-            Check(host.Nature.Wallet.GetValueOrDefault("wood") == wood && host.Revision == revision + 1 && notice.Text.Contains("Hold a loose log or stone", StringComparison.Ordinal),
-                "a second E, hands empty, gathers nothing more");
+            Check(host.Nature.Wallet.GetValueOrDefault("wood") == wood && host.Revision == revision + 1 && host.HeldBy(CommandHost.PlayerAvatar) == null,
+                "a second E, hands empty, gathers nothing more: " + notice.Text);
+            if (hud.Sitting) hud.RestKey();
             // The sheet keeps the wallet's counts.
             hud.OpenJournal();
             await Frames(JournalMoveFrames);

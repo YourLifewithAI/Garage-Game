@@ -275,11 +275,13 @@ public partial class RoomHud : CanvasLayer
         AddButton(actions, "Settings", ToggleSettings, 26);
         // The hand keys send the same sandbox commands the companion uses (CommandHost.PlayerHands, PlayerPush).
         var hands = new HBoxContainer { Name = "HandActions" };
+        // E first, the one interaction key (decisions 86 and 90; RoomHud.Interact.cs), then the hands' own keys.
+        AddKeyButton(hands, () => $"{K(Act.Interact)} Use", () => Interact(), 26);
         AddKeyButton(hands, () => $"{K(Act.Hands)} Pick up / put down", Hands, 26);
         AddKeyButton(hands, () => $"{K(Act.Push)} Push", Push, 26);
-        AddKeyButton(hands, () => $"{K(Act.ItemGather)} Gather", Gather, 26);
         _focusTag = new Label { Name = "FocusTag", Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore, Theme = compactTheme };
         AddChild(_focusTag);
+        BuildInteractPrompt(compactTheme);
         _washVeil = new ColorRect { Name = "HomeVeil", Color = new Color(0.06f, 0.13f, 0.18f, 0), MouseFilter = Control.MouseFilterEnum.Ignore };
         AddChild(_washVeil);
         _washVeil.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
@@ -303,14 +305,15 @@ public partial class RoomHud : CanvasLayer
         _keyHelp = new VBoxContainer { Name = "KeyHelp", Visible = false }; help.AddChild(_keyHelp);
         // First what the card said (the title, the state, the clock, the mode, the settings), then every key.
         _keyHelp.AddChild(_statusLines);
-        // Every key named below comes from the input map (PlayerControls.Label), so a remapped key shows here.
+        // Every key named below comes from the input map (PlayerControls.Label), so a remapped key shows here. E first (decision 86).
+        AddKeyLine(_keyHelp, InteractKeysLine, "InteractKeys");
         AddKeyLine(_keyHelp, () => MoveKeys, "MoveKeys");
         AddKeyLine(_keyHelp, () => $"Climb: keep walking into a steep face, {K(Act.MoveForward)} up, {K(Act.MoveBack)} down, {K(Act.MoveLeft)}/{K(Act.MoveRight)} across, {K(Act.Jump)} lets go · Swim: deep water floats you, {K(Act.Jump)} leaps · Dive: hold {K(Act.MoveDive)}, {K(Act.Jump)} rises, {K(Act.MoveForward)} swims the way you look, let go to drift up");
         AddKeyLine(_keyHelp, () => $"{K(Act.ViewEye)} first person · {K(Act.ViewShoulder)} third person: {PlayerControls.ZoomLabel()} zooms out to look around, and zoomed out {PlayerControls.DragLabel()} orbits and {PlayerControls.MoveLabel()} follows the view");
         AddKeyLine(_keyHelp, () => $"{K(Act.ViewObserve)} observe (a very tight tilt-shift view, best zoomed out) · {K(Act.HudCustomize)} settings · {K(Act.HudMagic)} the Gubble's magic · {K(Act.Journal)} journal ({K(Act.MouseRelease)} closes any)", "PanelKeys");
         // The window (RoomHud.Screen.cs): the key, and what the game remembers for the next launch.
         AddKeyLine(_keyHelp, ScreenKeysLine, "ScreenKeys");
-        AddKeyLine(_keyHelp, () => $"Walk into a {MeterWords.One(Host, "fractals")} to collect it · {K(Act.Hands)} pick up what you face · {K(Act.Hands)} again sets it down in front of you, or on top of what you face (the box, the book) · {K(Act.Push)} push what you face 10 cm · {K(Act.ItemGather)} gather a log or stone you hold into your wallet · {K(Act.Rest)} sit down by a lit campfire to rest (moving stands you up)");
+        AddKeyLine(_keyHelp, () => $"Walk into a {MeterWords.One(Host, "fractals")} to collect it · {K(Act.Hands)} pick up what you face · {K(Act.Hands)} again sets it down in front of you, or on top of what you face (the box, the book) · {K(Act.Push)} push what you face 10 cm");
         // The hand buttons, under the hand keys.
         _keyHelp.AddChild(hands);
         // The Gubble's keys, under its name (the Glow playtest: the player should see whose magic this is), the buttons first.
@@ -737,6 +740,8 @@ public partial class RoomHud : CanvasLayer
         {
             SetFocus(null, default, "");
             _focusAge = double.MaxValue;
+            // E's prompt goes with the focus, but for the sit's end (E stands you up whatever is in front of you).
+            _interact = _sitting && host != null ? new InteractTarget(InteractKind.Stand, $"{K(Act.Interact)}: stand up") : default;
         }
         else
         {
@@ -750,10 +755,15 @@ public partial class RoomHud : CanvasLayer
                 _focusHeld = held;
                 FocusQueries++;
                 var focus = host.PlayerFocus();
-                SetFocus(string.IsNullOrEmpty(focus.Id) ? null : host.ObjectNodeOf(focus.Id), focus.Box, focus.Tag ?? "");
+                _focusId = focus.Id ?? "";
+                _focusKernelTag = focus.Tag ?? "";
+                // E's prompt (RoomHud.Interact.cs), asked at the focus's pace: on the focus tag when E works on the thing it lights.
+                _interact = DecideInteract(host, focus);
+                SetFocus(string.IsNullOrEmpty(focus.Id) ? null : host.ObjectNodeOf(focus.Id), focus.Box, _interact.OnFocus ? _interact.Words : _focusKernelTag);
             }
         }
         PlaceFocusTag();
+        PlaceInteractPrompt();
     }
 
     private void SetFocus(Node3D? node, Aabb box, string tag)
@@ -920,8 +930,9 @@ public partial class RoomHud : CanvasLayer
             // Hand keys: pick up, put down and push, as commands from the player.
             else if (PlayerControls.Hit(press, Act.Hands)) Hands();
             else if (PlayerControls.Hit(press, Act.Push)) Push();
-            else if (PlayerControls.Hit(press, Act.ItemGather)) Gather();
-            // Fire's camp: sit down by a lit campfire to rest, and stand again (RoomHud.Camp.cs).
+            // E, the one interaction key (RoomHud.Interact.cs): the camp, a Fractal, the thing held or faced.
+            else if (PlayerControls.Hit(press, Act.Interact)) Interact();
+            // Z, Fire's camp's own key this round (decision 90): sit down by a lit campfire to rest, and stand again (RoomHud.Camp.cs).
             else if (PlayerControls.Hit(press, Act.Rest)) RestKey();
             // The look drag arms on the press; a click that never moves does nothing.
             else if (PlayerControls.Hit(press, Act.LookDrag))

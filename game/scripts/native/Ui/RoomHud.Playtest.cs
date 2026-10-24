@@ -79,6 +79,8 @@ public partial class RoomHud
         if (action == Act.ViewFullscreen) return Fullscreen ? "to a window" : "to full screen";
         for (var i = 0; i < Act.GubbleSlots.Length; i++)
             if (action == Act.GubbleSlots[i]) return SlotName(i);
+        // E: what its prompt said it would do (RoomHud.Interact.cs).
+        if (action == Act.Interact) return InteractDetail();
         if (_wheel.Held) return "while the wheel is open";
         if (GubbleViewOpen) return "through the Gubble's eyes";
         if (JournalOpen) return "with the journal open";

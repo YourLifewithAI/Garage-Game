@@ -51,6 +51,8 @@ public partial class RoomHud
     public RestOutcome? RestKey()
     {
         if (Host is not { } host) { _noticeText = "The command host is not attached; the rest key is off."; return null; }
+        // E's prompt is asked again next frame (stand up, or sit).
+        _focusAge = double.MaxValue;
         if (_sitting)
         {
             Stand(host);

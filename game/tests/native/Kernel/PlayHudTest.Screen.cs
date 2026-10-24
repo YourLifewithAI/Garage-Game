@@ -97,9 +97,17 @@ public partial class PlayHudTest
         Click(actions.GetNode<Button>("MagicPanelButton"));
         Check(customizing && !_hud.SettingsOpen && magic && !_hud.MagicPanelOpen, "and Settings and Magic open and close their panels");
         var hands = help.GetNode<HBoxContainer>("HandActions");
-        Click(ButtonOf(hands, "E Gather"));
+        var before = _hud.Interaction;
+        Click(ButtonOf(hands, "E Use"));
         await Frames(2);
-        Check(NoticeText().Contains("Hold a loose log or stone", StringComparison.Ordinal), "and the hand buttons send the player's commands (E Gather with empty hands answers in the host's words): " + NoticeText());
+        var did = before.Kind switch
+        {
+            RoomHud.InteractKind.None => NoticeText() == _hud.InteractNothingWords(),
+            RoomHud.InteractKind.Sit => _hud.Sitting,
+            _ => NoticeText().Length > 0,
+        };
+        Check(did, $"and the hand buttons send the player's commands (E Use does what its prompt said, {before.Kind}): " + NoticeText());
+        if (_hud.Sitting) _hud.RestKey();
         _hud._UnhandledInput(Press(Key.H));
         await Frames(2);
         Check(!help.Visible, "H folds it again");
