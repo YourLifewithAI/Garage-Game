@@ -14,6 +14,8 @@ import unittest
 from support import (BEHIND_BOX, COMPANION, FAR_IN_SIGHT, GUBBLE, IN_THE_OPEN, OUT_OF_REACH, OUTSIDE_ROOM, FakeClock,
                      HostPolicy, cast, command, contract_problems, glow, new_host, query)
 
+from garage_game_companion import mock_nature
+
 BEHIND_THE_BOX = [1.6, 0.0, 0.2]  # the box hides the book from the companion; the player at its spawn still sees it
 HIDDEN_SPOT = [-0.9, 0.0, -1.42]  # behind the table: neither avatar sees it from beside the player
 
@@ -45,12 +47,10 @@ FIRE_SUMMARY = {"capability": "fire", "category": "fire", "params": {"intensity"
                 "area_radius_max_m": 1.5, "duration_max_s": 60, "reach_m": 2.0, "max_active": 1,
                 "command_op": "nature.cast", "locked": True}
 LACKING = "teleport"
-# The one exception in these scenarios (the integrator, 13 October): the mock does not simulate nature yet. A nature command
-# that passes the kernel's checks runs on the kernel host, and the mock answers it unavailable; so does nature.describe.
-# Only these ops, and only once their checks have passed. The follow-up that models nature in the mock removes it
-# (contracts/README.md, "Known open points").
-# nature.trail went with Bloom (decision 52): both hosts refuse it alike (unsupported_capability), so it is no exception.
-NATURE_NOT_IN_THE_MOCK = frozenset({"nature.cast", "nature.repair", "nature.describe"})
+# Nature runs on both hosts (the mock's mock_nature.py since the nature packet, 24 October): its answers, words included, are the
+# same on both, so a kernel change that moves a word, a check's order or a code fails here. Neither host's test room has plants,
+# and a fresh team has not rested by the starting campfire, so Fire stays locked on both: Fire's casts, the campfires and undo are
+# test_nature.py's on the mock, and test_kernel_alignment.py holds their words and numbers to the kernel's.
 
 
 def refusal(result: dict):
@@ -80,8 +80,9 @@ class AlignmentScenarios:
 
     # Outcome keys a host cannot yet be held to (each with its reason in the subclass).
     unchecked: tuple[str, ...] = ()
-    # Whether this host simulates nature: the kernel host does; the mock answers it unavailable (NATURE_NOT_IN_THE_MOCK).
-    simulates_nature: bool = False
+    # Known gaps of one host against the contract, by name, each with its change request: the scenario checks that host still
+    # answers as it does today, so the fix fails the test and the gap is dropped.
+    known_gaps: dict[str, str] = {}
 
     def next_id(self, prefix: str) -> str:
         self._n = getattr(self, "_n", 0) + 1
@@ -163,13 +164,16 @@ class AlignmentScenarios:
 
 
 
-    # ----- Nature: checked alike on both hosts; nature itself is the one exception (NATURE_NOT_IN_THE_MOCK) -----
+    # ----- Nature: checked and answered alike on both hosts -----
 
-    async def test_nature_commands_are_checked_alike_and_nature_itself_is_the_one_exception(self):
-        """Every check the kernel makes before its nature runs gives the same answer on both hosts. Past them, on the mock
-        only, the excepted ops answer unavailable; the kernel host runs them (previews only here, so nothing changes)."""
+    async def test_nature_commands_are_checked_and_answered_alike(self):
+        """Every check of a nature command gives the same answer on both hosts, its words included: the contract's args, the
+        retired trail, a stale revision, a repair of something unseen, Fire locked before the first rest (before any other check
+        of it), then Grow's own checks in the kernel's order (CheckCast: the island's radius, the island, the Gubble's reach, the
+        team's sight) and, where the test room has no plant, why nothing grows. Nothing changes: the revision stays where it was."""
         await self.companion_home()
         bloom = {"capability": "grow", "center_m": IN_THE_OPEN, "radius_m": 0.25, "duration_s": 30}
+        start = (await self.ask(query("room.describe", {}, self.next_id("q"))))["data"]["revision"]
 
         async def sent(op, args, **options):
             return refusal(await self.ask(command(op, args, self.next_id("nature"), **options)))
@@ -201,19 +205,53 @@ class AlignmentScenarios:
             "the retired flower trail": ("unsupported_capability", "$.op"),
             "Fire before the first rest": ("permission_denied", "$.args.capability"),
         })
-        excepted = {
-            "nature.cast": [await sent("nature.cast", bloom, preview=True)],
-            "nature.describe": [refusal(await self.ask(query("nature.describe", {}, self.next_id("q"))))],
+
+        async def said(args, **options):
+            result = await self.ask(command("nature.cast", args, self.next_id("nature"), **options))
+            error = result.get("error", {})
+            return "ok" if result["ok"] else (error["code"], error.get("field_path"), error["message"], error["retryable"], error.get("allowed"))
+
+        m = mock_nature
+        answered = {
+            "Grow where no plant grows, previewed": await said(bloom, preview=True),
+            "Grow where no plant grows": await said(bloom),
+            "Grow wider than the island allows": await said({**bloom, "radius_m": 1.2}, preview=True),
+            "Grow outside the island": await said({**bloom, "center_m": OUTSIDE_ROOM}, preview=True),
+            "Grow beyond the Gubble's reach": await said({**bloom, "center_m": OUT_OF_REACH}, preview=True),
+            "Grow where neither avatar sees": await said({**bloom, "center_m": BEHIND_BOX}, preview=True),
+            "too wide and beyond reach": await said({**bloom, "radius_m": 1.2, "center_m": OUT_OF_REACH}, preview=True),
+            "Fire too long before the first rest": await said({**bloom, "capability": "fire", "duration_s": 61}, preview=True),
+            "a Fireline before the first rest": await said({**bloom, "capability": "fire", "end_m": FAR_IN_SIGHT}, preview=True),
         }
-        self.assertLessEqual(set(excepted), NATURE_NOT_IN_THE_MOCK)
-        for op, answers in excepted.items():
-            for answer in answers:
-                with self.subTest(op=op):
-                    if self.simulates_nature:
-                        # Past the checks above: whatever nature answers, never a malformed request or a missing host.
-                        self.assertNotIn(answer[0] if answer != "ok" else answer, ("request_invalid", "field_unknown", "unavailable"))
-                    else:
-                        self.assertEqual(answer, ("unavailable", "$.op"))
+        no_plant = ("invalid_args", "$.args.center_m", m.GROW_NO_PLANT, False, None)
+        locked = ("permission_denied", "$.args.capability", m.FIRE_NOT_LEARNED, False, None)
+        self.assertEqual(answered, {
+            "Grow where no plant grows, previewed": no_plant,
+            "Grow where no plant grows": no_plant,
+            "Grow wider than the island allows": ("invalid_args", "$.args.radius_m", m.RADIUS_TOO_BIG, False, 1.0),
+            "Grow outside the island": ("out_of_bounds", "$.args.center_m", m.CAST_OUTSIDE, False, None),
+            "Grow beyond the Gubble's reach": ("out_of_bounds", "$.args.center_m", m.CAST_TOO_FAR, True, None),
+            "Grow where neither avatar sees": ("target_not_found", "$.args.center_m", m.CAST_UNSEEN, False, None),
+            "too wide and beyond reach": ("invalid_args", "$.args.radius_m", m.RADIUS_TOO_BIG, False, 1.0),
+            "Fire too long before the first rest": locked,
+            "a Fireline before the first rest": locked,
+        })
+        described = await self.ask(query("nature.describe", {}, self.next_id("q")))
+        self.assertTrue(described["ok"], described)
+        data = dict(described["data"])
+        weather = data.pop("weather")
+        notice = data.pop("notice")
+        if "nature.describe's empty notice" in self.known_gaps:
+            self.assertEqual(notice, "Refused.", "the host's notice is the contract's now: drop the known gap")
+        else:
+            self.assertEqual(notice, "", "nature waits for nothing: its notice is empty (the contract)")
+        self.assertIn(weather["pattern"], ("fair", "showers", "rain"))
+        self.assertTrue(0 <= weather["rain"] <= 1 and len(weather["wind_mps"]) == 3, weather)
+        # A fresh island under storybook_wild v5: no nature change yet, nothing burning, the pack's wallet (decision 26: empty).
+        self.assertEqual(data, {"nature_revision": 0, "trail_enabled": False, "planted_cells": 0, "burning_cells": 0,
+                                "wallet": {"copper": 0, "leaf": 0, "stone": 0, "wood": 0}, "scorched": [], "can_undo": False})
+        end = (await self.ask(query("room.describe", {}, self.next_id("q"))))["data"]["revision"]
+        self.assertEqual(end, start, "nothing in this scenario changes the room")
 
     # ----- The mechanics round (M0): the contract's stubs and its boundary, alike on both hosts -----
 
@@ -761,13 +799,14 @@ class AlignmentOnTheMock(AlignmentScenarios, unittest.IsolatedAsyncioTestCase):
     async def wait(self, seconds: float) -> None:
         self.host.clock.advance(seconds)
 
-    async def test_fire_waits_for_the_first_rest_then_is_nature_again(self):
-        """Decision 72 on the mock: Fire is refused in the kernel's words until the team learns it (the host's own learn_fire,
-        the kernel's first rest), then it is nature again, which this mock answers unavailable; Fire stays listed meanwhile."""
+    async def test_fire_waits_for_the_first_rest_then_is_previewed(self):
+        """Decision 72 on the mock: Fire is refused in the kernel's words until the team learns it (the player's first rest by
+        the starting campfire, the game side's player_rests), then a Fire preview says what the place makes of it; Fire stays
+        listed meanwhile, locked."""
         fire = {"capability": "fire", "center_m": IN_THE_OPEN, "radius_m": 0.25, "duration_s": 30}
         locked = await self.ask(command("nature.cast", fire, self.next_id("fire"), preview=True))
         listed = await self.ask(query("capabilities.list", {}, self.next_id("q")))
-        self.host.learn_fire()
+        rest = self.host.player_rests()
         learned = await self.ask(command("nature.cast", fire, self.next_id("fire"), preview=True))
         relisted = await self.ask(query("capabilities.list", {"category": "fire"}, self.next_id("q")))
         self.assertEqual([item.get("locked") for item in listed["data"]["items"] if item["capability"] == "fire"], [True])
@@ -775,7 +814,8 @@ class AlignmentOnTheMock(AlignmentScenarios, unittest.IsolatedAsyncioTestCase):
         self.assertEqual((refusal(locked), locked["error"]["message"]), (("permission_denied", "$.args.capability"),
                          "The Gubble has not learned Fire yet: rest by the starting campfire first."))
         self.assertIn("fire", [item["capability"] for item in listed["data"]["items"]])
-        self.assertEqual(refusal(learned), ("unavailable", "$.op"))
+        self.assertEqual((rest["ok"], rest["campfire"], rest["learned_fire"]), (True, "camp:start", True))
+        self.assertEqual((refusal(learned), learned["data"]["kind"], len(learned["data"]["preview_id"])), ("ok", "fire", 32))
 
 
 if __name__ == "__main__":

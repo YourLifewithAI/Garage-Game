@@ -662,8 +662,10 @@ class AlignmentOnTheRealHost(AlignmentScenarios, RealHostCase):
 
     # The suite's game runs headless: no renderer, so the Gubble's eyes answer unavailable (a real picture is the windowed check).
     renders = False
-    # The kernel host runs the island's nature (RoomWorld.ConfigureNature); the mock does not yet.
-    simulates_nature = True
+    # The kernel's NatureSnapshot writes its notice through DisplayText, which answers "Refused." for empty text, so a nature that
+    # waits for nothing says "Refused." where the contract says the notice is empty: the nature packet's change request to Lane P
+    # (CommandHostNature.cs NatureSnapshot, notice: empty stays empty). Until it lands the scenario holds the kernel to today's word.
+    known_gaps = {"nature.describe's empty notice": "CommandHostNature.NatureSnapshot: DisplayText(\"\") is \"Refused.\""}
 
     async def asyncSetUp(self):
         await super().asyncSetUp()
