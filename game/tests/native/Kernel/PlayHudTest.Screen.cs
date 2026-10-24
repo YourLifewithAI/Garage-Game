@@ -97,9 +97,17 @@ public partial class PlayHudTest
         Click(actions.GetNode<Button>("MagicPanelButton"));
         Check(customizing && !_hud.SettingsOpen && magic && !_hud.MagicPanelOpen, "and Settings and Magic open and close their panels");
         var hands = help.GetNode<HBoxContainer>("HandActions");
-        Click(ButtonOf(hands, "E Gather"));
+        var before = _hud.Interaction;
+        Click(ButtonOf(hands, "E Use"));
         await Frames(2);
-        Check(NoticeText().Contains("Hold a loose log or stone", StringComparison.Ordinal), "and the hand buttons send the player's commands (E Gather with empty hands answers in the host's words): " + NoticeText());
+        var did = before.Kind switch
+        {
+            RoomHud.InteractKind.None => NoticeText() == _hud.InteractNothingWords(),
+            RoomHud.InteractKind.Sit => _hud.Sitting,
+            _ => NoticeText().Length > 0,
+        };
+        Check(did, $"and the hand buttons send the player's commands (E Use does what its prompt said, {before.Kind}): " + NoticeText());
+        if (_hud.Sitting) _hud.RestKey();
         _hud._UnhandledInput(Press(Key.H));
         await Frames(2);
         Check(!help.Visible, "H folds it again");
@@ -127,9 +135,9 @@ public partial class PlayHudTest
             Check(recorder is { Recording: true }, "a windowed launch's recorder on the fresh world");
             if (recorder == null) return;
             await Frames(6);
-            var noticeLabel = hud.GetNode<PanelContainer>("HelpFooter").GetChild<VBoxContainer>(0).GetNode<Label>("Notice");
+            var noticeLabel = (Label)hud.FindChild("Notice", true, false)!;
             var line = noticeLabel.Text;
-            Check(line == hud.LookNotice && !line.Contains("Placeholder", StringComparison.Ordinal) && noticeLabel.Visible == (line.Length > 0),
+            Check(line == hud.LookNotice && !line.Contains("Placeholder", StringComparison.Ordinal) && hud.NoticeCard.Visible == (line.Length > 0),
                 $"the notice line starts with the look's words or none (\"{hud.LookNotice}\"), never Run 0's sentence, and shows only when it has words: \"{line}\"");
             hud._UnhandledInput(Press(Key.F9));
             await Frames(2);

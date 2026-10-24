@@ -19,7 +19,7 @@ public partial class PlayHudTest
 {
     private const string PlaytestRoot = "user://tests/play_hud/playtest";
 
-    private string NoticeText() => _hud.GetNode<PanelContainer>("HelpFooter").GetChild<VBoxContainer>(0).GetNode<Label>("Notice").Text;
+    private string NoticeText() => ((Label)_hud.FindChild("Notice", true, false)!).Text;
     private string PlaytestHelp() => _hud.GetNode<PanelContainer>("HelpFooter").GetChild<VBoxContainer>(0).GetNode<VBoxContainer>("KeyHelp").GetNode<Label>("PlaytestKeys").Text;
 
     private async Task TestPlaytestKeys()

@@ -11,7 +11,7 @@ namespace GarageGame.Native;
 /// </summary>
 public partial class RoomHud
 {
-    /// <summary>E (the input map's item_gather): gather what the hands hold into the wallet.</summary>
+    /// <summary>Gather what the hands hold into the wallet: E does it when the hands hold a loose log or stone (RoomHud.Interact.cs).</summary>
     public void Gather()
     {
         if (Host is not { } host) { _noticeText = "The command host is not attached; the gather key is off."; return; }

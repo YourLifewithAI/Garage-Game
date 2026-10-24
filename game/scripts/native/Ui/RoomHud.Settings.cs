@@ -102,7 +102,8 @@ public partial class RoomHud
         {
             Name = "GubbleFireSetting", Text = "Let the Gubble use fire",
             ButtonPressed = Host?.GubbleFireAllowed ?? Kernel.CommandHost.LoadGubbleFire(ProfilePath),
-            TooltipText = "Your AI can light fires through the Gubble. In Challenge and Live its fire can hurt you, and it learns from that. X puts its fire out.",
+            // Decision 82: nothing but burning out or Snuff ends a fire; X stops the Gubble's moves, not its fire.
+            TooltipText = "Your AI can light fires through the Gubble. In Challenge and Live its fire can hurt you, and it learns from that. A fire burns until it burns itself out, or until Snuff puts it out: X stops the Gubble, not its fire.",
             FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(0, 38),
         };
         _gubbleFire.Toggled += SetGubbleFire;
@@ -153,7 +154,7 @@ public partial class RoomHud
         _resetTrust.GrabFocus();
     }
 
-    /// <summary>The key (C, the input action hud_customize), the button and Esc: the panel opens and closes, and the body waits while it is open.</summary>
+    /// <summary>The key (C, the input action hud_customize), the button, Esc and the Esc menu's Settings: the panel opens and closes, and the body waits while it is open.</summary>
     private void ToggleSettings()
     {
         CancelAsk();
@@ -164,5 +165,7 @@ public partial class RoomHud
         Player.SetInputEnabled(!_settings.Visible);
         Input.MouseMode = Input.MouseModeEnum.Visible;
         if (_settings.Visible) OnSettingsOpened();
+        // Opened from the Esc menu (RoomHud.Pause.cs): closing it goes back there.
+        else SettingsClosedForPause();
     }
 }

@@ -9,8 +9,9 @@ namespace GarageGame.Native;
 /// <summary>
 /// Fire's camp on screen (MECHANICS.md decisions 61 and 70; docs/runs/RUN-2-OPENING.md's chime and card):
 /// <list type="bullet">
-/// <item><b>The rest key</b> (Z, the input map's rest): sit down by a lit campfire, through the host's PlayerRest, which checks the body
-/// itself; pressed again, or as soon as the body moves, the player stands. The sit is <b>the rest crouch</b>: the body's drawing
+/// <item><b>The rest key</b> (E, the interaction key, and Z, the input map's rest, for this round: decision 90): sit down by a lit campfire,
+/// through the host's PlayerRest, which checks the body itself; pressed again, or as soon as the body moves, the player stands. Sitting
+/// opens the camp's screen (decision 87, RoomHud.CampScreen.cs); standing closes it. The sit is <b>the rest crouch</b>: the body's drawing
 /// lowered to RestCrouch of its height about the feet, a stand-in until the characters' lane draws a real sitting pose.</item>
 /// <item><b>The expertise announcement</b>, for every expertise the Gubble learns (the host's TakeLearned, each once): a short
 /// generated chime (two soft notes, no asset) and a two-line card, "&lt;name&gt; has learned &lt;expertise&gt;." over "What will you do
@@ -51,6 +52,8 @@ public partial class RoomHud
     public RestOutcome? RestKey()
     {
         if (Host is not { } host) { _noticeText = "The command host is not attached; the rest key is off."; return null; }
+        // E's prompt is asked again next frame (stand up, or sit).
+        _focusAge = double.MaxValue;
         if (_sitting)
         {
             Stand(host);
@@ -59,7 +62,12 @@ public partial class RoomHud
         }
         var outcome = host.PlayerRest();
         _noticeText = outcome.Words;
-        if (outcome.Ok) SitDown();
+        if (outcome.Ok)
+        {
+            SitDown();
+            // Sitting opens the camp (decision 87; RoomHud.CampScreen.cs).
+            OpenCamp(outcome.Words);
+        }
         return outcome;
     }
 
@@ -80,6 +88,7 @@ public partial class RoomHud
     private void Stand(CommandHost? host)
     {
         _sitting = false;
+        CloseCamp();
         foreach (var (part, pose) in _standingPose)
             if (IsInstanceValid(part)) part.Transform = pose;
         _standingPose.Clear();
@@ -93,6 +102,9 @@ public partial class RoomHud
     {
         var host = Host;
         if (_sitting && (host == null || !host.PlayerResting)) Stand(host);
+        var campStart = PromptCost.Begin();
+        TickCampScreen(delta);
+        PromptCost.End(campStart, PromptCost.Piece.Camp);
         while (host != null && host.TakeLearned(out var ability, out var id))
             if (ShowsCards && _cards.Count < 16) _cards.Enqueue(CardTitleFor(ability, id));
         if (_cardAge >= 0)

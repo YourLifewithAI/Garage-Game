@@ -48,7 +48,7 @@ public static class Act
     public static readonly StringName GubbleSlot3 = "gubble_slot_3";
     public static readonly StringName GubbleSlot4 = "gubble_slot_4";
     public static readonly StringName GubbleSlot5 = "gubble_slot_5";
-    /// <summary>6: Fire (decision 77): a tap previews the fire where you point, a drag (once Fireline is learned) a line; a hold of the ask lights it.</summary>
+    /// <summary>6: Fire (decisions 77 and 83): a tap lights the fire where you point at once, a drag (once Fireline is learned) a line.</summary>
     public static readonly StringName GubbleSlot6 = "gubble_slot_6";
     /// <summary>The slot actions in slot order (index 0 is slot 1).</summary>
     public static readonly StringName[] GubbleSlots = { GubbleSlot1, GubbleSlot2, GubbleSlot3, GubbleSlot4, GubbleSlot5, GubbleSlot6 };
@@ -56,9 +56,13 @@ public static class Act
     /// <summary>Pick up what the player faces, or put down what it holds.</summary>
     public static readonly StringName Hands = "hands";
     public static readonly StringName Push = "push";
-    /// <summary>Gather what the hands hold into the wallet: a loose log or stone (item.gather, the mechanics round's decision 26).</summary>
-    public static readonly StringName ItemGather = "item_gather";
-    /// <summary>Sit down by a lit campfire to rest, and stand up again (Fire's camp, decision 70); moving stands up too.</summary>
+    /// <summary>
+    /// E, the one interaction key for the world (decisions 86 and 90): sit by a lit campfire and stand up again, pick up a Fractal or a
+    /// thing, set down or gather what the hands hold (RoomHud.Interact.cs). Its map name is from when E only gathered (item.gather, the
+    /// mechanics round's decision 26): the input map keeps it, as it keeps hud_customize and mouse_capture.
+    /// </summary>
+    public static readonly StringName Interact = "item_gather";
+    /// <summary>Z: sit down by a lit campfire to rest, and stand up again (Fire's camp, decision 70); moving stands up too. A second key for the camp this round (decision 90).</summary>
     public static readonly StringName Rest = "rest";
     // The testing toggles (the help lists them under "Testing").
     public static readonly StringName PhysicsNext = "physics_next";
@@ -73,13 +77,13 @@ public static class Act
     public static readonly StringName HudHelp = "hud_help";
     /// <summary>C: the settings panel (it was the Customize panel; the input action keeps its name, hud_customize, until project.godot renames it).</summary>
     public static readonly StringName HudCustomize = "hud_customize";
-    /// <summary>M: the Magic panel (the Gubble's magic: Grow, Fire's preview and hold, Glow's lights, wishes), opened and closed again.</summary>
+    /// <summary>M: the Magic panel (the Gubble's magic: Grow, Fire on the click, Glow's lights, wishes), opened and closed again.</summary>
     public static readonly StringName HudMagic = "hud_magic";
     /// <summary>The journal, the leather book at the lower right: opens it at its index, and closes it again.</summary>
     public static readonly StringName Journal = "journal";
     /// <summary>The eye icon above the journal: look through the Gubble's eyes, and back to the player's own.</summary>
     public static readonly StringName GubbleEyes = "gubble_eyes";
-    /// <summary>Esc: closes the settings panel and the journal, returns from the Gubble's eyes, cancels the wheel or a drag. (Its map name is from when it freed the captured mouse.)</summary>
+    /// <summary>Esc: first lets go of what is going on (a panel, the journal, the Gubble's eyes, the wheel, a drag, a chosen bubble), then opens the menu (decisions 81 and 97). (Its map name is from when it freed the captured mouse.)</summary>
     public static readonly StringName MouseRelease = "mouse_release";
     /// <summary>Hold and drag to look around (the left button); a click without a drag does nothing. (Its map name is from when a click captured the mouse.)</summary>
     public static readonly StringName LookDrag = "mouse_capture";
@@ -127,10 +131,10 @@ public static class PlayerControls
     public static void EnsureDefaults()
     {
         var changed = false;
-        if (!InputMap.HasAction(Act.ItemGather))
+        if (!InputMap.HasAction(Act.Interact))
         {
-            InputMap.AddAction(Act.ItemGather, 0.2f);
-            InputMap.ActionAddEvent(Act.ItemGather, new InputEventKey { PhysicalKeycode = Key.E });
+            InputMap.AddAction(Act.Interact, 0.2f);
+            InputMap.ActionAddEvent(Act.Interact, new InputEventKey { PhysicalKeycode = Key.E });
             changed = true;
         }
         // The rest key likewise (Fire's camp): Z, until project.godot carries the packet's rest action.
@@ -166,7 +170,7 @@ public static class PlayerControls
         new(Act.GubbleAsk, ControlContext.Always), new(Act.GubbleRecall, ControlContext.Always), new(Act.GubbleStop, ControlContext.Always),
         new(Act.GubbleSlot1, ControlContext.Always), new(Act.GubbleSlot2, ControlContext.Always), new(Act.GubbleSlot3, ControlContext.Always),
         new(Act.GubbleSlot4, ControlContext.Always), new(Act.GubbleSlot5, ControlContext.Always), new(Act.GubbleSlot6, ControlContext.Always),
-        new(Act.Hands, ControlContext.Always), new(Act.Push, ControlContext.Always), new(Act.ItemGather, ControlContext.Always),
+        new(Act.Hands, ControlContext.Always), new(Act.Push, ControlContext.Always), new(Act.Interact, ControlContext.Always),
         new(Act.Rest, ControlContext.Always),
         new(Act.PhysicsNext, ControlContext.Always), new(Act.TimeStep, ControlContext.Always),
         new(Act.SeasonStep, ControlContext.Always), new(Act.Lamps, ControlContext.Always),

@@ -11,7 +11,8 @@ namespace GarageGame.Tests.Kernel;
 /// <summary>
 /// The Fire behaviours packet on screen: collecting a Fractal by walking into it (and by the hands key), the Magic panel's own key (M),
 /// and Fire on the wheel and key 6 (decision 77): the ninth wedge just after Fireworks, locked with its mark and reason until the first
-/// rest, then a tap that previews the outlined fire where you point and a hold of the ask that lights exactly it.
+/// rest, then a tap that lights the fire where you point at once, its outline flashing as it catches (decision 83), and X that stops the
+/// Gubble but never puts a fire out (decision 82).
 /// </summary>
 public partial class PlayHudTest
 {
@@ -94,6 +95,7 @@ public partial class PlayHudTest
             "the wedge maths for nine: each ninth of the turn is its wedge, and the centre cancels");
         // Locked until the first rest: the wedge's mark and reason, and key 6 says so and sends nothing.
         _hud.AimRayForTests = Down(FloorNearGubble(.3f));
+        var clicks = _hud.FireClicks;
         _hud._UnhandledInput(RightButton(true));
         await Frames(20);
         var label = _hud.Wheel.WedgeLabels[2].Text;
@@ -103,13 +105,13 @@ public partial class PlayHudTest
         _hud._UnhandledInput(RightButton(false));
         var receipts = host.TransientReceiptCount(CommandHost.PlayerPrincipal);
         var revision = host.Revision;
-        Check(locked && _hud.Cue.State == "shrug" && _hud.Cue.Reason == GubbleMagic.FireLockedWords && !_hud.WheelFireArmed,
+        Check(locked && _hud.Cue.State == "shrug" && _hud.Cue.Reason == GubbleMagic.FireLockedWords && _hud.FireClicks == clicks,
             "before the first rest the Fire wedge shows a lock and \"Rest by the starting campfire first.\" in two lines, and no price; choosing it shrugs those words: " + label.Replace("\n", " "));
         _hud._UnhandledInput(Press(Key.Key6));
         _hud._UnhandledInput(Release(Key.Key6));
-        Check(_hud.NoticeText == GubbleMagic.FireLockedWords && !_hud.WheelFireArmed && host.TransientReceiptCount(CommandHost.PlayerPrincipal) == receipts && host.Revision == revision,
+        Check(_hud.NoticeText == GubbleMagic.FireLockedWords && _hud.FireClicks == clicks && host.TransientReceiptCount(CommandHost.PlayerPrincipal) == receipts && host.Revision == revision,
             "key 6 says the same and sends no command");
-        // Learned: a tap of 6 previews the outlined fire at the aimed spot; a short hold of the ask does nothing; the full hold lights it.
+        // Learned: a tap of 6 lights the fire at the aimed spot at once (decision 83), its outline flashing as it catches.
         host.LearnFireForTests();
         // Fair weather for the test, and the starting campfire lit (a long suite's rain may have put it out once Fire was learned): a fire
         // beside it is then plain Fire. Relit through the wheel's own path, since on a campfire that is out Fire lights it (the place decides).
@@ -119,10 +121,8 @@ public partial class PlayHudTest
             _hud.AimRayForTests = Down(camp.PositionM);
             _hud._UnhandledInput(Press(Key.Key6));
             _hud._UnhandledInput(Release(Key.Key6));
-            var relight = _hud.WheelFireKind;
-            _hud.BeginWheelFireHold();
-            for (var i = 0; i < 200 && _hud.WheelFireArmed; i++) await Frames(1);
-            Check(relight == FireKindWords.Firepit && host.IsCampfireLit(CampLaws.StartingId), "(on the starting campfire that rain put out, the wheel's Fire previews and relights it)");
+            await Frames(2);
+            Check(_hud.LastFireKind == FireKindWords.Firepit && host.IsCampfireLit(CampLaws.StartingId), "(on the starting campfire that rain put out, the wheel's Fire relights it at once)");
         }
         var point = FloorNearGubble(.3f);
         var previousSample = host.NatureSampleForTests;
@@ -131,35 +131,36 @@ public partial class PlayHudTest
         try
         {
             _hud.AimRayForTests = Down(point);
+            var receiptsBefore = host.Authority.Call("receipt_count").AsInt32();
             _hud._UnhandledInput(Press(Key.Key6));
             _hud._UnhandledInput(Release(Key.Key6));
-            await Frames(2);
-            Check(_hud.WheelFireArmed && _hud.WheelFireKind == FireKindWords.Fire && host.Nature.Fire == null && look is { FirePreviewVisible: true, PreviewIsLine: false } &&
-                  _hud.AskTag.Text.Contains("hold", StringComparison.Ordinal),
-                "once Fire is learned, a tap of 6 previews the outlined fire where you point, nothing lit yet: " + _hud.NoticeText);
-            _hud._UnhandledInput(RightButton(true));
-            await Frames(30);
-            var paused = GetTree().Paused || _hud.Wheel.Held;
-            _hud._UnhandledInput(RightButton(false));
-            await Frames(2);
-            Check(!paused && host.Nature.Fire == null && _hud.WheelFireArmed && _hud.WheelFireProgress == 0,
-                "while a preview waits the ask button's hold is the fire's, not the wheel's, and letting go early lights nothing");
-            _hud._UnhandledInput(RightButton(true));
-            for (var i = 0; i < 200 && _hud.WheelFireArmed; i++) await Frames(1);
-            _hud._UnhandledInput(RightButton(false));
-            // The suite's earlier tests left builds in the room: in Creative the host's one ask comes as a card after the hold (the fire rule).
-            var asked = host.PendingApprovals.LastOrDefault()?.RequestId;
+            await Frames(1);
+            // The suite's earlier tests left builds in the room: in Creative the host's one ask comes as a card on the click (the fire rule).
+            var asked = _hud.LastFireClick is { Held: true } ? host.PendingApprovals.LastOrDefault()?.RequestId : null;
+            var heldWords = _hud.NoticeText;
             var answered = asked == null || host.Approve(asked)["ok"]?.GetValue<bool>() == true;
-            Check(answered && host.Nature.Fire != null && !_hud.WheelFireArmed && look is { FirePreviewVisible: false },
-                $"held for the Magic panel's confirm time ({RoomHud.FireConfirmSeconds} s), the ask lights exactly the previewed fire, through the host" + (asked != null ? " (its builds' card answered yes)" : ""));
-            Check(host.PlayerNatureUndo()["ok"]?.GetValue<bool>() == true && host.Nature.Fire == null, "(Creative's undo takes it back)");
-            // The wheel's Fire wedge previews too; Esc calls the preview off.
-            _hud.ChooseWedge(2, _hud.AimNow());
-            var armed = _hud.WheelFireArmed;
-            _hud._UnhandledInput(Press(Key.Escape));
-            Check(armed && !_hud.WheelFireArmed && look is { FirePreviewVisible: false }, "the wheel's Fire wedge previews at the frozen aim, and Esc calls the preview off");
+            Check(answered && host.Nature.Fire != null && _hud.LastFireClick is { Previewed: true } && _hud.LastFireKind == FireKindWords.Fire && !GetTree().Paused && !_hud.Wheel.Held,
+                "once Fire is learned, a tap of 6 lights the fire where you point at once, through the host, with no hold" + (asked != null ? " (its builds' card answered yes)" : ""));
+            Check(asked != null ? heldWords == RoomHud.FireHeldWords : _hud.NoticeText.StartsWith("The fire is lit.", StringComparison.Ordinal) && _hud.NoticeText.Contains("Snuff", StringComparison.Ordinal),
+                "the notice says it is lit and that it burns until it burns out or is Snuffed (or, held, that the card asks first): " + (asked != null ? heldWords : _hud.NoticeText));
+            Check(_hud.FireFlashing && look is { FirePreviewVisible: true, PreviewIsLine: false } && !_hud.AskTag.Text.Contains("hold", StringComparison.Ordinal),
+                "the outline flashes as it lights, and the reticle has no hold to wait for");
+            Check(host.Authority.Call("receipt_count").AsInt32() >= receiptsBefore + 1, "(one cast receipt: the preview costs nothing)");
+            for (var i = 0; i < 120 && _hud.FireFlashing; i++) await Frames(1);
+            Check(!_hud.FireFlashing && look is { FirePreviewVisible: false } && host.Nature.Fire != null, "the flash is over in a moment; the fire burns on");
+            // Decision 82: X stops the Gubble, never a fire.
+            _hud._UnhandledInput(Press(Key.X));
             await Frames(2);
-            Check(HelpLines().Any(line => line.Contains("6 previews Fire where you point and holding right-click lights it", StringComparison.Ordinal)), "the help says how key 6 works");
+            Check(host.Nature.Fire != null, "X stops the Gubble and leaves the fire burning (decision 82)");
+            Check(host.PlayerNatureUndo()["ok"]?.GetValue<bool>() == true && host.Nature.Fire == null, "(Creative's undo takes it back)");
+            // The wheel's Fire wedge lights at the frozen aim too.
+            _hud.ChooseWedge(2, _hud.AimNow());
+            var wedgeAsked = _hud.LastFireClick is { Held: true } ? host.PendingApprovals.LastOrDefault()?.RequestId : null;
+            if (wedgeAsked != null) host.Approve(wedgeAsked);
+            Check(host.Nature.Fire != null && _hud.LastFireKind == FireKindWords.Fire, "the wheel's Fire wedge lights at the frozen aim at once");
+            Check(host.PlayerNatureUndo()["ok"]?.GetValue<bool>() == true && host.Nature.Fire == null, "(and undo takes it back)");
+            await Frames(2);
+            Check(HelpLines().Any(line => line.Contains("6 lights Fire where you point, at once", StringComparison.Ordinal)), "the help says how key 6 works");
         }
         finally
         {
