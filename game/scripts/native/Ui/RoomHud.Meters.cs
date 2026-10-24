@@ -49,7 +49,12 @@ public partial class RoomHud
     private object? _slotCapsFor;
 
     /// <summary>The meters' small pictures go with the HUD (the next HUD draws them again), so none outlives the engine's own resources.</summary>
-    public override void _ExitTree() => MeterTextures.Release();
+    public override void _ExitTree()
+    {
+        MeterTextures.Release();
+        // An Esc menu that paused the game lets it go (RoomHud.Pause.cs).
+        ReleasePause();
+    }
 
     /// <summary>"Show numbers on the meters" as the profile says: off unless the player turned it on.</summary>
     public static bool LoadMeterNumbers(string profilePath)

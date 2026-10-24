@@ -106,6 +106,8 @@ public partial class PlayHudTest : Node
             await TestEyesSetting();
             // The settings panel that took the Customize panel's switches (PlayHudTest.Settings.cs), and Reset Trust beside Change my AI.
             await TestSettingsPanel();
+            // Esc is the menu (PlayHudTest.Pause.cs): it pauses, cancels what is going on first, saves, loads, settings, the main menu.
+            await TestPauseMenu();
             await TestGubbleView();
             await TestCharacterChoice();
             await TestWearingCharacters();

@@ -348,6 +348,8 @@ public partial class RoomHud : CanvasLayer
         BuildMinimap();
         BuildJournal();
         BuildGubbleView(compactTheme);
+        // The Esc menu on its own layer, over everything (RoomHud.Pause.cs).
+        BuildPauseMenu();
         WatchForPlaytest();
         ApplyAura();
         SetViewMode(1);
@@ -811,6 +813,8 @@ public partial class RoomHud : CanvasLayer
         if (fresh && HandlePlaytestKeys(press)) { GetViewport().SetInputAsHandled(); return; }
         // The window's key is live in every context too (RoomHud.Screen.cs): the panels and the Gubble's eyes fill the screen as well.
         if (fresh && PlayerControls.Hit(press, Act.ViewFullscreen)) { ToggleFullscreen(); GetViewport().SetInputAsHandled(); return; }
+        // The Esc menu holds every other key while it is open (RoomHud.Pause.cs): the game is paused under it.
+        if (HandlePauseMenuKeys(press, fresh)) { GetViewport().SetInputAsHandled(); return; }
         if (HandleMagicSpotInput(press, fresh)) { GetViewport().SetInputAsHandled(); return; }
         // The look drag (the cursor is free): once the pointer has moved LookDrag.StartPx with the button down, the cursor hides
         // and the motion turns the view as the captured mouse did; the release brings the cursor back where it was pressed.
@@ -876,14 +880,13 @@ public partial class RoomHud : CanvasLayer
                 GetViewport().SetInputAsHandled();
                 return;
             }
-            // Esc closes the panel and calls off a drag; the cursor is never captured, so there is nothing to free.
+            // Esc (decisions 81 and 97): the first lets go of what is going on (a panel, a drag, key 6 held, the chosen bubble); with
+            // nothing going on it opens the menu (RoomHud.Pause.cs). The cursor is held only by a look drag, so this frees it too.
             if (PlayerControls.Hit(press, Act.MouseRelease))
             {
-                if (SettingsOpen) ToggleSettings();
-                if (MagicPanelOpen) SetMagicPanelOpen(false);
-                EndDrag();
-                // Esc lets go of the bubble the smart ask chose (RoomHud.Bubble.cs).
-                ClearBubbleSelection();
+                if (!CancelWhatIsGoingOn()) OpenPauseMenu();
+                GetViewport().SetInputAsHandled();
+                return;
             }
             if (PlayerControls.Hit(press, Act.HudCustomize)) ToggleSettings();
             // M opens and closes the Magic panel (it was only a button inside the H help), from the game or the settings panel.

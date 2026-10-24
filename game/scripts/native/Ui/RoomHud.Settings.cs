@@ -154,7 +154,7 @@ public partial class RoomHud
         _resetTrust.GrabFocus();
     }
 
-    /// <summary>The key (C, the input action hud_customize), the button and Esc: the panel opens and closes, and the body waits while it is open.</summary>
+    /// <summary>The key (C, the input action hud_customize), the button, Esc and the Esc menu's Settings: the panel opens and closes, and the body waits while it is open.</summary>
     private void ToggleSettings()
     {
         CancelAsk();
@@ -165,5 +165,7 @@ public partial class RoomHud
         Player.SetInputEnabled(!_settings.Visible);
         Input.MouseMode = Input.MouseModeEnum.Visible;
         if (_settings.Visible) OnSettingsOpened();
+        // Opened from the Esc menu (RoomHud.Pause.cs): closing it goes back there.
+        else SettingsClosedForPause();
     }
 }
