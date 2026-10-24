@@ -9,7 +9,8 @@ namespace GarageGame.Native;
 /// "H keys" and kept its last words for minutes). A notice now shows in a small card just under the reticle (the cursor, which is the
 /// aim in every view), held towards the middle of the screen when the cursor is off at an edge so it never covers the meters at the
 /// upper left or the minimap at the upper right, and fades after about four seconds (NoticeHoldS then NoticeFadeS; a long one stays a
-/// little longer, up to NoticeLongestS, so it can be read). The same words said again show again. It stands aside while the journal or
+/// little longer, up to NoticeLongestS, so it can be read), to the right of a panel open on the left (the camp, the Magic panel, the
+/// settings). The same words said again show again. It stands aside while the journal or
 /// the Gubble's eyes fill the screen. The bottom line keeps the key hints only. The playtest record sees each notice as it shows and an
 /// empty line as it fades (the reader can tell how long it stood).
 /// </summary>
@@ -125,16 +126,20 @@ public partial class RoomHud
         var screen = GetViewport().GetVisibleRect().Size;
         var size = _noticeCard.GetCombinedMinimumSize();
         _noticeCard.Size = size;
-        _noticeCard.Position = NoticePlace(AimScreenPoint(), size, screen);
+        // Clear of a panel open on the left (the camp, the Magic panel, the settings): the card stands to its right.
+        var leftClear = 0f;
+        foreach (var panel in new Control[] { _campScreen, _magicPanel, _settings })
+            if (panel is { Visible: true }) leftClear = Mathf.Max(leftClear, panel.GetGlobalRect().End.X + 16);
+        _noticeCard.Position = NoticePlace(AimScreenPoint(), size, screen, leftClear);
     }
 
     /// <summary>Where a notice card of this size goes for a reticle at this point on a screen of this size (the suite checks it by numbers).</summary>
-    public static Vector2 NoticePlace(Vector2 reticle, Vector2 size, Vector2 screen)
+    public static Vector2 NoticePlace(Vector2 reticle, Vector2 size, Vector2 screen, float leftClear = 0)
     {
         var anchor = new Vector2(
             Mathf.Clamp(reticle.X, screen.X * NoticeEdgeShareX, screen.X * (1 - NoticeEdgeShareX)),
             Mathf.Clamp(reticle.Y, screen.Y * NoticeEdgeShareTop, screen.Y * (1 - NoticeEdgeShareBottom)));
-        var at = new Vector2(anchor.X - size.X * 0.5f, anchor.Y + NoticeBelowReticlePx);
+        var at = new Vector2(Mathf.Max(anchor.X - size.X * 0.5f, leftClear), anchor.Y + NoticeBelowReticlePx);
         return new Vector2(Mathf.Clamp(at.X, 16, Mathf.Max(16, screen.X - size.X - 16)), Mathf.Clamp(at.Y, 16, Mathf.Max(16, screen.Y - size.Y - 16)));
     }
 }

@@ -382,7 +382,7 @@ public partial class PlayHudTest : Node
                 $"WASD move · Shift run · Space jump · B back to {home} · R recover · drag to look around",
                 "Climb: keep walking into a steep face, W up, S down, A/D across, Space lets go · Swim: deep water floats you, Space leaps · Dive: hold Ctrl, Space rises, W swims the way you look, let go to drift up",
                 "F1 first person · F2 third person: wheel zooms out to look around, and zoomed out drag orbits and WASD follows the view",
-                "O observe (a very tight tilt-shift view, best zoomed out) · C settings · M the Gubble's magic · J journal (Esc closes any)",
+                "O observe (a very tight tilt-shift view, best zoomed out) · C settings · M the Gubble's magic · J journal (Esc closes any; with nothing open, Esc is the menu: save, load, settings, the main menu)",
                 "F11 full screen on or off (kept for your next launch)",
                 "Walk into a fractal to collect it · F pick up what you face · F again sets it down in front of you, or on top of what you face (the box, the book) · V push what you face 10 cm",
                 "The Gubble, your companion:",

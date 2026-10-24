@@ -28,6 +28,8 @@ public partial class PlayHudTest
             $"with the reticle at the upper left the card is held towards the middle, clear of the meters' corner and the minimap's: {corner}");
         Check(new Rect2(low, size).End.X <= screen.X - 16 && new Rect2(low, size).End.Y <= screen.Y - 16 && low.Y < screen.Y * (1 - RoomHud.NoticeEdgeShareBottom) + RoomHud.NoticeBelowReticlePx + 0.01f,
             $"with the reticle at the lower right the card stays on the screen, off the edges: {low}");
+        var besidePanel = RoomHud.NoticePlace(screen * 0.5f, size, screen, leftClear: 534);
+        Check(besidePanel.X == 534 && besidePanel.Y == middle.Y, $"with a panel open on the left (the camp, the Magic panel) the card stands to its right: {besidePanel}");
         Check(Math.Abs(RoomHud.NoticeLifeFor("Short words.") - 4.0) < 1e-9 && RoomHud.NoticeLifeFor(new string('a', 400)) == RoomHud.NoticeLongestS,
             "a notice stands about four seconds (3.2 s, then a 0.8 s fade); a long one longer, at most 8 s");
 
