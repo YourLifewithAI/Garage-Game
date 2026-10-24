@@ -239,7 +239,14 @@ public partial class NatureTest
         for (var i = 0; i < 60; i++) _player.VitalsTick!(1f, true);
         Check(hurt == 85 && _host.Vitals.Health == 85,
             $"a hurt of 14 health takes three quarters (85), and a minute's rest on safe ground away from a camp heals none of it (decision 84; {_host.Vitals.Health})");
-        Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == 1, "(the player stands at the camp, by the starting campfire)");
+        // Resting is sitting by the fire (decisions 70 and 84, P1 of the second playtest round): standing at the camp heals nothing.
+        Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == null, "(the player stands at the camp, by the starting campfire, and does not sit)");
+        await Frames(3);
+        var standing = _host.Vitals.Health;
+        for (var i = 0; i < 15; i++) _player.VitalsTick!(1f, true);
+        Check(standing == 85 && _host.Vitals.Health == 85, $"standing at the camp heals nothing under v5: only resting there does ({standing}, {_host.Vitals.Health})");
+        var sat = _host.PlayerRest();
+        Check(sat.Ok && _host.PlayerResting && _host.HealQuarterEveryHereS() == 1, "(the player sits down by the fire: a quarter a second there) " + sat.Words);
         _host.ApplyPlayerDamage(_host.Vitals.Health - 5, PlayerDamageSource.Fall);
         var low = _host.Vitals.Health;
         _player.VitalsTick!(9.9f, true);
@@ -247,18 +254,26 @@ public partial class NatureTest
         var waited = _host.Vitals.Health;
         for (var i = 0; i < 4; i++) _player.VitalsTick!(1f, true);
         var fourSeconds = _host.Vitals.Health;
+        _host.PlayerStand();
+        for (var i = 0; i < 5; i++) _player.VitalsTick!(1f, true);
+        var stoodUp = _host.Vitals.Health;
         Check(_player.TryTeleportTo(away) && !_host.PlayerAtCamp(), "(the player walks away from the camp)");
         for (var i = 0; i < 10; i++) _player.VitalsTick!(1f, true);
         var leftCamp = _host.Vitals.Health;
         Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp(), "(and back to the camp)");
+        await Frames(3);
+        var again = _host.PlayerRest();
         for (var i = 0; i < 15; i++) _player.VitalsTick!(1f, true);
-        Check(low == 5 && waited == 5 && fourSeconds == 25 && leftCamp == 25 && _host.Vitals.Health == 100,
-            $"at a camp nothing heals for 10 s after harm, then a quarter every second (decision 91: five hearts in 20 s; 19 quarters in 19 s here), and nothing while away from it " +
-            $"({low}, {waited}, {fourSeconds}, {leftCamp}, {_host.Vitals.Health})");
+        Check(again.Ok && low == 5 && waited == 5 && fourSeconds == 25 && stoodUp == 25 && leftCamp == 25 && _host.Vitals.Health == 100,
+            $"resting at a camp heals nothing for 10 s after harm, then a quarter every second (decision 91: five hearts in 20 s; 19 quarters in 19 s here); standing up or " +
+            $"walking away stops it ({low}, {waited}, {fourSeconds}, {stoodUp}, {leftCamp}, {_host.Vitals.Health})");
         _host.ApplyPlayerDamage(PlayerVitals.ContractMaxHealth, PlayerDamageSource.Fall);
         var status = Send(Query("player.status", new JsonObject()), Companion)["data"];
         Check(_host.Vitals.Recoveries == 1 && _host.Vitals.Health == 50 && Pips >= 4 && status?["hearts"]?["quarters"]?.GetValue<int>() == 10,
             $"a knockout wakes at camp with half the hearts (10 quarters) and the pool at least half full ({Pips})");
+        // Waking is no rest, even back on the spot where the player sat: the half stays until they sit down again.
+        for (var i = 0; i < 20; i++) _player.VitalsTick!(1f, true);
+        Check(!_host.PlayerResting && _host.Vitals.Health == 50, $"waking at camp with half the hearts stays: waking is not resting ({_host.Vitals.Health})");
         // A pack that names none of the three (as every pack before decision 84): the pack's own pace anywhere, twice as fast at a camp.
         await EnergyWorld("energy-heal-before", editPack: HealsAsBefore);
         Check(_player.TryTeleportTo(away) && !_host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == 2.5, "(the player stands away from the camp)");

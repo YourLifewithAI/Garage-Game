@@ -1036,7 +1036,7 @@ public partial class SmallPlayerController : CharacterBody3D
         var onFoot = false;
         var swam = false;
         _stroked = false;
-        // A bubble that holds the body moves it, and the body's own exit and deflate come first (SmallPlayerController.Bubble.cs).
+        // A bubble that holds the body moves it, and the body's own exit comes first (SmallPlayerController.Bubble.cs); out of it, the body falls.
         if (RideBubble(dt, wish)) { }
         else if (_climbing) Climb(dt, control);
         else if (Floats) Hover(dt, wish, sprint);

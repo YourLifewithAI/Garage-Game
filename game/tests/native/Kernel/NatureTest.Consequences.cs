@@ -13,7 +13,7 @@ namespace GarageGame.Tests.Kernel;
 /// The founder's decision of 13 October: "Let things like fire or other actions that might hurt a player, hurt the player.
 /// This becomes feedback for the AI." In Challenge and Live the Gubble's fire hurts the player like any fire, with no hold;
 /// the Gubble's next result carries a fixed-format notice, and the journal keeps a consequence fact in the game's words.
-/// Guardrails instead of holds: one fire of the Gubble's own at a time and a wait after it, the player's Stop puts it out,
+/// Guardrails instead of holds: one fire of the Gubble's own at a time and a wait after it (since decision 82 no stop puts a fire out),
 /// the player's setting "Let the Gubble use fire", a grace after recovery and a recovery point out of the fire. The preview
 /// names the avatars in the area as the caster perceives them. Undo is Creative's alone, with no back door.
 /// </summary>
@@ -24,6 +24,7 @@ public partial class NatureTest
         await TestCompanionFireHurtsPlayer();
         await TestCreativeNeverHurts();
         await TestCompanionFireBudget();
+        await TestStopPutsOutNoFire();
         await TestGubbleFireSetting();
         await TestRecoveryGrace();
         await TestPreviewAvatars();
@@ -76,7 +77,10 @@ public partial class NatureTest
         Check(Ok(lit) && _host.Vitals.Health == 100 && status["notices"] == null && _host.UnreadNotices.Count == 0, "in Creative the Gubble's fire on the player hurts no one and sends no notice");
     }
 
-    /// <summary>One fire of the Gubble's own at a time, the player's Stop puts it out, a wait after it; the player is never slowed.</summary>
+    /// <summary>
+    /// One fire of the Gubble's own at a time and a wait after it; and nothing but burning out or Snuff ends a fire (decision 82): X stops
+    /// the Gubble and puts no fire out, the Gubble's own stop neither, and the player's own Fire waits for the Gubble's as for any fire.
+    /// </summary>
     private async Task TestCompanionFireBudget()
     {
         await NewWorld(SavePath("budget"));
@@ -84,18 +88,42 @@ public partial class NatureTest
         Check(Ok(lit) && _host.Nature.Fire?.Principal == Companion, "the Gubble lights a fire of its own");
         var second = Send(Command(NextId("second"), "nature.cast", Cast("fire", NearGubble, 0.15, 6), preview: true), Companion);
         Check(Code(second) == "target_busy", "one fire of its own at a time: " + Code(second));
+        int Burning() => _host.Nature.Cells.Values.Count(c => c.BurningS > 0);
+        var burning = Burning();
         var stop = _host.PlayerGoal("stop");
-        Check(Ok(stop) && stop["data"]?["fires_put_out"]?.GetValue<int>() == 1 && _host.Nature.Fire == null && !_host.Nature.Cells.Values.Any(c => c.BurningS > 0),
-            "the player's Stop (X) puts the Gubble's fire out at once: " + Canonical(stop["data"]));
+        Check(Ok(stop) && stop["data"]?["fires_put_out"] == null && _host.Nature.Fire?.Principal == Companion && Burning() == burning && burning > 0,
+            $"the player's Stop (X) stops the Gubble and puts no fire out (decision 82): its fire burns on, {Burning()} of {burning} cells: " + Canonical(stop["data"]));
+        var gubbleStop = Send(Command(NextId("own-stop"), "goal.stop", new JsonObject()), Companion);
+        Check(Ok(gubbleStop) && gubbleStop["data"]?["fires_put_out"] == null && _host.Nature.Fire?.Principal == Companion && Burning() == burning,
+            "the Gubble's own stop puts its fire out no more: " + Canonical(gubbleStop["data"]));
+        var mine = Send(Command(NextId("mine"), "nature.cast", Cast("fire", new Vector3(1.35f, 0.01f, 1.2f), 0.15, 4), preview: true), Player);
+        Check(Code(mine) == "target_busy" && mine["error"]?["message"]?.GetValue<string>() == CommandHost.GubbleFireBurningWords && _host.Nature.Fire?.Principal == Companion,
+            "the player's own Fire puts the Gubble's out no more: one fire at a time, it waits for the Gubble's to burn out: " + mine["error"]?["message"]);
+        for (var i = 0; i < 60 && _host.Nature.Fire != null; i++) Steps(1);
+        Check(_host.Nature.Fire == null && Burning() == 0, "the Gubble's fire ends by burning out");
         var soon = Send(Command(NextId("soon"), "nature.cast", Cast("fire", NearGubble, 0.15, 6), preview: true), Companion);
         Check(Code(soon) == "rate_limited" && soon["error"]?["retryable"]?.GetValue<bool>() == true, "the Gubble waits after its fire goes out: " + soon["error"]?["message"]);
         Steps((int)(NatureLaws.CompanionFireCooldownS / NatureLaws.StepS) + 1);
         var later = Fire(Companion, NearGubble, 0.15, 6, out _);
         Check(Ok(later) && _host.Nature.Fire?.Principal == Companion, "after the wait the Gubble may light another: " + Code(later));
-        var mine = Fire(Player, new Vector3(1.35f, 0.01f, 1.2f), 0.15, 4, out _);
-        Check(Ok(mine) && _host.Nature.Fire?.Principal == Player, "the player's own Fire is never kept waiting by the Gubble's: it puts that one out: " + Code(mine));
         var busy = Send(Command(NextId("busy"), "nature.cast", Cast("fire", new Vector3(0.9f, 0.01f, 0.3f), 0.15, 6), preview: true), Companion);
-        Check(Code(busy) is "target_busy" or "rate_limited", "and the Gubble waits again: " + Code(busy));
+        Check(Code(busy) == "target_busy", "and its next waits for it again: " + Code(busy));
+    }
+
+    /// <summary>
+    /// Decision 82 (the second recorded play: "It should burn until it burns itself out or until I have snuff"): X puts out no fire of any
+    /// kind, the player's own, the Gubble's or a campfire, and still stops the Gubble's moves and its other effects.
+    /// </summary>
+    private async Task TestStopPutsOutNoFire()
+    {
+        await NewWorld(SavePath("stop-no-fire"));
+        var mine = Fire(Player, new Vector3(0.9f, 0.01f, 1.2f), 0.2, 10, out _);
+        var go = _host.PlayerGoal("go_to", new Vector3(-0.6f, 0.01f, 0.4f));
+        var cells = _host.Nature.Cells.Values.Count(c => c.BurningS > 0);
+        var stop = _host.PlayerGoal("stop");
+        Check(Ok(mine) && Ok(go) && Ok(stop) && stop["affected"]?.AsArray().Any(a => a!.GetValue<string>() == CommandHost.CompanionAvatarId) == true &&
+              _host.Nature.Fire?.Principal == Player && _host.Nature.Cells.Values.Count(c => c.BurningS > 0) == cells && _host.IsCampfireLit(CampLaws.StartingId),
+            "X stops the Gubble's moves, and the player's own fire and the starting campfire burn on: " + Canonical(stop));
     }
 
     /// <summary>The player's own setting: off, the Gubble's Fire is refused with a clear code; only the player's control changes it.</summary>

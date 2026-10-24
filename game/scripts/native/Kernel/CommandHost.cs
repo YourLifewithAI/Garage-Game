@@ -897,8 +897,8 @@ public partial class CommandHost : Node
         // Fetch: P3's pick-up checks, on the thing as the requester sees or remembers it (reach waits for arrival).
         var returning = goal == "fetch" && CheckFetch(principal, actor, known!);
         if (preview) return Previewed("goal.set", principal, actionId, actor);
-        // A new goal replaces the old one, and with it the old goal's job.
-        CancelGoal(actor);
+        // A new goal replaces the old one, and with it the old goal's job (the Gubble's own new goal pops a bubble it led as its own act).
+        CancelGoal(actor, principal);
         switch (goal)
         {
             case "follow": Companion.Follow(); break;
@@ -943,7 +943,8 @@ public partial class CommandHost : Node
         string? led = null;
         if (whose != PlayerPrincipal && Companion != null)
         {
-            // The bubble it leads pops with its stop (decision 60), as the player's own pop when it is the player's X (Kernel/Bubble).
+            // The bubble it leads pops with its stop (decision 60), as the player's own pop when it is the player's X, as the Gubble's own
+            // when it is its own stop (decision 96: a fall that hurts after it is its consequence; Kernel/Bubble).
             led = PopLedBubble(principal == PlayerPrincipal);
             CancelGoal(CompanionAvatarId);
             Companion.Stop();
@@ -957,7 +958,7 @@ public partial class CommandHost : Node
                 affected.Add(ended);
                 stopped++;
             }
-        // Its bubbles pop too, the player's X whoever cast them (Kernel/Bubble): a body in one deflates.
+        // Its bubbles pop too, the player's X whoever cast them (Kernel/Bubble): a body in one falls from there (decision 88).
         if (led != null)
         {
             affected.Add(led);
@@ -970,8 +971,9 @@ public partial class CommandHost : Node
                 stopped++;
             }
         var data = new JsonObject { ["effects_stopped"] = stopped };
-        // And every fire the Gubble lit goes out at once, whatever any budget says (the player's X; the Gubble's own stop too).
-        if (whose != PlayerPrincipal && PutOutCompanionFire()) data["fires_put_out"] = 1;
+        // Decision 82: nothing but burning out or Snuff ends a fire, so no stop puts one out (the player's X, the Gubble's own stop); the
+        // oldest Will-o'-wisp still goes with the Gubble's other effects (decision 80: it is no fire, CommandHostFireKinds).
+        if (whose != PlayerPrincipal) RemoveOldestWisp();
         return Transient("goal.stop", principal, actionId, fingerprint, affected, data);
     }
 
@@ -2091,13 +2093,13 @@ public partial class CommandHost : Node
         return job;
     }
 
-    /// <summary>A new goal or a stop cancels the actor's running job.</summary>
-    private void CancelGoal(string actor)
+    /// <summary>A new goal or a stop cancels the actor's running job; by names who set the new goal, when one did (a lead's pop is theirs).</summary>
+    private void CancelGoal(string actor, string? by = null)
     {
         if (!_runningGoals.Remove(actor, out var job)) return;
         job.State = "cancelled";
-        // A lead's end pops the bubble it led (decision 60; Kernel/Bubble/CommandHostBubbleLead).
-        LeadCancelled(job);
+        // A lead's end pops the bubble it led, the player falling from there (decisions 60 and 88; Kernel/Bubble/CommandHostBubbleLead).
+        LeadCancelled(job, by);
         TaskEnded(job);
         WishGoalEnded(job);
         GoalFinished?.Invoke(actor, job.Id, job.State);

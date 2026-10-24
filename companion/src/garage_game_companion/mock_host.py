@@ -60,7 +60,9 @@ It loads a real room (`game/rooms/test_room` by default) through the room contra
   island), set by the player or the companion; the job ends on `goal_arrived` (the bubble at the spot), `goal_blocked`
   (target_unreachable), or the bubble popping first (target_not_found); the Gubble's own stop or a new goal pops the bubble it
   leads; the goal.set receipt says how the lead ended. A spot higher than the bubble's is a lift (data.lift, lift_price); the
-  mock keeps no pool, so a lift is never refused for pips here. The mock has no physics: a bubble neither drifts nor deflates;
+  mock keeps no pool, so a lift is never refused for pips here. The mock has no physics: a bubble does not drift, and nothing
+  falls out of one (the kernel's fall out of a bubble, decision 88, and the consequence fact of a fall that hurt after the
+  Gubble's own pop, decision 96, need the body: native_kernel_bubble holds them);
 - unknown, removed, foreign and unperceived entity ids all fail with the same `target_not_found`;
 - the island's abilities come from its rules pack, the one the kernel host loads (game/rules/storybook_wild/v5.json:
   Glow, Bubbles, Fireworks, Grow and Fire; checked fail-closed; a pinned pack's Bloom, growth.seed, is read as Grow): `capabilities.list` answers from it, and `effect.start` follows the
@@ -562,7 +564,7 @@ class ActiveEffect:
 
 @dataclass
 class MockBubble:
-    """One bubble, abstractly (the kernel's Kernel/Bubble/Bubble.cs, with no physics): it neither drifts nor deflates here."""
+    """One bubble, abstractly (the kernel's Kernel/Bubble/Bubble.cs, with no physics): it does not drift here, and no one falls out of it."""
 
     id: str
     capability: str

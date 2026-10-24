@@ -95,7 +95,8 @@ public sealed class Wisp
 /// it burns nothing and is not the Gubble's one fire; it lasts 5 minutes, at most three (the oldest goes), is never saved (transient, like
 /// a bubble), and X removes the oldest. The first one teaches it. Priced as "will_o_wisp".</item>
 /// </list>
-/// Every Fire kind is previewed first and committed as exactly that preview (the preview's kind and outline are what the HUD shows). The
+/// Every Fire kind is previewed first and committed as exactly that preview (the preview's kind and outline are what the HUD shows); since
+/// decision 83 the player's are both in one click, back to back (PlayerFireLight), while the Gubble's stay its own two commands. The
 /// shared rules: each expertise once per team, by either of the pair, announced by Fire's camp's chime and card; a committed Fire cast of
 /// any kind counts toward Fire's hints (RecordFireCast); a fire that hurt the player or scorched a creation teaches nothing (MarkFireHarm).
 /// </summary>
@@ -132,9 +133,44 @@ public partial class CommandHost
     /// <summary>The cast of exactly that preview.</summary>
     public JsonObject PlayerFireCast(Vector3 point, Vector3? end, string previewId) => PlayerCommand("nature.cast", FireArgs(point, end, previewId));
 
-    private JsonObject FireArgs(Vector3 point, Vector3? end, string? previewId)
+    /// <summary>
+    /// What the player's Fire on the click answered (PlayerFireLight, decision 83): the preview (what the place made of it, data.kind, and
+    /// its outline, data.center_m, radius_m, end_m and cells, for the HUD to flash as it lights) and the cast's own result: lit (ok), held
+    /// for Creative's one ask about builds (approval_required: the host's card, as before), or refused. A refused preview is both, and
+    /// nothing was cast.
+    /// </summary>
+    public readonly record struct FireClick(JsonObject Preview, JsonObject Result)
     {
-        var args = NatureCastArgs("fire", point, null, null);
+        /// <summary>The preview was made (its outline can flash), whatever the cast then answered.</summary>
+        public bool Previewed => Preview["ok"]?.GetValue<bool>() == true;
+        /// <summary>The fire (or firepit, Snuff, wisp, Fireline) is lit: the cast committed.</summary>
+        public bool Lit => Result["ok"]?.GetValue<bool>() == true;
+        /// <summary>Creative's one ask about builds holds the cast: the card answers it (approve: they burn; deny: the fire spares them).</summary>
+        public bool Held => Result["error"]?["code"]?.GetValue<string>() == "approval_required";
+        /// <summary>What the place made of it (FireKindWords: fire, firepit, fireline, snuff or will_o_wisp), from the preview; "" when refused.</summary>
+        public string Kind => Preview["data"]?["kind"]?.GetValue<string>() ?? "";
+    }
+
+    /// <summary>
+    /// The player's Fire lit on the click (decision 83: "being forced to wait for a preview [...] is annoying. Let's remove the wait time"),
+    /// from the wheel, key 6 or the Magic panel: the preview and the cast of exactly that preview back to back, with no hold and nothing
+    /// between them, on Fire's one command path (two nature.cast commands, as every Fire: the recorder logs the first as a preview, which
+    /// costs nothing). Everything else is as it was: the place decides (an unlit firepit, Snuff on something burning, a wisp on water, a
+    /// Fireline with an end once learned), Creative's one ask about builds still holds the cast for the player's card, the price is charged
+    /// once at commit, and every guardrail and refusal stands (a refused preview casts nothing). The radius and duration are the Magic
+    /// panel's when it names them; otherwise the pack's defaults, as the wheel's. The Gubble's own-idea Fire is untouched: its preview and
+    /// cast stay two commands of its own, a moment apart, as the companion sends them.
+    /// </summary>
+    public FireClick PlayerFireLight(Vector3 point, Vector3? end = null, float? radius = null, float? duration = null)
+    {
+        var preview = PlayerCommand("nature.cast", FireArgs(point, end, null, radius, duration), preview: true);
+        if (preview["ok"]?.GetValue<bool>() != true || preview["data"]?["preview_id"]?.GetValue<string>() is not { } token) return new FireClick(preview, preview);
+        return new FireClick(preview, PlayerCommand("nature.cast", FireArgs(point, end, token, radius, duration)));
+    }
+
+    private JsonObject FireArgs(Vector3 point, Vector3? end, string? previewId, float? radius = null, float? duration = null)
+    {
+        var args = NatureCastArgs("fire", point, radius, duration);
         if (end is { } to) args["end_m"] = KernelJson.Vector(to);
         if (previewId != null) args["preview_id"] = previewId;
         return args;

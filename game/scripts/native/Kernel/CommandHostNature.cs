@@ -334,9 +334,9 @@ public partial class CommandHost
         if (Companion == null || Companion.GlobalPosition.DistanceTo(center) > ability.ReachM)
             throw new Refusal("out_of_bounds", "Bring the Gubble closer before casting.", "$.args.center_m", retryable: true);
         if (!TeamSeesSpot(center, principal)) throw new Refusal("target_not_found", "The team must see the place the Gubble will affect.", "$.args.center_m");
-        // One fire on the island at a time. The player's own Fire is never kept waiting by the Gubble's: it puts that one out.
-        if (oneFire && Nature.Fire is { } burning && !(ability.Capability == "fire" && principal == PlayerPrincipal && burning.Principal == CompanionPrincipal))
-            throw new Refusal("target_busy", FireBusyWords(principal), retryable: true);
+        // One fire on the island at a time, whoever lit it: since decision 82 nothing but burning out or Snuff ends a fire, so the player's
+        // own Fire no longer puts the Gubble's out (Snuff aimed at it is no fire, and passes: FireKindOf, oneFire false).
+        if (oneFire && Nature.Fire != null) throw new Refusal("target_busy", FireBusyWords(principal), retryable: true);
         var intensity = ability.Params.TryGetValue("intensity", out var setting) ? (float)setting.Default : 0.6f;
         return new Cast(center, radius, duration, intensity);
     }
@@ -420,9 +420,6 @@ public partial class CommandHost
             return Hold(root, principal, action, fingerprint, "nature.cast", FireHoldReason(companion, asked.Count > 0, keyed),
                 asked.ToDictionary(t => t.Id, t => EntityRevision(t.Id), StringComparer.Ordinal), bindRevision: true, sparesOnDeny: asked.Count > 0 && !keyed);
         var candidate = Nature.Copy();
-        // The player's own Fire while the Gubble's burns: the Gubble's goes out as the player's is lit (one fire at a time).
-        var puttingOut = !companion && candidate.Fire is { Principal: CompanionPrincipal };
-        if (puttingOut) candidate.PutOutFire();
         // One fire, one undo step (decision 78: a Fireline too, taken back whole in Creative).
         var step = candidate.BeginUndo(lineCells != null ? "Fireline" : "Fire", Revision + 1, principal, Mode);
         var lit = lineCells != null
@@ -433,7 +430,6 @@ public partial class CommandHost
         // empty pool is never the reason given for a fire that could not start anyway); charged once the revision is saved. A
         // Fireline is priced as its kind (the pack's cost block, as the Bubble's kinds are).
         var price = GuardEnergy(lineCells != null ? FireKindWords.Fireline : ability.Capability, principal);
-        if (puttingOut) _companionFireSeenS = Nature.WeatherS;
         _naturePreviews.Remove(previewId);
         data.Remove("cells");
         data.Remove("cells_truncated");
@@ -459,11 +455,18 @@ public partial class CommandHost
         return "The Gubble asks to light a fire here. Approve this exact area or deny it.";
     }
 
+    /// <summary>
+    /// The player's words while the Gubble's fire burns (decision 82: X no longer puts it out): one fire at a time, so it burns out first,
+    /// or, once Snuff is learned, Fire aimed at it snuffs it. The HUD shows the host's words as they are.
+    /// </summary>
+    public const string GubbleFireBurningWords = "The Gubble's fire is burning: one fire at a time. Let it burn out first.";
+    public const string GubbleFireBurningSnuffWords = "The Gubble's fire is burning: one fire at a time. Let it burn out, or aim Fire at it to Snuff it.";
+
     /// <summary>Why another nature cast must wait for the fire that burns now, in words for whoever asks.</summary>
     private string FireBusyWords(string principal) => Nature.Fire?.Principal switch
     {
         CompanionPrincipal when principal != PlayerPrincipal => "Your fire is still burning: one fire at a time. Wait for it to go out.",
-        CompanionPrincipal => "The Gubble's fire is burning. Press X to put it out, or let it finish first.",
+        CompanionPrincipal => SnuffLearned ? GubbleFireBurningSnuffWords : GubbleFireBurningWords,
         _ => "Let the current fire finish first.",
     };
 
@@ -797,14 +800,26 @@ public partial class CommandHost
         var changed = Nature.Step(NatureLaws.StepS, Sample, NatureFireproof, Active);
         changed |= BurnNatureObjects(NatureLaws.StepS);
         changed |= BurnPlants(NatureLaws.StepS);
-        if (Player != null && IsInstanceValid(Player) && Nature.Cells.Values.Any(c => c.BurningS > 0 && c.Position.DistanceTo(Player.GlobalPosition) < NatureLaws.PlayerBurnM))
+        if (Player != null && IsInstanceValid(Player))
         {
             var at = Player.GlobalPosition;
-            var source = Nature.Fire ?? fire;
-            if (BurnPlayer(NatureLaws.StepS) is { } harm && source != null)
+            var inCells = Nature.Cells.Values.Any(c => c.BurningS > 0 && c.Position.DistanceTo(at) < NatureLaws.PlayerBurnM);
+            // Decision 85: a lit campfire hurts a player standing in its flames as any fire does, at the same quarter a second (one burn a
+            // step however many fires reach them); the resting spot beside it is safe (CampLaws.FlamesM). A campfire is the player's camp,
+            // no fire of the Gubble's: its harm is no consequence of the Gubble's, unless its lead carried the player into it (NoteLeadHarm).
+            var inCampfire = !inCells && CampfireFlamesAt(at) != null;
+            if (inCells || inCampfire)
             {
-                NoteFireHarm(source, harm, at);
-                MarkFireHarm(source);
+                var source = Nature.Fire ?? fire;
+                if (BurnPlayer(NatureLaws.StepS) is { } harm)
+                {
+                    if (inCells && source != null)
+                    {
+                        NoteFireHarm(source, harm, at);
+                        MarkFireHarm(source);
+                    }
+                    else if (inCampfire) NoteLeadHarm(at);
+                }
             }
         }
         SeeCompanionFire();
