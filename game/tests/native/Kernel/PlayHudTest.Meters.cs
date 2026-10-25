@@ -607,10 +607,19 @@ public partial class PlayHudTest
             Check(wood == wallet + CommandHost.GatherUnits && host.Revision == revision + 1 && host.HeldBy(CommandHost.PlayerAvatar) == null && host.Nature.Objects["obj:log"].Gathered,
                 $"E gathers it through the host: one durable revision, the log gone, the pockets' logs {wallet} to {wood}");
             Check(notice.Text == $"Gathered. In your pockets: {wood} log", "and the notice says what the pockets hold of logs and stones now: " + notice.Text);
+            // The gathered log's slot is chosen on the hotbar (decision 116: the stack's unit held for immediate use): with nothing else here a
+            // second E sets one down, loose before the player, and a third picks it up again (RoomHud.Hotbar.cs).
+            await Frames(40);
+            Check(hud.Interaction.Kind == RoomHud.InteractKind.UseUnit && hud.Interaction.Words == "E: set a log down" && host.Hand is { Holds: "unit", Item: "log" },
+                "the gathered log's slot is chosen on the bar, so E's prompt sets one down: " + hud.Interaction.Words);
             hud._UnhandledInput(Press(Key.E));
             await Frames(2);
-            Check(Logs() == wood && host.Revision == revision + 1 && host.HeldBy(CommandHost.PlayerAvatar) == null,
-                "a second E, hands empty, gathers nothing more: " + notice.Text);
+            Check(Logs() == wood - 1 && host.HeldBy(CommandHost.PlayerAvatar) == null && notice.Text == "You set a log down." && host.LooseUnits.Any(u => u.Kind == "log"),
+                "a second E, hands empty, sets the armed log down, loose before the player: " + notice.Text);
+            await Frames(40);
+            hud._UnhandledInput(Press(Key.E));
+            await Frames(2);
+            Check(Logs() == wood && !host.LooseUnits.Any(u => u.Kind == "log"), "and a third E picks it up again: " + notice.Text);
             if (hud.Sitting) hud.RestKey();
             // The sheet names the logs and stones (the wallet is retired).
             hud.OpenJournal();

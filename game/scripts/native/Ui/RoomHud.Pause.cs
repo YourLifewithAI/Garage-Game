@@ -124,7 +124,6 @@ public partial class RoomHud
         CloseJournalNow();
         if (SettingsOpen) ToggleSettings();
         if (MagicPanelOpen) SetMagicPanelOpen(false);
-        if (PocketsPanelOpen) SetPocketsPanelOpen(false);
         _pauseOpen = true;
         if (IsInsideTree() && !GetTree().Paused)
         {
@@ -301,7 +300,6 @@ public partial class RoomHud
         var going = false;
         if (SettingsOpen) { ToggleSettings(); going = true; }
         if (MagicPanelOpen) { SetMagicPanelOpen(false); going = true; }
-        if (PocketsPanelOpen) { SetPocketsPanelOpen(false); going = true; }
         if (_drag.Pressed) { EndDrag(); going = true; }
         if (_fireKeyStart != null) { _fireKeyStart = null; going = true; }
         if (_growKeyStart != null) { _growKeyStart = null; going = true; }

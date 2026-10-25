@@ -84,7 +84,8 @@ public partial class RoomHud
         _duskHint = new Label { Name = "DuskHint", Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore, Theme = compactTheme };
         _duskHint.AddThemeFontSizeOverride("font_size", 20);
         AddChild(_duskHint);
-        _keyTexts.Add((words => _duskHint.Text = words, () => string.Format(GubbleMagic.DuskHint, K(Act.GubbleSlot1), K(Act.GubbleAsk))));
+        // While the bar's pockets are down, 1 chooses a pocket slot: the hint says Tab first (RoomHud.Hotbar.cs).
+        _keyTexts.Add((words => _duskHint.Text = words, () => (IsPockets(_barLayerShown) ? $"{K(Act.BarLayer)}, then " : "") + string.Format(GubbleMagic.DuskHint, K(Act.GubbleSlot1), K(Act.GubbleAsk))));
         _wheel = new GubbleWheel();
         AddChild(_wheel);
         _wheel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);

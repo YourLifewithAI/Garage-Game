@@ -5,7 +5,7 @@ namespace GarageGame.Native;
 /// <summary>
 /// Hold the left button and drag to look around (the Glow playtest, 9 October: "we'll want to be able to move the mouse freely
 /// around the scene"). The cursor is always free and is the aim in every view. A press only arms the drag: the pointer must
-/// move StartPx before the view turns, so a click without a drag does nothing. Once dragging, the HUD hides and holds the
+/// move StartPx before the view turns, so a click without a drag turns nothing (the HUD gives it to the hotbar). Once dragging, the HUD hides and holds the
 /// cursor (the captured mouse, so the view turns as far as the hand moves) and turns the view by the motion; on release the
 /// cursor comes back where it was pressed (Anchor), which stays the aim while it is hidden. RoomHud carries the drag out.
 /// </summary>

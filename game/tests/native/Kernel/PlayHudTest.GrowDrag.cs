@@ -104,7 +104,9 @@ public partial class PlayHudTest
             _hud.ToggleMagicPanel();
             Check(!HelpLines().Any(l => l.Contains("sweep the aim from lip to lip", StringComparison.Ordinal)), "the help does not teach the drag before it is open");
 
-            // A drag now sends nothing: the host's lock words are the answer (as 6 says its own before the first rest).
+            // A drag now sends nothing: the host's lock words are the answer (as 6 says its own before the first rest). (Grow chosen on the
+            // hotbar's magic side first: its key records the slot it casts from, one inventory.select, before anything is cast.)
+            _hud.SelectBarSlot(HandSelection.AbilitiesLayer, GubbleMagic.GrowSlot + 1);
             var cast = _growCasts.Count;
             var receipts = host.TransientReceiptCount(CommandHost.PlayerPrincipal);
             var revision = host.Revision;

@@ -9,10 +9,10 @@ namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// The pockets and the chest on screen (MECHANICS.md decisions 87, 98 to 103, 108 and 113; docs/game/INVENTORY.md), written from what the
-/// host already says and nothing else: its readers (PocketEntries, ChestEntries, the caps, the Gubble's chest switch) for the words, and
-/// the player's own commands (inventory.use, drop, store, take) for the buttons, each answered in the host's words. The camp's Inventory
-/// page uses CampLines, the Tab panel (RoomHud.Pockets.cs) reads the pockets itself and runs its buttons through this class too, and
-/// E's notices (RoomHud.Interact.cs) take their words from here. Names are untrusted display text: they go into labels as plain text and
+/// host already says and nothing else: its readers (PocketEntries, ChestEntries, the caps, the hand, the Gubble's chest switch) for the
+/// words, and the player's own commands (inventory.use, drop, store, take, and the hotbar's use and drop of the selected slot) for the
+/// buttons and keys, each answered in the host's words. The camp's Inventory page uses CampLines, the hotbar (RoomHud.Hotbar.cs, which
+/// retired the Tab panel) takes what a unit does and its use's words from here, and E's notices (RoomHud.Interact.cs) take theirs too. Names are untrusted display text: they go into labels as plain text and
 /// are never read as anything else. No rule is decided here: a button the host would refuse is pressed anyway and its refusal is the answer.
 /// </summary>
 public static class InventoryPages
@@ -134,10 +134,64 @@ public static class InventoryPages
     }
 
     /// <summary>inventory.use on one unit of a stack: what healed, or in Creative the sound's receipt (decisions 108 and 111), or the host's refusal.</summary>
-    public static string EatWords(CommandHost host, string item)
+    public static string EatWords(CommandHost host, string item) => EatenWords(host, item, host.PlayerUse(item), "That could not be eaten.");
+
+    /// <summary>
+    /// The hotbar's armed unit used (decision 119; HOTBAR.md "The hand"), by the kernel's calls on the selected slot: a log or stone (a kind
+    /// with a material) is set down loose before the player (inventory.drop), anything else is used (inventory.use: food eaten, a seed refused
+    /// in the kernel's words). The words say what happened, or are the host's refusal.
+    /// </summary>
+    public static string UseSelectedWords(CommandHost host, string item)
     {
-        var result = host.PlayerUse(item);
-        if (!Ok(result)) return Failed(result, "That could not be eaten.");
+        if (host.InventoryRules?.Kind(item) is { Material: not null })
+        {
+            var unit = UnitWords(host, item);
+            var dropped = host.PlayerDropSelected();
+            return Ok(dropped) ? $"You set {unit} down." : Failed(dropped, "That could not be set down.");
+        }
+        return EatenWords(host, item, host.PlayerUseSelected(), "That has no use yet.");
+    }
+
+    /// <summary>What a unit of a stack does, in a word or two, for its slot on the bar: food is eaten, a log or stone set down, anything else kept.</summary>
+    public static string UnitDoes(InventoryEntryView entry) => entry.HealQuarters != null ? "eat" : entry.Material != null ? "set down" : "keep";
+
+    /// <summary>What a unit does, for the bar's caption: eaten and what it heals (nothing in Creative), set down, or nothing yet; e is E's key now, click the drag button's.</summary>
+    public static string UnitCaption(CommandHost host, InventoryEntryView entry, string e, string click)
+    {
+        if (entry.HealQuarters is { } heal)
+            return $"{e} or a {click} eats one: " + (host.Mode == "creative" ? "nothing heals in Creative" : $"heals {Heal(host, heal)}");
+        if (entry.Material != null) return $"{e} or a {click} sets one down";
+        return "nothing to do with one yet";
+    }
+
+    /// <summary>The thing the bar took into the hand: what E and F do with it now (E stores it in the chest at a camp, else sets it down; F drops it).</summary>
+    public static string HandThingWords(CommandHost host)
+    {
+        var e = PlayerControls.KeyLabel(Act.Interact);
+        return (host.PlayerAtCamp() ? $"{e} stores it in the chest" : $"{e} sets it down") + $", {PlayerControls.KeyLabel(Act.Hands)} drops it";
+    }
+
+    /// <summary>The bar's selection in the pockets, as the camp's Inventory page says it (decision 87 with the hotbar: it shows the selection).</summary>
+    public static string SelectionWords(CommandHost host)
+    {
+        var tab = PlayerControls.KeyLabel(Act.BarLayer);
+        var hand = host.Hand;
+        if (host.HandNow.IsNone || hand.Layer != HandSelection.PocketsLayer) return $"On the bar: the Gubble's magic is down ({tab} brings your pockets down).";
+        if (hand.PocketsSlot is not { } slot) return "On the bar: no pocket slot chosen.";
+        var entry = host.PocketEntries.FirstOrDefault(e => e.Slot == slot);
+        return hand.Holds switch
+        {
+            "unit" when entry != null => $"On the bar: slot {slot}, {entry.Name} ×{entry.Count}, one ready to use.",
+            "thing" => $"On the bar: slot {slot}, {KernelJson.DisplayText(host.HeldName(CommandHost.PlayerAvatar), 60)}, in your hand.",
+            "pocketed" when entry != null => $"On the bar: slot {slot}, {entry.Name}, which stays in your pockets.",
+            _ => $"On the bar: slot {slot}, empty.",
+        };
+    }
+
+    /// <summary>A use's receipt in words: what healed, or in Creative the sound's receipt, or the host's refusal (fallback when it says nothing).</summary>
+    private static string EatenWords(CommandHost host, string item, JsonObject result, string fallback)
+    {
+        if (!Ok(result)) return Failed(result, fallback);
         var data = result["data"];
         var healed = data?["healed_quarters"]?.GetValue<int>() ?? 0;
         var kept = (data?["count"]?.GetValue<int>() ?? 1) == 0;
@@ -219,11 +273,14 @@ public static class InventoryPages
         }
         lines.Add(new(JournalInk.Heading, "Your pockets"));
         lines.Add(new(JournalInk.Faint, PocketsCaps(host)));
+        // The hotbar's selection (decision 119): which slot is in the hand; each entry carries its slot on the bar, the chosen one marked.
+        lines.Add(new(JournalInk.Text, SelectionWords(host)));
         var pockets = host.PocketEntries;
+        var chosen = !host.HandNow.IsNone && host.HandNow.Layer == HandSelection.PocketsLayer ? host.HandNow.Pockets : null;
         if (pockets.Count == 0) lines.Add(new(JournalInk.Text, "Your pockets are empty."));
         foreach (var entry in pockets)
         {
-            lines.Add(new(JournalInk.Title, EntryWords(host, entry)));
+            lines.Add(new(JournalInk.Title, $"{entry.Slot} · {EntryWords(host, entry)}" + (entry.Slot == chosen ? " · chosen" : "")));
             if (entry.Kind == "stack")
             {
                 lines.Add(new(JournalInk.Button, "Store one in the chest", Target(Store, entry.Item, "chest", "1"), reachable));

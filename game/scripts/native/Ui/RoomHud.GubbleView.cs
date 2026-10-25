@@ -135,7 +135,6 @@ public partial class RoomHud
         _movingGlow = null;
         if (SettingsOpen) ToggleSettings();
         if (MagicPanelOpen) SetMagicPanelOpen(false);
-        if (PocketsPanelOpen) SetPocketsPanelOpen(false);
         CloseJournalNow();
         GubbleViewYawDeg = GubbleViewPitchDeg = 0;
         EyeView.MarkBody(Companion, EyeView.GubbleBodyLayer);

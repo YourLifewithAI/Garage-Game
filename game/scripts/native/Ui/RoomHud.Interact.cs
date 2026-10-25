@@ -16,10 +16,14 @@ namespace GarageGame.Native;
 /// <item>with empty hands beside a Fractal in reach, picks it up ("E: pick up the fractal");</item>
 /// <item>holding something (the hands first, wherever you stand): at a camp stores it in the chest ("E: store the cup in the chest");
 /// elsewhere puts it in the pockets when it fits ("E: put the cup in your pockets"; a log or stone away from a camp is gathered);
-/// else a held loose log or stone is gathered into its stack in the pockets (P-Inventory-2), and anything else is set on what you face, or down in front;</item>
+/// else a held loose log or stone is gathered into its stack in the pockets (P-Inventory-2), and anything else is set on what you face, or down in front.
+/// A thing the hotbar took into the hand from its pocket slot is not put back in the pockets by E (choosing another slot does that): E sets
+/// it down, or at a camp stores it in the chest (HOTBAR.md "The hand");</item>
 /// <item>with empty hands facing food within reach, picks it into the pockets ("E: pick an apple"), or says why the pockets cannot hold
 /// it (full, too heavy) beside it;</item>
 /// <item>by a lit campfire, sits you down ("E: sit by the fire"); beside one it cannot (in its flames, unlit, out), says the host's words;</item>
+/// <item>with a stack's unit armed on the hotbar, uses it ("E: eat an apple", "E: set a log down", "E: use a seed": the kernel refuses a
+/// seed in its own words); a click does the same wherever E has something else to do (RoomHud.Hotbar.cs);</item>
 /// <item>facing something to pick up, picks it up ("E: pick up the cup · V push").</item>
 /// </list>
 /// The prompt rides the focus tag when E works on the thing the hands' focus lights, and otherwise stands beside the campfire, the Fractal
@@ -29,7 +33,7 @@ namespace GarageGame.Native;
 public partial class RoomHud
 {
     /// <summary>What E would do now.</summary>
-    public enum InteractKind { None, Stand, Sit, Camp, Fractal, Gather, SetOn, SetDown, PickUp, Store, Pocket, PickFood, FoodFull }
+    public enum InteractKind { None, Stand, Sit, Camp, Fractal, Gather, SetOn, SetDown, PickUp, Store, Pocket, PickFood, FoodFull, UseUnit }
 
     /// <summary>What E would do now, the prompt's words, and where the prompt stands (null: beside the body, or on the focus tag).</summary>
     public readonly record struct InteractTarget(InteractKind Kind, string Words, Vector3? At = null, string? Thing = null)
@@ -77,14 +81,19 @@ public partial class RoomHud
         var held = host.HeldBy(CommandHost.PlayerAvatar);
         if (held == null && FractalInReach(host) is { } fractal)
             return new(InteractKind.Fractal, $"{e}: pick up the {MeterWords.One(host, "fractals").ToLowerInvariant()}", fractal.PositionM + Vector3.Up * 0.03f, fractal.Id);
+        // The hotbar's hand (player.status.hand): a stack's unit armed, or the thing its slot took into the hand.
+        var hand = host.HasInventory ? host.Hand : null;
         if (held != null)
         {
             var name = KernelJson.DisplayText(host.HeldName(CommandHost.PlayerAvatar), 40);
             var material = host.Room.Objects.FirstOrDefault(o => o.Id == held) is { } item && CommandHost.GatherMaterial(item) != null;
+            // A thing the bar took out of the pockets into the hand is not put back there by E (another slot chosen does that): E sets it down,
+            // or at a camp stores it in the chest.
+            var fromBar = hand is { Holds: "thing" } && hand.Item == held;
             // The inventory first (decision 113), in the host's own words: at a camp the chest; elsewhere the pockets, for a unique thing or
             // a unit of food when it fits. A log or stone away from a camp is gathered: item.gather puts it in its stack and selects that slot.
             // When neither fits, the host's refusal is not shown: E sets the thing down or gathers it, as it always did.
-            if (host.HasInventory && host.PlayerCanStore() is { Ok: true } store && (store.To == "chest" || !material))
+            if (host.HasInventory && host.PlayerCanStore() is { Ok: true } store && (store.To == "chest" || (!material && !fromBar)))
                 return new(store.To == "chest" ? InteractKind.Store : InteractKind.Pocket, $"{e}: {LowerFirst(store.Words)}", null, held);
             if (material)
                 return new(InteractKind.Gather, $"{e}: gather {name} into your pockets", null, held);
@@ -100,10 +109,24 @@ public partial class RoomHud
         // Beside a campfire that cannot be sat at now, the host's own words (in its flames, unlit, out): E says them too.
         if (rest.Words is CommandHost.RestInFlames or CommandHost.RestUnlit or CommandHost.RestOut)
             return new(InteractKind.Camp, rest.Words, CampfireTop(host, rest.Campfire ?? CampfireNear(host)), rest.Campfire);
+        // The hotbar's armed unit (decision 119), when nothing in the world wants E: eaten, set down, or asked of and refused in the kernel's words.
+        if (hand is { Holds: "unit", Item: { } unit }) return new(InteractKind.UseUnit, $"{e}: {UseUnitWords(host, unit)}", null, unit);
         // The thing faced, when the hands' focus says it can be picked up (the kernel's tag says which: carry, push only, too heavy).
         if (focus.Id is { Length: > 0 } thing && focus.Tag == Sandbox.SandboxControls.FocusWords.PickUpOrPush)
             return new(InteractKind.PickUp, $"{e}: pick up {ObjectName(host, thing)} · {K(Act.Push)} push", null, thing);
         return default;
+    }
+
+    /// <summary>E's words for the bar's armed unit: "eat an apple", "set a log down", "use a seed" (the kernel's refusal then says why).</summary>
+    private static string UseUnitWords(CommandHost host, string item)
+    {
+        var unit = InventoryPages.UnitWords(host, item);
+        return host.InventoryRules?.Kind(item) switch
+        {
+            { HealQuarters: not null } => $"eat {unit}",
+            { Material: not null } => $"set {unit} down",
+            _ => $"use {unit}",
+        };
     }
 
     /// <summary>A reader's words (a sentence from the host) as the middle of a prompt: its first letter in lower case.</summary>
@@ -169,6 +192,7 @@ public partial class RoomHud
             case InteractKind.PickUp:
                 Hands();
                 break;
+            case InteractKind.UseUnit: UseFromBar(); break;
             default: _noticeText = InteractNothingWords(); break;
         }
         _focusAge = double.MaxValue;
@@ -205,6 +229,7 @@ public partial class RoomHud
         InteractKind.Stand => "stand up", InteractKind.Sit => "sit by the fire", InteractKind.Camp => "at a campfire", InteractKind.Fractal => "pick up a fractal",
         InteractKind.Gather => "gather", InteractKind.SetOn => "set it on", InteractKind.SetDown => "set it down", InteractKind.PickUp => "pick up",
         InteractKind.Store => "store in the chest", InteractKind.Pocket => "put in the pockets", InteractKind.PickFood => "pick food", InteractKind.FoodFull => "food, pockets full",
+        InteractKind.UseUnit => "use from the bar",
         _ => "nothing here",
     };
 

@@ -282,6 +282,8 @@ public partial class RoomHud : CanvasLayer
         _focusTag = new Label { Name = "FocusTag", Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore, Theme = compactTheme };
         AddChild(_focusTag);
         BuildInteractPrompt(compactTheme);
+        // The hotbar along the bottom (RoomHud.Hotbar.cs): under the panels, the notices and the help, over the world.
+        BuildHotbar();
         _washVeil = new ColorRect { Name = "HomeVeil", Color = new Color(0.06f, 0.13f, 0.18f, 0), MouseFilter = Control.MouseFilterEnum.Ignore };
         AddChild(_washVeil);
         _washVeil.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
@@ -310,7 +312,9 @@ public partial class RoomHud : CanvasLayer
         AddKeyLine(_keyHelp, () => MoveKeys, "MoveKeys");
         AddKeyLine(_keyHelp, () => $"Climb: keep walking into a steep face, {K(Act.MoveForward)} up, {K(Act.MoveBack)} down, {K(Act.MoveLeft)}/{K(Act.MoveRight)} across, {K(Act.Jump)} lets go · Swim: deep water floats you, {K(Act.Jump)} leaps · Dive: hold {K(Act.MoveDive)}, {K(Act.Jump)} rises, {K(Act.MoveForward)} swims the way you look, let go to drift up");
         AddKeyLine(_keyHelp, () => $"{K(Act.ViewEye)} first person · {K(Act.ViewShoulder)} third person: {PlayerControls.ZoomLabel()} zooms out to look around, and zoomed out {PlayerControls.DragLabel()} orbits and {PlayerControls.MoveLabel()} follows the view");
-        AddKeyLine(_keyHelp, () => $"{K(Act.ViewObserve)} observe (a very tight tilt-shift view, best zoomed out) · {K(Act.HudCustomize)} settings · {K(Act.HudMagic)} the Gubble's magic · {K(Act.PocketsPanel)} your pockets (eat, or set a thing down) · {K(Act.Journal)} journal ({K(Act.MouseRelease)} closes any; with nothing open, {K(Act.MouseRelease)} is the menu: save, load, settings, the main menu)", "PanelKeys");
+        AddKeyLine(_keyHelp, () => $"{K(Act.ViewObserve)} observe (a very tight tilt-shift view, best zoomed out) · {K(Act.HudCustomize)} settings · {K(Act.HudMagic)} the Gubble's magic · {K(Act.Journal)} journal ({K(Act.MouseRelease)} closes any; with nothing open, {K(Act.MouseRelease)} is the menu: save, load, settings, the main menu)", "PanelKeys");
+        // The hotbar (RoomHud.Hotbar.cs): its ten keys, Tab, the wheel over it, what a pocket slot and a magic slot do.
+        AddKeyLine(_keyHelp, BarKeysLine, "BarKeys");
         // The window (RoomHud.Screen.cs): the key, and what the game remembers for the next launch.
         AddKeyLine(_keyHelp, ScreenKeysLine, "ScreenKeys");
         AddKeyLine(_keyHelp, () => $"Walk into a {MeterWords.One(Host, "fractals")} to collect it · {K(Act.Hands)} pick up what you face · {K(Act.Hands)} again sets it down in front of you, or on top of what you face (the box, the book) · {K(Act.Push)} push what you face 10 cm");
@@ -339,14 +343,14 @@ public partial class RoomHud : CanvasLayer
         BuildMagicPanel(actions, _statusLines, theme);
         // The camp's screen, where the Magic panel opens, under the journal (RoomHud.CampScreen.cs).
         BuildCampScreen(theme);
-        // The pockets panel (Tab), on the left like the Magic panel, under the journal (RoomHud.Pockets.cs).
-        BuildPocketsPanel(theme);
         // The settings read last in the status lines, under the mode line the Magic panel's builder added (RoomHud.Screen.cs).
         BuildSettingsLine(_statusLines);
         // The journal last: the book opens over everything else on screen (RoomHud.Journal.cs). Then the eye icon above its dock,
         // whose view through the Gubble's eyes covers the whole screen, the book's dock too (RoomHud.GubbleView.cs).
         BuildMinimap();
         BuildJournal();
+        // Folded, the footer is the small "H keys" box at the lower left, clear of the hotbar (RoomHud.Hotbar.cs).
+        PlaceFooter();
         BuildGubbleView(compactTheme);
         // Notices where the eye is, over the panels (RoomHud.Notice.cs). The notice's words start empty: the first notice of a play is a
         // real one (the look's, a key's, an action's), never Run 0's placeholder sentence (the first recorded play, 16 October).
@@ -388,26 +392,28 @@ public partial class RoomHud : CanvasLayer
     {
         foreach (var (set, words) in _keyTexts) set(words());
         _keyTextsAsOf = KeyTextInputs();
+        // The hotbar's words are made from the same (the keys, the abilities, what is learned, the prices): it is read again too.
+        _barDirty = true;
     }
 
     /// <summary>
     /// Every frame: the key texts again only when something they are made from changed (S12: some twenty strings rebuilt and handed
     /// to the engine sixty times a second). They are made from the keys' names (PlayerControls.MapVersion), whether the help is open,
     /// the Gubble's name, the way home, the island's abilities and which of them the pool can pay (PoolHint), the playtest beat and the
-    /// switches the help reads out (SettingsBits).
+    /// switches the help reads out (SettingsBits) and the hotbar's layer (the dusk hint names Tab while the pockets are down).
     /// </summary>
     private void RefreshKeyTextIfChanged()
     {
         if (KeyTextInputs() != _keyTextsAsOf) RefreshKeyText();
     }
 
-    private (int Map, bool Help, string Name, string Home, object? Rules, int Pool, int Beat, int Settings) KeyTextInputs() =>
-        (PlayerControls.MapVersion, _keyHelp.Visible, Companion.CompanionName, Player.HomeName, Host?.Rules, PoolHint() | FireKeyBits(), PlaytestBeat(), SettingsBits());
+    private (int Map, bool Help, string Name, string Home, object? Rules, int Pool, int Beat, int Settings, string Layer) KeyTextInputs() =>
+        (PlayerControls.MapVersion, _keyHelp.Visible, Companion.CompanionName, Player.HomeName, Host?.Rules, PoolHint() | FireKeyBits(), PlaytestBeat(), SettingsBits(), _barLayerShown);
 
     /// <summary>What Fire's and Grow's key words depend on (RoomHud.FireWheel.cs, RoomHud.GrowDrag.cs): whether Fire, and Fireline, are learned, and whether the bridge is open.</summary>
     private int FireKeyBits() => Host is not { } host ? 0 : (host.FireLearned ? 1 << 28 : 0) | (host.FirelineLearned ? 1 << 29 : 0) | (host.BridgeUnlocked ? 1 << 27 : 0);
 
-    private (int Map, bool Help, string Name, string Home, object? Rules, int Pool, int Beat, int Settings)? _keyTextsAsOf;
+    private (int Map, bool Help, string Name, string Home, object? Rules, int Pool, int Beat, int Settings, string Layer)? _keyTextsAsOf;
 
     private static void AddButton(Node parent, string text, System.Action action, int minimumHeight = 38)
     {
@@ -675,9 +681,9 @@ public partial class RoomHud : CanvasLayer
         _wheel.Tick(delta);
         if (GubblePaused) return;
         TickMagicPanel(delta);
-        var pocketsStart = PromptCost.Begin();
-        TickPockets(delta);
-        PromptCost.End(pocketsStart, PromptCost.Piece.Pockets);
+        var barStart = PromptCost.Begin();
+        TickHotbar(delta);
+        PromptCost.End(barStart, PromptCost.Piece.Hotbar);
         TickFireFlash(delta);
         TickGubbleView();
         if (ViewMode >= 2 || Orbiting) PlaceDioramaRig(snap: false, (float)delta);
@@ -849,7 +855,11 @@ public partial class RoomHud : CanvasLayer
             }
             if (PlayerControls.Released(press, Act.LookDrag))
             {
+                // A click (no drag): on the hotbar it chooses a slot; elsewhere it uses the armed unit (RoomHud.Hotbar.cs).
+                var clicked = !_drag.Dragging;
+                var at = _drag.Anchor;
                 EndDrag();
+                if (clicked && !ReadingPanelOpen && !GubblePaused) BarClick(at);
                 GetViewport().SetInputAsHandled();
                 return;
             }
@@ -909,14 +919,13 @@ public partial class RoomHud : CanvasLayer
             if (PlayerControls.Hit(press, Act.HudCustomize)) ToggleSettings();
             // M opens and closes the Magic panel (it was only a button inside the H help), from the game or the settings panel.
             else if (PlayerControls.Hit(press, Act.HudMagic)) ToggleMagicPanel();
-            // Tab opens and closes the pockets panel (RoomHud.Pockets.cs), from the game or the settings panel.
-            else if (PlayerControls.Hit(press, Act.PocketsPanel)) TogglePocketsPanel();
             if (ReadingPanelOpen) return;
             // One key does one thing, the first below that it is (Shift+T is the season before it is a T).
             if (PlayerControls.Hit(press, Act.HudHelp))
             {
                 _keyHelp.Visible = !_keyHelp.Visible;
                 RefreshKeyText();
+                PlaceFooter();
             }
             else if (PlayerControls.Hit(press, Act.ViewEye)) SetViewMode(0);
             else if (PlayerControls.Hit(press, Act.ViewShoulder)) SetViewMode(1);
@@ -939,12 +948,13 @@ public partial class RoomHud : CanvasLayer
             }
             else if (PlayerControls.Hit(press, Act.GubbleRecall)) Recall();
             else if (PlayerControls.Hit(press, Act.GubbleStop)) StopGubble();
-            else if (SlotPressed(press) is { } slot)
+            // The hotbar's keys, 1 to 0 (RoomHud.Hotbar.cs): a pocket slot chosen, or on the magic side the ability's key as it always was.
+            else if (SlotPressed(press) is { } slot) BarKeyDown(slot);
+            // Tab: the bar's other layer down (the pockets, or the Gubble's magic).
+            else if (PlayerControls.Hit(press, Act.BarLayer))
             {
-                // 6 is Fire: its press starts a tap or a drag, its release lights it (RoomHud.FireWheel.cs).
-                if (slot == GubbleMagic.FireSlot) FireKeyDown();
-                else if (slot == GubbleMagic.GrowSlot) GrowKeyDown();
-                else CastSlot(slot, AimNow());
+                SwitchBarLayer();
+                GetViewport().SetInputAsHandled();
             }
             // Hand keys: pick up, put down and push, as commands from the player.
             else if (PlayerControls.Hit(press, Act.Hands)) Hands();
@@ -953,10 +963,21 @@ public partial class RoomHud : CanvasLayer
             else if (PlayerControls.Hit(press, Act.Interact)) Interact();
             // Z, Fire's camp's own key this round (decision 90): sit down by a lit campfire to rest, and stand again (RoomHud.Camp.cs).
             else if (PlayerControls.Hit(press, Act.Rest)) RestKey();
-            // The look drag arms on the press; a click that never moves does nothing.
+            // The look drag arms on the press; a click that never moves is the hotbar's (a slot chosen, or the armed unit used: RoomHud.Hotbar.cs).
             else if (PlayerControls.Hit(press, Act.LookDrag))
             {
-                if (DragTurnsView && !_wheel.Held) _drag.Press(GetViewport().GetMousePosition());
+                if (DragTurnsView && !_wheel.Held) _drag.Press(Pointer());
+            }
+        }
+        // The wheel over the hotbar steps its selection instead of zooming (in every view).
+        if (fresh && !ReadingPanelOpen && _hotbar.Visible && _hotbar.Over(Pointer()))
+        {
+            var step = PlayerControls.Hit(press, Act.ViewZoomOut) ? 1 : PlayerControls.Hit(press, Act.ViewZoomIn) ? -1 : 0;
+            if (step != 0)
+            {
+                StepBar(step);
+                GetViewport().SetInputAsHandled();
+                return;
             }
         }
         if (ViewMode is 1 or 2 && !ReadingPanelOpen)
@@ -1001,11 +1022,11 @@ public partial class RoomHud : CanvasLayer
         GetViewport().WarpMouse(anchor);
     }
 
-    /// <summary>Which ability slot key (0-based) the event presses, if any.</summary>
+    /// <summary>Which of the hotbar's ten keys (0-based; the first six the ability slots') the event presses, if any.</summary>
     private static int? SlotPressed(InputEvent press)
     {
-        for (var i = 0; i < Act.GubbleSlots.Length; i++)
-            if (PlayerControls.Hit(press, Act.GubbleSlots[i])) return i;
+        for (var i = 0; i < Act.BarSlots.Length; i++)
+            if (PlayerControls.Hit(press, Act.BarSlots[i])) return i;
         return null;
     }
 

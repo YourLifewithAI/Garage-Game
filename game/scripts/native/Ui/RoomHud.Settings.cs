@@ -192,7 +192,6 @@ public partial class RoomHud
         EndDrag();
         CloseJournalNow();
         if (MagicPanelOpen) SetMagicPanelOpen(false);
-        if (PocketsPanelOpen) SetPocketsPanelOpen(false);
         _settings.Visible = !_settings.Visible;
         Player.SetInputEnabled(!_settings.Visible);
         Input.MouseMode = Input.MouseModeEnum.Visible;
