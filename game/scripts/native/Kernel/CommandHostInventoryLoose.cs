@@ -256,8 +256,8 @@ public partial class CommandHost
 
     /// <summary>
     /// The harvest of a farmable plant (decision 118: seeds come "from harvesting a farmable plant when farming exists"): a seed into the
-    /// pockets when they have room. The hook farming will call; nothing calls it yet (when farming calls it from a command, a seed that does
-    /// not fit lies loose as eating's does, decision 132: DropSeedsLoose). Returns the seeds that went in.
+    /// pockets when they have room. The hook farming will call; nothing calls it yet, and a seed that does not fit is not kept here: farming,
+    /// calling it from a command, should set it loose as eating does (decision 132, DropSeedsLoose). Returns the seeds that went in.
     /// </summary>
     internal int FoodHarvested(string plant)
     {
