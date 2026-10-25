@@ -770,7 +770,7 @@ public partial class TeamSavesTest : Node3D
             var stay = Companion(host, "goal.set", new JsonObject { ["actor"] = CommandHost.CompanionAvatarId, ["goal"] = "stay" });
             var marked = Answer(host.PlayerMarkReceipt(stay["action_id"]!.GetValue<string>(), yes: true));
             var placed = Answer(host.HandleObject(Placement("Old lantern", 1.5, -1.0), CommandHost.PlayerPrincipal));
-            var savePath = ProjectSettings.GlobalizePath(host.SavePath);
+            var savePath = Path.GetFullPath(ProjectSettings.GlobalizePath(host.SavePath));
             Check(marked.Ok && placed.Ok && host.TrustCount == 2, $"a first launch keeps a Trust mark and a creation ({marked.Code} {placed.Code} {placed.Message})");
             await Unboot();
             var teamFolder = layout.TeamFolder("mira");
