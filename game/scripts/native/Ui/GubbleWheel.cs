@@ -63,11 +63,17 @@ public partial class GubbleWheel : Control
     private Color _rim = new("eec471");
     private readonly List<int> _locked = new();
     private readonly List<int> _noted = new();
+    private readonly string?[] _notes = new string?[GubbleMagic.Wedges.Length];
+    private Label _noteLabel = null!;
 
     /// <summary>The wedges drawn locked now (their lock mark and reason), by index (tests).</summary>
     public IReadOnlyList<int> LockedWedges => _locked;
-    /// <summary>The wedges that work but carry a note and a padlock for what is still to unlock (Grow's bridge, ivy and the rest), by index (tests).</summary>
+    /// <summary>The wedges that work but carry a padlock and, while hovered, a note on what is still to unlock (Grow's bridge, ivy and the rest), by index (tests).</summary>
     public IReadOnlyList<int> NotedWedges => _noted;
+    /// <summary>The note under the wheel: the hovered noted wedge's words (the host's lock words), hidden otherwise.</summary>
+    public Label NoteLabel => _noteLabel;
+    /// <summary>The note's width and its gap from the wheel's disc, in pixels.</summary>
+    public const float NoteWidthPx = 380f, NoteGapPx = 8f;
 
     /// <summary>The title over the wheel: whose magic it is.</summary>
     public Label Title => _title;
@@ -110,6 +116,16 @@ public partial class GubbleWheel : Control
         _title.AddThemeColorOverride("font_outline_color", new Color("18332d"));
         _title.AddThemeConstantOverride("outline_size", 6);
         AddChild(_title);
+        _noteLabel = new Label
+        {
+            Name = "WheelNote", Visible = false, HorizontalAlignment = HorizontalAlignment.Center, AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            MouseFilter = MouseFilterEnum.Ignore, Size = new Vector2(NoteWidthPx, 0),
+        };
+        _noteLabel.AddThemeFontSizeOverride("font_size", 16);
+        _noteLabel.AddThemeColorOverride("font_color", LockColour);
+        _noteLabel.AddThemeColorOverride("font_outline_color", new Color("18332d"));
+        _noteLabel.AddThemeConstantOverride("outline_size", 5);
+        AddChild(_noteLabel);
     }
 
     /// <summary>Whose wheel it is: the title over it ("The Gubble's magic") and the rim's colour (its aura).</summary>
@@ -122,13 +138,16 @@ public partial class GubbleWheel : Control
 
     /// <summary>
     /// The wedges' words: an ability slot shows its icon and the island's display_name, or a dim "?" when the island has none in
-    /// that category; an order shows its icon, name and key where it has one.
+    /// that category; an order shows its icon, name and key where it has one. noteWords is for an ability that works but has more still to
+    /// unlock (Grow's bridge, ivy and the rest): it keeps its bright words, gains a padlock, and the note shows under the wheel while the
+    /// pointer is on it.
     /// </summary>
     public void SetWedges(System.Func<int, string?> abilityName, System.Func<GubbleMagic.Wedge, string> orderWords, System.Func<int, string?>? lockedWords = null,
         System.Func<int, string?>? noteWords = null)
     {
         _locked.Clear();
         _noted.Clear();
+        Array.Clear(_notes);
         for (var i = 0; i < _wedgeLabels.Count; i++)
         {
             var wedge = GubbleMagic.Wedges[i];
@@ -140,12 +159,16 @@ public partial class GubbleWheel : Control
             // An ability that works but has more still to unlock (Grow's bridge and the rest): a note under its name and a padlock, bright.
             var note = known && locked == null && wedge.Kind == GubbleMagic.WedgeKind.Ability ? noteWords?.Invoke(wedge.Slot) : null;
             var text = locked != null ? $"{wedge.Icon}\n{wedge.Slot + 1} {name}\n{WrapWords(locked)}"
-                : known ? (wedge.Kind == GubbleMagic.WedgeKind.Ability ? $"{wedge.Icon}\n{wedge.Slot + 1} {name}" + (note != null ? "\n" + WrapWords(note) : "") : name!)
+                : known ? (wedge.Kind == GubbleMagic.WedgeKind.Ability ? $"{wedge.Icon}\n{wedge.Slot + 1} {name}" : name!)
                 : $"{wedge.Icon}\n{wedge.Slot + 1} {wedge.Name}\n{LackingWords}";
             if (label.Text != text) label.Text = text;
             label.Modulate = new Color(1, 1, 1, locked != null ? LockedAlpha : known ? 1f : LackingAlpha);
             if (locked != null) _locked.Add(i);
-            else if (note != null) _noted.Add(i);
+            else if (note != null)
+            {
+                _noted.Add(i);
+                _notes[i] = note;
+            }
         }
     }
 
@@ -194,6 +217,7 @@ public partial class GubbleWheel : Control
     {
         if (!Held || !relative.IsFinite()) return;
         Offset = (Offset + relative).LimitLength(RadiusPx * 1.5f);
+        ShowNote();
         QueueRedraw();
     }
 
@@ -211,6 +235,7 @@ public partial class GubbleWheel : Control
             _pausedTree = true;
         }
         Layout();
+        ShowNote();
         QueueRedraw();
     }
 
@@ -233,6 +258,7 @@ public partial class GubbleWheel : Control
         Open = false;
         Visible = false;
         Offset = Vector2.Zero;
+        if (_noteLabel != null) _noteLabel.Visible = false;
         if (_pausedTree && IsInsideTree()) GetTree().Paused = false;
         _pausedTree = false;
     }
@@ -241,6 +267,27 @@ public partial class GubbleWheel : Control
     {
         if (_pausedTree && IsInsideTree()) GetTree().Paused = false;
         _pausedTree = false;
+    }
+
+    /// <summary>
+    /// The note of the wedge the pointer is on, if it has one: centred under the disc, or above the title when the wheel was opened too
+    /// near the bottom of the screen for it; hidden for any other wedge, and while the wheel is not drawn.
+    /// </summary>
+    private void ShowNote()
+    {
+        if (_noteLabel == null) return;
+        var words = Open && Hovered is { } hovered ? _notes[hovered] : null;
+        var shown = words != null;
+        if (_noteLabel.Visible != shown) _noteLabel.Visible = shown;
+        if (words == null) return;
+        if (_noteLabel.Text != words) _noteLabel.Text = words;
+        var screen = GetViewportRect().Size;
+        var height = _noteLabel.GetMinimumSize().Y;
+        // (A wrapping label asks for its height at the width it has.)
+        _noteLabel.Size = new Vector2(NoteWidthPx, height);
+        var below = _centre.Y + RadiusPx + DiscMarginPx + NoteGapPx;
+        var top = below + height <= screen.Y ? below : _centre.Y - RadiusPx - DiscMarginPx - 6f - _title.GetCombinedMinimumSize().Y - NoteGapPx - height;
+        _noteLabel.Position = new Vector2(Mathf.Clamp(_centre.X - NoteWidthPx * 0.5f, 0, Mathf.Max(0, screen.X - NoteWidthPx)), Mathf.Max(0, top));
     }
 
     private void Layout()

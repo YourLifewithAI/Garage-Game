@@ -79,11 +79,23 @@ public partial class PlayHudTest
             _hud._UnhandledInput(RightButton(true));
             await Frames(20);
             var labels = _hud.Wheel.WedgeLabels.Select(l => l.Text).ToArray();
-            Check(labels[4] == "✿\n2 Grow\nlearn 2 more\nfor sprouts" && _hud.Wheel.NotedWedges.SequenceEqual(new[] { 4 }) && !_hud.Wheel.LockedWedges.Contains(4) && _hud.Wheel.WedgeLabels[4].Modulate.A == 1f,
-                "the wheel's Grow wedge stays bright and carries a padlock and a note on what is next: " + labels[4].Replace("\n", " "));
-            _hud._UnhandledInput(Motion(new Vector2(0, 0)));
+            var note = _hud.Wheel.NoteLabel;
+            Check(labels[4] == "✿\n2 Grow" && _hud.Wheel.NotedWedges.SequenceEqual(new[] { 4 }) && !_hud.Wheel.LockedWedges.Contains(4) && _hud.Wheel.WedgeLabels[4].Modulate.A == 1f && !note.Visible,
+                "the wheel's Grow wedge stays bright and plain and carries a padlock: " + labels[4].Replace("\n", " "));
+            // Pointed at, the host's own lock words for the next unlock stand under the wheel: on the screen and clear of every wedge's words; pointed elsewhere, they go.
+            _hud._UnhandledInput(Motion(GubbleMagic.WedgeDirection(4) * 90f));
+            var screen = _hud.GetViewport().GetVisibleRect().Size;
+            var noteRect = note.GetGlobalRect();
+            var wedgeRects = _hud.Wheel.WedgeLabels.Select(l => l.GetGlobalRect()).ToArray();
+            Check(note.Visible && note.Text == CommandHost.SproutsLocked && noteRect.Position.X >= 0 && noteRect.End.X <= screen.X && noteRect.Position.Y >= 0 && noteRect.End.Y <= screen.Y &&
+                  wedgeRects.All(r => !r.Intersects(noteRect)),
+                $"pointing at it, the host's lock words stand by the wheel, on the screen and clear of every wedge's words: \"{note.Text}\" at {noteRect.Position.X:0},{noteRect.Position.Y:0} {noteRect.Size.X:0}x{noteRect.Size.Y:0} of {screen.X:0}x{screen.Y:0}");
+            _hud._UnhandledInput(Motion(GubbleMagic.WedgeDirection(0) * 90f - GubbleMagic.WedgeDirection(4) * 90f));
+            Check(!note.Visible, "and pointing at another wedge they go");
+            _hud._UnhandledInput(Motion(-GubbleMagic.WedgeDirection(0) * 90f));
             _hud._UnhandledInput(RightButton(false));
             await Frames(2);
+            Check(!note.Visible, "(closed, nothing is left under the screen)");
             var panelLocked = string.Join("\n", GrowLocks.All.Select(u => "Locked: " + host.GrowLockedWords(u.Kind)));
             _hud.ToggleMagicPanel();
             await Frames(14);
@@ -127,7 +139,10 @@ public partial class PlayHudTest
             _hud.AimRayForTests = Down(FloorNearGubble(.3f));
             _hud._UnhandledInput(RightButton(true));
             await Frames(20);
-            Check(_hud.Wheel.WedgeLabels[4].Text == "✿\n2 Grow\nlearn 1 more\nfor a bridge" && _hud.Wheel.NotedWedges.SequenceEqual(new[] { 4 }), "with two learned the wedge's note is the bridge: " + _hud.Wheel.WedgeLabels[4].Text.Replace("\n", " "));
+            _hud._UnhandledInput(Motion(GubbleMagic.WedgeDirection(4) * 90f));
+            Check(_hud.Wheel.WedgeLabels[4].Text == "✿\n2 Grow" && _hud.Wheel.NotedWedges.SequenceEqual(new[] { 4 }) && _hud.Wheel.NoteLabel.Visible && _hud.Wheel.NoteLabel.Text == CommandHost.BridgeLocked,
+                "with two learned the wedge's note is the bridge's lock words: " + _hud.Wheel.NoteLabel.Text);
+            _hud._UnhandledInput(Motion(-GubbleMagic.WedgeDirection(4) * 90f));
             _hud._UnhandledInput(RightButton(false));
             await Frames(2);
             _hud.ToggleMagicPanel();

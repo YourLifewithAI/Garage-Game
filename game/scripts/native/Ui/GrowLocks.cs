@@ -33,11 +33,11 @@ public static class GrowLocks
     public static Unlock? Next(CommandHost host) => All.FirstOrDefault(u => host.GrowLockedWords(u.Kind) != null);
 
     /// <summary>
-    /// The wheel's Grow wedge, under its name: how many more of Grow's expertise the next unlock takes ("learn 2 more for sprouts"); null once all are open.
-    /// Plain Grow is never locked, so the wedge stays bright and works; this is a note on it.
+    /// The wheel's Grow wedge, while the pointer is on it: the host's own lock words for the next unlock still locked ("Growing plants from bare
+    /// soil comes once the Gubble has learned two of Grow's expertise."); null once all are open. Plain Grow is never locked, so the wedge
+    /// stays bright and works; this is a note, and a padlock, on it.
     /// </summary>
-    public static string? WedgeNote(CommandHost host) =>
-        Next(host) is { } next ? $"learn {Math.Max(1, next.Count - host.GrowExpertiseCount)} more for {next.Short}" : null;
+    public static string? WedgeNote(CommandHost host) => Next(host) is { } next ? host.GrowLockedWords(next.Kind) : null;
 
     /// <summary>The Magic panel's lines under Grow: an open kind says what it does, a locked one is the host's own refusal.</summary>
     public static string PanelWords(CommandHost host) => string.Join('\n', All.Select(u =>

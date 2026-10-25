@@ -946,8 +946,8 @@ public partial class PlayHudTest : Node
             "Glow is up (the pack's light ability, its display_name), then clockwise Stay, Fetch lower left, Come left: " + string.Join(" | ", labels).Replace("\n", " "));
         Check(labels[1] == "✸\n4 Fireworks" && labels[8] == "○\n3 Bubbles" && _hud.Wheel.WedgeLabels[1].Modulate.A == 1f && _hud.Wheel.WedgeLabels[8].Modulate.A == 1f,
             "Fireworks (upper right) and Bubbles (upper left) are the island's now, bright in their fixed places: " + labels[1].Replace("\n", " ") + " | " + labels[8].Replace("\n", " "));
-        // (Grow works from the start, so its wedge is bright; with none of its four unlocks found it carries a note on the next, PlayHudTest.GrowDrag.cs.)
-        Check(labels[2].StartsWith("♨\n6 Fire", StringComparison.Ordinal) && labels[4] == "✿\n2 Grow\nlearn 2 more\nfor sprouts" && _hud.Wheel.WedgeLabels[4].Modulate.A == 1f,
+        // (Grow works from the start, so its wedge is bright and plain; with unlocks still to find it carries a padlock and a hover note, PlayHudTest.GrowDrag.cs.)
+        Check(labels[2].StartsWith("♨\n6 Fire", StringComparison.Ordinal) && labels[4] == "✿\n2 Grow" && _hud.Wheel.WedgeLabels[4].Modulate.A == 1f,
             "Fire is the ninth wedge just after Fireworks (decision 77), and Grow is in its fixed growth wedge: " + labels[2].Replace("\n", " "));
         Check(new[] { 5 }.All(i => labels[i] == $"{GubbleMagic.Wedges[i].Icon}\n{GubbleMagic.Wedges[i].Slot + 1} {GubbleMagic.Wedges[i].Name}\n{GubbleWheel.LackingWords}" &&
               _hud.Wheel.WedgeLabels[i].Modulate.A < 0.5f && !labels[i].Contains(GubbleMagic.UnknownIcon, StringComparison.Ordinal)),
