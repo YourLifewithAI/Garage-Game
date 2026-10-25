@@ -68,6 +68,22 @@ public sealed record TeamFile
     /// <summary>One mode's pockets (empty when the file keeps none for it).</summary>
     public InventoryContents PocketsOf(string mode) => Pockets.TryGetValue(mode, out var held) ? held : InventoryContents.Empty;
 
+    /// <summary>
+    /// The things a team's pockets hold in one mode that came from one island (its room and manifest prefix), by id: the Creative copy
+    /// into Challenge puts Creative's back on the copy's island, as the chest's (CarriedBuilds.Copy). None when the team has no file yet
+    /// or it does not read (the copy then keeps them away, as the island had them).
+    /// </summary>
+    public static IReadOnlyList<string> PocketThingsFrom(TeamLayout layout, string team, string mode, string roomId, string manifestPrefix)
+    {
+        try
+        {
+            var file = new TeamStore(layout.TeamFile(team), team).Load();
+            return file == null ? Array.Empty<string>()
+                : file.PocketsOf(mode).Things.Where(t => t.RoomId == roomId && t.ManifestPrefix == manifestPrefix).Select(t => t.Id).ToArray();
+        }
+        catch (TeamFileException) { return Array.Empty<string>(); }
+    }
+
     /// <summary>The team with one mode's pockets (empty takes the mode away); the same contents return this record, so nothing is written.</summary>
     public TeamFile WithPockets(string mode, InventoryContents contents)
     {

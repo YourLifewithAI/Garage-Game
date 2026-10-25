@@ -117,7 +117,13 @@ public partial class CommandHost
     private bool HeldAway(string id) => Nature.Objects.TryGetValue(id, out var item) && item.Gathered && item.BurnedDown && Room.Objects.Any(o => o.Id == id);
 
     private InventoryThing ThingFor(ObjectInstance item) =>
-        new(item.Id, Room.RoomId, IslandPrefix, NameOf(item), Math.Max(0.000001, item.Asset.MassKg));
+        new(item.Id, Room.RoomId, IslandPrefix, NameOf(item), MassOf(item));
+
+    /// <summary>
+    /// A thing's mass as the inventory counts it: the asset's, to the milligram (the team file's precision), so a 0.3 kg
+    /// doorstop is 0.3 kg and fits pockets that hold 0.3 kg (the asset's float would make it 0.30000001).
+    /// </summary>
+    private static double MassOf(ObjectInstance item) => Math.Max(0.000001, Math.Round((double)item.Asset.MassKg, 6));
 
     private static string NameOf(ObjectInstance item)
     {
@@ -127,7 +133,7 @@ public partial class CommandHost
 
     /// <summary>A chest thing's name and mass, from the room (LoadCampBlock).</summary>
     private (string Name, double MassKg) DescribeThing(string id) =>
-        Room?.Objects.FirstOrDefault(o => o.Id == id) is { } item ? (NameOf(item), Math.Max(0.000001, item.Asset.MassKg)) : ("Thing", 0.000001);
+        Room?.Objects.FirstOrDefault(o => o.Id == id) is { } item ? (NameOf(item), MassOf(item)) : ("Thing", 0.000001);
 
     // ---- the commands ----
 

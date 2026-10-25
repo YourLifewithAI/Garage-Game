@@ -333,6 +333,12 @@ public partial class InventoryTest
     private async Task TestCreativeCopyStrip()
     {
         await NewWorld("strip", mode: "creative");
+        Check(await PickUp("obj:doorstop", ByDoorstop), "the player picks up the doorstop");
+        await Stand(_player, AtCamp, "at the camp, the doorstop in hand");
+        var chested = Store(Player, "chest");
+        var pocketed = Take(Player, "obj:doorstop", "pockets");
+        Check(Ok(chested) && Ok(pocketed) && _host.PocketEntries.Count == 1 && _host.PocketEntries[0].Item == "obj:doorstop",
+            "the doorstop in Creative's pockets (by way of the chest; at 0.3 kg it fills the pockets' 0.3 kg exactly, and fits): " + Canonical(chested) + " " + Canonical(pocketed));
         Check(await PickUp("obj:cup", ByCup) && Ok(Store(Player, "chest")) && await PickUp("obj:apple_1", ByApple1) && Ok(Store(Player, "chest")),
             "the cup and an apple in Creative's chest");
         await FreeWorld();
@@ -342,7 +348,10 @@ public partial class InventoryTest
         var creative = layout.IslandSave(TeamId, "creative", _room.RoomId, prefix);
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(creative)!);
         File.Copy(ProjectSettings.GlobalizePath(SavePath("strip")), creative, true);
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(layout.TeamFile(TeamId))!);
+        File.Copy(TeamPath("strip"), layout.TeamFile(TeamId), true);
         var original = File.ReadAllBytes(creative);
+        var team = File.ReadAllBytes(layout.TeamFile(TeamId));
         CarriedBuilds.Copy(layout, TeamId, island, "standard", _now);
         var copy = JsonNode.Parse(File.ReadAllText(layout.IslandSave(TeamId, "challenge", _room.RoomId, prefix)))!.AsObject();
         var source = JsonNode.Parse(Encoding.UTF8.GetString(original))!.AsObject();
@@ -350,6 +359,10 @@ public partial class InventoryTest
             "the copy's camp block has no chest: Challenge starts with an empty one");
         Check(copy["nature"]?["objects"]?["obj:cup"] == null && copy["nature"]?["objects"]?["obj:apple_1"] != null && File.ReadAllBytes(creative).SequenceEqual(original),
             "the cup the chest held is back on the copy's island (the apple, a unit now, stays gone like a gathered log); the Creative save is untouched");
+        Check(source["nature"]?["objects"]?["obj:doorstop"]?["gathered"]?.GetValue<bool>() == true && copy["nature"]?["objects"]?["obj:doorstop"] == null &&
+              File.ReadAllBytes(layout.TeamFile(TeamId)).SequenceEqual(team) && TeamFile.Parse(team).PocketsOf("creative").Things.Single().Id == "obj:doorstop" &&
+              TeamFile.Parse(team).PocketsOf("challenge").IsEmpty,
+            "the doorstop in Creative's pockets is back on the copy's island too; Creative keeps its pockets, and Challenge's start empty");
     }
 
     /// <summary>The readers: player.status's pockets and chest, capabilities.list's inventory, and E's choice at and away from the camp.</summary>

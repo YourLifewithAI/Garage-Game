@@ -239,6 +239,7 @@ public partial class InventoryTest : Node3D
     private static readonly Vector3 ByApple3 = new(0.24f, 0, 0.55f);
     private static readonly Vector3 ByPod = new(0.24f, 0, 0.65f);
     private static readonly Vector3 ByCup = new(-0.13f, 0, 0.75f);
+    private static readonly Vector3 ByDoorstop = new(-0.3f, 0, 0.62f);
     private static readonly Vector3 AwayFromCamp = new(1.5f, 0, -0.5f);
 
     // ---- messages ----
