@@ -936,8 +936,9 @@ LEAD_SPOT = [1.1, 0.3, 0.2]
 MECHANICS = {
     "traits": {
         "hearts": {"health_per_quarter": 5, "start_hearts": 5, "cap_hearts": 30, "heal_quarter_every_s": 2.5, "heal_after_unharmed_s": 10,
-                   # Decisions 84, 91 and 93 (the second playtest round): hearts heal only at a camp, a quarter a second there, never while closed.
-                   "heal_outside_camp": False, "camp_heal_quarter_every_s": 1, "heal_while_closed": False},
+                   # Decisions 84, 91 and 93 (the second playtest round): hearts heal only at a camp, a quarter a second there, never while closed;
+                   # decision 111: resting there, healing starts 2 s after harm (provisional), not 10.
+                   "heal_outside_camp": False, "camp_heal_quarter_every_s": 1, "camp_heal_after_unharmed_s": 2, "heal_while_closed": False},
         "harm": {"fire_quarters_per_s": 1},
         "stamina": {"start_m": 0.4, "band_m": 0.4, "bands": 10, "bands_per_bar": 5, "running_m_per_s": 0.02, "refill_m_per_s": 0.1,
                     "deep_water_m_per_s": 0.02, "dive_m_per_s": 0.04, "climb_m_per_bar_m": 1.5, "holding_m_per_s": 0,

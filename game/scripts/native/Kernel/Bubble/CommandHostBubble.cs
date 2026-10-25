@@ -82,6 +82,9 @@ public partial class CommandHost
     /// <summary>Test seam: hears each OnBubbleLearned moment.</summary>
     internal Action<string>? BubbleLearnedForTests { get; set; }
 
+    /// <summary>Test seam: hears each bubble's end as EndBubble classed it, and whether a fall is then pending as the Gubble's consequence.</summary>
+    internal Action<BubbleEnd, bool>? BubbleEndedForTests { get; set; }
+
     /// <summary>The bubbles now (tests): id, capability, centre, whether it holds the player.</summary>
     public IReadOnlyList<(string Id, string Capability, Vector3 Center, bool Holding)> ActiveBubbles
     {
@@ -113,7 +116,7 @@ public partial class CommandHost
 
     /// <summary>
     /// The time the Bubbles key names (PlayerEffect), as the nature.cast controls name theirs (BubbleCastArgs): where the place makes a
-    /// boat (water away from the player's feet, PlaceTheBubble's rule) the boat's BubbleLaws.BoatDurationDefaultS, anywhere else a
+    /// boat (water away from the player's feet, PlaceTheBubble's rule) the boat's BubbleLaws.BoatDurationDefaultS (20 s, decision 112), anywhere else a
     /// bubble's CarryDurationDefaultS (8 s, decision 95), never past the island's duration_max_s. Before decision 95 the key sent the
     /// pack's duration_default_s (20 s in v5) for every bubble, the boat's too; the pack's default no longer decides a bubble's time.
     /// </summary>
@@ -551,6 +554,7 @@ public partial class CommandHost
             else ForgetPopFall();
         }
         bubble.Holding = false;
+        BubbleEndedForTests?.Invoke(end, _popFallPending);
         UpdateBubbleReceipt(bubble, "ended", Bubble.EndWord(end));
         if (bubble.Lead is { } lead) EndLead(bubble, lead, Bubble.EndWord(end), new Refusal("target_not_found", LeadPoppedWords, "$.args.target"));
         if (LookHook != null && IsInstanceValid(LookHook)) LookHook.HideBubble(bubble.Id);

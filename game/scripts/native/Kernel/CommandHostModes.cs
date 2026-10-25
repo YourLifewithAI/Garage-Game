@@ -279,7 +279,8 @@ public partial class CommandHost
             }
         }
         var rest = Math.Max(0, seconds - Positive(exertion.SprintS));
-        var heal = _damageRestS >= _vitalsRules.HealAfterUnharmedS && vitals.Health < vitals.MaxHealth;
+        // The unharmed wait is the camp's while the player rests at one (decision 111: 2 s in v5), heal_after_unharmed_s elsewhere.
+        var heal = vitals.Health < vitals.MaxHealth && _damageRestS >= HealAfterUnharmedHereS();
         if (safelyGrounded && (vitals.Stamina < vitals.MaxStamina || heal))
         {
             // In quarters the pack says where hearts heal and how fast (HealQuarterEveryHereS): at a camp its camp pace, elsewhere its

@@ -48,10 +48,10 @@ public partial class CommandHostTest
     {
         var v5 = IslandRules.Load("storybook_wild", 5);
         var traits = v5.Traits!;
-        Check(traits.Hearts == new HeartsRules(5, 5, 30, 2.5, 10, HealOutsideCamp: false, CampHealQuarterEveryS: 1, HealWhileClosed: false) && traits.Harm == new HarmRules(1, null) &&
+        Check(traits.Hearts == new HeartsRules(5, 5, 30, 2.5, 10, HealOutsideCamp: false, CampHealQuarterEveryS: 1, HealWhileClosed: false, CampHealAfterUnharmedS: 2) && traits.Harm == new HarmRules(1, null) &&
               traits.Stamina == new StaminaRules(0.4, 0.4, 10, 5, 0.02, 0.1, 0.02, 0.04, 1, 1.5, 0) &&
               traits.Pips == new PipsRules(8, 5, 40, 5, 2, 15, 0.5) && traits.Wallet == new WalletRules(0, 0, 0, 0),
-            "v5's traits: 5 hearts of 5 health a quarter to 30, healing only at a camp, a quarter a second there after 10 s unharmed, and none while the game is closed (decisions 84, 91 and 93; 2.5 s a quarter elsewhere only for a pack that heals there), fire a quarter a second and no fall cap, the bar 0.4 m in ten bands of 0.4 m, running and deep water 0.02 m/s, diving 0.04 m/s, the refill 0.1 m/s, no running from empty until the first bar is full, a metre of bar buying 1.5 m of climb and hanging still free (decisions 64 and 65), 8 pips to 40, an empty wallet (decision 26)");
+            "v5's traits: 5 hearts of 5 health a quarter to 30, healing only at a camp, a quarter a second there after 2 s unharmed (10 s elsewhere), and none while the game is closed (decisions 84, 91, 93 and 111; 2.5 s a quarter elsewhere only for a pack that heals there), fire a quarter a second and no fall cap, the bar 0.4 m in ten bands of 0.4 m, running and deep water 0.02 m/s, diving 0.04 m/s, the refill 0.1 m/s, no running from empty until the first bar is full, a metre of bar buying 1.5 m of climb and hanging still free (decisions 64 and 65), 8 pips to 40, an empty wallet (decision 26)");
         var prices = v5.Cost!.Prices;
         Check(prices.Count == 11 && prices["glow"] is { Ordered: 2, OwnIdea: 1 } && prices["grow"] is { Ordered: 4, OwnIdea: 2 } && prices["fire"] is { Ordered: 2, OwnIdea: 1 } &&
               prices["bubble_carry"] is { Ordered: 4, OwnIdea: 2 } && prices["bubble_boat"] is { Ordered: 4, OwnIdea: 2 } && prices["bubble_lift"] is { Ordered: 6, OwnIdea: 3 } &&
@@ -79,6 +79,9 @@ public partial class CommandHostTest
             ("healing outside a camp that is no true or false", V5("\"heal_outside_camp\": false", "\"heal_outside_camp\": \"no\"")),
             ("a camp's heal of no seconds", V5("\"camp_heal_quarter_every_s\": 1", "\"camp_heal_quarter_every_s\": 0")),
             ("a camp's heal past ten minutes", V5("\"camp_heal_quarter_every_s\": 1", "\"camp_heal_quarter_every_s\": 601")),
+            ("a camp's wait below no seconds", V5("\"camp_heal_after_unharmed_s\": 2", "\"camp_heal_after_unharmed_s\": -1")),
+            ("a camp's wait past ten minutes", V5("\"camp_heal_after_unharmed_s\": 2", "\"camp_heal_after_unharmed_s\": 601")),
+            ("a camp's wait that is no number", V5("\"camp_heal_after_unharmed_s\": 2", "\"camp_heal_after_unharmed_s\": \"soon\"")),
             ("healing while closed that is no true or false", V5("\"heal_while_closed\": false", "\"heal_while_closed\": 0")),
             ("an unknown block", V5("\"extensions\": {}", "\"extensions\": {}, \"economy\": {}")),
             ("a missing required part", V5("\"running_m_per_s\": 0.02, ", "")),
@@ -98,17 +101,19 @@ public partial class CommandHostTest
               !Refused(V5("\"deep_water_m_per_s\": 0.02, \"dive_m_per_s\": 0.04,", "")),
             "and loads the optional numbers: a fall cap, and a pack without the deep-water and dive drains");
         // Where hearts heal is data (decisions 84, 91 and 93); a pack that leaves it out heals as before them, and so does v4.
-        var unsaid = IslandRules.Parse(V5("\"heal_after_unharmed_s\": 10,\n      \"heal_outside_camp\": false, \"camp_heal_quarter_every_s\": 1, \"heal_while_closed\": false",
+        var unsaid = IslandRules.Parse(V5("\"heal_after_unharmed_s\": 10,\n      \"heal_outside_camp\": false, \"camp_heal_quarter_every_s\": 1, \"camp_heal_after_unharmed_s\": 2, \"heal_while_closed\": false",
             "\"heal_after_unharmed_s\": 10"));
         var shipped = VitalsRules.For(v5, "challenge");
         var before = VitalsRules.For(unsaid, "challenge");
-        Check(unsaid.Traits!.Hearts == new HeartsRules(5, 5, 30, 2.5, 10) && unsaid.Traits.Hearts is { HealOutsideCamp: true, CampHealQuarterEveryS: null, HealWhileClosed: true },
-            "a pack without the three healing fields reads today's: healing outside a camp, the camp's pace unsaid, healing while closed");
-        Check(shipped is { HealsOutsideCamp: false, CampHealQuarterEveryS: 1, HealsWhileClosed: false, HealQuarterEveryS: 2.5, HealAfterUnharmedS: 10 } &&
-              before is { HealsOutsideCamp: true, CampHealQuarterEveryS: 1.25, HealsWhileClosed: true, HealQuarterEveryS: 2.5 } &&
-              VitalsRules.Legacy is { HealsOutsideCamp: true, CampHealQuarterEveryS: 1.25, HealsWhileClosed: true } &&
-              VitalsRules.For(IslandRules.Load("storybook_wild", 4), "challenge") is { HealsOutsideCamp: true, CampHealQuarterEveryS: 1.25, HealsWhileClosed: true },
-            "v5 heals only at a camp, a quarter every second there, and never while closed; without the fields, and under v4 and no pack, hearts heal anywhere, twice as fast at a camp (1.25 s a quarter, decision 62) and while closed, as before");
+        Check(unsaid.Traits!.Hearts == new HeartsRules(5, 5, 30, 2.5, 10) &&
+              unsaid.Traits.Hearts is { HealOutsideCamp: true, CampHealQuarterEveryS: null, HealWhileClosed: true, CampHealAfterUnharmedS: null },
+            "a pack without the four healing fields reads today's: healing outside a camp, the camp's pace and wait unsaid, healing while closed");
+        Check(shipped is { HealsOutsideCamp: false, CampHealQuarterEveryS: 1, HealsWhileClosed: false, HealQuarterEveryS: 2.5, HealAfterUnharmedS: 10, CampHealAfterUnharmedS: 2 } &&
+              before is { HealsOutsideCamp: true, CampHealQuarterEveryS: 1.25, HealsWhileClosed: true, HealQuarterEveryS: 2.5, CampHealAfterUnharmedS: 10 } &&
+              VitalsRules.Legacy is { HealsOutsideCamp: true, CampHealQuarterEveryS: 1.25, HealsWhileClosed: true, CampHealAfterUnharmedS: 10 } &&
+              VitalsRules.For(IslandRules.Load("storybook_wild", 4), "challenge") is { HealsOutsideCamp: true, CampHealQuarterEveryS: 1.25, HealsWhileClosed: true, CampHealAfterUnharmedS: 10 },
+            "v5 heals only at a camp, a quarter every second there 2 s after harm (decision 111), and never while closed; without the fields, and under v4 and no pack, " +
+            "hearts heal anywhere, twice as fast at a camp (1.25 s a quarter, decision 62), 10 s after harm wherever (the camp's wait unsaid is heal_after_unharmed_s) and while closed, as before");
     }
 
     private void TestVitalsArithmetic()

@@ -10,10 +10,11 @@ namespace GarageGame.Native.Kernel;
 /// from a camp at HealQuarterEveryS (HealOutsideCamp, true: anywhere on safe ground); at a camp every CampHealQuarterEveryS (null:
 /// twice the pace, decision 62's CampLaws.CampHeartsFactor); and the time the game was closed caught up at the resting pace
 /// (HealWhileClosed, true). v5 says false, 1 s and false (decisions 84, 91 and 93: only resting at a camp heals, a quarter a second,
-/// and you wake with what you had). Every heal waits HealAfterUnharmedS without harm.
+/// and you wake with what you had). Every heal waits HealAfterUnharmedS without harm, except resting at a camp, which waits
+/// CampHealAfterUnharmedS (null: the same HealAfterUnharmedS, today's; v5 2 s, decision 111, provisional).
 /// </summary>
 public sealed record HeartsRules(double HealthPerQuarter, int StartHearts, int CapHearts, double HealQuarterEveryS, double HealAfterUnharmedS,
-    bool HealOutsideCamp = true, double? CampHealQuarterEveryS = null, bool HealWhileClosed = true);
+    bool HealOutsideCamp = true, double? CampHealQuarterEveryS = null, bool HealWhileClosed = true, double? CampHealAfterUnharmedS = null);
 
 /// <summary>How the world hurts, in quarters (traits.harm). FallCapQuarters null: no cap, today's behaviour.</summary>
 public sealed record HarmRules(double FireQuartersPerS, int? FallCapQuarters);
@@ -208,12 +209,13 @@ public sealed partial class IslandRules
             var where = at + ".hearts";
             Expect(h.ValueKind == JsonValueKind.Object, where + " must be an object.");
             var required = new[] { "health_per_quarter", "start_hearts", "cap_hearts", "heal_quarter_every_s", "heal_after_unharmed_s" };
-            Fields(h, where, required.Concat(new[] { "heal_outside_camp", "camp_heal_quarter_every_s", "heal_while_closed" }).ToArray(), required);
+            Fields(h, where, required.Concat(new[] { "heal_outside_camp", "camp_heal_quarter_every_s", "heal_while_closed", "camp_heal_after_unharmed_s" }).ToArray(), required);
             hearts = new HeartsRules(Num(h, "health_per_quarter", where, 0, 6, exclusiveMin: true), IntIn(h, "start_hearts", where, 1, 30), IntIn(h, "cap_hearts", where, 1, 30),
                 Num(h, "heal_quarter_every_s", where, 0, 600, exclusiveMin: true), Num(h, "heal_after_unharmed_s", where, 0, 600),
                 !h.TryGetProperty("heal_outside_camp", out _) || Bool(h, "heal_outside_camp", where),
                 h.TryGetProperty("camp_heal_quarter_every_s", out _) ? Num(h, "camp_heal_quarter_every_s", where, 0, 600, exclusiveMin: true) : null,
-                !h.TryGetProperty("heal_while_closed", out _) || Bool(h, "heal_while_closed", where));
+                !h.TryGetProperty("heal_while_closed", out _) || Bool(h, "heal_while_closed", where),
+                h.TryGetProperty("camp_heal_after_unharmed_s", out _) ? Num(h, "camp_heal_after_unharmed_s", where, 0, 600) : null);
             Expect(hearts.StartHearts <= hearts.CapHearts, where + ".start_hearts is above cap_hearts.");
         }
         HarmRules? harm = null;

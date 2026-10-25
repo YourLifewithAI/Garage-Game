@@ -148,10 +148,10 @@ DIFFICULTY_NOT_YET = "Difficulties are chosen at the opening menu, which is not 
 BUBBLE_CARRY_RADIUS_M = (0.07, 0.2)
 BUBBLE_BOAT_RADIUS_M = (0.08, 0.3)
 BUBBLE_CARRY_RADIUS_DEFAULT_M = 0.08  # the Bubble's one size, round the 10 cm body (BubbleLaws.CarryRadiusDefaultM)
-# The time the player's Bubbles key names (decision 95: a bubble 8 s, a boat its minute; BubbleLaws.CarryDurationDefaultS and
+# The time the player's Bubbles key names (decision 95: a bubble 8 s; decision 112: a boat 20 s; BubbleLaws.CarryDurationDefaultS and
 # BoatDurationDefaultS), never past the island's duration_max_s (player_bubble).
 BUBBLE_CARRY_DURATION_DEFAULT_S = 8.0
-BUBBLE_BOAT_DURATION_DEFAULT_S = 60.0
+BUBBLE_BOAT_DURATION_DEFAULT_S = 20.0
 BUBBLE_GHOST_LEAD_S = 1.0
 BUBBLE_GHOST_LIFETIME_S = 15.0
 BUBBLE_ENVELOP_REACH_M = 0.05
@@ -2810,7 +2810,7 @@ class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin):
 
     def player_bubble(self, spot: list[float]) -> dict:
         """The player's Bubbles key at a spot (the kernel's PlayerEffect): effect.start of the island's Bubbles, the pack's radius, and
-        the Bubble's own time, 8 s (decision 95; the box world has no water, so never the boat's minute), within duration_max_s."""
+        the Bubble's own time, 8 s (decision 95; the box world has no water, so never the boat's 20 s), within duration_max_s."""
         with self._lock:
             ability = self._bubbles_ability()
             capability = ability.capability if ability is not None else "bubbles"

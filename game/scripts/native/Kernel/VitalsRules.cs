@@ -73,8 +73,14 @@ public sealed class VitalsRules
     public int CampPips { get; }
     /// <summary>Healing lands one quarter every this many seconds away from a camp (today: 2 health a second) ...</summary>
     public double HealQuarterEveryS => Hearts?.HealQuarterEveryS ?? 2.5;
-    /// <summary>... once this many seconds have passed without harm, on safe ground, at a camp or (HealsOutsideCamp) anywhere.</summary>
+    /// <summary>... once this many seconds have passed without harm, on safe ground, at a camp or (HealsOutsideCamp) anywhere ...</summary>
     public double HealAfterUnharmedS => Hearts?.HealAfterUnharmedS ?? 10;
+    /// <summary>
+    /// ... except while resting at a camp, which waits this long instead: the pack's camp_heal_after_unharmed_s, 2 s in v5 (decision 111,
+    /// provisional: camp healing starts sooner than 10 s after harm); without it HealAfterUnharmedS, today's rule. Nothing else reads it:
+    /// away from a camp, standing at one, and the time the game was closed keep HealAfterUnharmedS.
+    /// </summary>
+    public double CampHealAfterUnharmedS => Hearts?.CampHealAfterUnharmedS ?? HealAfterUnharmedS;
     /// <summary>
     /// Whether hearts heal away from a camp: the pack's heal_outside_camp, true without it (today's: anywhere on safe ground); false
     /// in v5 (decision 84: hearts heal by resting at a camp, and later by food).

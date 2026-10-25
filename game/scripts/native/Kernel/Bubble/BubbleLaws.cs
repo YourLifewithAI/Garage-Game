@@ -25,8 +25,11 @@ public static class BubbleLaws
 
     /// <summary>A bubble lasts 8 seconds (decision 95, the founder's answer of 17 October; it was 20): a carry, or a bubble to walk into.</summary>
     public const float CarryDurationDefaultS = 8f;
-    /// <summary>The boat keeps its own minute.</summary>
-    public const float BoatDurationDefaultS = 60f;
+    /// <summary>
+    /// A boat lasts 20 seconds (decision 112, the founder's ruling of 25 October: the 60 s default had crept in), the Bubbles key's on
+    /// water and the nature.cast controls' bubble_boat alike. A cast that names its own time is still bounded by the pack's duration_max_s.
+    /// </summary>
+    public const float BoatDurationDefaultS = 20f;
 
     // ---- motion: a bubble moves only when the Gubble leads it (decision 57), and floats up only on a lift (58) ----
 

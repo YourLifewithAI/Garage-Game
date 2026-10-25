@@ -60,7 +60,7 @@ public partial class NatureTest : Node3D
             await TestGrowExpertise();
             // Fire's behaviours (NatureTest.FireKinds.cs): Fireline, Snuff, Will-o'-wisp, the place deciding.
             await TestFireKinds();
-            // The Bubble's time (NatureTest.BubbleTime.cs, decision 95): 8 s, the boat's minute.
+            // The Bubble's time (NatureTest.BubbleTime.cs, decisions 95 and 112): 8 s, a boat 20 s.
             await TestBubbleTime();
             await FreeWorld();
             OS.RemoveLogger(_errors);

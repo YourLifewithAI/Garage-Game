@@ -710,7 +710,7 @@
           "maximum": 600
         },
         "heal_after_unharmed_s": {
-          "description": "... once this many seconds have passed without harm (10), and only on safe ground: today's rule. Every heal waits for it, a camp's included.",
+          "description": "... once this many seconds have passed without harm (10), and only on safe ground: today's rule. Every heal waits for it, a camp's included, unless camp_heal_after_unharmed_s names the camp's own wait.",
           "type": "number",
           "minimum": 0,
           "maximum": 600
@@ -720,9 +720,15 @@
           "type": "boolean"
         },
         "camp_heal_quarter_every_s": {
-          "description": "At a camp, healing lands one quarter every this many seconds (after the same unharmed wait): 1 under decision 91 (storybook_wild v5: a quarter a second, five hearts in 20 s). Absent: half of heal_quarter_every_s, decision 62's camp twice as fast (today's).",
+          "description": "At a camp, healing lands one quarter every this many seconds (after the unharmed wait): 1 under decision 91 (storybook_wild v5: a quarter a second, five hearts in 20 s). Absent: half of heal_quarter_every_s, decision 62's camp twice as fast (today's).",
           "type": "number",
           "exclusiveMinimum": 0,
+          "maximum": 600
+        },
+        "camp_heal_after_unharmed_s": {
+          "description": "Resting at a camp (sat by a lit campfire), healing starts once this many seconds have passed without harm, in place of heal_after_unharmed_s: 2 under decision 111 (storybook_wild v5, provisional: camp healing starts sooner than 10 s after harm). Only the camp's resting heal reads it: away from a camp, standing at one and the time the game was closed keep heal_after_unharmed_s. Absent: heal_after_unharmed_s, today's rule.",
+          "type": "number",
+          "minimum": 0,
           "maximum": 600
         },
         "heal_while_closed": {

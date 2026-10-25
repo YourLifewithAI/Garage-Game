@@ -249,7 +249,7 @@ public partial class NatureTest
         Check(sat.Ok && _host.PlayerResting && _host.HealQuarterEveryHereS() == 1, "(the player sits down by the fire: a quarter a second there) " + sat.Words);
         _host.ApplyPlayerDamage(_host.Vitals.Health - 5, PlayerDamageSource.Fall);
         var low = _host.Vitals.Health;
-        _player.VitalsTick!(9.9f, true);
+        _player.VitalsTick!(1.9f, true);
         _player.VitalsTick!(0.2f, true);
         var waited = _host.Vitals.Health;
         for (var i = 0; i < 4; i++) _player.VitalsTick!(1f, true);
@@ -265,7 +265,7 @@ public partial class NatureTest
         var again = _host.PlayerRest();
         for (var i = 0; i < 15; i++) _player.VitalsTick!(1f, true);
         Check(again.Ok && low == 5 && waited == 5 && fourSeconds == 25 && stoodUp == 25 && leftCamp == 25 && _host.Vitals.Health == 100,
-            $"resting at a camp heals nothing for 10 s after harm, then a quarter every second (decision 91: five hearts in 20 s; 19 quarters in 19 s here); standing up or " +
+            $"resting at a camp heals nothing for 2 s after harm (decision 111, not 10), then a quarter every second (decision 91: five hearts in 20 s; 19 quarters in 19 s here); standing up or " +
             $"walking away stops it ({low}, {waited}, {fourSeconds}, {stoodUp}, {leftCamp}, {_host.Vitals.Health})");
         _host.ApplyPlayerDamage(PlayerVitals.ContractMaxHealth, PlayerDamageSource.Fall);
         var status = Send(Query("player.status", new JsonObject()), Companion)["data"];
@@ -302,11 +302,11 @@ public partial class NatureTest
             $"with Big heart at full rank the maximum is 120 and the same 1.5 m fall takes 16 quarters of 6, not 19 ({_host.Vitals.Health} left)");
     }
 
-    /// <summary>v5 without its three healing fields (decisions 84, 91 and 93): hearts heal as every pack before them did.</summary>
+    /// <summary>v5 without its four healing fields (decisions 84, 91, 93 and 111): hearts heal as every pack before them did.</summary>
     private static void HealsAsBefore(JsonObject pack)
     {
         var hearts = pack["traits"]!["hearts"]!.AsObject();
-        foreach (var name in new[] { "heal_outside_camp", "camp_heal_quarter_every_s", "heal_while_closed" }) hearts.Remove(name);
+        foreach (var name in new[] { "heal_outside_camp", "camp_heal_quarter_every_s", "heal_while_closed", "camp_heal_after_unharmed_s" }) hearts.Remove(name);
     }
 
     private async Task TestVitalsTimeAway()
