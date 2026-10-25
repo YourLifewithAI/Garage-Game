@@ -217,20 +217,25 @@ public partial class BubbleTest
     /// Decision 88 (replacing 43's and 60's slow drift): out of a bubble is a fall. Each way a carry pops high in the air (the dive key, X,
     /// its timer, the Gubble's own stop, the Gubble's new goal, the Gubble's recast) leaves the player falling from where they are, with the
     /// landing's fall damage as any fall in Challenge (decision 24); the fall that hurts after the Gubble's own pop is a consequence fact
-    /// that costs Trust (decision 96), the timer's and the player's own pops never are; in Creative nothing hurts.
+    /// that costs Trust (decision 96), the timer's and the player's own pops never are, and neither is a Gubble recast the player said
+    /// yes to (decision 115: on an island whose Bubbles wait for the player's yes, the player's pop); in Creative nothing hurts.
     /// </summary>
     private async Task APopInTheAirIsAFall()
     {
         var results = new System.Collections.Generic.List<string>();
         var safe = BodyKnacks.None.SafeLandingSpeedMps;
         // Each in a fresh Challenge world (its full pool and Trust at base).
-        foreach (var how in new[] { "dive", "x", "timer", "gubble-stop", "gubble-goal", "gubble-recast" })
+        foreach (var how in new[] { "dive", "x", "timer", "gubble-stop", "gubble-goal", "gubble-recast", "approved-recast" })
         {
             await NewWorld("security-fall-" + how, mode: "challenge");
+            // Decision 115: Bubbles that wait for the player's yes, the carry and the recast each approved by the player's click.
+            var keyed = how == "approved-recast";
+            if (keyed) KeyedBubbles();
             var start = _player.GlobalPosition;
             var health = Health;
             var trust = _host.TrustCount;
             var lift = TheBubbleOnThePlayer(Companion, duration: how == "timer" ? 6 : 60);
+            if (keyed) lift = Clicked(lift);
             // A spot above the 1.2 m rise: the lead is still rising when the bubble pops (a new goal pops only a bubble that is led).
             var led = Lead(Companion, BubbleOf(lift), start + new Vector3(0.05f, 1.6f, 0));
             await Frames(60 * 6 - 20);
@@ -240,6 +245,7 @@ public partial class BubbleTest
             if (how == "gubble-stop") Send(Command(NextId("stop"), "goal.stop", new JsonObject()), Companion);
             if (how == "gubble-goal") Send(Command(NextId("follow"), "goal.set", new JsonObject { ["actor"] = CommandHost.CompanionAvatarId, ["goal"] = "follow" }), Companion);
             if (how == "gubble-recast") CastTheBubble(Companion, start + new Vector3(0.25f, 0, 0.35f));
+            if (keyed) Clicked(CastTheBubble(Companion, start + new Vector3(0.25f, 0, 0.35f)));
             await Frames(how == "timer" ? 30 : 4);
             var ride = _player.Ride;
             var falling = !_player.IsOnFloor() && _player.Velocity.Y < -0.1f;
@@ -253,7 +259,7 @@ public partial class BubbleTest
                 $"a pop in the air is a fall ({how}): {results.Last()}");
         }
         var ends = results.Select(r => r[(r.LastIndexOf(' ') + 1)..]).ToArray();
-        Check(ends.SequenceEqual(new[] { "popped_by_player", "popped_by_player", "timed_out", "popped", "popped", "popped" }),
+        Check(ends.SequenceEqual(new[] { "popped_by_player", "popped_by_player", "timed_out", "popped", "popped", "popped", "popped_by_player" }),
             "each pop's receipt says how it ended: " + string.Join("; ", results));
         // In Creative nothing hurts, and nothing is the Gubble's to answer for.
         await NewWorld("security-fall-creative", mode: "creative");

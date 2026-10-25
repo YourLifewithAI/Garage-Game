@@ -206,7 +206,7 @@ public partial class CommandHost
         var price = GuardEnergy(BubblePriceKey(kind, target), principal);
         if (ghostToken != null) DropGhost(ghostToken);
         var bubble = FormBubble(kind == BubbleKind.Boat ? "bubble_boat" : "bubble_carry", kind, "effect.start", principal, actionId, fingerprint, target, spot, radius,
-            duration, surface);
+            duration, surface, approvedBy);
         ChargeEnergy(price);
         data["effect"] = bubble.Id;
         data["bubble"] = bubble.Id;
@@ -340,7 +340,7 @@ public partial class CommandHost
         // The guard at commit (CommandHostEnergy): the price by principal, after every check; charged once the bubble exists.
         var price = GuardEnergy(BubblePriceKey(kind, target), principal);
         if (previewId != null) DropGhost(previewId);
-        var bubble = FormBubble(capability, kind, "nature.cast", principal, action, fingerprint, target, center, radius, duration, surface);
+        var bubble = FormBubble(capability, kind, "nature.cast", principal, action, fingerprint, target, center, radius, duration, surface, approvedBy);
         ChargeEnergy(price);
         var result = BubbleReceipt(bubble, center, duration, keyed, approvedBy);
         if (kind == BubbleKind.Boat) Learned("bubble_boat");
@@ -357,13 +357,15 @@ public partial class CommandHost
 
     /// <summary>
     /// A new bubble: round the player (a carry on them), on the water (a boat), or resting at its point waiting for the walk-in. One at
-    /// a time: whatever bubble was there pops first (decision 59), the body it held falling from there (decision 88); a recast of the
-    /// Gubble's is its own pop (decision 96).
+    /// a time: whatever bubble was there pops first (decision 59), the body it held falling from there (decision 88). How that pop is
+    /// classed (RecastEnd): a recast of the Gubble's own is its own pop (decision 96), one the player said yes to is the player's
+    /// (decision 115), and the player's own recast is the world's, as before.
     /// </summary>
     private Bubble FormBubble(string capability, BubbleKind kind, string op, string principal, string action, string fingerprint, string? target, Vector3 center,
-        float radius, float duration, float? surface)
+        float radius, float duration, float? surface, string? approvedBy)
     {
-        for (var i = _bubbles.Count - 1; i >= 0; i--) EndBubble(_bubbles[i], principal == CompanionPrincipal ? BubbleEnd.PoppedByGubble : BubbleEnd.Popped);
+        var recast = RecastEnd(principal, approvedBy);
+        for (var i = _bubbles.Count - 1; i >= 0; i--) EndBubble(_bubbles[i], recast);
         // A carry round the player holds them from its cast: a fall still pending from an earlier pop has ended in this bubble.
         if (target != null) ForgetPopFall();
         var body = Player!;
@@ -384,6 +386,15 @@ public partial class CommandHost
         if (LookHook != null && IsInstanceValid(LookHook)) LookHook.ShowBubble(bubble.Id, at, radius, kind == BubbleKind.Boat, ghost: false);
         return bubble;
     }
+
+    /// <summary>
+    /// How a recast's pop of the bubble already there is classed (decisions 96, 110 and 115): the Gubble's recast the player approved
+    /// (approvedBy, the player's click on the held cast: a keyed_yes island's Bubbles) is the player's pop, PoppedByPlayer, so no fall
+    /// after it is the Gubble's consequence; the Gubble's own, unapproved, is PoppedByGubble; any other principal's (the player's own
+    /// recast) is the world's, Popped.
+    /// </summary>
+    private static BubbleEnd RecastEnd(string principal, string? approvedBy) =>
+        principal != CompanionPrincipal ? BubbleEnd.Popped : approvedBy == PlayerPrincipal ? BubbleEnd.PoppedByPlayer : BubbleEnd.PoppedByGubble;
 
     /// <summary>
     /// A committed nature.cast's receipt: transient (nothing is saved), its data the bubble's id, the cast, when its time runs out and

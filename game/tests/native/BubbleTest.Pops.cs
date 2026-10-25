@@ -17,12 +17,17 @@ namespace GarageGame.Tests;
 /// the fall pending; the player's (the dive key, X, effect.stop, wish.stop, the runner closed) is PoppedByPlayer; the world's (the
 /// timer, a rules change, the body put down elsewhere or gone, the room unloading, the player's new order or recast, the wish's action
 /// cap) is Popped or TimedOut. Neither of the last two ever leaves a fall pending. A lead blocked by a ceiling, and the Gubble's new lead
-/// of the same bubble, pop nothing.
+/// of the same bubble, pop nothing. Decision 115 (P-Nature-2, item 3): on an island whose Bubbles wait for the player's yes (keyed_yes),
+/// a Gubble recast the player said yes to (the approval card's Approve) is the player's pop, PoppedByPlayer with nothing pending, by
+/// effect.start or nature.cast, led or not; one the player turned down pops nothing; the Gubble's own recast, unapproved, stays its own.
 /// </summary>
 public partial class BubbleTest
 {
-    /// <summary>One way a bubble ends: led first or not, inside a wish or not, the end and receipt word it must get (null: no pop at all).</summary>
-    private sealed record PopPath(string Name, BubbleEnd? End, string? Word, bool Led, bool Wish, Func<PopScene, Task> Pop);
+    /// <summary>
+    /// One way a bubble ends: led first or not, inside a wish or not, the end and receipt word it must get (null: no pop at all), and
+    /// whether the island's Bubbles wait for the player's yes (Keyed: the carry is approved first, as every Gubble Bubble then is).
+    /// </summary>
+    private sealed record PopPath(string Name, BubbleEnd? End, string? Word, bool Led, bool Wish, Func<PopScene, Task> Pop, bool Keyed = false);
 
     /// <summary>What a path's pop acts on: the carry's cast, its lead's goal.set, and the wish it runs under.</summary>
     private sealed record PopScene(JsonObject Carry, JsonObject? Lead, string WishId, string Prefix);
@@ -46,6 +51,19 @@ public partial class BubbleTest
     private JsonObject GubbleGoal(string principal, string goal) =>
         Send(Command(NextId("goal"), "goal.set", new JsonObject { ["actor"] = CommandHost.CompanionAvatarId, ["goal"] = goal }), principal);
 
+    /// <summary>v5 with its Bubbles of tier keyed_yes: every Gubble Bubble, effect.start or nature.cast, waits for the player's yes.</summary>
+    private void KeyedBubbles()
+    {
+        var pack = JsonNode.Parse(System.IO.File.ReadAllText(ProjectSettings.GlobalizePath(IslandRules.PathFor("storybook_wild", 5))))!.AsObject();
+        foreach (var ability in pack["abilities"]!.AsArray())
+            if (ability?["capability"]?.GetValue<string>() == "bubbles") ability["tier"] = "keyed_yes";
+        _host.UseRules(IslandRules.Parse(System.Text.Encoding.UTF8.GetBytes(pack.ToJsonString())));
+    }
+
+    /// <summary>A held command answered by the player's click (Approve, or Deny when no): the click's result, or the answer itself when nothing was held.</summary>
+    private JsonObject Clicked(JsonObject held, bool yes = true) =>
+        held["approval_needed"]?["request_id"]?.GetValue<string>() is { } request ? (yes ? _host.Approve(request) : _host.Deny(request)) : held;
+
     private async Task TestEveryPopIsClassified()
     {
         var paths = new List<PopPath>
@@ -60,6 +78,15 @@ public partial class BubbleTest
             new("a new goal of the Gubble's own", BubbleEnd.PoppedByGubble, "popped", true, false, _ => { GubbleGoal(Companion, "follow"); return Task.CompletedTask; }),
             new("the Gubble's recast", BubbleEnd.PoppedByGubble, "popped", false, false,
                 _ => { CastTheBubble(Companion, _player.GlobalPosition + new Vector3(0.35f, 0, 0.1f)); return Task.CompletedTask; }),
+            // Decision 115: a recast of the Gubble's the player said yes to is the player's pop (nothing pending); turned down, nothing pops.
+            new("the Gubble's recast the player said yes to", BubbleEnd.PoppedByPlayer, "popped_by_player", false, false,
+                _ => { Clicked(CastTheBubble(Companion, _player.GlobalPosition + new Vector3(0.35f, 0, 0.1f))); return Task.CompletedTask; }, Keyed: true),
+            new("the Gubble's recast the player said yes to, mid-lead", BubbleEnd.PoppedByPlayer, "popped_by_player", true, false,
+                _ => { Clicked(CastTheBubble(Companion, _player.GlobalPosition + new Vector3(0.35f, 0, 0.1f))); return Task.CompletedTask; }, Keyed: true),
+            new("the Gubble's nature.cast recast the player said yes to", BubbleEnd.PoppedByPlayer, "popped_by_player", false, false,
+                _ => { Clicked(AtPoint(Companion, "bubble_carry", _player.GlobalPosition + new Vector3(0.35f, 0, 0.1f))); return Task.CompletedTask; }, Keyed: true),
+            new("the Gubble's recast the player turned down", null, null, false, false,
+                _ => { Clicked(CastTheBubble(Companion, _player.GlobalPosition + new Vector3(0.35f, 0, 0.1f)), yes: false); return Task.CompletedTask; }, Keyed: true),
             new("the Gubble's runner ending its wish (failed)", BubbleEnd.PoppedByGubble, "popped", true, true, s => { RunnerUpdate(s.WishId, "failed"); return Task.CompletedTask; }),
             new("the Gubble's runner ending its wish (cancelled)", BubbleEnd.PoppedByGubble, "popped", true, true, s => { RunnerUpdate(s.WishId, "cancelled"); return Task.CompletedTask; }),
             // The player's own: never the Gubble's consequence.
@@ -120,6 +147,7 @@ public partial class BubbleTest
         foreach (var path in paths)
         {
             await NewWorld("pop-" + new string(path.Name.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant());
+            if (path.Keyed) KeyedBubbles();
             var heard = new List<(BubbleEnd End, bool Pending)>();
             _host.BubbleEndedForTests = (end, pending) => heard.Add((end, pending));
             var wishId = "";
@@ -133,6 +161,8 @@ public partial class BubbleTest
             }
             var feet = _player.GlobalPosition;
             var carry = TheBubbleOnThePlayer(Companion, duration: 20);
+            // On a keyed island the Gubble's carry itself waited for the player's yes: approved here, it holds them as any other.
+            if (path.Keyed) carry = Clicked(carry);
             JsonObject? led = null;
             if (path.Led)
                 led = Send(Command(path.Wish ? prefix + "0" : NextId("lead"), "goal.set", new JsonObject
