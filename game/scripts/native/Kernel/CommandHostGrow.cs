@@ -136,11 +136,16 @@ public partial class CommandHost
     /// (CastIvy); on burnt ground holding a plant that seeds, once seedless growth is open, that plant replanted (CastReplant).
     /// Otherwise every plant rooted in the circle that is not at its cap and not a seedling still growing grows the pack's share of its
     /// natural size (a quarter in storybook_wild v5), up to its cap; while it rains, twice that (Rain garden); and the ash in the circle
-    /// greens at once (Green ash). Where that finds nothing to grow or green, the place's unlock is tried: sprouts on the free fertile
-    /// spots (CastSprouts), else the wall's or the burnt ground's lock, each refused permission_denied before its count. A cast where
-    /// nothing at all can grow (no plant, all full size or still growing, the island's grown plants at their most) is refused before the
-    /// price, with the reason. It takes no ground cell, so its cell counts are 0; grown_plants says how many grew. One room revision,
-    /// which room.undo takes back in Creative. What it showed teaches Grow's expertise, once per team (RecordGrowCast).
+    /// greens at once (Green ash). A plant grows first and ripens only at its cap (decision 127, as the founder refined it): a plant
+    /// already at its cap when the cast comes ripens the food still unripe on it (picked and not grown back: CommandHostFood's RipenFood
+    /// hook), and that alone is enough for the cast, which commits at Grow's price; a plant the cast grows keeps its food as it was, even
+    /// one the cast brings to its cap. Where that finds nothing to grow, green or ripen, the place's unlock is tried: sprouts on the free
+    /// fertile spots (CastSprouts), else the wall's or the burnt ground's lock, each refused permission_denied before its count. A cast
+    /// where nothing at all can grow or ripen (no plant, all full size with their food ripe or still growing, the island's grown plants at
+    /// their most) is refused before the price, with the reason. It takes no ground cell, so its cell counts are 0; grown_plants says how
+    /// many grew (0 for a cast that only ripened or greened). One room revision, which room.undo takes back in Creative (a ripening is
+    /// not undone: the food's record keeps no undo step, as a pick's does not). What it showed teaches Grow's expertise, once per team
+    /// (RecordGrowCast).
     /// </summary>
     private JsonObject CastGrow(JsonElement root, IslandAbility ability, Cast cast, string principal, string action, string fingerprint, bool preview, string? approvedBy)
     {
@@ -163,6 +168,8 @@ public partial class CommandHost
         var burnt = BurntToReplant(cast.Center, cast.Radius);
         if (burnt.Count > 0 && SeedlessUnlocked) return CastReplant(root, ability, cast, burnt[0], ash, principal, action, fingerprint, preview, approvedBy);
         var growing = rooted.Where(p => FactorOf(p.Id) < PlantLaws.Cap(p.Set, p.Row) - 1e-4f).ToList();
+        // Decision 127 (refined): the plants already at their cap ripen the food still unripe on them; a plant below its cap only grows.
+        var ripening = AtCapWithUnripeFood(rooted, growing);
         // The island keeps at most MaxGrownPlants grown: a plant already grown grows on, a natural one only while there is room.
         var room = NatureState.MaxGrownPlants - Nature.GrownPlants;
         var kept = new List<PlantRef>();
@@ -171,9 +178,9 @@ public partial class CommandHost
             if (Nature.Plants.TryGetValue(plant.Id, out var record) && record.Grown) kept.Add(plant);
             else if (room > 0) { kept.Add(plant); room--; }
         }
-        if (kept.Count == 0 && ash.Count == 0)
+        if (kept.Count == 0 && ash.Count == 0 && ripening.Count == 0)
         {
-            // Nothing of the island's own to grow or green here: the place's unlock, or its lock (decisions 104 to 107).
+            // Nothing of the island's own to grow, green or ripen here: the place's unlock, or its lock (decisions 104 to 107).
             if (wall != null) throw new Refusal("permission_denied", IvyLocked, "$.args.center_m");
             if (burnt.Count > 0) throw new Refusal("permission_denied", ReplantLocked, "$.args.center_m");
             // Sprouts take bare soil only: a circle with a plant standing in it is the plant's (decision 104).
@@ -212,8 +219,8 @@ public partial class CommandHost
             record.Factor = Math.Min(cap, record.Factor + share);
             tall |= record.Factor >= cap - 1e-4f;
         }
-        // P-Food: a plant this cast grew ripens its food at once (CommandHostFood).
-        RipenFood(candidate, kept.Select(p => p.Id));
+        // P-Food's hook (CommandHostFood), on the plants that were at their cap: they ripen; the plants this cast grew do not (decision 127).
+        RipenFood(candidate, ripening);
         // Green ash (decision 75): the ash in the circle greens at once; a burnt plant comes back only by replanting (CastReplant).
         GreenAsh(candidate, step, ash);
         data.Remove("cells");
@@ -231,6 +238,17 @@ public partial class CommandHost
         if (raining && kept.Count > 0) learned.Add(ExpertiseLists.RainGarden);
         RecordGrowCast(learned);
         return result;
+    }
+
+    /// <summary>
+    /// The plants of a cast's circle a Grow ripens (decision 127, as the founder refined it on 25 October): rooted there, no seedling,
+    /// already at their cap (not among those that can still grow), with food still unripe on them (picked and not grown back: the food's
+    /// own reader, PickedNow). Their ids, in the circle's order.
+    /// </summary>
+    private List<string> AtCapWithUnripeFood(List<PlantRef> rooted, List<PlantRef> growing)
+    {
+        var below = growing.Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
+        return rooted.Where(p => !below.Contains(p.Id) && PickedNow(p.Id) != 0).Select(p => p.Id).ToList();
     }
 
     /// <summary>The ground cells in a cast's circle (and RootHeightToleranceM of its height) that hold ash: burnt ground for Green ash.</summary>

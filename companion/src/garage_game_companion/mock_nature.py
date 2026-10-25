@@ -1133,7 +1133,8 @@ class NatureMixin:
         no water and no faces, so never a waterpad nor ivy; on burnt ground the nearest burnt plant that seeds replanted, once open;
         else every plant rooted in the circle that is not at its cap and no seedling still growing grows the pack's share of its natural
         size (twice while it rains), the ash there greens; where that finds nothing, sprouts on bare fertile ground, once open; each
-        lock and every other "nothing to grow" refused before the price, in the kernel's order and words."""
+        lock and every other "nothing to grow" refused before the price, in the kernel's order and words. The box world's plants bear
+        no food, so never the kernel's cast that only ripens a plant at its cap (decision 127)."""
         center, radius = cast["center"], cast["radius"]
         if "end_m" in message["args"]:
             return self._cast_bridge(principal, message, apply, new_revision, ability, cast, preview,
