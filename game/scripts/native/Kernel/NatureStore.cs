@@ -32,6 +32,12 @@ namespace GarageGame.Native.Kernel;
 ///   that grew or burnt one remembers them all as they were before it (an empty list for none).
 /// - Cells resting far from both avatars keep the time they have not been simulated yet ("rest": 16-byte records of x, z
 ///   and the seconds as a float64, sorted by (x, z)), so a reload catches them up as the running game would have.
+/// - Grow's unlocks (decisions 104 to 107), each absent while there is none and remembered by an undo step that changed it (an empty
+///   list for none), in the order grown: "sprouts" (each the copy it copies, its root, when it was sown on the island clock in whole
+///   seconds of UTC and, while it burns, its burn; at most NatureState.MaxSprouts), "bridges" (each its id, bridge:n, its lips at the
+///   deck's height, the void's span along it and its burn; at most NatureState.MaxBridges) and "ivy" (each its id, ivy:n, its base on
+///   the face, the face's normal, the ledge it reaches if any and its burn; at most NatureState.MaxIvy). A replanted plant keeps when
+///   it was sown ("sown_s", no factor: a seedling's size is its phase on the island clock, never saved).
 /// </summary>
 public static class NatureBlock
 {
@@ -85,6 +91,9 @@ public static class NatureBlock
             });
             if (step.Plants.Count > 0) undo[^1]!["plants"] = Plants(step.Plants);
             if (step.Waterpads != null) undo[^1]!["waterpads"] = Waterpads(step.Waterpads);
+            if (step.Sprouts != null) undo[^1]!["sprouts"] = Sprouts(step.Sprouts);
+            if (step.Bridges != null) undo[^1]!["bridges"] = Bridges(step.Bridges);
+            if (step.Ivy != null) undo[^1]!["ivy"] = Ivy(step.Ivy);
         }
         var block = new JsonObject
         {
@@ -105,6 +114,9 @@ public static class NatureBlock
         }
         if (state.Plants.Count > 0) block["plants"] = Plants(state.Plants.ToDictionary(p => p.Key, p => (NaturePlant?)p.Value, StringComparer.Ordinal));
         if (state.Waterpads.Count > 0) block["waterpads"] = Waterpads(state.Waterpads);
+        if (state.Sprouts.Count > 0) block["sprouts"] = Sprouts(state.Sprouts);
+        if (state.Bridges.Count > 0) block["bridges"] = Bridges(state.Bridges);
+        if (state.Ivy.Count > 0) block["ivy"] = Ivy(state.Ivy);
         if (state.UndoneAt >= 0) block["undone"] = new JsonObject { ["at"] = state.UndoneAt, ["state_of"] = state.UndoneTo };
         // The Fractals picked up on this island (item.pickup), sorted; absent while none is (every earlier block reads as none).
         if (state.FractalsPicked.Count > 0)
@@ -135,14 +147,66 @@ public static class NatureBlock
             var saved = new JsonObject();
             if (!plant.Burnt && plant.Factor > 1) saved["factor"] = KernelJson.Num(plant.Factor);
             if (plant.Burn > 0) saved["burn"] = KernelJson.Num(Math.Min(1, plant.Burn));
+            if (plant.SownS is { } sown && !plant.Burnt) saved["sown_s"] = sown;
             map[id] = saved;
         }
         return map;
     }
 
     private static Dictionary<string, NaturePlant?> ReadPlants(JsonObject map) => map.ToDictionary(p => p.Key, p => p.Value is JsonObject saved
-        ? new NaturePlant { Id = p.Key, Factor = saved["factor"] is { } factor ? Float(factor) : 1, Burn = saved["burn"] is { } burn ? Float(burn) : 0 }
+        ? new NaturePlant
+        {
+            Id = p.Key, Factor = saved["factor"] is { } factor ? Float(factor) : saved.ContainsKey("sown_s") ? GrowKindLaws.SeedlingStart : 1,
+            Burn = saved["burn"] is { } burn ? Float(burn) : 0, SownS = saved["sown_s"] is { } sown ? Long(sown) : null,
+        }
         : null, StringComparer.Ordinal);
+
+    /// <summary>Sprouts in the order grown: the copy each copies, its root, when it was sown and, while it burns, its burn.</summary>
+    private static JsonArray Sprouts(IEnumerable<NatureSprout> sprouts) => new(sprouts.Select(sprout =>
+    {
+        var saved = new JsonObject { ["copy"] = sprout.Template, ["position_m"] = KernelJson.Vector(sprout.PositionM), ["sown_s"] = sprout.SownS };
+        if (sprout.Burn > 0) saved["burn"] = KernelJson.Num(Math.Min(1, sprout.Burn));
+        return (JsonNode?)saved;
+    }).ToArray());
+
+    private static List<NatureSprout> ReadSprouts(JsonArray sprouts) => sprouts.Select(node => node!.AsObject()).Select(saved => new NatureSprout
+    {
+        Template = saved["copy"]!.GetValue<string>(), PositionM = Vector(saved["position_m"]!), SownS = Long(saved["sown_s"]),
+        Burn = saved["burn"] is { } burn ? Float(burn) : 0,
+    }).ToList();
+
+    /// <summary>Bridges in the order grown: each its id, its lips, the void's span along it and, while it burns, its burn.</summary>
+    private static JsonArray Bridges(IEnumerable<NatureBridge> bridges) => new(bridges.Select(bridge =>
+    {
+        var saved = new JsonObject
+        {
+            ["id"] = bridge.Id, ["from_m"] = KernelJson.Vector(bridge.FromM), ["to_m"] = KernelJson.Vector(bridge.ToM),
+            ["span_m"] = new JsonArray(KernelJson.Num(bridge.SpanFromM), KernelJson.Num(bridge.SpanToM)),
+        };
+        if (bridge.Burn > 0) saved["burn"] = KernelJson.Num(Math.Min(1, bridge.Burn));
+        return (JsonNode?)saved;
+    }).ToArray());
+
+    private static List<NatureBridge> ReadBridges(JsonArray bridges) => bridges.Select(node => node!.AsObject()).Select(saved => new NatureBridge
+    {
+        Id = saved["id"]!.GetValue<string>(), FromM = Vector(saved["from_m"]!), ToM = Vector(saved["to_m"]!),
+        SpanFromM = Float(saved["span_m"]![0]), SpanToM = Float(saved["span_m"]![1]), Burn = saved["burn"] is { } burn ? Float(burn) : 0,
+    }).ToList();
+
+    /// <summary>Ivy in the order grown: each its id, its base on the face, the face's normal, the ledge it reaches (if any) and, while it burns, its burn.</summary>
+    private static JsonArray Ivy(IEnumerable<NatureIvy> strips) => new(strips.Select(ivy =>
+    {
+        var saved = new JsonObject { ["id"] = ivy.Id, ["base_m"] = KernelJson.Vector(ivy.BaseM), ["normal"] = KernelJson.Vector(ivy.NormalM) };
+        if (ivy.LedgeM is { } ledge) saved["ledge_m"] = KernelJson.Vector(ledge);
+        if (ivy.Burn > 0) saved["burn"] = KernelJson.Num(Math.Min(1, ivy.Burn));
+        return (JsonNode?)saved;
+    }).ToArray());
+
+    private static List<NatureIvy> ReadIvy(JsonArray strips) => strips.Select(node => node!.AsObject()).Select(saved => new NatureIvy
+    {
+        Id = saved["id"]!.GetValue<string>(), BaseM = Vector(saved["base_m"]!), NormalM = Vector(saved["normal"]!),
+        LedgeM = saved["ledge_m"] is { } ledge ? Vector(ledge) : null, Burn = saved["burn"] is { } burn ? Float(burn) : 0,
+    }).ToList();
 
     /// <summary>Waterpads in the order grown: each its id, its leaf's spot and, while it burns, its burn.</summary>
     private static JsonArray Waterpads(IEnumerable<NatureWaterpad> pads) => new(pads.Select(pad =>
@@ -270,6 +334,9 @@ public static class NatureBlock
             foreach (var id in saved["created"]!.AsArray()) step.Objects[id!.GetValue<string>()] = null;
             if (saved["plants"] is JsonObject remembered) step.Plants = ReadPlants(remembered);
             if (saved["waterpads"] is JsonArray rememberedPads) step.Waterpads = ReadWaterpads(rememberedPads);
+            if (saved["sprouts"] is JsonArray rememberedSprouts) step.Sprouts = ReadSprouts(rememberedSprouts);
+            if (saved["bridges"] is JsonArray rememberedBridges) step.Bridges = ReadBridges(rememberedBridges);
+            if (saved["ivy"] is JsonArray rememberedIvy) step.Ivy = ReadIvy(rememberedIvy);
             state.Undo.Add(step);
         }
         if (block["undone"] is JsonObject undone)
@@ -282,6 +349,9 @@ public static class NatureBlock
         if (block["plants"] is JsonObject plants)
             foreach (var (id, plant) in ReadPlants(plants)) state.Plants[id] = plant!;
         if (block["waterpads"] is JsonArray pads) state.Waterpads = ReadWaterpads(pads);
+        if (block["sprouts"] is JsonArray sprouts) state.Sprouts = ReadSprouts(sprouts);
+        if (block["bridges"] is JsonArray bridges) state.Bridges = ReadBridges(bridges);
+        if (block["ivy"] is JsonArray strips) state.Ivy = ReadIvy(strips);
         if (block["rest"]?.GetValue<string>() is { } rest)
         {
             var bytes = Convert.FromBase64String(rest);
@@ -349,6 +419,8 @@ public static class NatureBlock
 
     private static int Int(JsonNode? node) => (int)node!.GetValue<double>();
 
+    private static long Long(JsonNode? node) => (long)node!.GetValue<double>();
+
     private static float Float(JsonNode? node) => (float)node!.GetValue<double>();
 
     private static Vector3 Vector(JsonNode node) => new(Float(node[0]), Float(node[1]), Float(node[2]));
@@ -374,10 +446,12 @@ public static class NatureBlock
     {
         if (Normalized(node) is not { } block) return "not an object";
         var required = new[] { "format", "cell_m", "weather_s", "changed_at", "trail", "names", "cells", "objects", "wallet", "undo" };
-        if (block.Any(p => !required.Contains(p.Key) && p.Key is not ("fire" or "undone" or "rest" or "fractals" or "plants" or "waterpads")) || required.Any(k => !block.ContainsKey(k))) return "its fields";
+        if (block.Any(p => !required.Contains(p.Key) && p.Key is not ("fire" or "undone" or "rest" or "fractals" or "plants" or "waterpads" or "sprouts" or "bridges" or "ivy")) ||
+            required.Any(k => !block.ContainsKey(k))) return "its fields";
         if (block["fractals"] is { } fractals && FractalsProblem(fractals)) return "its Fractals picked up";
         if (block["plants"] is { } plants && PlantsProblem(plants, room, absentAllowed: false) is { } plantsWhy) return "its plants: " + plantsWhy;
         if (block["waterpads"] is { } pads && WaterpadsProblem(pads, room, emptyAllowed: false) is { } padsWhy) return "its waterpads: " + padsWhy;
+        if (UnlocksProblem(block, room, emptyAllowed: false) is { } unlocksWhy) return "its " + unlocksWhy;
         if (!Whole(block["format"], Format) || block["format"]!.GetValue<double>() != Format) return "its format";
         if (!Number(block["cell_m"], 1) || (float)block["cell_m"]!.GetValue<double>() != NatureState.CellM) return "its cell size";
         if (!Number(block["weather_s"], MaxWeatherS) || block["weather_s"]!.GetValue<double>() < 0) return "its weather clock";
@@ -407,7 +481,7 @@ public static class NatureBlock
         foreach (var stepNode in undo)
         {
             // A step saved before 13 October has no mode (and cannot be undone); a newer one says which mode recorded it.
-            if (stepNode is not JsonObject step || step.Count != 9 + (step.ContainsKey("mode") ? 1 : 0) + (step.ContainsKey("plants") ? 1 : 0) + (step.ContainsKey("waterpads") ? 1 : 0) ||
+            if (stepNode is not JsonObject step || step.Count != 9 + new[] { "mode", "plants", "waterpads", "sprouts", "bridges", "ivy" }.Count(step.ContainsKey) ||
                 new[] { "principal", "revision", "base", "label", "cells", "objects", "created", "wallet", "trail" }.Any(k => !step.ContainsKey(k)))
                 return "an undo step's fields";
             if (step["mode"] is { } mode && (mode.GetValueKind() != JsonValueKind.String || !PlayerModesProfile.ValidMode(mode.GetValue<string>()))) return "an undo step's mode";
@@ -429,6 +503,7 @@ public static class NatureBlock
             if (WalletProblem(step["wallet"]) || TrailProblem(step["trail"])) return "an undo step's wallet or trail";
             if (step["plants"] is { } stepPlants && PlantsProblem(stepPlants, room, absentAllowed: true) is { } stepPlantsWhy) return "an undo step's plants: " + stepPlantsWhy;
             if (step["waterpads"] is { } stepPads && WaterpadsProblem(stepPads, room, emptyAllowed: true) is { } stepPadsWhy) return "an undo step's waterpads: " + stepPadsWhy;
+            if (UnlocksProblem(step, room, emptyAllowed: true) is { } stepUnlocksWhy) return "an undo step's " + stepUnlocksWhy;
         }
         if (remembered > NatureState.MaxUndoCells + NatureState.MaxCells) return "undo steps that remember too many cells";
         if (block["undone"] is { } undone && (undone is not JsonObject u || u.Count != 2 || !Whole(u["at"], storeRevision) || !Whole(u["state_of"], storeRevision) ||
@@ -559,7 +634,7 @@ public static class NatureBlock
     private static string? PlantsProblem(JsonNode node, RoomData? room, bool absentAllowed)
     {
         if (node is not JsonObject plants || plants.Count is < 1 or > NatureState.MaxGrownPlants + NatureState.MaxBurntPlants) return "not 1 to the most the island keeps";
-        int grown = 0, burning = 0;
+        int grown = 0, burning = 0, seedlings = 0;
         foreach (var (id, value) in plants)
         {
             if (!PlantIdPattern.IsMatch(id)) return "an id";
@@ -569,14 +644,86 @@ public static class NatureBlock
                 if (!absentAllowed) return "a plant with no record";
                 continue;
             }
-            if (value is not JsonObject plant || plant.Count is < 1 or > 2 || plant.Any(p => p.Key is not ("factor" or "burn"))) return "a plant's fields";
+            if (value is not JsonObject plant || plant.Count is < 1 or > 2 || plant.Any(p => p.Key is not ("factor" or "burn" or "sown_s"))) return "a plant's fields";
             if (plant["factor"] is { } factor && (!Number(factor, PlantLaws.CapFactor) || factor.GetValue<double>() <= 1)) return "a plant's size";
             if (plant["burn"] is { } burn && (!Number(burn, 1) || burn.GetValue<double>() <= 0)) return "a plant's burn";
             if (plant["burn"] is { } whole && whole.GetValue<double>() >= 1 && plant.ContainsKey("factor")) return "a burnt plant's size";
+            // A replanted seedling (decision 105): when it was sown, never with a size (its phase is the clock's) nor burnt down.
+            if (plant["sown_s"] is { } sown && (!Whole(sown, GrowKindLaws.MaxSownS) || plant.ContainsKey("factor") || plant["burn"] is { } gone && gone.GetValue<double>() >= 1))
+                return "a seedling's sowing";
             if (plant.ContainsKey("burn")) burning++;
+            else if (plant.ContainsKey("sown_s")) seedlings++;
             else grown++;
         }
-        return grown > NatureState.MaxGrownPlants || burning > NatureState.MaxBurntPlants ? "more plants than the island keeps" : null;
+        return grown > NatureState.MaxGrownPlants || burning > NatureState.MaxBurntPlants || seedlings > NatureState.MaxBurntPlants ? "more plants than the island keeps" : null;
+    }
+
+    private static readonly Regex BridgeIdPattern = new(@"\Abridge:[1-9][0-9]{0,2}\z", RegexOptions.Compiled);
+    private static readonly Regex IvyIdPattern = new(@"\Aivy:[1-9][0-9]{0,2}\z", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Grow's unlocks in a block or an undo step (decisions 104 to 107): each list 1 to its most (an undo step's may be empty: it
+    /// remembers the island had none), each entry its fields only, its places in this room's bounds (with a room), and only while it
+    /// burns a burn above 0 and below 1. A sprout copies a grass or flower copy of this room; a sowing is a whole number of seconds; a
+    /// bridge is level, 0.4 to 1.2 m long, its span inside it; an ivy strip's normal is a unit vector at least 70 degrees steep.
+    /// </summary>
+    private static string? UnlocksProblem(JsonObject holder, RoomData? room, bool emptyAllowed)
+    {
+        bool Inside(JsonNode? node, float margin) => Vec3(node) && (room == null || room.Bounds.Grow(margin).HasPoint(Vector(node!)));
+        bool Burn(JsonObject entry) => entry["burn"] is not { } burn || Number(burn, 1) && burn.GetValue<double>() > 0 && burn.GetValue<double>() < 1;
+        bool Count(JsonNode? node, int most) => node is JsonArray list && list.Count <= most && (list.Count > 0 || emptyAllowed);
+        if (holder["sprouts"] is { } sprouts)
+        {
+            if (!Count(sprouts, NatureState.MaxSprouts)) return "sprouts: not 1 to the most the island keeps";
+            foreach (var value in sprouts.AsArray())
+            {
+                if (value is not JsonObject sprout || sprout.Any(p => p.Key is not ("copy" or "position_m" or "sown_s" or "burn")) ||
+                    !sprout.ContainsKey("copy") || !sprout.ContainsKey("position_m") || !sprout.ContainsKey("sown_s")) return "sprouts: a sprout's fields";
+                if (sprout["copy"]?.GetValueKind() != JsonValueKind.String || !PlantIdPattern.IsMatch(sprout["copy"]!.GetValue<string>()) ||
+                    (room != null && (room.Copies is not { } copies || !copies.TryResolve(sprout["copy"]!.GetValue<string>(), out var set, out _) || !CommandHost.SproutSet(set))))
+                    return "sprouts: a copy that is not this room's grass or flowers";
+                if (!Inside(sprout["position_m"], 0.05f)) return "sprouts: a sprout outside the island";
+                if (!Whole(sprout["sown_s"], GrowKindLaws.MaxSownS)) return "sprouts: a sprout's sowing";
+                if (!Burn(sprout)) return "sprouts: a sprout's burn";
+            }
+        }
+        if (holder["bridges"] is { } bridges)
+        {
+            if (!Count(bridges, NatureState.MaxBridges)) return "bridges: not 1 to the most the island keeps";
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var value in bridges.AsArray())
+            {
+                if (value is not JsonObject bridge || bridge.Any(p => p.Key is not ("id" or "from_m" or "to_m" or "span_m" or "burn")) ||
+                    new[] { "id", "from_m", "to_m", "span_m" }.Any(k => !bridge.ContainsKey(k))) return "bridges: a bridge's fields";
+                if (bridge["id"]?.GetValueKind() != JsonValueKind.String || !BridgeIdPattern.IsMatch(bridge["id"]!.GetValue<string>()) || !ids.Add(bridge["id"]!.GetValue<string>()))
+                    return "bridges: a bridge's id";
+                if (!Inside(bridge["from_m"], 0.05f) || !Inside(bridge["to_m"], 0.05f)) return "bridges: a bridge outside the island";
+                var from = Vector(bridge["from_m"]!);
+                var to = Vector(bridge["to_m"]!);
+                var length = from.DistanceTo(to);
+                if (Math.Abs(from.Y - to.Y) > 1e-3f || length < GrowKindLaws.BridgeMinM - 1e-3f || length > GrowKindLaws.BridgeMaxM + 1e-3f) return "bridges: a bridge's lips";
+                if (bridge["span_m"] is not JsonArray span || span.Count != 2 || !span.All(v => Number(v, 10)) || span[0]!.GetValue<double>() < 0 ||
+                    span[1]!.GetValue<double>() <= span[0]!.GetValue<double>() || span[1]!.GetValue<double>() > length + 1e-3) return "bridges: a bridge's span";
+                if (!Burn(bridge)) return "bridges: a bridge's burn";
+            }
+        }
+        if (holder["ivy"] is { } strips)
+        {
+            if (!Count(strips, NatureState.MaxIvy)) return "ivy: not 1 to the most the island keeps";
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var value in strips.AsArray())
+            {
+                if (value is not JsonObject ivy || ivy.Any(p => p.Key is not ("id" or "base_m" or "normal" or "ledge_m" or "burn")) ||
+                    new[] { "id", "base_m", "normal" }.Any(k => !ivy.ContainsKey(k))) return "ivy: a strip's fields";
+                if (ivy["id"]?.GetValueKind() != JsonValueKind.String || !IvyIdPattern.IsMatch(ivy["id"]!.GetValue<string>()) || !ids.Add(ivy["id"]!.GetValue<string>()))
+                    return "ivy: a strip's id";
+                if (!Inside(ivy["base_m"], 0.05f) || (ivy.ContainsKey("ledge_m") && !Inside(ivy["ledge_m"], 0.05f))) return "ivy: a strip outside the island";
+                if (!Vec3(ivy["normal"]) || Vector(ivy["normal"]!) is var normal && (Math.Abs(normal.Length() - 1) > 1e-3f || Math.Abs(normal.Y) > GrowKindLaws.IvyMaxNormalY + 1e-3f))
+                    return "ivy: a strip's wall";
+                if (!Burn(ivy)) return "ivy: a strip's burn";
+            }
+        }
+        return null;
     }
 
     private static readonly Regex WaterpadIdPattern = new(@"\Awaterpad:[1-9][0-9]{0,2}\z", RegexOptions.Compiled);

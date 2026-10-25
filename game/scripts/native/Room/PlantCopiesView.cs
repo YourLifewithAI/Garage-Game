@@ -45,7 +45,10 @@ public partial class PlantCopiesView : Node3D
     private bool _reported;
     /// <summary>One buffer for every tile's instances, grown to the largest tile: a tile filled again allocates nothing.</summary>
     private float[] _scratch = Array.Empty<float>();
-    /// <summary>Per set (by index), the rows not at their natural size: grown (above 1) or burnt down (0). Absent: natural.</summary>
+    /// <summary>
+    /// Per set (by index), the rows not at their natural size: grown (above 1), a replanted seedling (half to natural, decision 105) or
+    /// burnt down (0). Absent: natural.
+    /// </summary>
     private Dictionary<int, float>[] _factors = Array.Empty<Dictionary<int, float>>();
     private readonly Dictionary<PlantSet, int> _setIndex = new();
     private readonly Dictionary<(int Set, int Tile), TileDraw> _drawAt = new();
@@ -478,6 +481,13 @@ public partial class PlantCopiesView : Node3D
         return view.Meshes[view.Bands[band].Mesh];
     }
 
+    /// <summary>A set's nearest band's mesh, as the copies near the camera draw it (Grow's sprouts copy it, SproutView), or null for no such set.</summary>
+    public Mesh? MeshFor(string set)
+    {
+        var view = _sets.FirstOrDefault(s => s.Set.Name == set);
+        return view == null || view.Bands.Length == 0 ? null : view.Meshes[view.Bands[0].Mesh];
+    }
+
     /// <summary>The band a set's tile is drawn in now (-1: empty, out of reach), for tests.</summary>
     public int BandOf(string set, int tx, int tz)
     {
@@ -624,7 +634,8 @@ public partial class PlantCopiesView : Node3D
 
     /// <summary>
     /// What Grow and fire did to the copies (the island's nature): each changed copy's factor of its natural size, 1 natural, above 1
-    /// grown, 0 burnt down (drawn as nothing, with no collision). Only the tiles holding a changed copy are touched: a drawn one is
+    /// grown, below 1 a replanted seedling growing through its phases (decisions 104 and 105: drawn and collided at its size, a tree's
+    /// trunk, pole and perches with it, so it climbs again), 0 burnt down (drawn as nothing, with no collision). Only the tiles holding a changed copy are touched: a drawn one is
     /// filled again in its band, a collided one has its bodies built again; a tile not drawn or collided yet takes the factors when
     /// it is. Ids that are not this room's copies are ignored. Returns the tiles touched.
     /// </summary>

@@ -46,6 +46,20 @@ public partial class NatureTest : Node3D
             if (_dump != null) System.IO.Directory.CreateDirectory(_dump);
             RemoveAll();
             _room = PlantedRoom();
+            // "-- --only=grow" runs Grow's suites alone (while iterating on them); the runners run everything.
+            if (OS.GetCmdlineUserArgs().Contains("--only=grow"))
+            {
+                await TestGrow();
+                await TestGrowExpertise();
+                await TestGrowUnlocks();
+                await FreeWorld();
+                OS.RemoveLogger(_errors);
+                Check(_errors.Count == 0, $"no script or engine error while the suite ran ({_errors.Count}; first: {_errors.First})");
+                GD.Print($"NATIVE_KERNEL_NATURE_GROW: {_checks - _failures}/{_checks} checks passed (Grow's suites alone)");
+                RemoveAll();
+                GetTree().Quit(_failures == 0 ? 0 : 1);
+                return;
+            }
             TestSimulation();
             TestBlock();
             await TestReview();
@@ -58,6 +72,8 @@ public partial class NatureTest : Node3D
             await TestCamps();
             await TestGrow();
             await TestGrowExpertise();
+            // Grow's unlocks (NatureTest.GrowUnlocks.cs, decisions 104 to 107): the gate, sprouts, replanting, the bridge, wall ivy.
+            await TestGrowUnlocks();
             // Fire's behaviours (NatureTest.FireKinds.cs): Fireline, Snuff, Will-o'-wisp, the place deciding.
             await TestFireKinds();
             // The Bubble's time (NatureTest.BubbleTime.cs, decisions 95 and 112): 8 s, a boat 20 s.
@@ -67,7 +83,7 @@ public partial class NatureTest : Node3D
             Check(_errors.Count == 0, $"no script or engine error while the suite ran ({_errors.Count}; first: {_errors.First})");
             GD.Print($"NATIVE_KERNEL_NATURE: {_checks - _failures}/{_checks} checks passed; the ground field's laws and bounds, time away, nature as room state (saved block, " +
                 "throttle, rebuild, migration), receipts and undo by room revision (Creative only), the authority's checks, what a companion learns, the fire rule and its one ask, " +
-                $"Grow (plants grown, saved, climbed and burnt), carried and burnt things, the Gubble's fire: consequences, guardrails and feedback, Trust (initiative, marks, burnt builds, bands, lessons), Fire's camp (start spots, resting, firepits; no Fire until the first rest, rain putting campfires out, firepits spread evenly), Grow's five expertise and the waterpad{(_dump != null ? $"; {_dumped} messages dumped" : "")}");
+                $"Grow (plants grown, saved, climbed and burnt), carried and burnt things, the Gubble's fire: consequences, guardrails and feedback, Trust (initiative, marks, burnt builds, bands, lessons), Fire's camp (start spots, resting, firepits; no Fire until the first rest, rain putting campfires out, firepits spread evenly), Grow's five expertise and the waterpad, Grow's unlocks (the gate, sprouts in phases, replanting, the bridge, wall ivy){(_dump != null ? $"; {_dumped} messages dumped" : "")}");
             RemoveAll();
             GetTree().Quit(_failures == 0 ? 0 : 1);
         }

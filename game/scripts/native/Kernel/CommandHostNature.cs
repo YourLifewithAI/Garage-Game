@@ -250,10 +250,11 @@ public partial class CommandHost
             if (envelops.ValueKind != JsonValueKind.Undefined && (envelops.ValueKind != JsonValueKind.String || !AvatarId.IsMatch(envelops.GetString()!)))
                 throw new Refusal("request_invalid", "A Bubble's target is an avatar.", "$.args.target");
             CheckVector(args.GetProperty("center_m"), "$.args.center_m");
-            // Fireline's drag (decision 78): an end point, Fire's alone (CommandHostFireKinds).
+            // A drag's end: Fireline's (decision 78, CommandHostFireKinds) or a bridge's far lip (decision 106, CommandHostGrowBridge).
             if (args.TryGetProperty("end_m", out var end))
             {
-                if (Str(args, "capability") != "fire") throw new Refusal("request_invalid", "Only Fire names an end_m: the end of a Fireline.", "$.args.end_m");
+                if (Str(args, "capability") is not ("fire" or "grow"))
+                    throw new Refusal("request_invalid", "Only Fire and Grow name an end_m: the end of a Fireline, or a bridge's far lip.", "$.args.end_m");
                 CheckVector(end, "$.args.end_m");
             }
             // The contract's outer bounds; the island's narrower ones are the rules pack's (invalid_args when exceeded).
@@ -294,6 +295,8 @@ public partial class CommandHost
             var ability = Rules?.Ability(capability) ?? throw new Refusal("unsupported_capability", "This island does not grant that nature ability.", "$.args.capability");
             // Decision 72: no Fire until the first rest, whoever asks, before every other check of it (CommandHostCamps.RequireFireLearned).
             if (capability == "fire") RequireFireLearned();
+            // Decision 106: a drag of Grow is a bridge, refused before its count ahead of the cast's checks, as a Fireline is (CommandHostGrowKinds).
+            if (capability == "grow") RequireGrowDrag(args);
             // Decision 77: the place decides what a Fire cast is (CommandHostFireKinds.FireKindOf): a drag Fireline, water a
             // Will-o'-wisp, something burning Snuff (each once learned), else Fire (an unlit firepit lit on its path, CastFire).
             var kind = capability == "fire" ? FireKindOf(args) : FireKind.Fire;
@@ -828,6 +831,8 @@ public partial class CommandHost
         StepFireKinds();
         // Decision 73: rain puts the campfires out (CommandHostCamps.StepCampfireRain).
         StepCampfireRain(NatureLaws.StepS);
+        // Decision 104: the seedlings grow through their phases on the island clock (CommandHostGrowKinds.StepSeedlings).
+        StepSeedlings();
         if (LookHook != null) LookHook.Wind = new Vector2(NatureWeather.WindMps.X, NatureWeather.WindMps.Z);
         _natureClockMoved = true;
         var fireEnded = hadFire && Nature.Fire == null;

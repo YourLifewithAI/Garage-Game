@@ -93,7 +93,8 @@ public partial class NatureTest
               GrowLearned(ExpertiseLists.Waterpad) && Pads?.Count == 1,
             "Grow cast on water grows one large water lily leaf at the point, floating at the surface, and teaches Waterpad: " + Canonical(pad["error"] ?? pad["data"]));
         var again = GrowAt(on + new Vector3(0.05f, 0, 0), 0.1);
-        Check(Code(again) == "invalid_args", "a second leaf on top of the first is refused: " + again["error"]?["message"]);
+        Check(Code(again) == "invalid_args" && Message(again) == "A water lily leaf already floats here: grow the next one a little further on.",
+            "a second leaf on top of the first is refused: " + again["error"]?["message"]);
         Check(_player.TryTeleportTo(leaf!.PositionM), "(the player steps onto the leaf)");
         await Frames(20);
         Check(_player.IsOnFloor() && !_player.IsSwimming && Math.Abs(_player.GlobalPosition.Y - leaf.PositionM.Y) < 0.01f,

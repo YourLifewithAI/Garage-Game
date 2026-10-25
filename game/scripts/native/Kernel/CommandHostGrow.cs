@@ -131,25 +131,38 @@ public partial class CommandHost
     }
 
     /// <summary>
-    /// A Grow cast: every plant rooted in the circle that is not at its cap grows the pack's share of its natural size (a quarter in
-    /// storybook_wild v5), up to its cap; while it rains, twice that (Rain garden); and the ash in the circle greens at once (Green
-    /// ash: burnt plants stay gone). Cast on water, it grows a waterpad instead (CastWaterpad). A cast where nothing can grow and no
-    /// ash can green (no plant, all full size, the island's grown plants at their most) is refused before the price, with the reason.
-    /// It takes no ground cell, so its cell counts are 0; grown_plants says how many grew. One room revision, which room.undo takes
-    /// back in Creative. What it showed teaches Grow's expertise, once per team (RecordGrowCast).
+    /// A Grow cast, where the place decides (decisions 75 and 104 to 107, CommandHostGrowKinds): a drag (end_m) grows a bridge
+    /// (CastBridge, its count checked before the cast's); on water a waterpad (CastWaterpad); at a wall, once ivy is open, ivy
+    /// (CastIvy); on burnt ground holding a plant that seeds, once seedless growth is open, that plant replanted (CastReplant).
+    /// Otherwise every plant rooted in the circle that is not at its cap and not a seedling still growing grows the pack's share of its
+    /// natural size (a quarter in storybook_wild v5), up to its cap; while it rains, twice that (Rain garden); and the ash in the circle
+    /// greens at once (Green ash). Where that finds nothing to grow or green, the place's unlock is tried: sprouts on the free fertile
+    /// spots (CastSprouts), else the wall's or the burnt ground's lock, each refused permission_denied before its count. A cast where
+    /// nothing at all can grow (no plant, all full size or still growing, the island's grown plants at their most) is refused before the
+    /// price, with the reason. It takes no ground cell, so its cell counts are 0; grown_plants says how many grew. One room revision,
+    /// which room.undo takes back in Creative. What it showed teaches Grow's expertise, once per team (RecordGrowCast).
     /// </summary>
     private JsonObject CastGrow(JsonElement root, IslandAbility ability, Cast cast, string principal, string action, string fingerprint, bool preview, string? approvedBy)
     {
+        var args = root.GetProperty("args");
+        if (args.TryGetProperty("end_m", out _)) return CastBridge(root, ability, cast, CheckBridge(ability, args, cast, principal), principal, action, fingerprint, preview, approvedBy);
         if (WaterForPad(cast.Center) is { } surface) return CastWaterpad(root, ability, cast, surface, principal, action, fingerprint, preview, approvedBy);
+        // A cast on a leaf already floating there is a cast on its water (the leaf hides the water from the column's probe): refused as such.
+        if (Nature.Waterpads.FirstOrDefault(p => CampLaws.Flat(p.PositionM, cast.Center) < WaterpadView.DiameterM * 0.5f && Math.Abs(p.PositionM.Y - cast.Center.Y) <= PlantLaws.WaterpadAboveM) is { } leaf)
+            return CastWaterpad(root, ability, cast, leaf.PositionM.Y - WaterpadView.FloatM, principal, action, fingerprint, preview, approvedBy);
+        // The seedlings' sizes are the island clock's now (decision 104), before anything reads them.
+        if (RefreshSeedlings()) ApplyPlants();
+        var wall = WallAt(cast.Center);
+        if (wall is { } face && IvyUnlocked) return CastIvy(root, ability, cast, face, principal, action, fingerprint, preview, approvedBy);
         var share = ability.Primitive == "growth.grow" ? cast.Intensity : PlantLaws.LegacyGrowShare;
         var raining = Nature.Weather.Rain01 > NatureLaws.WeatherRain01;
         if (raining) share *= PlantLaws.RainGardenFactor;
-        var rooted = PlantsRootedIn(cast.Center, cast.Radius).Where(p => PlantLaws.Grows(p.Set) && !(Nature.Plants.TryGetValue(p.Id, out var plant) && plant.Burnt)).ToList();
+        var standing = PlantsRootedIn(cast.Center, cast.Radius).Where(p => PlantLaws.Grows(p.Set) && !(Nature.Plants.TryGetValue(p.Id, out var plant) && plant.Burnt)).ToList();
+        var rooted = standing.Where(p => !(Nature.Plants.TryGetValue(p.Id, out var plant) && plant.Seedling)).ToList();
         var ash = AshIn(cast.Center, cast.Radius);
-        if (rooted.Count == 0 && ash.Count == 0)
-            throw new Refusal("invalid_args", "There is no plant to grow there: Grow makes the island's own plants bigger (grass, flowers, ferns, shrubs and trees).", "$.args.center_m");
+        var burnt = BurntToReplant(cast.Center, cast.Radius);
+        if (burnt.Count > 0 && SeedlessUnlocked) return CastReplant(root, ability, cast, burnt[0], ash, principal, action, fingerprint, preview, approvedBy);
         var growing = rooted.Where(p => FactorOf(p.Id) < PlantLaws.Cap(p.Set, p.Row) - 1e-4f).ToList();
-        if (growing.Count == 0 && ash.Count == 0) throw new Refusal("invalid_args", "Every plant there is already full size.", "$.args.center_m");
         // The island keeps at most MaxGrownPlants grown: a plant already grown grows on, a natural one only while there is room.
         var room = NatureState.MaxGrownPlants - Nature.GrownPlants;
         var kept = new List<PlantRef>();
@@ -158,7 +171,26 @@ public partial class CommandHost
             if (Nature.Plants.TryGetValue(plant.Id, out var record) && record.Grown) kept.Add(plant);
             else if (room > 0) { kept.Add(plant); room--; }
         }
-        if (kept.Count == 0 && ash.Count == 0) throw new Refusal("invalid_args", $"The island already keeps {NatureState.MaxGrownPlants} grown plants, the most it can: none more can grow.", "$.args.center_m");
+        if (kept.Count == 0 && ash.Count == 0)
+        {
+            // Nothing of the island's own to grow or green here: the place's unlock, or its lock (decisions 104 to 107).
+            if (wall != null) throw new Refusal("permission_denied", IvyLocked, "$.args.center_m");
+            if (burnt.Count > 0) throw new Refusal("permission_denied", ReplantLocked, "$.args.center_m");
+            // Sprouts take bare soil only: a circle with a plant standing in it is the plant's (decision 104).
+            var spots = standing.Count == 0 ? SproutSpots(cast) : new List<SproutSpot>();
+            if (spots.Count > 0)
+            {
+                if (!SeedlessUnlocked) throw new Refusal("permission_denied", SproutsLocked, "$.args.center_m");
+                return CastSprouts(root, ability, cast, spots, principal, action, fingerprint, preview, approvedBy);
+            }
+            if (Nature.Sprouts.Any(s => CampLaws.Flat(s.PositionM, cast.Center) <= cast.Radius && Math.Abs(s.PositionM.Y - cast.Center.Y) <= PlantLaws.RootHeightToleranceM))
+                throw new Refusal("invalid_args", SproutsGroundFull, "$.args.center_m");
+            if (standing.Count > rooted.Count && rooted.Count == 0) throw new Refusal("invalid_args", GrowStillGrowing, "$.args.center_m");
+            if (rooted.Count == 0)
+                throw new Refusal("invalid_args", "There is no plant to grow there: Grow makes the island's own plants bigger (grass, flowers, ferns, shrubs and trees).", "$.args.center_m");
+            if (growing.Count == 0) throw new Refusal("invalid_args", "Every plant there is already full size.", "$.args.center_m");
+            throw new Refusal("invalid_args", $"The island already keeps {NatureState.MaxGrownPlants} grown plants, the most it can: none more can grow.", "$.args.center_m");
+        }
         var keyed = principal != PlayerPrincipal && ability.Tier == "keyed_yes";
         var data = new JsonObject
         {
@@ -175,17 +207,13 @@ public partial class CommandHost
             candidate.RememberPlant(step, plant.Id);
             var record = candidate.Plant(plant.Id);
             var cap = PlantLaws.Cap(plant.Set, plant.Row);
+            // A replanted plant grown on from its natural size is a plant like any other again: its sowing goes (decision 105).
+            record.SownS = null;
             record.Factor = Math.Min(cap, record.Factor + share);
             tall |= record.Factor >= cap - 1e-4f;
         }
-        // Green ash (decision 75): the ash in the circle greens at once; the burnt plants stay gone (replanting is a later unlock).
-        foreach (var key in ash)
-        {
-            NatureState.RememberCell(step, candidate.Cells, key);
-            var cell = candidate.Cells[key];
-            cell.Ash = 0;
-            cell.Fuel = Math.Max(cell.Fuel, PlantLaws.GreenAshFuel);
-        }
+        // Green ash (decision 75): the ash in the circle greens at once; a burnt plant comes back only by replanting (CastReplant).
+        GreenAsh(candidate, step, ash);
         data.Remove("cells");
         data.Remove("cells_truncated");
         data["started_cells"] = 0;
@@ -343,8 +371,12 @@ public partial class CommandHost
     /// </summary>
     private void ApplyPlants()
     {
-        // The waterpads with them: Grow's leaves on the water (decision 75), drawn and collided by their own view.
+        // The waterpads with them: Grow's leaves on the water (decision 75), drawn and collided by their own view; and Grow's unlocks
+        // (decisions 104 to 107), the seedlings at their phase on the island clock first. What fire reads of them moves with them.
         ApplyWaterpads();
+        RefreshSeedlings();
+        var unlocks = ApplySprouts() | ApplyBridges() | ApplyIvy();
+        if (unlocks) _plantsVersion++;
         var view = GetParent()?.GetNodeOrNull<PlantCopiesView>(CopiesPath);
         if (view == null || !IsInstanceValid(view))
         {
@@ -406,6 +438,8 @@ public partial class CommandHost
             var fuel = Math.Min(1, PlantLaws.Fuel(plant.Set.FuelClass) * PlantLaws.FuelMultiplier(FactorOf(plant.Id)));
             _plantFuel[cell] = Math.Max(_plantFuel.GetValueOrDefault(cell), fuel);
         }
+        // Sprouts are fuel as the plants they copy are (decision 104).
+        AddSproutFuel(center, radius);
     }
 
     /// <summary>No fire, no plant fuel: the next fire or cast reads its own circle's.</summary>
@@ -447,7 +481,8 @@ public partial class CommandHost
         var copies = Room?.Copies != null;
         if (copies) EnsurePlantFuel(fire.Center, fire.RadiusM);
         var rate = seconds * PlantLaws.BurnPerIntensityS * fire.Intensity * (1 - Nature.Weather.Rain01);
-        if (((!copies || _firePlants.Count == 0) && Nature.Waterpads.Count == 0) || rate <= 0) return false;
+        var unlocks = Nature.Sprouts.Count + Nature.Bridges.Count + Nature.Ivy.Count;
+        if (((!copies || _firePlants.Count == 0) && Nature.Waterpads.Count == 0 && unlocks == 0) || rate <= 0) return false;
         var burning = new Dictionary<(int, int), NatureCell>();
         foreach (var cell in Nature.Cells.Values)
             if (cell.BurningS > 0) burning[(cell.X, cell.Z)] = cell;
@@ -466,9 +501,17 @@ public partial class CommandHost
             var burned = Nature.Plant(plant.Id);
             burned.Burn = Math.Min(1, burned.Burn + rate / PlantLaws.FuelMultiplier(factor));
             changed = true;
-            if (burned.Burnt) LeaveAsh(plant, step);
+            if (!burned.Burnt) continue;
+            // A replanted seedling that burns down is a burnt plant like any other: it can be replanted again (decision 105).
+            burned.SownS = null;
+            burned.Factor = 1;
+            LeaveAsh(plant, step);
         }
         changed |= BurnWaterpads(rate, burning, step);
+        // Grow's unlocks burn as plants (decisions 104 to 107): sprouts, a bridge caught at a lip, ivy caught at its foot.
+        changed |= BurnSprouts(rate, burning, step);
+        changed |= BurnBridges(rate, burning, step);
+        changed |= BurnIvy(rate, burning, step);
         if (changed) ApplyPlants();
         return changed;
     }
