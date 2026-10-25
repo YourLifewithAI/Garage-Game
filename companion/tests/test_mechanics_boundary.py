@@ -127,13 +127,16 @@ class OnTheMock(unittest.TestCase):
         self.assertEqual(status, {"mode": "creative", "health": 100.0, "max_health": 100.0, "stamina": 0.4, "max_stamina": 0.4,
                                   "completed_climbs": 0, "recoveries": 0, "consequences": False,
                                   "energy": {"pips": 8, "max_pips": 8, "shadow": True},
-                                  "hearts": {"quarters": 20, "max_quarters": 20}, "bar": {"bands": 1, "slowed": False}})
+                                  "hearts": {"quarters": 20, "max_quarters": 20}, "bar": {"bands": 1, "slowed": False},
+                                  # P-Inventory: v5's pockets and chest, empty, with the pack's caps.
+                                  "pockets": {"entries": [], "max_entries": 6, "mass_kg": 0, "max_mass_kg": 0.3},
+                                  "chest": {"entries": [], "max_entries": 12, "mass_kg": 0, "max_mass_kg": 2}})
         self.assertTrue(host.handle(PLAYER, command("world.set_mode", {"mode": "challenge"}, "m1-mode"))["ok"])
         self.assertEqual(host.handle(COMPANION, query("player.status", {}))["data"]["energy"], {"pips": 8, "max_pips": 8, "shadow": False})
         for result in host.emitted:
             self.assertEqual(contract_problems(result), [], result)
         today = new_host(rules_file=rules_path(rules_version=4)).handle(COMPANION, query("player.status", {}))["data"]
-        self.assertFalse({"energy", "hearts", "bar"} & set(today))
+        self.assertFalse({"energy", "hearts", "bar", "pockets", "chest"} & set(today))
         self.assertEqual((today["max_health"], today["max_stamina"]), (100.0, 0.45))
 
 

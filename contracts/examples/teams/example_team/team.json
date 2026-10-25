@@ -26,5 +26,24 @@
   },
   "trust": {
     "count": 0
+  },
+  "settings": {
+    "gubble_chest": true
+  },
+  "pockets": {
+    "challenge": {
+      "stacks": {
+        "apple": 3
+      },
+      "things": [
+        {
+          "id": "obj:paint_clutter",
+          "room_id": "garage_example",
+          "manifest_prefix": "0123456789abcdef",
+          "name": "Paint clutter",
+          "mass_kg": 0.25
+        }
+      ]
+    }
   }
 }

@@ -104,6 +104,7 @@ from .mock_energy import ENERGY_EXHAUSTED_MESSAGE, EnergyMixin  # noqa: F401
 from .mock_journal import JournalMixin
 from .mock_nature import (FIRE_NOT_LEARNED, FRESH_WALLET, UNDO_NOT_EARLIER, UNDO_ONLY_NATURE,  # noqa: F401
                           NatureMixin)
+from .mock_inventory import InventoryMixin
 from .mock_trust import TrustMixin
 from .glow_progress import GlowProgress
 from .canonical import CanonicalJsonError
@@ -139,7 +140,9 @@ UNDO_NOT_IN_THIS_MODE = "There is no undo in Challenge or Live: what happens the
 # The mechanics round (M0, and M1's gather): its player-only ops, and the kernel's words for what is not built yet
 # (CommandHost.Unsupported: MechanicsNotYet, DifficultyNotYet) and for a Fractal the companion may not gather (FractalRefusal). The kernel hosts the player's item.pickup and item.gather since M1; the mock, which places no Fractals and
 # keeps no wallet, answers the player's not available yet.
-MECHANICS_PLAYER_OPS = frozenset({"item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset"})
+MECHANICS_PLAYER_OPS = frozenset({"item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset",
+                                  # P-Inventory: the player's use and drop need the body and the team file (the kernel hosts them).
+                                  "inventory.use", "inventory.drop"})
 BUBBLES_EXPERTISE = frozenset({"bubble_carry", "bubble_boat", "bubble_lift"})
 MECHANICS_NOT_YET = "This operation is not available yet."
 DIFFICULTY_NOT_YET = "Difficulties are chosen at the opening menu, which is not built yet."
@@ -171,7 +174,10 @@ BUBBLE_NO_WATER = "A Bubble boat is cast on water."
 LEAD_POPPED = "The bubble popped before it got there."
 LEAD_BLOCKED = "The bubble cannot get there from here."
 TRANSIENT_OPS = frozenset({"entity.grab", "creation.activate", "goal.set", "goal.stop", "effect.start", "effect.stop",
-                           "world.set_physics", "world.set_mode", "glow.configure", "effect.adjust", "receipt.mark", "trust.reset"})
+                           "world.set_physics", "world.set_mode", "glow.configure", "effect.adjust", "receipt.mark", "trust.reset",
+                           # P-Inventory (mock_inventory.py): a use changes no room state; a store, a take and a drop are
+                           # durable room changes, as on the kernel (they are not listed here).
+                           "inventory.use"})
 # The mechanics round's player-only ops the mock hosts (M8's Trust, mock_trust.py); the rest answer as not available yet.
 MECHANICS_HOSTED = frozenset({"receipt.mark", "trust.reset"})
 # Durable, but they change no world state, so they do not move the room revision.
@@ -487,6 +493,8 @@ class IslandRules:
     # (traits.wallet.start), read as the kernel's VitalsRules and NatureState.FreshWallet read them. None when the pack has none.
     refill: tuple[float, float, float] | None = None
     wallet: dict[str, int] | None = None
+    # The pack's inventory block (P-Inventory): the kinds and the caps of the pockets and the chest, as the pack says; None without it.
+    inventory: dict | None = None
 
     def ability(self, capability: str | None) -> Ability | None:
         return next((a for a in self.abilities if a.capability == capability), None)
@@ -543,8 +551,9 @@ def parse_rules(contracts: Contracts, pack: Any, raw: bytes | None = None, path:
     refill = (float(traits["pips"]["refill_near_every_s"]), float(traits["pips"]["refill_near_within_m"]),
               float(traits["pips"]["refill_far_every_s"])) if "pips" in traits else None
     wallet = {name: int(units) for name, units in sorted(traits["wallet"]["start"].items())} if "wallet" in traits else None
+    inventory = copy.deepcopy(pack["inventory"]) if "inventory" in pack else None
     return IslandRules(pack["rules_id"], int(pack["rules_version"]), abilities, hashlib.sha256(body).hexdigest(), prices, hearts, stamina, pips,
-                       refill, wallet)
+                       refill, wallet, inventory)
 
 
 def load_rules(contracts: Contracts, path: Path) -> IslandRules:
@@ -615,7 +624,7 @@ def _might_be_stop(raw: bytes) -> bool:
     return b"goal.stop" in raw or b"effect.stop" in raw or b"\\u" in raw
 
 
-class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin):
+class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin, InventoryMixin):
     """The game side of the companion boundary, minus physics."""
 
     def __init__(self, contracts: Contracts, room_dir: Path | None = None, styles_dir: Path | None = None,
@@ -655,6 +664,8 @@ class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin):
         # The team's nature expertise (Fire's and Grow's; decision 72's first_fire among them: no Fire until the first rest by the
         # starting campfire, player_rests) and the player's "Let the Gubble use fire" (mock_nature.py), and the pool (mock_energy.py).
         self._init_nature_team()
+        # The team's "Let the Gubble use the chest" (mock_inventory.py), off by default; only the player's control changes it.
+        self._init_inventory_team()
         self._reset_energy()
         self._reset_room()
         # As RoomWorld hands the kernel host its rules (LoadRules), read before the server locks itself down.
@@ -690,6 +701,7 @@ class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin):
         self._last_sweep = self.clock.now()
         self._reset_journal()
         self._reset_trust_session()
+        self._reset_inventory()
         self._creation_counter = 0
         # The running effects, oldest first. Effects are not entities: no query lists them (as on the kernel host).
         self.effects: OrderedDict[str, ActiveEffect] = OrderedDict()
@@ -867,6 +879,8 @@ class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin):
             data["hearts"] = {"quarters": round(data["health"] / quarter), "max_quarters": round(data["max_health"] / quarter)}
         if rules and rules.stamina_start_m is not None:
             data["bar"] = {"bands": 1, "slowed": False}
+        # P-Inventory: the pockets and the chest, with the pack's block (mock_inventory.py).
+        data.update(self._inventory_status() or {})
         return data
 
     def active_effect_ids(self) -> list[str]:
@@ -2998,6 +3012,9 @@ class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin):
                 **({"locked_kinds": self.grow_locked_kinds()} if a.primitive == "growth.grow" and self.grow_locked_kinds() else {})} for a in page]}
             if start + len(page) < len(abilities):
                 result["data"]["next_cursor"] = str(start + len(page))
+            # P-Inventory: the four inventory ops on the whole list's first answer (mock_inventory.py).
+            if (inventory := self._inventory_ops(args)) is not None:
+                result["data"]["inventory"] = inventory
         elif op == "observe":
             actor = self._actor(principal, args)
             radius = min(float(args.get("radius_m", self.policy.observe_max_radius_m)), self.policy.observe_max_radius_m)

@@ -47,6 +47,10 @@ GROW_SUMMARY = {"capability": "grow", "category": "growth", "params": {"intensit
 FIRE_SUMMARY = {"capability": "fire", "category": "fire", "params": {"intensity": {"min": 0.2, "max": 1.0}},
                 "area_radius_max_m": 1.5, "duration_max_s": 60, "reach_m": 2.0, "max_active": 1,
                 "command_op": "nature.cast", "locked": True}
+# P-Inventory (25 October): the whole list's first answer names the four inventory ops, the player-only ones marked, and the team's
+# "Let the Gubble use the chest" (off for a fresh team on either host); a filtered or later page repeats nothing.
+INVENTORY_LISTED = {"gubble_chest": False, "ops": [{"op": "inventory.store", "player_only": False}, {"op": "inventory.take", "player_only": False},
+                                                   {"op": "inventory.use", "player_only": True}, {"op": "inventory.drop", "player_only": True}]}
 LACKING = "teleport"
 # Nature runs on both hosts (the mock's mock_nature.py since the nature packet, 24 October): its answers, words included, are the
 # same on both, so a kernel change that moves a word, a check's order or a code fails here. Neither host's test room has plants,
@@ -499,7 +503,7 @@ class AlignmentScenarios:
             "a cursor of words": await listed({"cursor": "next"}),
         }
         self.assertEqual(outcome, {
-            "all": {"items": [BUBBLES_SUMMARY, FIRE_SUMMARY, FIREWORKS_SUMMARY, GLOW_SUMMARY, GROW_SUMMARY]},
+            "all": {"items": [BUBBLES_SUMMARY, FIRE_SUMMARY, FIREWORKS_SUMMARY, GLOW_SUMMARY, GROW_SUMMARY], "inventory": INVENTORY_LISTED},
             "light": {"items": [GLOW_SUMMARY]},
             "float": {"items": [BUBBLES_SUMMARY]},
             "burst": {"items": [FIREWORKS_SUMMARY]},

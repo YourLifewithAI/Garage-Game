@@ -180,7 +180,7 @@ public static class CarriedBuilds
         var builds = (root["instances"] as JsonArray)?.Select(item => (item as JsonObject)?["id"] is JsonValue id && id.TryGetValue<string>(out var text) ? text : null).OfType<string>()
             .Order(StringComparer.Ordinal).ToList() ?? new List<string>();
         if (builds.Count > MaxBuilds) throw new MenuSaveException("This island has more builds than the copy can list, so it was not copied.");
-        Strip(root, team, difficulty);
+        Strip(root, team, difficulty, TeamFile.PocketThingsFrom(layout, team, "creative", island.RoomId, island.ManifestPrefix));
         var save = Encoding.UTF8.GetBytes(root.ToJsonString(new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }) + "\n");
         if (save.Length > MaxSaveBytes) throw new MenuSaveException("The copy would be too big to save, so it was not made.");
 
@@ -210,20 +210,36 @@ public static class CarriedBuilds
 
     /// <summary>
     /// What a Creative island loses on its way into Challenge: its undo steps (and the record of the last undo), a fire still
-    /// burning, the Fractals picked up and the materials gathered. It becomes this team's Challenge save, at this difficulty.
-    /// A save from before the team block or the nature block has nothing of theirs to strip.
+    /// burning, the Fractals picked up and the materials gathered, and since P-Inventory the chest (in the team block's camp block):
+    /// the copy's chest starts empty, and the things it held are back on the copy's island where they were last put down (a chest
+    /// filled freely in Creative would be a free start; the island itself is the same island). The pockets are per mode in the team
+    /// file, so Challenge's own were never Creative's: the things of this island in Creative's pockets (pocketThings) come back to the
+    /// copy's island too, and Creative keeps its pockets. It becomes this team's Challenge save, at this difficulty. A save from before
+    /// the team block or the nature block has nothing of theirs to strip.
     /// </summary>
-    private static void Strip(JsonObject root, string team, string difficulty)
+    private static void Strip(JsonObject root, string team, string difficulty, IReadOnlyList<string> pocketThings)
     {
         var version = root["version"]?.GetValue<int>() ?? 0;
+        var chestThings = new List<string>(pocketThings);
         if (version >= 5)
         {
             var block = root["team"] as JsonObject ?? new JsonObject();
             block["team_id"] = team;
             block["mode"] = "challenge";
             block["difficulty"] = difficulty;
+            if (block["camp"] is JsonObject camp && camp["chest"] is JsonObject chest)
+            {
+                if (chest["things"] is JsonArray things)
+                    chestThings.AddRange(things.Select(id => id is JsonValue value && value.TryGetValue<string>(out var text) ? text : null).OfType<string>());
+                camp.Remove("chest");
+            }
             root["team"] = block;
         }
+        // The chest's things and Creative's pocketed ones come back to the island: the nature block holds them away with the gathered
+        // mark, as a gathered log.
+        if (version >= 6 && root["nature"] is JsonObject held && held["objects"] is JsonObject objects)
+            foreach (var id in chestThings)
+                if (objects[id] is JsonObject item && item["gathered"] is JsonValue mark && mark.TryGetValue<bool>(out var gathered) && gathered) objects.Remove(id);
         if (version >= 6 && root["nature"] is JsonObject nature)
         {
             nature["undo"] = new JsonArray();

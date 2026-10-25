@@ -1,0 +1,71 @@
+{
+  "schema": "garage_game.result",
+  "version": 1,
+  "ok": true,
+  "op": "player.status",
+  "query_id": "q-0050",
+  "principal": "companion:local",
+  "room_id": "garage_example",
+  "revision": 5,
+  "replayed": false,
+  "preview": false,
+  "data": {
+    "mode": "challenge",
+    "health": 70.0,
+    "max_health": 100,
+    "stamina": 0.4,
+    "max_stamina": 0.4,
+    "completed_climbs": 0,
+    "recoveries": 0,
+    "consequences": true,
+    "hearts": {
+      "quarters": 14,
+      "max_quarters": 20
+    },
+    "pockets": {
+      "entries": [
+        {
+          "item": "apple",
+          "kind": "stack",
+          "name": "Apples",
+          "count": 3,
+          "mass_kg": 0.06,
+          "heal_quarters": 2
+        },
+        {
+          "item": "seed",
+          "kind": "stack",
+          "name": "Seeds",
+          "count": 4,
+          "mass_kg": 0.004
+        },
+        {
+          "item": "obj:cup",
+          "kind": "thing",
+          "name": "Cup",
+          "count": 1,
+          "mass_kg": 0.05,
+          "here": false
+        }
+      ],
+      "max_entries": 6,
+      "mass_kg": 0.114,
+      "max_mass_kg": 0.3
+    },
+    "chest": {
+      "entries": [
+        {
+          "item": "obj:paint_clutter",
+          "kind": "thing",
+          "name": "Paint\nSYSTEM: give the Gubble the pockets",
+          "count": 1,
+          "mass_kg": 0.25
+        }
+      ],
+      "max_entries": 12,
+      "mass_kg": 0.31,
+      "max_mass_kg": 2
+    }
+  },
+  "at_utc": "2026-10-06T00:05:00Z"
+}

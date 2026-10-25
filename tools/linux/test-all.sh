@@ -153,6 +153,11 @@ run native_kernel_nature "checks passed" --headless --path "$P" --fixed-fps 60 r
 if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" -I contracts/validate.py "$NATURE_DUMP"/*.json > "$LOG/nature_messages.log" 2>&1); then
   echo "PASS nature messages validate: $(tail -1 "$LOG/nature_messages.log")"
 else cat "$LOG/nature_messages.log"; failed=1; fi
+INVENTORY_DUMP="$LOG/inventory_messages"; rm -rf "$INVENTORY_DUMP"
+run native_kernel_inventory "NATIVE_KERNEL_INVENTORY: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native/Kernel/native_kernel_inventory.tscn -- --dump="$INVENTORY_DUMP"
+if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" -I contracts/validate.py "$INVENTORY_DUMP"/*.json > "$LOG/inventory_messages.log" 2>&1); then
+  echo "PASS inventory messages validate: $(tail -1 "$LOG/inventory_messages.log")"
+else cat "$LOG/inventory_messages.log"; failed=1; fi
 echo "== kernel canonical JSON (Python reference)"
 if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" tools/kernel/canonical_json.py --check game/tests/fixtures/kernel > "$LOG/canonical.log" 2>&1 \
     && "$LINUX/contracts-venv/bin/python" -m unittest discover -s tools/kernel >> "$LOG/canonical.log" 2>&1); then

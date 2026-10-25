@@ -27,6 +27,8 @@ PINNED_EXAMPLES = {
     "rooms/garage_example/objects/paint_clutter/asset.json", "rooms/garage_example/objects/pine_shelving/asset.json",
     "room_state/garage_example_state.json", "fixtures/creation_spinner.json",
     "room_state/garage_example_state_run2.json", "room_state/garage_example_state_mechanics.json",
+    # P-Inventory's chest rides on the mechanics state, with the same receipts and creation carried forward.
+    "room_state/garage_example_state_inventory.json",
     # Messages that say on purpose that a reader accepts the old spelling.
     "messages/valid/query_describe_room_with_the_old_id.json", "messages/valid/result_room_describe_with_the_old_id.json",
 }

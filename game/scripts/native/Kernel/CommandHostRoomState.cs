@@ -185,11 +185,13 @@ public partial class CommandHost
     {
         "creation.place", "creation.revise", "entity.remove", "protect.lock", "protect.unlock", "room.checkpoint", "entity.release", "entity.place", "entity.push", "journal.note",
         "nature.cast", "nature.trail", "nature.repair", "room.undo", "item.pickup", "item.gather",
+        // P-Inventory: the chest and a thing held away are the island's room state (CommandHostInventory.CommitInventory).
+        "inventory.store", "inventory.take", "inventory.drop",
     };
     /// <summary>The durable ops whose receipts keep the data their first answer had (the authority's NATURE_OPS).</summary>
     private static readonly HashSet<string> NatureOps = new() { "nature.cast", "nature.trail", "nature.repair", "room.undo" };
     /// <summary>The authority keeps a pickup's receipt by the nature path, with empty data: the contract's result carries none.</summary>
-    private static bool KeptWithData(string op) => NatureOps.Contains(op) || op is "item.pickup" or "item.gather";
+    private static bool KeptWithData(string op) => NatureOps.Contains(op) || op is "item.pickup" or "item.gather" || InventoryDurableOps.Contains(op);
 
     /// <summary>One canonical angle: a yaw in (-180, 180], so a half-turn either way is the same bytes everywhere.</summary>
     private static double CanonicalYaw(double yaw)
@@ -362,6 +364,7 @@ public partial class CommandHost
         if (op == "room.checkpoint" ? result["data"] is not JsonObject { Count: 1 } c || !Whole(c["checkpoint_revision"], store)
             : op == "journal.note" ? result["data"] is not JsonObject { Count: 1 } n || StrOf(n["entry_id"]) is not { } entry || !EntryIdPattern.IsMatch(entry)
             : NatureOps.Contains(op) ? NatureDataProblem(op, result["data"])
+            : InventoryDurableOps.Contains(op) ? InventoryDataProblem(result["data"])
             : result["data"] != null) return "its data";
         if (op == "item.pickup" && (result["affected"] is not JsonArray { Count: 1 } picked || StrOf(picked[0]) is not { } fractal || !FractalId.IsMatch(fractal)))
             return "a pickup that names no Fractal";
@@ -490,7 +493,7 @@ public partial class CommandHost
                 ["affected"] = result["affected"]?.DeepClone() ?? new JsonArray(), ["created"] = result["created"]?.DeepClone() ?? new JsonArray(),
             };
             if (op == "journal.note") receipt["entry_id"] = result["data"]!["entry_id"]!.GetValue<string>();
-            if (NatureOps.Contains(op)) receipt["data"] = result["data"]!.DeepClone();
+            if (NatureOps.Contains(op) || InventoryDurableOps.Contains(op)) receipt["data"] = result["data"]!.DeepClone();
             if (op == "item.pickup")
             {
                 // As the host committed it (CommandHostFractals): the Fractal in the receipt's data, nothing the authority checks as an entity.

@@ -809,7 +809,7 @@ public partial class CommandHost
     /// </summary>
     internal JsonObject? CampBlock()
     {
-        if (!_spotsLive && _startSpots.Count == 0 && _litCampfires.Count == 0 && _outCampfires.Count == 0 && _savedPits == null && _homeCamp == null) return null;
+        if (!_spotsLive && _startSpots.Count == 0 && _litCampfires.Count == 0 && _outCampfires.Count == 0 && _savedPits == null && _homeCamp == null && _chest.IsEmpty) return null;
         var spots = new JsonObject();
         foreach (var (mode, spot) in _startSpots.OrderBy(p => p.Key, StringComparer.Ordinal))
             if (!(_spotsLive && mode == Mode)) spots[mode] = spot.DeepClone();
@@ -841,13 +841,16 @@ public partial class CommandHost
             block["home"] = _homeCamp;
             block["home_m"] = KernelJson.Vector(home);
         }
+        // P-Inventory: the island's one chest, shared by every campsite (decision 102); an empty chest writes no key.
+        if (_chest.ChestBlock() is { } chest) block["chest"] = chest;
         return block;
     }
 
     /// <summary>What is wrong with a saved camp block (or null): the spots per mode, the lit firepits, the home camp and its spot.</summary>
     internal static string? CampBlockProblem(JsonNode? node)
     {
-        if (node is not JsonObject block || block.Any(p => p.Key is not ("spots" or "lit" or "out" or "pits_m" or "home" or "home_m"))) return "the camp";
+        if (node is not JsonObject block || block.Any(p => p.Key is not ("spots" or "lit" or "out" or "pits_m" or "home" or "home_m" or "chest"))) return "the camp";
+        if (block["chest"] is { } chest && InventoryContents.ChestProblem(chest) is { } inventory) return inventory;
         if (block["spots"] is not JsonObject spots || spots.Any(p => p.Key is not ("creative" or "challenge" or "live") || p.Value is not JsonObject spot ||
             spot.Any(q => q.Key is not ("player_m" or "companion_m")) || !Vec3(spot["player_m"]) || (spot["companion_m"] != null && !Vec3(spot["companion_m"]))))
             return "the camp's spots";
@@ -886,6 +889,8 @@ public partial class CommandHost
         _homeCamp = null;
         _homeSpot = null;
         _resting = false;
+        // P-Inventory: the chest as saved (its things judged against the island's room state when read: ChestContents).
+        _chest = Room == null ? InventoryContents.Empty : InventoryContents.FromChest(block?["chest"] as JsonObject, Room.RoomId, Room.ManifestSha256[..16], DescribeThing);
         if (block != null)
         {
             foreach (var (mode, spot) in block["spots"]!.AsObject()) _startSpots[mode] = (JsonObject)spot!.DeepClone();

@@ -1117,6 +1117,15 @@ def _check_mechanics(pack: dict, label: str) -> list[str]:
             problems.append(f"{label}: fractals budget_min {fractals['budget_min']} is above budget_max {fractals['budget_max']}")
         if fractals.get("reachable_first_run", 0) > fractals["budget_max"]:
             problems.append(f"{label}: fractals reachable_first_run {fractals['reachable_first_run']} is above budget_max {fractals['budget_max']}")
+    # P-Inventory (25 October): each kind once, and an asset a loose unit of one kind at most.
+    inventory = pack.get("inventory")
+    if inventory is not None:
+        ids = [kind["id"] for kind in inventory["kinds"]]
+        for name in sorted({i for i in ids if ids.count(i) > 1}):
+            problems.append(f"{label}: inventory kind {name!r} appears more than once")
+        assets = [asset for kind in inventory["kinds"] for asset in kind.get("assets", [])]
+        for name in sorted({a for a in assets if assets.count(a) > 1}):
+            problems.append(f"{label}: asset {name!r} is a unit of more than one inventory kind")
     return problems
 
 
@@ -1203,6 +1212,13 @@ def check_state(state: dict, label: str, room_dir: Path | None = None, check_sty
     for checkpoint in state.get("checkpoints", []):
         if checkpoint["revision"] > store:
             problems.append(f"{label}: checkpoint {checkpoint['id']} is newer than the store revision")
+    # P-Inventory (25 October): a thing in the island's chest is away from the island, so room state keeps it as removed.
+    chest = state.get("extensions", {}).get("x_play_camp", {}).get("chest", {})
+    for thing in chest.get("things", []):
+        if not state["entities"].get(thing, {}).get("removed"):
+            problems.append(f"{label}: {thing} is in the chest, but room state does not keep it as removed")
+        elif manifest_objects is not None and thing not in manifest_objects:
+            problems.append(f"{label}: {thing} in the chest is not an object in the pinned room")
     if "journal" in state:
         problems += _check_journal(state["journal"], store, label)
     if "discovered" in state:
@@ -1292,6 +1308,13 @@ def check_team_document(document: dict, label: str) -> list[str]:
         # M3's fix round (15 October): a rank set aside is for a knack in no slot.
         for name in sorted(set(knacks.get("earned", {})) & set(names)):
             problems.append(f"{label}: knacks.earned keeps a rank for {name}, which is in a slot")
+        # P-Inventory (25 October): a mode's pockets hold at most 16 entries, and a thing is in them once.
+        for mode, pockets in document.get("pockets", {}).items():
+            things = [(thing["room_id"], thing["manifest_prefix"], thing["id"]) for thing in pockets.get("things", [])]
+            if len(pockets.get("stacks", {})) + len(things) > 16:
+                problems.append(f"{label}: the {mode} pockets hold more than 16 entries")
+            if len(things) != len(set(things)):
+                problems.append(f"{label}: the {mode} pockets hold one thing twice")
     elif is_schema(document["schema"], "player_modes"):
         vitals = document["vitals"]
         if vitals["health"] > vitals["max_health"]:

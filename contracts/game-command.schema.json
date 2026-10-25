@@ -112,7 +112,11 @@
         "knack.set",
         "fractal.spend",
         "receipt.mark",
-        "trust.reset"
+        "trust.reset",
+        "inventory.store",
+        "inventory.take",
+        "inventory.use",
+        "inventory.drop"
       ]
     },
     "query_op": {
@@ -697,6 +701,54 @@
               }
             ]
           }
+        },
+        {
+          "if": {
+            "$ref": "#/$defs/is_op/inventory.store"
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/inventory.store"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "$ref": "#/$defs/is_op/inventory.take"
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/inventory.take"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "$ref": "#/$defs/is_op/inventory.use"
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/inventory.use"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "$ref": "#/$defs/is_op/inventory.drop"
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/inventory.drop"
+              }
+            }
+          }
         }
       ]
     },
@@ -1055,7 +1107,7 @@
           "$ref": "common.schema.json#/$defs/principal_id"
         },
         "transient": {
-          "description": "True for commands that change no saved state: goals, stops (wish.stop among them), effects and their adjustments, a Bubble's cast (bubble_carry, bubble_boat, bubble_lift), grabs, activations, the world's physics and the player's own settings (the game mode, Glow's touch and sound, a knack, a receipt's mark and a Trust reset), which the player's profile and the team file keep, never the room. Their receipts live for the session only. Nature changes (Grow, Fire, repairs) and their room.undo, and a Fractal's pickup, are durable.",
+          "description": "True for commands that change no saved state: goals, stops (wish.stop among them), effects and their adjustments, a Bubble's cast (bubble_carry, bubble_boat, bubble_lift), grabs, activations, the world's physics, the player's own settings (the game mode, Glow's touch and sound, a knack, a receipt's mark and a Trust reset) and an inventory.use, which the player's profile and the team file keep, never the room. Their receipts live for the session only. Nature changes (Grow, Fire, repairs) and their room.undo, a Fractal's pickup, a gather and the inventory's store, take and drop (the chest and a thing held away are the island's room state) are durable.",
           "type": "boolean"
         }
       },
@@ -1907,6 +1959,133 @@
             },
             "required": [
               "op"
+            ]
+          },
+          "then": {
+            "properties": {
+              "data": false
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "op": {
+                "enum": [
+                  "inventory.store",
+                  "inventory.take",
+                  "inventory.use",
+                  "inventory.drop"
+                ]
+              },
+              "preview": {
+                "const": false
+              }
+            },
+            "required": [
+              "ok",
+              "op",
+              "preview"
+            ]
+          },
+          "then": {
+            "required": [
+              "data"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/$defs/data/inventory"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "op": {
+                "enum": [
+                  "inventory.store",
+                  "inventory.take",
+                  "inventory.drop"
+                ]
+              },
+              "preview": {
+                "const": false
+              }
+            },
+            "required": [
+              "ok",
+              "op",
+              "preview"
+            ]
+          },
+          "then": {
+            "required": [
+              "transient"
+            ],
+            "properties": {
+              "transient": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "op": {
+                "enum": [
+                  "inventory.use"
+                ]
+              },
+              "preview": {
+                "const": false
+              }
+            },
+            "required": [
+              "ok",
+              "op",
+              "preview"
+            ]
+          },
+          "then": {
+            "required": [
+              "transient"
+            ],
+            "properties": {
+              "transient": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "enum": [
+                  "inventory.store",
+                  "inventory.take",
+                  "inventory.use",
+                  "inventory.drop"
+                ]
+              },
+              "preview": {
+                "const": true
+              }
+            },
+            "required": [
+              "op",
+              "preview"
             ]
           },
           "then": {
@@ -2779,6 +2958,46 @@
         "properties": {
           "op": {
             "const": "trust.reset"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "inventory.store": {
+        "properties": {
+          "op": {
+            "const": "inventory.store"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "inventory.take": {
+        "properties": {
+          "op": {
+            "const": "inventory.take"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "inventory.use": {
+        "properties": {
+          "op": {
+            "const": "inventory.use"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "inventory.drop": {
+        "properties": {
+          "op": {
+            "const": "inventory.drop"
           }
         },
         "required": [
@@ -3885,6 +4104,116 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {}
+      },
+      "inventory.store": {
+        "description": "Put something away. From the hand (the default): what the actor holds into the chest, at a camp (a lit campfire or the starting one), or into the pockets, anywhere: a held stackable (a room object of a kind that names its asset) as a unit of its stack, a unique thing as an entry of its own (decision 99). From the pockets: a stack or a thing into the chest, at a camp. A unique thing keeps its id: its entity stays in room state as removed (marked gathered in the kernel's nature block) until it comes out. Caps: the pack's entries and mass for the pockets and the chest, and a stack's own size (occupied past any). The pockets and the hand are the player's alone: a companion naming the pockets is refused permission_denied before anything is looked up. The chest alone has a companion path: while the player's team setting \"Let the Gubble use the chest\" (gubble_chest) is on, the companion may store what its own avatar holds, at a camp; with it off every companion store is permission_denied at $.op before anything is looked up. No price. A durable receipt with data, one room revision, as item.gather's: the chest and a thing held away are the island's room state (the island save's nature, its team block and the receipt in one write; the team file's pockets beside it).",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "to"
+        ],
+        "properties": {
+          "to": {
+            "enum": [
+              "chest",
+              "pockets"
+            ]
+          },
+          "from": {
+            "description": "hand (the default) or pockets.",
+            "enum": [
+              "hand",
+              "pockets"
+            ]
+          },
+          "item": {
+            "description": "The pockets' entry to store (required from the pockets); from the hand it may name what is held, and must then be it.",
+            "$ref": "#/$defs/inventory_item"
+          },
+          "count": {
+            "description": "How many units of a stack (absent: the whole stack). A unique thing is one.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "from": {
+                  "const": "pockets"
+                }
+              },
+              "required": [
+                "from"
+              ]
+            },
+            "then": {
+              "required": [
+                "item"
+              ],
+              "properties": {
+                "to": {
+                  "const": "chest"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "inventory.take": {
+        "description": "Take something out of the chest, at a camp: a unique thing into the actor's hand (empty hands, within its carry limit) or into the pockets, a stack's units into the pockets. Into the pockets is the player's alone (permission_denied to a companion before anything is looked up); while gubble_chest is on the companion may take a thing into its own hands, never the player's; with it off every companion take is permission_denied at $.op. A durable receipt with data, one room revision, as a store's.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "item",
+          "to"
+        ],
+        "properties": {
+          "item": {
+            "$ref": "#/$defs/inventory_item"
+          },
+          "to": {
+            "enum": [
+              "hand",
+              "pockets"
+            ]
+          },
+          "count": {
+            "description": "How many units of a stack (absent: the whole stack). A unique thing is one.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        }
+      },
+      "inventory.use": {
+        "description": "Use one unit of a stack in the pockets: a kind whose use heals (heal_quarters) heals at once, with no unharmed wait (decision 111); at full hearts the unit stays (not_ready); in Creative nothing changes but the receipt (decision 108: food heals nothing there, and nothing in the inventory is lost, decision 101). A kind with no use is request_invalid. Player-only. A transient receipt with data (count 0 when nothing was used): a use changes the pockets (the team file) and the body, never the room.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "item"
+        ],
+        "properties": {
+          "item": {
+            "description": "A kind in the pockets.",
+            "$ref": "common.schema.json#/$defs/token"
+          }
+        }
+      },
+      "inventory.drop": {
+        "description": "Set a unique thing from the pockets on the ground before the player (the room's physics settles it, as a put-down does), on the island it came from; it is back in the room with its own id. A stack's unit is set down only once its kind has a body in the world (unsupported_capability until then). Player-only. A durable receipt with data, as a store's: the thing's new pose is saved first as a put-down's is (an entity.place receipt under the host's own action id, one room revision), then the drop's own receipt is the next.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "item"
+        ],
+        "properties": {
+          "item": {
+            "$ref": "#/$defs/inventory_item"
+          }
+        }
       }
     },
     "data": {
@@ -4122,6 +4451,45 @@
           "next_cursor": {
             "type": "string",
             "maxLength": 128
+          },
+          "inventory": {
+            "description": "The inventory's four commands (P-Inventory), on the whole list's first answer (no category, no cursor) when the island's pack has an inventory block: which are the player's alone, and whether the player's team setting \"Let the Gubble use the chest\" is on now (the companion's one path: its own hands and the chest).",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ops",
+              "gubble_chest"
+            ],
+            "properties": {
+              "gubble_chest": {
+                "type": "boolean"
+              },
+              "ops": {
+                "type": "array",
+                "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "op",
+                    "player_only"
+                  ],
+                  "properties": {
+                    "op": {
+                      "enum": [
+                        "inventory.store",
+                        "inventory.take",
+                        "inventory.use",
+                        "inventory.drop"
+                      ]
+                    },
+                    "player_only": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -4281,7 +4649,7 @@
         }
       },
       "player.status": {
-        "description": "The player's mode and body: health, stamina and what climbing has earned. consequences is false in Creative. Since the mechanics round the host may add the connection energy (energy), the hearts in quarters (hearts) and the bar's bands (bar); the maximum health and stamina are fields of the vitals, up to 30 hearts with Big heart (720) and the top band with Big bar (4.8 m); and the team's wallet (wallet), the materials gathered and spent on repairs, as nature.describe counts them.",
+        "description": "The player's mode and body: health, stamina and what climbing has earned. consequences is false in Creative. Since the mechanics round the host may add the connection energy (energy), the hearts in quarters (hearts) and the bar's bands (bar); the maximum health and stamina are fields of the vitals, up to 30 hearts with Big heart (720) and the top band with Big bar (4.8 m); and the team's wallet (wallet), the materials gathered and spent on repairs, as nature.describe counts them; and since P-Inventory the pockets (pockets) and the island's chest (chest), when the pack has an inventory block.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -4428,6 +4796,14 @@
               "minimum": 0,
               "maximum": 100000
             }
+          },
+          "pockets": {
+            "description": "The player's pockets in this mode (P-Inventory), when the island's rules pack has an inventory block.",
+            "$ref": "#/$defs/inventory_status"
+          },
+          "chest": {
+            "description": "The island's one chest, shared by every campsite (decision 102), when the pack has an inventory block.",
+            "$ref": "#/$defs/inventory_status"
           }
         },
         "required": [
@@ -5296,10 +5672,42 @@
             "maximum": 1
           }
         }
+      },
+      "inventory": {
+        "description": "What an inventory command moved: the entry, how many units (0 when nothing moved: an inventory.use in Creative), where it went, and for inventory.use the quarters of a heart it healed.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "item",
+          "count"
+        ],
+        "properties": {
+          "item": {
+            "$ref": "#/$defs/inventory_item"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "to": {
+            "enum": [
+              "chest",
+              "pockets",
+              "hand",
+              "ground"
+            ]
+          },
+          "healed_quarters": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 120
+          }
+        }
       }
     },
     "player_only_ops": {
-      "description": "Ops a companion principal can never perform. The companion adapter must not expose them and the host refuses them from companion principals (permission_denied), never holding them for a click. Unlocking is always a direct player action, and so are the player's own settings (the world's physics, the game mode, Glow's touch and sound), the player's wishes (submitting, stopping and reading them), and since the mechanics round picking up a Fractal (item.pickup), gathering a held loose log or stone into the wallet (item.gather), choosing a knack (knack.set), spending Fractals at a camp (fractal.spend, the second contract round), marking a receipt yes or not that (receipt.mark) and resetting Trust (trust.reset).",
+      "description": "Ops a companion principal can never perform. The companion adapter must not expose them and the host refuses them from companion principals (permission_denied), never holding them for a click. Unlocking is always a direct player action, and so are the player's own settings (the world's physics, the game mode, Glow's touch and sound), the player's wishes (submitting, stopping and reading them), and since the mechanics round picking up a Fractal (item.pickup), gathering a held loose log or stone into the wallet (item.gather), choosing a knack (knack.set), spending Fractals at a camp (fractal.spend, the second contract round), marking a receipt yes or not that (receipt.mark) and resetting Trust (trust.reset), and since P-Inventory using a unit from the pockets (inventory.use) and setting a thing from them down (inventory.drop). inventory.store and inventory.take are the player's for the pockets and the hand too, but not listed here: the chest has a companion path behind the player's team setting gubble_chest (their args say how each is refused before anything is looked up).",
       "enum": [
         "protect.unlock",
         "world.set_physics",
@@ -5313,7 +5721,9 @@
         "knack.set",
         "fractal.spend",
         "receipt.mark",
-        "trust.reset"
+        "trust.reset",
+        "inventory.use",
+        "inventory.drop"
       ]
     },
     "destructive_ops": {
@@ -5764,6 +6174,104 @@
         "at_utc": {
           "description": "When it caught up.",
           "$ref": "common.schema.json#/$defs/utc_timestamp"
+        }
+      }
+    },
+    "inventory_item": {
+      "description": "One entry of the pockets or the chest (P-Inventory, docs/game/MECHANICS.md decisions 98 to 103): a stack by its kind (the rules pack's inventory.kinds id, such as apple), or a unique thing by its room object id (it keeps its id while it is away from the island).",
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/token"
+        },
+        {
+          "$ref": "#/$defs/object_id"
+        }
+      ]
+    },
+    "inventory_entry": {
+      "description": "One entry: a stack (its kind, the pack's word for it, the units and their mass, and the quarters a unit heals when its use heals) or a unique thing (its object id, its name, its mass; in the pockets, here false when it belongs to another island, where alone it comes out). Names are untrusted display text, shown only.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item",
+        "kind",
+        "name",
+        "count",
+        "mass_kg"
+      ],
+      "properties": {
+        "item": {
+          "$ref": "#/$defs/inventory_item"
+        },
+        "kind": {
+          "enum": [
+            "stack",
+            "thing"
+          ]
+        },
+        "name": {
+          "allOf": [
+            {
+              "$ref": "common.schema.json#/$defs/display_text"
+            },
+            {
+              "maxLength": 80
+            }
+          ],
+          "minLength": 1
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "mass_kg": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "heal_quarters": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20
+        },
+        "here": {
+          "type": "boolean"
+        }
+      }
+    },
+    "inventory_status": {
+      "description": "The pockets or the chest as player.status shows them (read-only): the entries, oldest first, and the caps the rules pack sets.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entries",
+        "max_entries",
+        "mass_kg",
+        "max_mass_kg"
+      ],
+      "properties": {
+        "entries": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/inventory_entry"
+          }
+        },
+        "max_entries": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "mass_kg": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "max_mass_kg": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 50
         }
       }
     }

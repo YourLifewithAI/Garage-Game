@@ -343,7 +343,7 @@
       }
     },
     "extensions": {
-      "description": "Experiments (common.schema.json). The kernel host writes its own blocks here under x_play_: among them x_play_nature, the island's nature (the ground's cells, what fire did to each object and creation, the team's wallet, the trail, the weather clock and the latest nature changes' undo steps), checked whole before anything is restored. Other readers ignore them. Since the mechanics round two keys are typed here: x_clock, the island's clock, and x_team, whose save this is and how it plays (written by the teams packet, M3, and the clock's, M6).",
+      "description": "Experiments (common.schema.json). The kernel host writes its own blocks here under x_play_: among them x_play_nature, the island's nature (the ground's cells, what fire did to each object and creation, the team's wallet, the trail, the weather clock and the latest nature changes' undo steps), checked whole before anything is restored. Other readers ignore them. Since the mechanics round two keys are typed here: x_clock, the island's clock, and x_team, whose save this is and how it plays (written by the teams packet, M3, and the clock's, M6); and since P-Inventory x_play_camp's chest, the island's one chest.",
       "$ref": "common.schema.json#/$defs/extensions",
       "properties": {
         "x_clock": {
@@ -351,6 +351,9 @@
         },
         "x_team": {
           "$ref": "#/$defs/x_team"
+        },
+        "x_play_camp": {
+          "$ref": "#/$defs/x_play_camp"
         }
       }
     }
@@ -800,6 +803,46 @@
           }
         }
       ]
+    },
+    "x_play_camp": {
+      "description": "The kernel host's camp block (Fire's camp: the start spots, the lit campfires, the camp the player wakes at; its other keys are the kernel's own and open here), which since P-Inventory also carries the island's one chest (chest), shared by every campsite (decision 102). The island save keeps the same block in its team block's camp.",
+      "type": "object",
+      "properties": {
+        "chest": {
+          "$ref": "#/$defs/chest"
+        }
+      }
+    },
+    "chest": {
+      "description": "The island's chest (P-Inventory): stacks by kind, and the ids of the unique things in it, each a room object of this island kept as a removed entity (marked gathered in the kernel's nature block) until it is taken out with its own id. Absent: an empty chest; an empty chest writes no key. The chest never spills (decision 101), and the Creative copy into Challenge starts empty.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "stacks": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 16,
+          "propertyNames": {
+            "$ref": "common.schema.json#/$defs/token"
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "things": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^obj:[A-Za-z0-9_-]{1,64}$"
+          }
+        }
+      }
     }
   }
 }

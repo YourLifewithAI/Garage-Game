@@ -232,6 +232,34 @@
               "maximum": 1000000
             }
           }
+        },
+        "settings": {
+          "description": "The team's own switches, written only by the player's own control, never a request (P-Inventory): gubble_chest, \"Let the Gubble use the chest\" (decision 100: off unless present). Absent: every switch off, so a team file without it reads as before.",
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "gubble_chest": {
+              "const": true
+            }
+          }
+        },
+        "pockets": {
+          "description": "The pockets, carried everywhere, one set per mode (P-Inventory; decisions 98, 99 and 101): only a mode whose pockets hold something is written, and no key when none does, so a team file from before reads and writes as it was.",
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "creative": {
+              "$ref": "#/$defs/pockets"
+            },
+            "challenge": {
+              "$ref": "#/$defs/pockets"
+            },
+            "live": {
+              "$ref": "#/$defs/pockets"
+            }
+          }
         }
       }
     },
@@ -475,6 +503,76 @@
           "uniqueItems": true,
           "items": {
             "$ref": "common.schema.json#/$defs/token"
+          }
+        }
+      }
+    },
+    "inventory_stacks": {
+      "description": "Stacks by kind (the rules pack's inventory.kinds id): the units held, at least one.",
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 16,
+      "propertyNames": {
+        "$ref": "common.schema.json#/$defs/token"
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      }
+    },
+    "pockets": {
+      "description": "One mode's pockets: stacks by kind, and unique things, each a room object of one island (its room and manifest prefix) away from it until it comes out there, with its name (untrusted display text) and mass. At most 16 entries in all.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "stacks": {
+          "$ref": "#/$defs/inventory_stacks"
+        },
+        "things": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "room_id",
+              "manifest_prefix",
+              "name",
+              "mass_kg"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^obj:[A-Za-z0-9_-]{1,64}$"
+              },
+              "room_id": {
+                "$ref": "common.schema.json#/$defs/token"
+              },
+              "manifest_prefix": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{16}$"
+              },
+              "name": {
+                "allOf": [
+                  {
+                    "$ref": "common.schema.json#/$defs/display_text"
+                  },
+                  {
+                    "maxLength": 80
+                  }
+                ],
+                "minLength": 1
+              },
+              "mass_kg": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 10
+              }
+            }
           }
         }
       }

@@ -130,6 +130,10 @@ public partial class CommandHost
         Player.FallObserved = ObservePlayerFall;
         Player.ClimbCompleted = ObservePlayerClimb;
         Player.StaminaLedger = _ledger;
+        // P-Inventory: the deep-water return loses the pockets' stacks in Challenge and Live (decision 101).
+        _shoreReturnsSeen = Player.ShoreReturns;
+        Player.WentHome -= PlayerWentHome;
+        Player.WentHome += PlayerWentHome;
         _priorKnacks = Player.Knacks;
         ApplyBodyKnacks();
         Player.ResetVitalsObservation();
@@ -144,6 +148,7 @@ public partial class CommandHost
         if (Player.FallObserved == ObservePlayerFall) Player.FallObserved = _priorFallObserved;
         if (Player.ClimbCompleted == ObservePlayerClimb) Player.ClimbCompleted = _priorClimbCompleted;
         if (ReferenceEquals(Player.StaminaLedger, _ledger)) Player.StaminaLedger = _priorStaminaLedger;
+        Player.WentHome -= PlayerWentHome;
         if (_priorKnacks != null) Player.Knacks = _priorKnacks;
     }
 
@@ -205,6 +210,8 @@ public partial class CommandHost
             data["bar"] = new JsonObject { ["bands"] = _vitalsRules.OpenBands(vitals), ["slowed"] = _slowed };
         // The team's wallet (the island save's): what gathering put in and repairs took out (CommandHostGather).
         data["wallet"] = WalletCounts();
+        // P-Inventory: the pockets and the chest, when the pack has the block (CommandHostInventoryReaders).
+        AddInventoryStatus(data);
         return data;
     }
 
@@ -453,6 +460,8 @@ public partial class CommandHost
         ForgetPopFall();
         MakeRecoverySafe(Player.GlobalPosition);
         _vitalsDirty = true;
+        // P-Inventory (decision 101): a knockout loses the pockets' stacks in Challenge and Live; unique things stay, the chest never spills.
+        LosePocketStacks(sea: false);
         return true;
     }
 

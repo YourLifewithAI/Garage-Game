@@ -61,7 +61,10 @@ class Surface(unittest.IsolatedAsyncioTestCase):
                                              "glow.configure", "wish.submit", "wish.stop", "wishes.read",
                                              # The mechanics round (M0): no tool picks up a Fractal, gathers, sets a knack, marks a
                                              # receipt or resets Trust.
-                                             "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset"})
+                                             "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset",
+                                             # P-Inventory: no tool eats from or drops out of the player's pockets (the chest's store
+                                             # and take have tools, behind the player's switch).
+                                             "inventory.use", "inventory.drop"})
 
     @with_harness
     async def test_mode_preferences_and_wish_controls_are_not_companion_tools(self):

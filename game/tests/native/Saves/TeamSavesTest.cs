@@ -218,7 +218,8 @@ public partial class TeamSavesTest : Node3D
         var invalid = Directory.GetFiles(examples + "teams_invalid", "team_*.json").OrderBy(f => f, StringComparer.Ordinal).ToArray();
         Check(example is { TeamId: "example_team", DisplayName: "Mira" } && example.Knacks.Single() == new ChosenKnack(1, "quick_feet", 1) && example.Earned.Count == 1 &&
               example.Earned["high_hop"] == 2 && example.WithKnack(1, "high_hop", table).Knacks.Single() == new ChosenKnack(1, "high_hop", 2) &&
-              invalid.Length == 7 && invalid.All(f => Refuses(() => TeamFile.Parse(File.ReadAllBytes(f)))),
+              // P-Inventory added four: pockets past 16 entries, a thing twice, the chest switch written off, a mode with empty pockets.
+              invalid.Length == 11 && invalid.All(f => Refuses(() => TeamFile.Parse(File.ReadAllBytes(f)))),
             $"the contract's team file reads, High hop set back at the rank it earned, and its {invalid.Length} invalid team files are refused");
     }
 
