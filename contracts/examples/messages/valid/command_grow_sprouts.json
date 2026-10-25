@@ -1,0 +1,17 @@
+{
+  "schema": "garage_game.command",
+  "version": 1,
+  "action_id": "sprout-0001",
+  "room_id": "garage_example",
+  "op": "nature.cast",
+  "args": {
+    "capability": "grow",
+    "center_m": [
+      0.9,
+      0.0,
+      0.6
+    ],
+    "radius_m": 0.5,
+    "duration_s": 1
+  }
+}

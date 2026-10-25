@@ -858,9 +858,52 @@ def fire_behaviours_refused(at: str) -> dict:
     snuff = valid["result_snuff_preview"]
     wisp = valid["result_wisp_cast"]
     return {
-        "command_grow_with_an_end": command("nature.cast", "grow-0009", {**GROW, "end_m": [0.5, 0.0, 0.5]}),
+        "command_bubble_with_an_end": command("nature.cast", "boat-0009", {**GROW, "capability": "bubble_boat", "end_m": [0.5, 0.0, 0.5]}),
         "result_snuff_preview_naming_what_it_would_burn": {**snuff, "data": {**snuff["data"], "affected_ids": ["obj:shelving_left"]}},
         "result_wisp_naming_a_thing": {**wisp, "data": {**wisp["data"], "wisp": "obj:pond"}},
+    }
+
+
+# Grow's unlocks (decisions 104 to 107): sprouts on the bare soil by the bean bag, a burnt shrub replanted, a bridge dragged over the
+# gutter between the pallets, and ivy up the workbench's side; capabilities.list naming the kinds still locked.
+SPROUTS = {"capability": "grow", "center_m": [0.9, 0.0, 0.6], "radius_m": 0.5, "duration_s": 1}
+BRIDGE = {"capability": "grow", "center_m": [-1.3, 0.2, 0.9], "radius_m": 0.5, "duration_s": 1, "end_m": [-0.1, 0.2, 0.9]}
+IVY = {"capability": "grow", "center_m": [1.6, 0.25, -1.2], "radius_m": 0.5, "duration_s": 1}
+
+
+def grow_unlocks(at: str) -> dict:
+    """Grow's unlocks (the P-Grow packet, 25 October): the place decides what a Grow cast is, and data.kind says so."""
+    def grew(cast: dict, grown: int, kind: str, **extra) -> dict:
+        return {**placed(cast), "cell_count": 0, "requires_approval": False, "started_cells": 0, "grown_plants": grown, "kind": kind, **extra}
+    bridge = {k: v for k, v in placed(BRIDGE).items() if k != "end_m"}
+    return {
+        "command_grow_sprouts": command("nature.cast", "sprout-0001", SPROUTS),
+        "result_grow_sprouts": result("nature.cast", "sprout-0001", "player:local", 11, at, transient=False, data=grew(SPROUTS, 12, "sprouts")),
+        "result_grow_replant": result("nature.cast", "replant-0001", "companion:local", 12, at, transient=False, data=grew(GROW, 1, "replant")),
+        "command_grow_bridge_preview": command("nature.cast", "bridge-0001", BRIDGE, preview=True),
+        "result_grow_bridge_preview": {**result("nature.cast", "bridge-0001", "player:local", 12, at), "preview": True, "data": {
+            **bridge, "cell_count": 0, "cells": [], "cells_truncated": False, "grown_plants": 1, "requires_approval": False, "kind": "bridge",
+            "end_m": BRIDGE["end_m"]}},
+        "command_grow_bridge": command("nature.cast", "bridge-0001", BRIDGE),
+        "result_grow_bridge": result("nature.cast", "bridge-0001", "player:local", 13, at, transient=False, data={
+            **bridge, "cell_count": 0, "requires_approval": False, "started_cells": 0, "grown_plants": 1, "kind": "bridge", "end_m": BRIDGE["end_m"]}),
+        "result_grow_ivy": result("nature.cast", "ivy-0001", "player:local", 14, at, transient=False, data=grew(IVY, 1, "ivy")),
+        # Before three Grow expertise: Grow is listed, its bridge and ivy locked (decision 76).
+        "result_capabilities_list_with_locked_kinds": answer("capabilities.list", "q-0040", "companion:local", 14, at, {"items": [
+            {"capability": "grow", "category": "growth", "params": {"intensity": {"min": 0.1, "max": 0.5}}, "area_radius_max_m": 1.0,
+             "duration_max_s": 600, "command_op": "nature.cast", "max_active": 1, "reach_m": 2.0, "locked_kinds": ["bridge", "ivy"]}]}),
+    }
+
+
+def grow_unlocks_refused(at: str) -> dict:
+    """What Grow's unlocks refuse, each for one reason (EXPECTED_FAILURES in contracts/tests/test_contracts.py)."""
+    valid = grow_unlocks(at)
+    sprouts = valid["result_grow_sprouts"]
+    listed = valid["result_capabilities_list_with_locked_kinds"]
+    return {
+        "result_grow_kind_unknown": {**sprouts, "data": {**sprouts["data"], "kind": "vines"}},
+        "result_capabilities_list_locking_a_kind_twice": {**listed, "data": {"items": [{**listed["data"]["items"][0], "locked_kinds": ["ivy", "ivy"]}]}},
+        "result_capabilities_list_with_no_locked_kinds_listed": {**listed, "data": {"items": [{**listed["data"]["items"][0], "locked_kinds": []}]}},
     }
 
 
@@ -1442,6 +1485,7 @@ def build_messages(out: Path) -> None:
     valid.update(magic_modes_and_wishes(at))
     valid.update(mechanics_round(at))
     valid.update(fire_behaviours(at))
+    valid.update(grow_unlocks(at))
     # The 10x world (S2): observe sees the whole island unless a radius narrows it, and a plant copy is an entity.
     valid["query_observe_everything_in_sight"] = query("observe", "q-0030", {"actor": "avatar:companion"})
     valid["query_observe_across_the_island"] = query("observe", "q-0031", {"actor": "avatar:companion", "radius_m": 150})
@@ -1528,6 +1572,7 @@ def build_messages(out: Path) -> None:
     invalid.update(magic_modes_and_wishes_refused(at))
     invalid.update(mechanics_round_refused(at))
     invalid.update(fire_behaviours_refused(at))
+    invalid.update(grow_unlocks_refused(at))
     # The 10x world (S2): a radius past 150 m, and a second spelling of one plant copy.
     invalid["query_observe_past_150_m"] = query("observe", "q-0033", {"actor": "avatar:companion", "radius_m": 151})
     invalid["command_go_to_a_tree_spelt_with_a_leading_zero"] = command("goal.set", "go-to-tree-0001", {

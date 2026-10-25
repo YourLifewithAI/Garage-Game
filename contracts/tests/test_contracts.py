@@ -115,8 +115,12 @@ EXPECTED_FAILURES = {
     "result_nature_describe_with_an_unknown_material": "'gold' is not one of ['stone', 'wood', 'copper', 'leaf']",
     "result_fire_cast_keeping_its_preview_cells": "('cells' was unexpected)",
     "result_fire_preview_without_what_it_reaches": "'affected_ids' is a dependency of 'preview_id'",
-    # Fire's behaviours (decisions 77 to 80): only Fire names an end; Snuff burns nothing, so its preview names nothing it would reach.
-    "command_grow_with_an_end": "'fire' was expected",
+    # Fire's behaviours (decisions 77 to 80): only Fire and Grow name an end (a Fireline, a bridge); Snuff burns nothing, so its preview names nothing it would reach.
+    "command_bubble_with_an_end": "'bubble_boat' is not one of ['fire', 'grow']",
+    # Grow's unlocks (decisions 104 to 107): its kinds are the contract's, and capabilities.list names each locked one once, or none.
+    "result_grow_kind_unknown": "'vines' is not one of",
+    "result_capabilities_list_locking_a_kind_twice": "has non-unique elements",
+    "result_capabilities_list_with_no_locked_kinds_listed": "should be non-empty",
     "result_snuff_preview_naming_what_it_would_burn": "False schema does not allow",
     "result_wisp_naming_a_thing": "does not match",
     "result_flower_trail_without_its_data": "'data' is a required property",
@@ -547,6 +551,25 @@ class MagicModesWishesAndNatureTests(unittest.TestCase):
                     bubble = op == "nature.cast" and (document.get("data", {}).get("capability") in ("bubble_carry", "bubble_boat", "bubble_lift") or
                                                       document.get("data", {}).get("kind") in ("snuff", "will_o_wisp"))
                     self.assertEqual(document.get("transient"), None if op in ROUND_QUERIES else op in ROUND_TRANSIENT or bubble)
+
+    def test_grows_kinds_are_one_list_everywhere(self):
+        """Grow's unlocks (decisions 104 to 107): the receipt's and the preview's data.kind and capabilities.list's locked_kinds name
+        the same four, Grow and Fire alone name an end, and the kernel's words are these (CommandHostGrowKinds.GrowKindWords)."""
+        grow = ["sprouts", "replant", "bridge", "ivy"]
+        receipt = self.defs["data"]["nature.cast"]["else"]["properties"]["kind"]["enum"]
+        preview = self.defs["data"]["nature.cast_preview"]["properties"]["kind"]["enum"]
+        self.assertEqual(receipt, preview)
+        self.assertEqual(receipt[-4:], grow)
+        self.assertEqual(self.defs["capability_summary"]["properties"]["locked_kinds"]["items"]["enum"], grow)
+        ends = [rule for rule in self.defs["args"]["nature.cast"]["allOf"] if rule["if"].get("required") == ["end_m"]]
+        self.assertEqual(ends[0]["then"]["properties"]["capability"]["enum"], ["fire", "grow"])
+        bridge = valid_example("command_grow_bridge")
+        self.assertEqual(validate.schema_errors(bridge), [])
+        self.assertTrue(validate.schema_errors({**bridge, "args": {**bridge["args"], "capability": "bubble_carry"}}), "only Fire and Grow name an end")
+        kinds = KERNEL / "CommandHostGrowKinds.cs"
+        if kinds.is_file():
+            words = dict(re.findall(r'public const string (\w+) = "([a-z_]+)";', kinds.read_text(encoding="utf-8")))
+            self.assertEqual([words["Sprouts"], words["Replant"], words["Bridge"], words["Ivy"]], grow)
 
     def test_every_new_op_has_an_example_it_refuses(self):
         refused = {validate.load_strict(path).get("op") for path in (EXAMPLES / "messages" / "invalid").glob("*.json")
