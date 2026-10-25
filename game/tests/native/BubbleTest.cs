@@ -105,6 +105,8 @@ public partial class BubbleTest : Node3D
         await TestBudget();
         await TestMarksOnTheBubble();
         await TestTheReviewsFixes();
+        // Decision 110: every way a bubble ends, classed as the Gubble's pop, the player's or the world's (BubbleTest.Pops.cs).
+        await TestEveryPopIsClassified();
     }
 
     // ---- the world ----

@@ -256,7 +256,8 @@ public partial class CommandHost
 
     /// <summary>
     /// The Gubble popped the carry holding the player by its own action (its stop, its effect.stop, a new goal of its own ending its lead,
-    /// its recast; BubbleEnd.PoppedByGubble), and the fall from there has not ended yet (decision 96).
+    /// its recast, its runner ending the wish whose lead it was; BubbleEnd.PoppedByGubble, decision 110), and the fall from there has not
+    /// ended yet (decision 96). No pop from the world sets it, and every other pop of a carry holding the player clears it (EndBubble).
     /// </summary>
     private bool _popFallPending;
 
