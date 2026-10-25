@@ -4,7 +4,7 @@ namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// What the second playtest round's HUD adds to a frame (P2: the notice under the reticle, E's prompt and its question to the host, the
-/// camp's screen), measured as MeterCost measures the meters, against the same budget (0.5 ms a frame). While Measuring (the suite switches
+/// camp's screen, the hotbar, the repair icons), measured as MeterCost measures the meters, against the same budget (0.5 ms a frame). While Measuring (the suite switches
 /// it on, a player's game never does), each piece adds its time to the frame; the next frame's first piece closes it.
 /// </summary>
 public static class PromptCost
@@ -29,8 +29,8 @@ public static class PromptCost
     }
 
     /// <summary>The pieces that are measured, each its own total (the suite says which costs what).</summary>
-    public enum Piece { Notice, Prompt, Decide, Camp, Hotbar }
-    public static readonly long[] PieceTicks = new long[5];
+    public enum Piece { Notice, Prompt, Decide, Camp, Hotbar, Repair }
+    public static readonly long[] PieceTicks = new long[6];
 
     /// <summary>The piece that began at this timestamp adds its time to the frame.</summary>
     public static void End(long began, Piece piece)

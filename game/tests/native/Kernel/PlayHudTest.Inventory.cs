@@ -33,12 +33,14 @@ public partial class PlayHudTest
     private static readonly Vector3 InvByDoorstop = new(-0.3f, 0, 0.62f);
     private static readonly Vector3 InvByBrick = new(0.0f, 0, 0.86f);
     private static readonly Vector3 InvAway = new(0.9f, 0, -0.6f);
+    /// <summary>A spot with nothing within the hands' reach (the brick is dropped at InvAway by then): F has nothing to pick up there.</summary>
+    private static readonly Vector3 InvClear = new(0.3f, 0, -0.9f);
 
     private RoomWorld _iw = null!;
     private CommandHost _ih = null!;
     private RoomHud _ihud = null!;
 
-    /// <summary>The test room with a broadleaf tree and a shrub, and on the rug two windfall apples, a seed pod, a cup, a brick of 0.29 kg and a pebble (the apples and the pod are units of their kinds once the pack says so; the pebble, of stone, is a stone).</summary>
+    /// <summary>The test room with a broadleaf tree and a shrub, and on the rug two windfall apples, a seed pod, a cup, a brick of 0.29 kg and two pebbles (the second for the repair's stone in Challenge; the apples and the pod are units of their kinds once the pack says so; the pebble, of stone, is a stone).</summary>
     private static string InventoryHudRoom()
     {
         IslandFixture.Row Bush(Vector3 at, float top, uint seed) => new(at.X, 0, at.Z, 0, new Vector3(1, top / 0.13f, 1), new Color(0.8f, 0.9f, 0.7f), top, 0, 0, seed);
@@ -74,7 +76,7 @@ public partial class PlayHudTest
             File.WriteAllBytes(Path.Combine(target, relative), bytes);
             files.Add(new JsonObject { ["path"] = relative, ["sha256"] = CanonicalJson.Sha256Hex(bytes), ["bytes"] = bytes.Length });
         }
-        foreach (var (id, asset, x, z) in new[] { ("obj:apple_1", "windfall_apple", 0.3, 0.35), ("obj:apple_2", "windfall_apple", 0.3, 0.45), ("obj:pod", "seed_pod", 0.3, 0.65), ("obj:cup", "cup_proxy", -0.2, 0.75), ("obj:brick", "brick_proxy", 0.0, 0.95), ("obj:pebble", "pebble_proxy", 0.7, 0.4) })
+        foreach (var (id, asset, x, z) in new[] { ("obj:apple_1", "windfall_apple", 0.3, 0.35), ("obj:apple_2", "windfall_apple", 0.3, 0.45), ("obj:pod", "seed_pod", 0.3, 0.65), ("obj:cup", "cup_proxy", -0.2, 0.75), ("obj:brick", "brick_proxy", 0.0, 0.95), ("obj:pebble", "pebble_proxy", 0.7, 0.4), ("obj:pebble_2", "pebble_proxy", -0.75, 0.45) })
             objects.Add(new JsonObject
             {
                 ["id"] = id, ["asset"] = $"objects/{asset}/asset.json",
@@ -127,6 +129,8 @@ public partial class PlayHudTest
             await InvCost();
             await InvCampPage();
             await InvSettingsSwitch();
+            // The Gubble's repair and the card that shows its spend (PlayHudTest.Repair.cs): last, in Challenge, then back to Creative.
+            await InvRepairIcon();
         }
         finally
         {
@@ -283,11 +287,9 @@ public partial class PlayHudTest
 
         // The armed units, used from the bar (PlayHudTest.Hotbar.cs): a click and E, food eaten, a seed refused, a stone set down and picked up.
         await InvBarUnits();
-        // A unit of food set down lies loose before the player (decision 118; the bar sets down logs and stones only, so the kernel's own drop of the
-        // selected slot here), and E picks it up again.
-        var berrySlot = host.PocketEntries.First(e => e.Item == "berries").Slot;
-        await InvKey(InvBarKey(berrySlot));
-        Check(host.PlayerDropSelected()["ok"]?.GetValue<bool>() == true && InvUnits("berries") == 0 && host.LooseUnits.Any(u => u.Kind == "berries"), "(the berries' unit set down loose, by the kernel's drop of the selected slot)");
+        // F drops a unit of food (decision 130; the bar's E sets down logs and stones only): it lies loose before the player (decision 118), and E picks it
+        // up again. F's other meanings are checked there too (PlayHudTest.Hotbar.cs).
+        await InvBarDropWithF();
         await Frames(40);
         Check(hud.Interaction.Kind == RoomHud.InteractKind.PickFood && hud.Interaction.Words == "E: pick up berries", $"E faces the loose berries: \"{hud.Interaction.Words}\"");
         await InvKey(Key.E);

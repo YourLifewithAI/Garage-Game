@@ -143,13 +143,20 @@ public static class InventoryPages
     /// </summary>
     public static string UseSelectedWords(CommandHost host, string item)
     {
-        if (host.InventoryRules?.Kind(item) is { Material: not null })
-        {
-            var unit = UnitWords(host, item);
-            var dropped = host.PlayerDropSelected();
-            return Ok(dropped) ? $"You set {unit} down." : Failed(dropped, "That could not be set down.");
-        }
+        if (host.InventoryRules?.Kind(item) is { Material: not null }) return DropSelectedWords(host, item);
         return EatenWords(host, item, host.PlayerUseSelected(), "That has no use yet.");
+    }
+
+    /// <summary>
+    /// The hotbar's armed unit dropped (F, decision 130: F drops a food unit as it drops a thing; E on a log or stone sets it down the same way):
+    /// the kernel's inventory.drop naming no item, so one unit of the selected slot lies loose on the ground before the player. The words say
+    /// what was set down, or are the host's refusal (no ground ahead).
+    /// </summary>
+    public static string DropSelectedWords(CommandHost host, string item)
+    {
+        var unit = UnitWords(host, item);
+        var dropped = host.PlayerDropSelected();
+        return Ok(dropped) ? $"You set {unit} down." : Failed(dropped, "That could not be set down.");
     }
 
     /// <summary>What a unit of a stack does, in a word or two, for its slot on the bar: food is eaten, a log or stone set down, anything else kept.</summary>
@@ -254,6 +261,7 @@ public static class InventoryPages
         lines.Add(new(JournalInk.Heading, "The chest"));
         lines.Add(new(JournalInk.Faint, ChestCaps(host)));
         lines.Add(new(JournalInk.Faint, GubbleChestWords(host)));
+        lines.Add(new(JournalInk.Faint, GubbleRepairWords));
         if (!reachable) lines.Add(new(JournalInk.Text, CommandHost.ChestAtCamp));
         var chest = host.ChestEntries;
         if (chest.Count == 0) lines.Add(new(JournalInk.Text, "The chest is empty."));
@@ -290,6 +298,12 @@ public static class InventoryPages
         }
         return lines;
     }
+
+    /// <summary>
+    /// What the camp's Inventory page and the Magic panel's Repair section say of the Gubble repairing (decision 131): it pays as the player's own
+    /// repair does, and the card over the thing shows what it spent. They say nothing of asking: the kernel's own card carries any ask.
+    /// </summary>
+    public const string GubbleRepairWords = "When the Gubble repairs something it made, it pays the same logs and stones, your pockets first and then the chest, and a small card over the thing shows what it spent.";
 
     /// <summary>The Gubble's chest switch as read-only words: it is the player's setting (decision 100), changed in the settings and never here.</summary>
     public static string GubbleChestWords(CommandHost host) => host.GubbleChestAllowed

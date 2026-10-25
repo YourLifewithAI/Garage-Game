@@ -22,8 +22,9 @@ namespace GarageGame.Native;
 /// <item>with empty hands facing food within reach, picks it into the pockets ("E: pick an apple"), or says why the pockets cannot hold
 /// it (full, too heavy) beside it;</item>
 /// <item>by a lit campfire, sits you down ("E: sit by the fire"); beside one it cannot (in its flames, unlit, out), says the host's words;</item>
-/// <item>with a stack's unit armed on the hotbar, uses it ("E: eat an apple", "E: set a log down", "E: use a seed": the kernel refuses a
-/// seed in its own words); a click does the same wherever E has something else to do (RoomHud.Hotbar.cs);</item>
+/// <item>with a stack's unit armed on the hotbar, uses it ("E: eat an apple · F drop one", "E: set a log down", "E: use a seed · F drop one":
+/// the kernel refuses a seed in its own words; F drops one unit loose when nothing else wants F, decision 130); a click does the same
+/// wherever E has something else to do (RoomHud.Hotbar.cs);</item>
 /// <item>facing something to pick up, picks it up ("E: pick up the cup · V push").</item>
 /// </list>
 /// The prompt rides the focus tag when E works on the thing the hands' focus lights, and otherwise stands beside the campfire, the Fractal
@@ -110,12 +111,20 @@ public partial class RoomHud
         if (rest.Words is CommandHost.RestInFlames or CommandHost.RestUnlit or CommandHost.RestOut)
             return new(InteractKind.Camp, rest.Words, CampfireTop(host, rest.Campfire ?? CampfireNear(host)), rest.Campfire);
         // The hotbar's armed unit (decision 119), when nothing in the world wants E: eaten, set down, or asked of and refused in the kernel's words.
-        if (hand is { Holds: "unit", Item: { } unit }) return new(InteractKind.UseUnit, $"{e}: {UseUnitWords(host, unit)}", null, unit);
+        if (hand is { Holds: "unit", Item: { } unit })
+            return new(InteractKind.UseUnit, $"{e}: {UseUnitWords(host, unit)}" + FDropWords(host, hand, unit, focus), null, unit);
         // The thing faced, when the hands' focus says it can be picked up (the kernel's tag says which: carry, push only, too heavy).
         if (focus.Id is { Length: > 0 } thing && focus.Tag == Sandbox.SandboxControls.FocusWords.PickUpOrPush)
             return new(InteractKind.PickUp, $"{e}: pick up {ObjectName(host, thing)} · {K(Act.Push)} push", null, thing);
         return default;
     }
+
+    /// <summary>
+    /// The prompt's second half for the armed unit: " · F drop one" when F would drop it (RoomHud.Hotbar.cs), for the kinds E does not already
+    /// set down (food and seeds; E sets a log or stone down itself).
+    /// </summary>
+    private static string FDropWords(CommandHost host, HandView? hand, string item, CommandHost.HandsFocus focus) =>
+        host.InventoryRules?.Kind(item) is { Material: null } && FDropsUnit(host, hand, focus) ? $" · {K(Act.Hands)} drop one" : "";
 
     /// <summary>E's words for the bar's armed unit: "eat an apple", "set a log down", "use a seed" (the kernel's refusal then says why).</summary>
     private static string UseUnitWords(CommandHost host, string item)

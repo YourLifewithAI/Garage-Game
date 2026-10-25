@@ -69,15 +69,50 @@ public partial class PlayHudTest
         // A notice standing low stays over the bar and its caption.
         var low = RoomHud.NoticePlace(new Vector2(640, 700), new Vector2(380, 44), view, 0, view.Y - RoomHud.BarClearTop(view));
         Check(low.Y + 44 <= RoomHud.BarClearTop(view) + 0.01f, $"a notice under a low reticle stands above the bar's caption (its foot at {low.Y + 44:0}, the caption from {placed.Caption.Position.Y:0})");
-        // H unfolds the help over the foot of the screen: the bar steps aside under it, and is back when it folds.
+        // H unfolds the help above the bar (decision 130): the bar stays where it is and visible, the help ends above its caption, and it scrolls.
         _hud._UnhandledInput(Press(Key.H));
-        await Frames(2);
-        var unfolded = _hud.GetNode<PanelContainer>("HelpFooter").GetGlobalRect();
-        var hidden = !bar.Visible && unfolded.Size.X > 900;
+        await Frames(4);
+        var help = _hud.GetNode<PanelContainer>("HelpFooter");
+        var unfolded = help.GetGlobalRect();
+        var scroll = help.GetChild<VBoxContainer>(0).GetNode<VBoxContainer>("KeyHelp").GetNode<ScrollContainer>("HelpScroll");
+        var bar2 = bar.Placed;
+        var span = RoomHud.HelpSpan(view);
+        var clearOfBar = !unfolded.Intersects(bar2.Block) && !unfolded.Intersects(bar2.RowTag) && !unfolded.Intersects(bar2.StripTag) && !unfolded.Intersects(bar2.Caption) &&
+                         Enumerable.Range(0, 10).All(i => !unfolded.Intersects(bar2.Row[i]) && !unfolded.Intersects(bar2.Strip[i]));
+        Check(bar.Visible && bar.Placed.Block == placed.Block && clearOfBar && unfolded.End.Y <= bar2.Caption.Position.Y - RoomHud.BarClearPx + 0.5f && unfolded.Position.Y >= RoomHud.HelpTopPx - 0.5f,
+            $"unfolded, the help ({unfolded.Position.X:0},{unfolded.Position.Y:0} to {unfolded.End.X:0},{unfolded.End.Y:0}) stands above the bar's caption (from y {bar2.Caption.Position.Y:0}) and covers none of the bar, its strip, its tags or its caption");
+        Check(unfolded.Size.X > 900 && Mathf.Abs(unfolded.End.Y - span.Bottom) < 1 && Mathf.Abs(unfolded.Position.Y - span.Top) < 1,
+            $"it is the screen's width ({unfolded.Size.X:0} px) from the top margin to the foot HelpSpan gives ({span.Top:0} to {span.Bottom:0})");
+        // The help is taller than the room above the bar, so its lines scroll: to the last one and back, the pinned playtest line staying put.
+        var lines = scroll.GetNode<VBoxContainer>("HelpLines");
+        var vbar = scroll.GetVScrollBar();
+        var contentHigh = lines.Size.Y;
+        var first = lines.GetChild<Control>(0);
+        var last = lines.GetChild<Control>(lines.GetChildCount() - 1);
+        var pinned = scroll.GetParent<VBoxContainer>().GetNode<Label>("PlaytestKeys");
+        Check(contentHigh > scroll.Size.Y + 1 && vbar.MaxValue > vbar.Page && scroll.HorizontalScrollMode == ScrollContainer.ScrollMode.Disabled && scroll.GetGlobalRect().Encloses(first.GetGlobalRect()) &&
+              pinned.GetGlobalRect().End.Y <= unfolded.End.Y + 0.5f && pinned.GetGlobalRect().Position.Y >= scroll.GetGlobalRect().End.Y - 0.5f,
+            $"its lines ({contentHigh:0} px) are taller than the room ({scroll.Size.Y:0} px) and scroll, with the playtest line pinned below them");
+        scroll.ScrollVertical = (int)vbar.MaxValue;
+        await Frames(3);
+        Check(scroll.GetGlobalRect().Grow(0.5f).Encloses(last.GetGlobalRect()), $"scrolled to the end the last line shows ({last.Name} ends at {last.GetGlobalRect().End.Y:0}, the room at {scroll.GetGlobalRect().End.Y:0})");
+        scroll.ScrollVertical = 0;
+        // The numbers at both window sizes (the canvas at 1152x648 is shown at nine tenths): the span ends above the caption and leaves room to read.
+        foreach (var screen in new[] { new Vector2(1280, 720), new Vector2(1152, 648) })
+        {
+            var s2 = RoomHud.HelpSpan(screen);
+            var at = Hotbar.Layout(screen);
+            Check(s2.Top == RoomHud.HelpTopPx && s2.Bottom <= at.Caption.Position.Y - RoomHud.BarClearPx + 0.01f && s2.Bottom - s2.Top >= 400 && s2.Bottom <= at.Block.Position.Y,
+                $"at {screen.X:0}x{screen.Y:0} the unfolded help runs from y {s2.Top:0} to {s2.Bottom:0}, above the caption (y {at.Caption.Position.Y:0}) and the bar (y {at.Block.Position.Y:0}): {s2.Bottom - s2.Top:0} px of help");
+        }
+        // A click on a slot of the bar reaches the game with the help open: nothing of the help is over the bar's slots.
+        _hud.PointerForTests = bar2.Row[3].GetCenter();
+        Check(!unfolded.HasPoint(bar2.Row[3].GetCenter()) && !unfolded.HasPoint(bar2.Strip[3].GetCenter()) && bar.RowSlotAt(bar2.Row[3].GetCenter()) == 3, "and the slots are still the pointer's to click");
+        _hud.PointerForTests = null;
         _hud._UnhandledInput(Press(Key.H));
-        await Frames(2);
-        Check(hidden && bar.Visible && _hud.GetNode<PanelContainer>("HelpFooter").GetGlobalRect().Size.X < 200,
-            $"unfolded, the help is the screen's width ({unfolded.Size.X:0} px) and the bar steps aside under it; folded again the bar is back and the help a small box");
+        await Frames(4);
+        var folded = help.GetGlobalRect();
+        Check(bar.Visible && folded.Size.X < 200 && folded.Position.X == 18 && !folded.Intersects(bar.Placed.Block), "folded again the help is the small box at the lower left and the bar is as it was");
     }
 
     // ---- the magic layer (the main room) ----
@@ -276,7 +311,7 @@ public partial class PlayHudTest
         var seedSlot = host.PocketEntries.First(e => e.Item == "seed").Slot;
         await InvKey(InvBarKey(seedSlot), 4);
         seeds = InvUnits("seed");
-        Check(bar.Row[seedSlot - 1] is { Big: "Seeds" or "Seed", Small: "keep" } && hud.Interaction.Words == "E: use a seed", $"a seed's slot says it is kept, and E's prompt asks to use one: \"{hud.Interaction.Words}\"");
+        Check(bar.Row[seedSlot - 1] is { Big: "Seeds" or "Seed", Small: "keep" } && hud.Interaction.Words == "E: use a seed", $"a seed's slot says it is kept, and E's prompt asks to use one (the brick lies at the player's feet, so F has something to pick up and the prompt names no drop): \"{hud.Interaction.Words}\"");
         hud._UnhandledInput(LeftButton(true));
         hud._UnhandledInput(LeftButton(false));
         await Frames(2);
@@ -297,6 +332,51 @@ public partial class PlayHudTest
         Check(hud.Interaction.Kind == RoomHud.InteractKind.PickFood && hud.Interaction.Words == "E: pick up a stone", "and E picks it up again: " + hud.Interaction.Words);
         await InvKey(Key.E, 4);
         Check(InvUnits("stone") == 1, "(the stone back in the pockets: " + hud.NoticeText + ")");
+    }
+
+    /// <summary>
+    /// F drops one unit of the armed stack (decision 130), as it drops a thing: a unit of berries lies loose before the player and the count falls;
+    /// the prompt says so; F still picks a loose unit up and gathers before it drops (the world first, as E asks), and with the hands carrying a
+    /// thing it sets that down and drops nothing. Leaves the berries loose before the player, as the E tests after it need them.
+    /// </summary>
+    private async Task InvBarDropWithF()
+    {
+        var host = _ih;
+        var hud = _ihud;
+        var bar = hud.Hotbar;
+        var player = CommandHost.PlayerAvatar;
+        await InvStand(InvClear);
+        // A seed first: dropped, and picked up again by the same key (the unit lying ahead is something for F to pick up).
+        var seedSlot = host.PocketEntries.First(e => e.Item == "seed").Slot;
+        await InvKey(InvBarKey(seedSlot), 4);
+        var seeds = InvUnits("seed");
+        Check(host.Hand is { Holds: "unit", Item: "seed" } && hud.Interaction.Words == "E: use a seed · F drop one", $"a seed armed, nothing else here: the prompt names F as well as E: \"{hud.Interaction.Words}\"");
+        await InvKey(Key.F, 6);
+        Check(InvUnits("seed") == seeds - 1 && host.LooseUnits.Count(u => u.Kind == "seed") == 1 && hud.NoticeText == "You set a seed down." && host.HandNow.Pockets == seedSlot,
+            $"F drops one seed loose before the player, the count falling by one and the slot staying chosen: \"{hud.NoticeText}\" ({seeds} to {InvUnits("seed")})");
+        await Frames(40);
+        Check(hud.Interaction.Kind == RoomHud.InteractKind.PickFood && hud.Interaction.Words == "E: pick up a seed", $"with the seed lying ahead, E's prompt picks it up and F has no drop to name: \"{hud.Interaction.Words}\"");
+        await InvKey(Key.F, 6);
+        Check(InvUnits("seed") == seeds && host.LooseUnits.All(u => u.Kind != "seed") && hud.NoticeText.StartsWith("Picked up.", StringComparison.Ordinal),
+            $"F again, with the seed armed and lying ahead, picks it up as it always did: \"{hud.NoticeText}\"");
+        // Carrying a thing: F sets it down and drops no unit.
+        var brickAt = host.ObjectNodeOf("obj:brick")?.GlobalPosition ?? InvAway;
+        await InvStand(new Vector3(brickAt.X, 0, brickAt.Z) + new Vector3(0, 0, 0.06f));
+        Check(InvGrab("obj:brick") && host.Hand is { Holds: "unit", Item: "seed", Carrying: "obj:brick" }, "(the seed still armed, the player takes the brick in hand)");
+        await InvStand(InvClear);
+        await InvKey(Key.F, 6);
+        Check(host.HeldBy(player) == null && InvUnits("seed") == seeds && host.LooseUnits.All(u => u.Kind != "seed") && hud.NoticeText.StartsWith("Set ", StringComparison.Ordinal),
+            $"with the brick in hand F sets the brick down and drops no seed: \"{hud.NoticeText}\"");
+        // The berries: the same for food, and the count on the bar falls (at InvAway, which the brick has left for InvClear).
+        await InvStand(InvAway);
+        var berrySlot = host.PocketEntries.First(e => e.Item == "berries").Slot;
+        await InvKey(InvBarKey(berrySlot), 4);
+        var revision = host.Revision;
+        var heard = host.PendingApprovals.Count;
+        await InvKey(Key.F, 6);
+        Check(InvUnits("berries") == 0 && host.LooseUnits.Any(u => u.Kind == "berries") && hud.NoticeText == "You set berries down." && host.HandNow.Pockets == berrySlot && bar.Row[berrySlot - 1].Lacking &&
+              host.Revision == revision + 1 && host.PendingApprovals.Count == heard,
+            $"F drops the berries' one unit through the kernel's inventory.drop (one durable change), the slot empty and still chosen: \"{hud.NoticeText}\"");
     }
 
     /// <summary>The wheel over the bar steps its selection (the zoom left alone), a click on a slot chooses it, a click on the strip brings that layer down.</summary>
@@ -335,15 +415,19 @@ public partial class PlayHudTest
         Check(hud.BarLayerShown == HandSelection.AbilitiesLayer && host.HandNow is { Layer: HandSelection.AbilitiesLayer, Abilities: 4, Pockets: 7 } && bar.StripChosen == 7,
             "a click on the strip's fourth slot brings the magic down with Fireworks chosen; the pockets keep slot 7");
         hud.PointerForTests = null;
-        // An ability's key never puts away what the hands carry: the brick picked up again on the magic side, 1 casts, the brick stays held.
+        // An ability's key records its slot whatever the hands carry (decision 129 is the kernel's; the bar's own guard is gone): the brick picked up
+        // again on the magic side, 1 chooses Glow and casts it, the brick stays held.
         var player = CommandHost.PlayerAvatar;
         var brick = host.ObjectNodeOf("obj:brick")?.GlobalPosition ?? InvAway;
         Check(await InvCarry("obj:brick", new Vector3(brick.X, 0, brick.Z) + new Vector3(0, 0, 0.06f), InvAway), "(the player picks the brick up again, the magic side down)");
         var abilities = host.HandNow.Abilities;
         hud.AimRayForTests = Down(InvAway + new Vector3(0.05f, 0, 0.05f));
         await InvKey(Key.Key1);
-        Check(host.HeldBy(player) == "obj:brick" && host.HandNow is { Layer: HandSelection.AbilitiesLayer } && host.HandNow.Abilities == abilities,
-            "1 on the magic side with the brick in the hands: the brick stays held (the key records no selection while they carry something)");
+        Check(abilities == 4 && host.HeldBy(player) == "obj:brick" && host.HandNow is { Layer: HandSelection.AbilitiesLayer, Abilities: 1 } && bar.RowChosen == 1,
+            $"1 on the magic side with the brick in the hands records Glow's slot (from {abilities} to {host.HandNow.Abilities}) and the brick stays held: an ability key needs no empty hands");
+        await InvKey(Key.Key3);
+        Check(host.HeldBy(player) == "obj:brick" && host.HandNow is { Layer: HandSelection.AbilitiesLayer, Abilities: 3 } && bar.RowChosen == 3,
+            "and 3 chooses Bubbles the same way, the brick still held");
         hud._UnhandledInput(Press(Key.X));
         hud.AimRayForTests = null;
         // Tab brings the pockets down through the kernel's select, which never touches what the hands carry (decision 129); a pocket slot
