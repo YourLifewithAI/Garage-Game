@@ -340,7 +340,7 @@ Multiplayer is a later phase and out of scope for the engine work now.
 104. **Seedless growth grows in phases:** a seedling starts at half size and reaches its natural size through phases of growth; the timing is tested in play (the first numbers are the packet's, provisional).
 105. **Replanting returns one plant:** for flowers a clump, for a tree a single tree, for a crop a single useful plant: the nearest burnt plant record to the cast.
 106. **The bridge is 1.2 m and stays so.** Unjumpable gaps are gates: the generator makes them in standard widths the bridge spans, rather than the bridge growing to fit (a Lane C rule for the generator, later).
-107. **Ivy costs something nominal** (1 pip ordered, 1 as the Gubble's idea, provisional) and grows one per ledge.
+107. **Climbing ivy costs something nominal**, not nothing: the bar drains on an ivy strip at a quarter of a bare face's rate (provisional); the Grow cast that grows it is priced as any Grow. One ivy per ledge.
 108. **Food:** windfalls at the trunk and fruit in the canopy reached with a hop; in Creative food heals nothing but eating still makes its sound; the Gubble does not point food out.
 109. **A wisp is not a fire:** X does not remove it (it removed the oldest until now). Decision 80's cap stays: the fourth wisp replaces the oldest.
 110. **The Gubble's pop, defined:** a pop the Gubble chose (its stop, `effect.stop`, a new goal of its own, a recast) costs it Trust when the fall hurts (decision 96). A pop from the world (the timer, a blocked lead, a bump, a ceiling, a rules change) never does.
