@@ -136,8 +136,9 @@ RAIN_OUT_S = 30.0  # CampLaws.RainOutS
 FIREPIT_CATCH_M = 0.12  # CampLaws.FirepitCatchM
 FIREPIT_CATCH_RISE_M = 0.3  # CampLaws.FirepitCatchRiseM
 MAX_FIREPITS = 16  # CampLaws.MaxFirepits
-# A fresh island's wallet for a pack without traits.wallet (NatureState.FreshWallet).
-FRESH_WALLET = {"copper": 10, "leaf": 20, "stone": 10, "wood": 20}
+# The materials wallet is retired (P-Inventory-2, decision 116: logs and stones are stacks in the pockets and the chest); a new
+# island's is empty whatever the pack says (the kernel's NatureState.FreshWallet).
+FRESH_WALLET: dict[str, int] = {}
 # Fire's and Grow's expertise (Kernel/ExpertiseRecord.cs ExpertiseLists), in their orders.
 FIRE_EXPERTISE = ("first_fire", "campfire", "fireline", "snuff", "will_o_wisp")
 GROW_EXPERTISE = ("tall_plant", "thicket", "green_ash", "rain_garden", "waterpad")
@@ -241,8 +242,9 @@ BRIDGE_HOLD = "The Gubble asks to grow a bridge of plants across this gap."
 REPAIR_NOT_HERE = "That is not in this room."
 REPAIR_LOCKED = "Only the player can unlock this protected creation."
 REPAIR_NOT_NEEDED = "That creation does not need repair."
-REPAIR_NO_MATERIALS = "The team's material supply cannot cover this repair yet."
-REPAIR_HOLD = "The Gubble asks to repair {target}, which you made, using the team's materials."
+# The kernel's RepairSpend and RepairAsk (P-Inventory-2): a repair spends logs and stones, the pockets first, then the chest.
+REPAIR_NO_MATERIALS = "This repair needs {needs}, more than your pockets and the chest hold."
+REPAIR_HOLD = "The Gubble asks to repair {target}, which you made."
 UNDO_NOT_EARLIER = "Undo names an earlier room revision."
 UNDO_SEALED = "That change happened in Challenge or Live, where what happens stays: it cannot be undone."
 UNDO_ONLY_NATURE = ("The latest change is not one the island can undo yet: only nature changes (Grow, Fire, repairs) "
@@ -526,6 +528,8 @@ class NatureMixin:
         self.bridges: list[Bridge] = []
         self.burn_records: dict[str, BurnRecord] = {}
         self.ash: dict[str, tuple[float, float]] = {}  # cell key -> (its ground's height, ash)
+        # What the kernel's pockets and chest hold of logs and stones, by material (the mock keeps no player inventory: empty unless a
+        # test fills it); what a repair spends, and nature.describe's "wallet" (the name kept for its readers).
         self.wallet = self._fresh_wallet()
         self.fire: Fire | None = None
         self.undo_steps: list[UndoStep] = []
@@ -548,9 +552,22 @@ class NatureMixin:
         self.home_camp: str | None = None
 
     def _fresh_wallet(self) -> dict[str, int]:
-        rules = getattr(self, "rules", None)
-        start = rules.wallet if rules is not None else None
-        return dict(sorted((start or FRESH_WALLET).items()))
+        """A new island's materials: none (the wallet is retired; traits.wallet.start is read and ignored, as the kernel's FreshWallet)."""
+        return dict(FRESH_WALLET)
+
+    def _repair_needs(self, cost: dict[str, int]) -> str:
+        """The kernel's RepairSpend words for a cost: each material as the pack's kind names it ("3 logs and 1 stone"), in the pack's
+        order of its kinds, then any material no kind is made of."""
+        kinds = list((self.rules.inventory or {}).get("kinds", [])) if self.rules is not None else []
+        by_material = {kind["material"]: (index, kind) for index, kind in enumerate(kinds) if "material" in kind}
+        parts = []
+        for material, units in sorted(cost.items(), key=lambda item: (by_material.get(item[0], (10**9, None))[0], item[0])):
+            if units <= 0:
+                continue
+            kind = by_material.get(material, (0, None))[1]
+            word = (kind["name"] if units == 1 else kind.get("plural", kind["name"])).lower() if kind is not None else material
+            parts.append(f"{units} {word}")
+        return "nothing" if not parts else parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
 
     def _nature_untouched(self) -> bool:
         return (not self.burn_records and not self.plant_state and not self.sprouts and not self.bridges and self.fire is None and not self.undo_steps and self.undone_at < 0
@@ -1816,7 +1833,7 @@ class NatureMixin:
             raise HostError("target_busy", self._fire_busy_words(principal), retryable=True)
         free = self.mode == "creative"
         if not free and any(self.wallet.get(material, 0) < units for material, units in record.repair_cost.items()):
-            raise HostError("invalid_args", REPAIR_NO_MATERIALS, field_path="$.args.target")
+            raise HostError("invalid_args", REPAIR_NO_MATERIALS.format(needs=self._repair_needs(record.repair_cost)), field_path="$.args.target")
         data = {"cost": {} if free else dict(sorted(record.repair_cost.items()))}
         if message.get("preview") is True:
             return {"affected": [target], "data": data}
@@ -1884,7 +1901,7 @@ class NatureMixin:
 
     def _begin_undo(self, label: str, revision: int, principal: str) -> UndoStep:
         """A durable nature change's undo step (the kernel's BeginUndo): steps that no longer connect to it go, the oldest past 8."""
-        step = UndoStep(principal, revision, self._effective(revision - 1), label, self.mode, wallet=dict(self.wallet))
+        step = UndoStep(principal, revision, self._effective(revision - 1), label, self.mode)
         if self.undo_steps and self.undo_steps[-1].revision != step.base:
             self.undo_steps.clear()
         self.undo_steps.append(step)
@@ -1930,7 +1947,7 @@ class NatureMixin:
         self.ash[key] = (at[1], max(ASH_LEFT, self.ash.get(key, (0.0, 0.0))[1]))
 
     def _undo(self, steps: list[UndoStep], at: int, target: int) -> None:
-        """Takes the steps back, newest first (the kernel's UndoSteps): every object, plant, ash cell and the wallet as before them.
+        """Takes the steps back, newest first (the kernel's UndoSteps): every object, plant and ash cell as before them (no wallet: retired).
         Any fire goes out. The undo is itself a room revision standing for target's state."""
         for step in steps:
             for entity_id, record in step.objects.items():
@@ -1955,7 +1972,6 @@ class NatureMixin:
                 self.sprouts = copy.deepcopy(step.sprouts)
             if step.bridges is not None:
                 self.bridges = copy.deepcopy(step.bridges)
-            self.wallet = dict(step.wallet)
         self.undo_steps = [s for s in self.undo_steps if all(s is not taken for taken in steps)]
         if self.fire is not None:
             if self.fire.principal == _COMPANION:

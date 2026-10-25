@@ -37,6 +37,15 @@ public static class FoodLaws
     public const int MaxSpots = 8;
     /// <summary>The plants an island keeps a food record for (picked and not grown back yet).</summary>
     public const int MaxFoodPlants = 4096;
+    /// <summary>
+    /// Loose units (P-Inventory-2, decision 118): a seed's, a log's or a stone's box for reach (food has its own size); a unit set down lies
+    /// this far before the body's side, found on the ground within LooseProbeM up or down; fire takes one within LooseCatchM of a burning cell.
+    /// </summary>
+    public const float LooseM = 0.012f, LooseAheadM = 0.03f, LooseProbeM = 0.08f, LooseCatchM = 0.06f;
+    /// <summary>Seeds (decision 118, provisional): an apple eaten gives one, berries one time in three; a harvest one. The pack's kind for them.</summary>
+    public const int SeedsPerApple = 1, SeedsPerHarvest = 1;
+    public const ulong BerriesSeedOneIn = 3;
+    public const string SeedKind = "seed";
 }
 
 /// <summary>Where on its plant a unit of food is: a windfall on the ground at the stem's foot, an apple under the crown, a cluster on the side.</summary>

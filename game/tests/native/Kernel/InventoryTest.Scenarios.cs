@@ -20,10 +20,10 @@ public partial class InventoryTest
         await NewWorld("rules");
         _host.LoadRules(RoomWorld.DefaultRulesId, ShippedRules.Version);
         var rules = _host.InventoryRules;
-        Check(rules != null && rules.Kinds.Select(k => k.Id).SequenceEqual(new[] { "apple", "berries", "seed" }) && rules.Kind("apple")!.HealQuarters == 2 &&
-              rules.Kind("berries")!.HealQuarters == 1 && rules.Kind("seed")!.HealQuarters == null && rules.Kind("apple")!.Stack == 20 && rules.Kind("apple")!.Words(2) == "Apples" &&
-              rules.Kind("berries")!.Words(3) == "Berries" && rules.Pockets == new InventoryCaps(6, 0.3) && rules.Chest == new InventoryCaps(12, 2) && rules.Kinds.All(k => k.Assets.Count == 0),
-            "v5 carries apples (half a heart), berries (a quarter) and seeds (no use yet), the pockets' 6 entries and 0.3 kg, the chest's 12 and 2 kg; nothing yields a kind yet");
+        Check(rules != null && rules.Kinds.Select(k => k.Id).SequenceEqual(new[] { "apple", "berries", "seed", "log", "stone" }) && rules.Kind("apple")!.HealQuarters == 2 &&
+              rules.Kind("berries")!.HealQuarters == 1 && rules.Kind("seed")!.HealQuarters == null && rules.Kinds.All(k => k.Stack == 99) && rules.Kind("apple")!.Words(2) == "Apples" &&
+              rules.Kind("berries")!.Words(3) == "Berries" && rules.Pockets == new InventoryCaps(10) && rules.Chest == new InventoryCaps(20) && rules.Kinds.All(k => k.Assets.Count == 0),
+            "v5 carries apples (half a heart), berries (a quarter), seeds (no use yet), logs and stones, every stack to 99, the pockets' ten slots and the chest's twenty, and no mass cap (decision 120)");
         _host.LoadRules(RoomWorld.DefaultRulesId, 4);
         var without = Store(Player, "chest");
         var status = Status();
@@ -37,6 +37,7 @@ public partial class InventoryTest
             ("an asset of two kinds", inventory => inventory["kinds"]![1]!["assets"] = new JsonArray("windfall_apple")),
             ("a field the contract has not", inventory => inventory["kinds"]![0]!["colour"] = "red"),
             ("pockets of seventeen", inventory => inventory["pockets"]!["entries"] = 17),
+            ("a mass cap (decision 120: counts, not weights)", inventory => inventory["pockets"]!["mass_kg"] = 0.3),
             ("a heal of no quarters", inventory => inventory["kinds"]![0]!["use"] = new JsonObject { ["heal_quarters"] = 0 }),
         };
         foreach (var (why, edit) in refusals)
@@ -97,7 +98,7 @@ public partial class InventoryTest
               Canonical(stored["data"]) == Canonical(new JsonObject { ["count"] = 1, ["item"] = "obj:cup", ["to"] = "chest" }) && _host.Revision == revision + 1,
             "the cup goes in the chest: a durable receipt naming it, with data, one room revision: " + Canonical(stored));
         Check(_host.HeldBy(PlayerAvatar) == null && !EntityIds().Contains("obj:cup") && _host.Nature.Objects["obj:cup"] is { Gathered: true, BurnedDown: true } &&
-              _host.ChestEntries.Single() is { Item: "obj:cup", Kind: "thing", Name: "Cup", Count: 1 } && Math.Abs(_host.ChestMassKg - 0.05) < 1e-6,
+              _host.ChestEntries.Single() is { Item: "obj:cup", Kind: "thing", Name: "Cup", Count: 1 } && Math.Abs(_host.ChestEntries.Single().MassKg - 0.05) < 1e-6,
             "the hands are empty, the room no longer lists it, the island holds it away (gathered), and the chest lists it by name and mass");
         Check(Send(store, Player)["replayed"]?.GetValue<bool>() == true && _host.ChestEntries.Count == 1, "a retry replays its receipt and stores nothing twice");
         var saved = _host.TeamBlock()["camp"]?["chest"];
@@ -151,22 +152,21 @@ public partial class InventoryTest
         Check(Ok(pocketed) && pocketed["transient"]?.GetValue<bool>() == false && _host.Revision == revision + 1 && pocketed["affected"]?[0]?.GetValue<string>() == "obj:cup" &&
               Canonical(pocketed["data"]) == Canonical(new JsonObject { ["count"] = 1, ["item"] = "obj:cup", ["to"] = "pockets" }),
             "the cup goes straight into the pockets, away from any camp: a durable receipt, one room revision: " + Canonical(pocketed));
-        Check(_host.PocketEntries.Single() is { Item: "obj:cup", Kind: "thing", Name: "Cup", Count: 1, Here: true } && Math.Abs(_host.PocketMassKg - 0.05) < 1e-6 &&
+        Check(_host.PocketEntries.Single() is { Item: "obj:cup", Kind: "thing", Name: "Cup", Count: 1, Here: true } && Math.Abs(_host.PocketEntries.Single().MassKg - 0.05) < 1e-6 &&
               _host.HeldBy(PlayerAvatar) == null && !EntityIds().Contains("obj:cup") && _host.Nature.Objects["obj:cup"].Gathered && _host.ChestEntries.Count == 0,
             "it takes an entry of its own, the hands are empty, and the island holds it away");
         var listed = TeamFile.Parse(File.ReadAllBytes(TeamPath("thing-pockets"))).PocketsOf("challenge").Things.Single();
         Check(listed is { Id: "obj:cup", RoomId: "test_room", Name: "Cup" } && listed.ManifestPrefix == _room.ManifestSha256[..16], "the team file keeps it with its island");
         Check(await PickUp("obj:doorstop", ByDoorstop), "the player picks up the doorstop (0.3 kg)");
         await Stand(_player, AwayFromCamp, "away from the camp again");
-        var heavy = "That would be too heavy for your pockets: they hold 0.3 kg.";
-        Check(_host.PlayerCanStore() is { Ok: false } refused && refused.Words == heavy, "E says the doorstop would be too heavy for the pockets with the cup in them");
-        Check(Refused(Store(Player, "pockets"), "occupied", heavy, "$.args") && _host.HeldBy(PlayerAvatar) == "obj:doorstop" && EntityIds().Contains("obj:doorstop") &&
-              _host.PocketEntries.Count == 1, "the pockets' mass cap: occupied, and the doorstop stays in hand and in the room");
-        Check(Ok(Send(Command(NextId("release"), "entity.release", new JsonObject()), Player)), "the doorstop is set down");
+        // Decision 120: counts, not weights. With the cup in them the pockets held 0.05 kg of the old 0.3 kg; the doorstop now fits beside it.
+        Check(_host.PlayerCanStore() is { Ok: true, To: "pockets" }, "E offers the pockets for the doorstop too: no mass cap any more (decision 120)");
+        Check(Ok(Store(Player, "pockets")) && _host.HeldBy(PlayerAvatar) == null && !EntityIds().Contains("obj:doorstop") &&
+              _host.PocketEntries.Select(e => e.Item).SequenceEqual(new[] { "obj:cup", "obj:doorstop" }), "the doorstop (0.3 kg) goes in beside the cup: a slot of its own, whatever it weighs");
         await NewWorld("thing-pockets", keepFiles: true);
-        Check(_host.PocketEntries.Single().Item == "obj:cup" && !EntityIds().Contains("obj:cup"), "after a reload the cup is still in the pockets and away from the room");
+        Check(_host.PocketEntries.Select(e => e.Item).SequenceEqual(new[] { "obj:cup", "obj:doorstop" }) && !EntityIds().Contains("obj:cup"), "after a reload the cup and the doorstop are still in the pockets and away from the room");
         await Stand(_player, AwayFromCamp, "away from the camp");
-        Check(Ok(Drop(Player, "obj:cup")) && EntityIds().Contains("obj:cup") && _host.PocketEntries.Count == 0, "and set down, it is back in the room with its own id");
+        Check(Ok(Drop(Player, "obj:cup")) && EntityIds().Contains("obj:cup") && _host.PocketEntries.Count == 1, "and set down, the cup is back in the room with its own id");
         Check(_host.SetGubbleChest(true) && Refused(Store(Companion, "pockets"), "permission_denied", CommandHost.PocketsArePlayers, "$.args.to"),
             "with the chest switch on the Gubble still never puts anything in the pockets: refused before anything is looked up");
     }
@@ -245,14 +245,14 @@ public partial class InventoryTest
             "and the next write keeps the chest as the island has it");
     }
 
-    /// <summary>The caps: a stack's own size, the entries and the mass, for the pockets and the chest (occupied past any), and the counts.</summary>
+    /// <summary>The caps (decision 120: counts, not weights): a stack's own size and the slots, for the pockets and the chest (occupied past either), and the counts.</summary>
     private async Task TestStacksAndCaps()
     {
         await NewWorld("caps", editPack: inventory =>
         {
             inventory["kinds"]![0]!["stack"] = 2;
-            inventory["pockets"] = new JsonObject { ["entries"] = 2, ["mass_kg"] = 0.1 };
-            inventory["chest"] = new JsonObject { ["entries"] = 2, ["mass_kg"] = 2 };
+            inventory["pockets"] = new JsonObject { ["entries"] = 2 };
+            inventory["chest"] = new JsonObject { ["entries"] = 2 };
         });
         Check(await PickUp("obj:apple_1", ByApple1), "the player picks up a windfall apple");
         await Stand(_player, AwayFromCamp, "away from the camp, the apple in hand");
@@ -272,23 +272,23 @@ public partial class InventoryTest
         Check(Ok(Send(Command(NextId("release"), "entity.release", new JsonObject()), Player)), "the player sets the third apple down");
         Check(await PickUp("obj:pod", ByPod) && Ok(Store(Player, "pockets")) && _host.PocketEntries.Count == 2 && Units(_host.PocketEntries, "seed") == 1, "a seed pod is a second entry: seeds");
         Check(await PickUp("obj:cup", ByCup), "the cup in hand");
-        Check(Refused(Store(Player, "pockets"), "occupied", "Your pockets are full: they hold 2 things.", "$.args") && _host.HeldBy(PlayerAvatar) == "obj:cup",
+        Check(Refused(Store(Player, "pockets"), "occupied", "Your pockets are full: two things.", "$.args") && _host.HeldBy(PlayerAvatar) == "obj:cup",
             "a unique thing would take an entry of its own, and the pockets are full: it stays in hand");
         Check(Ok(Store(Player, "chest")) && _host.ChestEntries.Count == 1, "it goes in the chest at the camp");
-        Check(Refused(Take(Player, "obj:cup", "pockets"), "occupied", "Your pockets are full: they hold 2 things.", "$.args") && _host.ChestEntries.Count == 1,
+        Check(Refused(Take(Player, "obj:cup", "pockets"), "occupied", "Your pockets are full: two things.", "$.args") && _host.ChestEntries.Count == 1,
             "the pockets' entries cap: occupied, and the cup stays in the chest");
         Check(Ok(Store(Player, "chest", from: "pockets", item: "seed")) && _host.PocketEntries.Count == 1 && Units(_host.ChestEntries, "seed") == 1, "the seeds go from the pockets into the chest");
-        Check(Ok(Take(Player, "obj:cup", "pockets")) && Math.Abs(_host.PocketMassKg - 0.09) < 1e-6 && _host.ChestEntries.Count == 1, "now the cup fits the pockets: 0.09 kg of 0.1");
+        Check(Ok(Take(Player, "obj:cup", "pockets")) && _host.PocketEntries.Count == 2 && _host.ChestEntries.Count == 1, "now the cup fits the pockets: two of two slots");
         Check(await PickUp("obj:doorstop", new Vector3(-0.3f, 0, 0.62f)) && Ok(Store(Player, "chest")) && _host.ChestEntries.Count == 2, "the doorstop goes in the chest (0.3 kg)");
-        Check(Refused(Store(Player, "chest", from: "pockets", item: "obj:cup"), "occupied", "The chest is full: it holds 2 things.", "$.args"), "the chest's entries cap");
+        Check(Refused(Store(Player, "chest", from: "pockets", item: "obj:cup"), "occupied", "The chest is full: two things.", "$.args"), "the chest's slots");
         var counted = Store(Player, "chest", from: "pockets", item: "apple", count: 5);
         Check(Refused(counted, "invalid_args", "There are only 2 of them.", "$.args.count") && counted["error"]?["allowed"]?.GetValue<int>() == 2, "a count past what the pockets hold");
         await Stand(_player, AwayFromCamp, "away from the camp");
         Check(Ok(Drop(Player, "obj:cup")) && _host.PocketEntries.Count == 1, "the cup is set down away from the camp");
         await Stand(_player, AtCamp, "back at the camp");
-        Check(Refused(Take(Player, "obj:doorstop", "pockets"), "occupied", "That would be too heavy for your pockets: they hold 0.1 kg.", "$.args") && _host.ChestEntries.Count == 2,
-            "the pockets' mass cap: the doorstop (0.3 kg) does not fit 0.1 kg");
         Check(Ok(Take(Player, "seed", "pockets", count: 1)) && Units(_host.PocketEntries, "seed") == 1 && Units(_host.ChestEntries, "seed") == 0, "a counted take of a stack");
+        Check(Refused(Take(Player, "obj:doorstop", "pockets"), "occupied", "Your pockets are full: two things.", "$.args") && _host.ChestEntries.Count == 1,
+            "the doorstop waits in the chest for a slot, never for its weight");
     }
 
     /// <summary>The pockets are the team's per mode (decision 98): Creative's are its own, the team file keeps each mode's, and a reload reads them.</summary>
@@ -350,7 +350,7 @@ public partial class InventoryTest
         Check(hurt == null && Units(_host.PocketEntries, "apple") == 1, "Creative loses nothing: no knockout, and the deep-water return keeps the apple");
     }
 
-    /// <summary>Food heals at once (decisions 92 and 111): no unharmed wait; at full hearts the unit stays; a kind with no use; Creative changes nothing.</summary>
+    /// <summary>Food heals at once (decisions 92 and 111): no unharmed wait; at full hearts the unit stays; a kind with no use; Creative heals nothing but uses the unit up (decision 125).</summary>
     private async Task TestInstantHeal()
     {
         await NewWorld("heal");
@@ -364,21 +364,23 @@ public partial class InventoryTest
         var harm = _host.ApplyPlayerDamage(20, PlayerDamageSource.Fire);
         var hurt = Quarters;
         var writes = _vitals.Writes;
+        var seeds = Units(_host.PocketEntries, "seed");
         var eaten = Use(Player, "apple");
-        Check(harm != null && hurt < max - 2 && Ok(eaten) && Quarters == hurt + 2 && Canonical(eaten["data"]) == Canonical(new JsonObject { ["count"] = 1, ["healed_quarters"] = 2, ["item"] = "apple", ["sound"] = "eat" }) &&
+        Check(harm != null && hurt < max - 2 && Ok(eaten) && Quarters == hurt + 2 &&
+              Canonical(eaten["data"]) == Canonical(new JsonObject { ["count"] = 1, ["healed_quarters"] = 2, ["item"] = "apple", ["seeds"] = 1, ["sound"] = "eat" }) &&
               Units(_host.PocketEntries, "apple") == 1 && _vitals.Writes > writes && VitalsRules.For(_host.Rules, _host.Mode).Quarters(_vitals.Saved.For("challenge")) == hurt + 2,
             $"just hurt ({hurt} of {max} quarters), an apple heals half a heart at once, with no unharmed wait, and the heal is saved: " + Canonical(eaten));
-        Check(Refused(Use(Player, "seed"), "request_invalid", "Seeds have no use yet.", "$.args.item"), "seeds have no use yet");
+        Check(seeds > 0 && Units(_host.PocketEntries, "seed") == seeds + 1 && TeamFile.Parse(File.ReadAllBytes(TeamPath("heal"))).PocketsOf("challenge").Units("seed") == seeds + 1,
+            "the apple eaten leaves a seed in the pockets, saved with them (decision 118)");
+        Check(Refused(Use(Player, "seed"), "request_invalid", "Seeds have no use yet: planting comes with farming.", "$.args.item"), "seeds have no use yet: planting comes with farming");
         Check(Refused(Use(Player, "berries"), "target_not_found", CommandHost.NotInPockets, "$.args.item"), "nothing to eat of a kind the pockets do not hold");
-        Check(Refused(Drop(Player, "apple"), "unsupported_capability", "Apples cannot be set down yet: use them, or keep them in the chest.", "$.args.item"),
-            "a stack's unit has no body in the world yet, so it is not set down");
         await NewWorld("heal-creative", mode: "creative");
         Check(await PickUp("obj:apple_1", ByApple1) && Ok(Store(Player, "pockets")), "an apple in Creative's pockets");
         var health = _host.Vitals.Health;
         var creative = Use(Player, "apple");
-        Check(Ok(creative) && Canonical(creative["data"]) == Canonical(new JsonObject { ["count"] = 0, ["healed_quarters"] = 0, ["item"] = "apple", ["sound"] = "eat" }) &&
-              Units(_host.PocketEntries, "apple") == 1 && _host.Vitals.Health == health,
-            "in Creative eating changes nothing but the receipt (decision 108), and nothing is lost (decision 101)");
+        Check(Ok(creative) && Canonical(creative["data"]) == Canonical(new JsonObject { ["count"] = 1, ["healed_quarters"] = 0, ["item"] = "apple", ["seeds"] = 1, ["sound"] = "eat" }) &&
+              Units(_host.PocketEntries, "apple") == 0 && Units(_host.PocketEntries, "seed") == 1 && _host.Vitals.Health == health,
+            "in Creative eating heals nothing (decision 108) but uses the unit up, as in every mode (decision 125)");
     }
 
     /// <summary>
@@ -422,7 +424,7 @@ public partial class InventoryTest
         var chested = Store(Player, "chest");
         var pocketed = Take(Player, "obj:doorstop", "pockets");
         Check(Ok(chested) && Ok(pocketed) && _host.PocketEntries.Count == 1 && _host.PocketEntries[0].Item == "obj:doorstop",
-            "the doorstop in Creative's pockets (by way of the chest; at 0.3 kg it fills the pockets' 0.3 kg exactly, and fits): " + Canonical(chested) + " " + Canonical(pocketed));
+            "the doorstop in Creative's pockets (by way of the chest): " + Canonical(chested) + " " + Canonical(pocketed));
         Check(await PickUp("obj:cup", ByCup) && Ok(Store(Player, "chest")) && await PickUp("obj:apple_1", ByApple1) && Ok(Store(Player, "chest")),
             "the cup and an apple in Creative's chest");
         await FreeWorld();
@@ -462,13 +464,13 @@ public partial class InventoryTest
         {
             ["pockets"] = new JsonObject
             {
-                ["entries"] = new JsonArray(new JsonObject { ["count"] = 1, ["heal_quarters"] = 2, ["item"] = "apple", ["kind"] = "stack", ["mass_kg"] = 0.02, ["name"] = "Apple" }),
-                ["mass_kg"] = 0.02, ["max_entries"] = 6, ["max_mass_kg"] = 0.3,
+                ["entries"] = new JsonArray(new JsonObject { ["count"] = 1, ["heal_quarters"] = 2, ["item"] = "apple", ["kind"] = "stack", ["mass_kg"] = 0.02, ["name"] = "Apple", ["slot"] = 1 }),
+                ["max_entries"] = 10,
             },
             ["chest"] = new JsonObject
             {
                 ["entries"] = new JsonArray(new JsonObject { ["count"] = 1, ["item"] = "obj:cup", ["kind"] = "thing", ["mass_kg"] = 0.05, ["name"] = "Cup" }),
-                ["mass_kg"] = 0.05, ["max_entries"] = 12, ["max_mass_kg"] = 2,
+                ["max_entries"] = 20,
             },
         };
         Check(Canonical(new JsonObject { ["pockets"] = status["pockets"]?.DeepClone(), ["chest"] = status["chest"]?.DeepClone() }) == Canonical(expected),

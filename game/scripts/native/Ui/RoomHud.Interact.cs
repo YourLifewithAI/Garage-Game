@@ -15,8 +15,8 @@ namespace GarageGame.Native;
 /// <item>sitting by a fire, stands you up ("E: stand up");</item>
 /// <item>with empty hands beside a Fractal in reach, picks it up ("E: pick up the fractal");</item>
 /// <item>holding something (the hands first, wherever you stand): at a camp stores it in the chest ("E: store the cup in the chest");
-/// elsewhere puts it in the pockets when it fits ("E: put the cup in your pockets"; a log or stone is the wallet's away from a camp);
-/// else a held loose log or stone is gathered into the wallet, and anything else is set on what you face, or down in front;</item>
+/// elsewhere puts it in the pockets when it fits ("E: put the cup in your pockets"; a log or stone away from a camp is gathered);
+/// else a held loose log or stone is gathered into its stack in the pockets (P-Inventory-2), and anything else is set on what you face, or down in front;</item>
 /// <item>with empty hands facing food within reach, picks it into the pockets ("E: pick an apple"), or says why the pockets cannot hold
 /// it (full, too heavy) beside it;</item>
 /// <item>by a lit campfire, sits you down ("E: sit by the fire"); beside one it cannot (in its flames, unlit, out), says the host's words;</item>
@@ -53,7 +53,7 @@ public partial class RoomHud
 
     /// <summary>The H help's first line: E, and what it works on (decision 86: the help names it first).</summary>
     private string InteractKeysLine() =>
-        $"{K(Act.Interact)} uses what is in front of you: sits you by a lit campfire and stands you up again, picks up a {MeterWords.One(Host, "fractals")} or a thing, picks food into your pockets, puts what you hold away (in the chest at a camp, else in your pockets), gathers a log or stone you hold into your wallet, sets down anything else you hold · {K(Act.Rest)} sits you by the fire too, this round (moving stands you up)";
+        $"{K(Act.Interact)} uses what is in front of you: sits you by a lit campfire and stands you up again, picks up a {MeterWords.One(Host, "fractals")} or a thing, picks food into your pockets, puts what you hold away (in the chest at a camp, else in your pockets), gathers a log or stone you hold into your pockets, sets down anything else you hold · {K(Act.Rest)} sits you by the fire too, this round (moving stands you up)";
 
     /// <summary>The words E says when there is nothing for it here.</summary>
     public string InteractNothingWords() => $"Nothing here for {K(Act.Interact)}: walk up to a lit campfire, a {MeterWords.One(Host, "fractals")}, some food or something to pick up.";
@@ -82,12 +82,12 @@ public partial class RoomHud
             var name = KernelJson.DisplayText(host.HeldName(CommandHost.PlayerAvatar), 40);
             var material = host.Room.Objects.FirstOrDefault(o => o.Id == held) is { } item && CommandHost.GatherMaterial(item) != null;
             // The inventory first (decision 113), in the host's own words: at a camp the chest; elsewhere the pockets, for a unique thing or
-            // a unit of food when it fits. A log or stone is the wallet's away from a camp (it would never reach the wallet from the pockets).
+            // a unit of food when it fits. A log or stone away from a camp is gathered: item.gather puts it in its stack and selects that slot.
             // When neither fits, the host's refusal is not shown: E sets the thing down or gathers it, as it always did.
             if (host.HasInventory && host.PlayerCanStore() is { Ok: true } store && (store.To == "chest" || !material))
                 return new(store.To == "chest" ? InteractKind.Store : InteractKind.Pocket, $"{e}: {LowerFirst(store.Words)}", null, held);
             if (material)
-                return new(InteractKind.Gather, $"{e}: gather {name} into your wallet", null, held);
+                return new(InteractKind.Gather, $"{e}: gather {name} into your pockets", null, held);
             if (focus.Id is { Length: > 0 } support)
                 return new(InteractKind.SetOn, $"{e}: set {name} on {ObjectName(host, support)}", null, support);
             return new(InteractKind.SetDown, $"{e}: set {name} down", null, held);

@@ -751,7 +751,7 @@ class McpClientOnTheRealHost(RealHostCase):
             current = contracts()
             player_only = {"protect.unlock", "world.set_physics", "world.set_mode", "glow.configure",
                            "wish.submit", "wish.stop", "wishes.read", "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset",
-                           "inventory.use", "inventory.drop"}
+                           "inventory.use", "inventory.drop", "inventory.select"}
             self.assertEqual(current.player_only_ops, player_only)
             expected = {op.replace(".", "_") for op in current.command_ops + current.query_ops if op not in player_only}
             self.assertEqual(tools, expected)

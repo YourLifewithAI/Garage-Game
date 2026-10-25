@@ -203,9 +203,10 @@ public sealed class NaturePlant
 
 /// <summary>
 /// What was picked from a plant that bears food (P-Food, decision 108; CommandHostFood): the spots picked since it last bore all of
-/// it, as bits (bit n is the plant's spot n, FoodLayout's order; the count picked is how many are set), and when the last was picked,
-/// in whole seconds of the island clock's UTC. Everything picked has grown back once FoodRules.RegrowH island hours have passed since
-/// then (derived from the clock, never saved). A plant with no record bears all its food. Not part of any undo step: a pick is never
+/// it, as bits (bit n is the plant's spot n, FoodLayout's order; the count picked is how many are set), and when its regrowth clock
+/// started, in whole seconds of the island clock's UTC (P-Inventory-2, decision 124: one unit grows back every FoodRules.RegrowH island
+/// hours from then, the lowest spot first, derived from the clock, never saved; CommandHostFood.Picking keeps the clock's phase across
+/// picks). A plant with no record bears all its food. Not part of any undo step: a pick is never
 /// taken back. A Grow cast that grows the plant ripens it (the record goes), and so does the plant burning down (its food burns with
 /// it), so a replanted plant bears again.
 /// </summary>
@@ -215,6 +216,19 @@ public sealed class NatureFood
     public int Picked { get; set; }
     public long PickedS { get; set; }
     public NatureFood Copy() => (NatureFood)MemberwiseClone();
+}
+
+/// <summary>
+/// A loose unit lying in the world (P-Inventory-2, decision 118): a unit of a stack set down with inventory.drop (an apple, berries, a
+/// seed, a log, a stone), of the rules pack's kind, its bottom centre on the ground. Picked up again into its stack with F or E (the
+/// pockets' take from the ground); burns in fire. Saved with the island in the order dropped, at most NatureState.MaxLoose, the oldest
+/// going first. A windfall is not one of these: it lies loose at its plant's trunk from the start, by the food layout (FoodLayout).
+/// </summary>
+public sealed class NatureLoose
+{
+    public string Kind { get; set; } = "";
+    public Vector3 PositionM { get; set; }
+    public NatureLoose Copy() => (NatureLoose)MemberwiseClone();
 }
 
 /// <summary>
@@ -375,6 +389,8 @@ public sealed class NatureState
     public const int MaxUndoCells = 8192;
     public const int MaxWalletKinds = 32;
     public const int MaxWalletUnits = 100000;
+    /// <summary>The loose units an island keeps (P-Inventory-2, decision 118); the 257th dropped takes the oldest's place.</summary>
+    public const int MaxLoose = 256;
 
     public double WeatherS { get; set; }
     /// <summary>The room revision of the latest durable nature change (0 before any): nature.describe's nature_revision.</summary>
@@ -394,7 +410,11 @@ public sealed class NatureState
     public List<NatureSprout> Sprouts { get; set; } = new();
     public List<NatureBridge> Bridges { get; set; } = new();
     public List<NatureIvy> Ivy { get; set; } = new();
-    /// <summary>Prototype material accounting: one unit per original authored part; no prior economy exists.</summary>
+    /// <summary>
+    /// The retired materials wallet (P-Inventory-2, decision 116: logs and stones are stacks in the pockets and the chest now). Only an
+    /// older save's is read (NatureBlock.Unpack), and the host moves it into the chest's stacks on load (CommandHost.MigrateWallet); it is
+    /// never written again, so it is empty on every island once loaded.
+    /// </summary>
     public Dictionary<string, int> Wallet { get; set; } = FreshWallet();
     public NatureFire? Fire { get; set; }
     /// <summary>The undo steps room.undo can reach, oldest first.</summary>
@@ -409,13 +429,21 @@ public sealed class NatureState
     public HashSet<string> FractalsPicked { get; set; } = new(StringComparer.Ordinal);
     /// <summary>What was picked from the plants that bear food (P-Food), by plant id: only plants picked and not grown back yet.</summary>
     public Dictionary<string, NatureFood> Food { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>The loose units dropped on the island (P-Inventory-2), oldest first, at most MaxLoose. No undo step remembers them.</summary>
+    public List<NatureLoose> Loose { get; set; } = new();
 
-    /// <summary>Today's wallet, for a pack without traits.wallet (or none loaded): 20 wood, 10 stone, 10 copper and 20 leaf.</summary>
-    public static Dictionary<string, int> FreshWallet() => new(StringComparer.Ordinal) { ["wood"] = 20, ["stone"] = 10, ["copper"] = 10, ["leaf"] = 20 };
+    /// <summary>A unit dropped loose: at the end of the list, the oldest going when the island already keeps MaxLoose.</summary>
+    public void Drop(NatureLoose unit)
+    {
+        while (Loose.Count >= MaxLoose) Loose.RemoveAt(0);
+        Loose.Add(unit);
+    }
 
-    /// <summary>A new island's wallet: the rules pack's traits.wallet.start (storybook_wild v5's is empty, decision 26), else today's.</summary>
-    public static Dictionary<string, int> FreshWallet(WalletRules? start) => start is not { } pack ? FreshWallet()
-        : new(StringComparer.Ordinal) { ["wood"] = pack.Wood, ["stone"] = pack.Stone, ["copper"] = pack.Copper, ["leaf"] = pack.Leaf };
+    /// <summary>A new island's wallet: empty, whatever the pack says (the wallet is retired, P-Inventory-2; traits.wallet.start is read and ignored).</summary>
+    public static Dictionary<string, int> FreshWallet() => new(StringComparer.Ordinal);
+
+    /// <summary>A new island's wallet under a pack: empty, as FreshWallet() (a pack's traits.wallet.start no longer fills it).</summary>
+    public static Dictionary<string, int> FreshWallet(WalletRules? start) => FreshWallet();
     public static string Key(int x, int z) => $"{x}:{z}";
     public static (int X, int Z) Grid(Vector3 at) => ((int)Math.Floor(at.X / CellM), (int)Math.Floor(at.Z / CellM));
 
@@ -425,7 +453,7 @@ public sealed class NatureState
     /// Gubble walks, with no command.
     /// </summary>
     public bool Untouched(bool trailAllowed, IReadOnlyDictionary<string, int> startWallet) =>
-        Objects.Count == 0 && Plants.Count == 0 && Waterpads.Count == 0 && Sprouts.Count == 0 && Bridges.Count == 0 && Ivy.Count == 0 && Fire == null && Undo.Count == 0 && UndoneAt < 0 && ChangedAt == 0 && TrailEnabled && TrailPrincipal == "player" && FractalsPicked.Count == 0 && Food.Count == 0 &&
+        Objects.Count == 0 && Plants.Count == 0 && Waterpads.Count == 0 && Sprouts.Count == 0 && Bridges.Count == 0 && Ivy.Count == 0 && Fire == null && Undo.Count == 0 && UndoneAt < 0 && ChangedAt == 0 && TrailEnabled && TrailPrincipal == "player" && FractalsPicked.Count == 0 && Food.Count == 0 && Loose.Count == 0 &&
         TrailRulesSha256.Length == 0 && Wallet.Count == startWallet.Count && startWallet.All(p => Wallet.GetValueOrDefault(p.Key, -1) == p.Value) &&
         (trailAllowed || Cells.Count == 0);
 
@@ -440,6 +468,7 @@ public sealed class NatureState
         Wallet = new(Wallet, StringComparer.Ordinal), Fire = Fire?.Copy(), Undo = Undo.Select(s => s.Copy()).ToList(),
         UndoneAt = UndoneAt, UndoneTo = UndoneTo, FractalsPicked = new(FractalsPicked, StringComparer.Ordinal),
         Food = Food.ToDictionary(p => p.Key, p => p.Value.Copy(), StringComparer.Ordinal),
+        Loose = Loose.Select(l => l.Copy()).ToList(),
     };
 
     /// <summary>The weather now: a function of the saved clock, so a reload resumes the same weather (with no offline catch-up).</summary>
@@ -486,7 +515,7 @@ public sealed class NatureState
     {
         var step = new NatureUndoStep
         {
-            Principal = principal, Revision = revision, Base = Effective(revision - 1), Label = label, Mode = mode, Wallet = new(Wallet, StringComparer.Ordinal),
+            Principal = principal, Revision = revision, Base = Effective(revision - 1), Label = label, Mode = mode,
             TrailEnabled = TrailEnabled, TrailPrincipal = TrailPrincipal, TrailRulesSha256 = TrailRulesSha256,
         };
         if (Undo.Count > 0 && Undo[^1].Revision != step.Base) Undo.Clear();
@@ -643,7 +672,7 @@ public sealed class NatureState
             if (step.Sprouts != null) Sprouts = step.Sprouts.Select(s => s.Copy()).ToList();
             if (step.Bridges != null) Bridges = step.Bridges.Select(b => b.Copy()).ToList();
             if (step.Ivy != null) Ivy = step.Ivy.Select(i => i.Copy()).ToList();
-            Wallet = new(step.Wallet, StringComparer.Ordinal);
+            // The wallet is retired (P-Inventory-2): an older step's is not brought back; logs and stones are stacks, which no undo touches.
             TrailEnabled = step.TrailEnabled;
             TrailPrincipal = step.TrailPrincipal;
             TrailRulesSha256 = step.TrailRulesSha256;

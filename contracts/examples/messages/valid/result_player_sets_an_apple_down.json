@@ -1,0 +1,19 @@
+{
+  "schema": "garage_game.result",
+  "version": 1,
+  "ok": true,
+  "op": "inventory.drop",
+  "action_id": "drop-0002",
+  "principal": "player:local",
+  "room_id": "garage_example",
+  "revision": 8,
+  "replayed": false,
+  "preview": false,
+  "at_utc": "2026-10-06T00:05:00Z",
+  "transient": false,
+  "data": {
+    "item": "apple",
+    "count": 1,
+    "to": "ground"
+  }
+}

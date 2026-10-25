@@ -1126,6 +1126,10 @@ def _check_mechanics(pack: dict, label: str) -> list[str]:
         assets = [asset for kind in inventory["kinds"] for asset in kind.get("assets", [])]
         for name in sorted({a for a in assets if assets.count(a) > 1}):
             problems.append(f"{label}: asset {name!r} is a unit of more than one inventory kind")
+        # P-Inventory-2 (decision 116): a material (a log wood, a stone stone) is the material of one kind at most.
+        materials = [kind["material"] for kind in inventory["kinds"] if "material" in kind]
+        for name in sorted({m for m in materials if materials.count(m) > 1}):
+            problems.append(f"{label}: material {name!r} is the material of more than one inventory kind")
     # P-Food (25 October): each source's kind one of the inventory's, each species once, each range least to most, 1 to 8 units a plant.
     food = pack.get("food")
     if food is not None:
@@ -1332,6 +1336,13 @@ def check_team_document(document: dict, label: str) -> list[str]:
                 problems.append(f"{label}: the {mode} pockets hold more than 16 entries")
             if len(things) != len(set(things)):
                 problems.append(f"{label}: the {mode} pockets hold one thing twice")
+            # P-Inventory-2 (decision 119): each entry's slot once, and a stack's slot names a stack the pockets hold.
+            stack_slots = pockets.get("stack_slots", {})
+            for kind in sorted(set(stack_slots) - set(pockets.get("stacks", {}))):
+                problems.append(f"{label}: the {mode} pockets give a slot to {kind!r}, which they hold no stack of")
+            slots = list(stack_slots.values()) + [thing["slot"] for thing in pockets.get("things", []) if "slot" in thing]
+            if len(slots) != len(set(slots)):
+                problems.append(f"{label}: the {mode} pockets put two entries in one slot")
     elif is_schema(document["schema"], "player_modes"):
         vitals = document["vitals"]
         if vitals["health"] > vitals["max_health"]:

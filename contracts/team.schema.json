@@ -260,6 +260,23 @@
               "$ref": "#/$defs/pockets"
             }
           }
+        },
+        "hand": {
+          "description": "The hand's selection by mode (P-Inventory-2): only a mode with one is written, so a team file from before reads and writes as it was.",
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "creative": {
+              "$ref": "#/$defs/hand"
+            },
+            "challenge": {
+              "$ref": "#/$defs/hand"
+            },
+            "live": {
+              "$ref": "#/$defs/hand"
+            }
+          }
         }
       }
     },
@@ -522,7 +539,7 @@
       }
     },
     "pockets": {
-      "description": "One mode's pockets: stacks by kind, and unique things, each a room object of one island (its room and manifest prefix) away from it until it comes out there, with its name (untrusted display text) and mass. At most 16 entries in all.",
+      "description": "One mode's pockets: stacks by kind, and unique things, each a room object of one island (its room and manifest prefix) away from it until it comes out there, with its name (untrusted display text) and mass. At most 16 entries in all. Since P-Inventory-2 each entry's slot (the hotbar's: decision 119): stack_slots by kind, and a thing's slot, 1 to 16, each slot once (validate.py); a file from before has none, and the host gives each entry the lowest free slot in order.",
       "type": "object",
       "additionalProperties": false,
       "minProperties": 1,
@@ -571,9 +588,53 @@
                 "type": "number",
                 "exclusiveMinimum": 0,
                 "maximum": 10
+              },
+              "slot": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16
               }
             }
           }
+        },
+        "stack_slots": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 16,
+          "propertyNames": {
+            "$ref": "common.schema.json#/$defs/token"
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16
+          }
+        }
+      }
+    },
+    "hand": {
+      "description": "One mode's hand (P-Inventory-2, decision 119: inventory.select's state, kept so a reload keeps the hand): the hotbar's layer in the hand and each layer's chosen slot, 1 to 10 (absent: none). A mode with no slot chosen on the pockets' layer writes no key. The player's alone.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer"
+      ],
+      "properties": {
+        "layer": {
+          "enum": [
+            "pockets",
+            "abilities"
+          ]
+        },
+        "pockets": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "abilities": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
         }
       }
     }

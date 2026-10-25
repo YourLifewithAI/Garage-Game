@@ -83,10 +83,11 @@ public partial class PlayHudTest
         return shown;
     }
 
-    /// <summary>The shipped pack with its apple and seed made units of the room's two assets, and every food source bearing.</summary>
-    private static IslandRules InventoryHudPack()
+    /// <summary>The shipped pack with its apple and seed made units of the room's two assets, and every food source bearing; pockets, when named, that many slots.</summary>
+    private static IslandRules InventoryHudPack(int? pockets = null)
     {
         var pack = JsonNode.Parse(Godot.FileAccess.GetFileAsString($"res://rules/{RoomWorld.DefaultRulesId}/v{ShippedRules.Version}.json"))!.AsObject();
+        if (pockets is { } slots) pack["inventory"]!["pockets"]!["entries"] = slots;
         var kinds = pack["inventory"]!["kinds"]!.AsArray();
         kinds.First(k => k!["id"]!.GetValue<string>() == "apple")!["assets"] = new JsonArray("windfall_apple");
         kinds.First(k => k!["id"]!.GetValue<string>() == "seed")!["assets"] = new JsonArray("seed_pod");
@@ -114,7 +115,7 @@ public partial class PlayHudTest
             FreshBodies(_ih);
             if (_ih.Mode != "creative") _ih.PlayerMode("creative");
             await Frames(5);
-            Check(_ih.HasInventory && _ih.PocketCaps is { Entries: 6 } && _ih.ChestCaps is { Entries: 12 } && _ih.PocketEntries.Count == 0 && _ih.ChestEntries.Count == 0,
+            Check(_ih.HasInventory && _ih.PocketCaps is { Entries: 10 } && _ih.ChestCaps is { Entries: 20 } && _ih.PocketEntries.Count == 0 && _ih.ChestEntries.Count == 0,
                 "(the pack's pockets and chest are there, empty)");
             await InvEOrder();
             await InvFoodAndPanel();
@@ -210,16 +211,17 @@ public partial class PlayHudTest
         await InvKey(Key.E);
         Check(host.ChestEntries.Count == 3 && host.PocketEntries.Count == 0, "(the chest holds the cup, the apple and the doorstop)");
 
-        // Away from a camp the pockets take a thing that fits.
+        // Away from a camp the pockets take a thing that fits: here pockets of one slot (decision 120: caps are counts), so the brick fills them.
+        host.UseRules(InventoryHudPack(pockets: 1));
         Check(await InvCarry("obj:brick", InvByBrick, InvAway) && !host.PlayerAtCamp(), "the player carries the brick (0.29 kg) away from the camp");
         Check(hud.Interaction.Kind == RoomHud.InteractKind.Pocket && hud.Interaction.Words == "E: put Brick in your pockets" && prompt.Visible,
             "away from a camp E's prompt puts it in the pockets: \"" + hud.Interaction.Words + "\"");
         await InvKey(Key.E);
         Check(host.HeldBy(player) == null && host.PocketEntries.Count == 1 && host.PocketEntries[0].Item == "obj:brick" && hud.NoticeText == "Brick is in your pockets now.",
             "E puts it in the pockets: " + hud.NoticeText);
-        // The pockets hold nearly their 0.3 kg: the next thing does not fit, the host says why, and E sets it down as it always did.
-        Check(await InvCarry("obj:apple_2", InvByApple2, InvAway) && host.PlayerCanStore() is { Ok: false } too && too.Words == "That would be too heavy for your pockets: they hold 0.3 kg.",
-            "a windfall apple does not fit the nearly full pockets: the host's words");
+        // The pockets' one slot is full: the next thing does not fit, the host says why, and E sets it down as it always did.
+        Check(await InvCarry("obj:apple_2", InvByApple2, InvAway) && host.PlayerCanStore() is { Ok: false } too && too.Words == "Your pockets are full: one thing.",
+            "a windfall apple does not fit the full pockets: the host's words");
         Check(hud.Interaction.Kind == RoomHud.InteractKind.SetDown && hud.Interaction.Words == "E: set Apple down", "so E's prompt falls through to setting it down, as it always did: \"" + hud.Interaction.Words + "\"");
         await InvKey(Key.E);
         Check(host.HeldBy(player) == null && host.PocketEntries.Count == 1 && host.ChestEntries.Count == 3, "and E sets it down in front of the player: " + hud.NoticeText);
@@ -233,15 +235,15 @@ public partial class PlayHudTest
         var hud = _ihud;
         var prompt = hud.InteractPrompt;
         var view = hud.GetViewport().GetVisibleRect().Size;
-        // Facing a windfall with the pockets nearly full: the pockets' words stand beside it and E picks nothing.
+        // Facing a windfall with the pockets full: the pockets' words stand beside it and E picks nothing.
         var windfalls = host.FoodPlants.First(p => p.Id == "plant:broadleaf-0").Spots.Select((s, i) => (s, i)).Where(p => p.s.Place == FoodPlace.Windfall).Select(p => p.i).ToArray();
         Check(windfalls.Length > 0, "(the tree has windfalls)");
         var (apple, appleStand) = InvApproach("plant:broadleaf-0", windfalls[0]);
         await InvFace(appleStand, apple);
         var full = host.PlayerCanPick();
-        Check(full is { Ok: false, Source: "plant:broadleaf-0" } && full.Words == "That would be too heavy for your pockets: they hold 0.3 kg." &&
+        Check(full is { Ok: false, Source: CommandHost.FromTheGround } && full.Words == "Your pockets are full: one thing." &&
               hud.Interaction.Kind == RoomHud.InteractKind.FoodFull && hud.Interaction.Words == full.Words && prompt.Visible && prompt.Text == full.Words,
-            $"facing an apple with the pockets nearly full, the pockets' own words stand beside it: \"{hud.Interaction.Words}\"");
+            $"facing an apple with the pockets full, the pockets' own words stand beside it: \"{hud.Interaction.Words}\"");
         var left = host.FoodLeft("plant:broadleaf-0").Count;
         await InvKey(Key.E);
         Check(host.PocketEntries.Count == 1 && host.FoodLeft("plant:broadleaf-0").Count == left && hud.NoticeText == full.Words, "E says the same as a notice and picks nothing: " + hud.NoticeText);
@@ -255,7 +257,7 @@ public partial class PlayHudTest
         Check(hud.PocketsPanelOpen && panel.Visible && !_iw.Player.InputEnabled, "Tab opens the pockets panel and the body waits");
         Check(rect.Position == new Vector2(18, 150) && rect.Size.X >= 320 && rect.End.X <= view.X && rect.End.Y <= view.Y && !rect.Intersects(hud.MeterPanel.GetGlobalRect()) && rect.End.X < view.X * 0.5f,
             $"on the left where the Magic panel opens, under the meters and clear of them: {rect.Position.X:0},{rect.Position.Y:0} {rect.Size.X:0}x{rect.Size.Y:0} of {view.X:0}x{view.Y:0}");
-        Check(hud.PocketsCapsText == "1 of 6 things · 0.29 of 0.3 kg" && hud.PocketRows.Count() == 1, "it lists the caps and one entry: " + hud.PocketsCapsText);
+        Check(hud.PocketsCapsText == "1 of 1 thing" && hud.PocketRows.Count() == 1, "it lists the caps and one entry: " + hud.PocketsCapsText);
         var row = hud.PocketRows.Single();
         var entry = (Label)row.GetNode("Entry");
         var eat = (Button)row.FindChild("Eat_obj_brick", true, false)!;
@@ -310,9 +312,11 @@ public partial class PlayHudTest
         drop.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(4);
         Check(host.PocketEntries.Count == 0 && host.Revision >= revision + 2 && hud.NoticeText == "You set Brick down." && hud.PocketsFoot == "You set Brick down." &&
-              !hud.PocketRows.Any() && hud.PocketsCapsText == "0 of 6 things · 0 of 0.3 kg" && hud.PocketsPanel.FindChildren("*", "Label", true, false).OfType<Label>().Any(l => l.Text == RoomHud.PocketsEmptyWords),
+              !hud.PocketRows.Any() && hud.PocketsCapsText == "0 of 1 thing" && hud.PocketsPanel.FindChildren("*", "Label", true, false).OfType<Label>().Any(l => l.Text == RoomHud.PocketsEmptyWords),
             $"Drop sets the brick down before the player (the pose and the drop are two room changes): \"{hud.PocketsFoot}\", the caps \"{hud.PocketsCapsText}\", the empty panel says how to fill it");
         await InvKey(Key.Tab);
+        // The shipped ten slots again.
+        host.UseRules(InventoryHudPack());
 
         // Now the berries: "E: pick berries", one unit into the pockets, in the host's words.
         var (berries, berryStand) = InvApproach("plant:shrub-0", 0);
@@ -328,32 +332,39 @@ public partial class PlayHudTest
         var shrubLeft = host.FoodLeft("plant:shrub-0").Count;
         await InvKey(Key.E);
         Check(InvUnits("berries") == 1 && host.FoodLeft("plant:shrub-0").Count == shrubLeft - 1 && hud.NoticeText == "You picked berries. In your pockets: 1 berries.", "E picks one unit into the pockets: " + hud.NoticeText);
-        // The tree's windfall: the brief's own example.
+        // The tree's windfall: the brief's own example. It lies loose at the trunk (P-Inventory-2, decision 118): E picks it up off the ground.
         await InvFace(appleStand, apple);
-        Check(hud.Interaction.Kind == RoomHud.InteractKind.PickFood && hud.Interaction.Words == "E: pick an apple", $"at the tree's foot: \"{hud.Interaction.Words}\"");
+        Check(hud.Interaction.Kind == RoomHud.InteractKind.PickFood && hud.Interaction.Words == "E: pick up an apple", $"at the tree's foot: \"{hud.Interaction.Words}\"");
         await InvKey(Key.E);
-        Check(InvUnits("apple") == 1 && hud.NoticeText == "You picked an apple. In your pockets: 1 apple.", "E picks the apple: " + hud.NoticeText);
+        Check(InvUnits("apple") == 1 && hud.NoticeText == "You picked up an apple. In your pockets: 1 apple.", "E picks the apple up: " + hud.NoticeText);
 
-        // Eat: in Creative only the sound's receipt; the unit stays.
+        // Eat: in Creative nothing heals, but the unit is used up (decision 125) and its sound plays.
         await InvKey(Key.Tab);
-        Check(hud.PocketRows.Count() == 2 && hud.PocketsCapsText == "2 of 6 things · 0.025 of 0.3 kg", $"the panel lists the apple and the berries: {hud.PocketsCapsText}");
+        Check(hud.PocketRows.Count() == 2 && hud.PocketsCapsText == "2 of 10 things", $"the panel lists the apple and the berries: {hud.PocketsCapsText}");
         var appleRow = hud.PocketRows.First(r => r.Name == "Pocket_apple");
         Check(((Label)appleRow.GetNode("Entry")).Text == "Apple ×1 · 0.02 kg · heals half a heart each", "an apple's line says what it heals: " + ((Label)appleRow.GetNode("Entry")).Text);
         var sounds = 0;
         host.FoodSound += _ => sounds++;
         ((Button)appleRow.FindChild("Eat_apple", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(2);
-        Check(hud.NoticeText == "Crunch! You ate an apple. Nothing heals in Creative, so it stays in your pockets." && InvUnits("apple") == 1 && sounds == 1,
-            $"in Creative eating is only the sound's receipt, and the unit stays: \"{hud.NoticeText}\"");
-        ((Button)hud.PocketRows.First(r => r.Name == "Pocket_berries").FindChild("Drop_berries", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
-        await Frames(2);
-        Check(hud.NoticeText == "Berries cannot be set down yet: use them, or keep them in the chest." && InvUnits("berries") == 1, "a unit of food cannot be set down yet, in the host's words: " + hud.NoticeText);
-        ((Button)hud.PocketRows.First(r => r.Name == "Pocket_berries").FindChild("Eat_berries", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
-        await Frames(2);
-        Check(hud.NoticeText == "Crunch! You ate berries. Nothing heals in Creative, so it stays in your pockets." && InvUnits("berries") == 1 && sounds == 2, "berries likewise: " + hud.NoticeText);
+        Check(hud.NoticeText == "Crunch! You ate an apple." && InvUnits("apple") == 0 && InvUnits("seed") == 1 && sounds == 1,
+            $"in Creative eating heals nothing but uses the apple up, leaving its seed (decisions 118 and 125): \"{hud.NoticeText}\"");
         // The notice stands to the right of the open panel.
         var card = hud.NoticeCard.GetGlobalRect();
         Check(hud.NoticeShowing && card.Position.X >= panel.GetGlobalRect().End.X + 15, $"the notice card stands clear of the open panel ({card.Position.X:0} against {panel.GetGlobalRect().End.X:0})");
+        ((Button)hud.PocketRows.First(r => r.Name == "Pocket_berries").FindChild("Drop_berries", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(2);
+        Check(hud.NoticeText == "You set Berries down." && InvUnits("berries") == 0 && host.LooseUnits.Count == 1 && host.LooseUnits[0].Kind == "berries",
+            "a unit of food set down lies loose before the player (decision 118): " + hud.NoticeText);
+        await InvKey(Key.Tab);
+        await Frames(2);
+        Check(hud.Interaction.Kind == RoomHud.InteractKind.PickFood && hud.Interaction.Words == "E: pick up berries", $"E faces the loose berries: \"{hud.Interaction.Words}\"");
+        await InvKey(Key.E);
+        Check(InvUnits("berries") == 1 && host.LooseUnits.Count == 0 && hud.NoticeText == "You picked up berries. In your pockets: 1 berries.", "E picks them up again: " + hud.NoticeText);
+        await InvKey(Key.Tab);
+        // (Berries give a seed one time in three by the eating's id, the HUD's own: the kernel's food suite eats them. A harvest's hook, which
+        // farming will call, puts a second seed in the stack for the camp page's Store all.)
+        Check(host.FoodHarvested("plant:broadleaf-0") == 1 && InvUnits("seed") == 2 && hud.PocketRows.Count() == 2, "(a harvest's seed joins the stack: berries and two seeds)");
         await InvKey(Key.Tab);
 
         // Challenge has pockets of its own (empty): another windfall, picked there. Full hearts keep the unit; hurt, it heals at once.
@@ -363,7 +374,7 @@ public partial class PlayHudTest
         var (apple2, apple2Stand) = InvApproach("plant:broadleaf-0", windfalls[1]);
         await InvFace(apple2Stand, apple2);
         await InvKey(Key.E);
-        Check(InvUnits("apple") == 1 && hud.NoticeText == "You picked an apple. In your pockets: 1 apple.", "(a windfall picked in Challenge: " + hud.NoticeText + ")");
+        Check(InvUnits("apple") == 1 && hud.NoticeText == "You picked up an apple. In your pockets: 1 apple.", "(a windfall picked in Challenge: " + hud.NoticeText + ")");
         await InvKey(Key.Tab);
         appleRow = hud.PocketRows.First(r => r.Name == "Pocket_apple");
         ((Button)appleRow.FindChild("Eat_apple", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
@@ -376,7 +387,8 @@ public partial class PlayHudTest
         ((Button)appleRow.FindChild("Eat_apple", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(2);
         Check(hurt < quarters - 2 && host.BodyRules.Quarters(host.Vitals) == hurt + 2 && InvUnits("apple") == 0 && hud.NoticeText == "Crunch! You ate an apple: half a heart healed." &&
-              !hud.PocketRows.Any(), $"hurt, the apple heals half a heart at once and is used up: \"{hud.NoticeText}\" ({hurt} to {host.BodyRules.Quarters(host.Vitals)} quarters)");
+              hud.PocketRows.Select(r => r.Name.ToString()).SequenceEqual(new[] { "Pocket_seed" }) && InvUnits("seed") == 1,
+            $"hurt, the apple heals half a heart at once and is used up, leaving its seed: \"{hud.NoticeText}\" ({hurt} to {host.BodyRules.Quarters(host.Vitals)} quarters)");
         await InvKey(Key.Tab);
         FreshBodies(host);
         host.PlayerMode("creative");
@@ -430,15 +442,16 @@ public partial class PlayHudTest
         var screen = hud.CampScreen;
         await InvStand(InvAtCamp);
         Check(host.ChestEntries.Count == 3 && host.PocketEntries.Count == 2 && host.HeldBy(CommandHost.PlayerAvatar) == null,
-            "(the chest holds the cup, an apple and the doorstop; Creative's pockets an apple and berries; the hands are empty)");
+            "(the chest holds the cup, an apple and the doorstop; Creative's pockets berries and two seeds, the apple eaten; the hands are empty)");
         await InvKey(Key.E);
         Check(hud.Sitting && hud.CampOpen, "E sits the player at the fire and opens the camp");
         hud.CampTabs.CurrentTab = 4;
         await Frames(4);
         var page = hud.CampPageText;
-        Check(page.Contains("The chest\n3 of 12 things · 0.37 of 2 kg", StringComparison.Ordinal) && page.Contains("Cup · 0.05 kg", StringComparison.Ordinal) &&
+        Check(page.Contains("The chest\n3 of 20 things", StringComparison.Ordinal) && page.Contains("Cup · 0.05 kg", StringComparison.Ordinal) &&
               page.Contains("Apple ×1 · 0.02 kg · heals half a heart each", StringComparison.Ordinal) && page.Contains("Doorstop · 0.3 kg", StringComparison.Ordinal) &&
-              page.Contains("Your pockets\n2 of 6 things · 0.025 of 0.3 kg\nApple ×1 · 0.02 kg · heals half a heart each", StringComparison.Ordinal) && page.Contains("Berries ×1 · 0.005 kg · heals a quarter of a heart each", StringComparison.Ordinal),
+              // The pockets in slot order (P-Inventory-2: the hotbar's): the berries were picked first.
+              page.Contains("Your pockets\n2 of 10 things\nBerries ×1 · 0.005 kg · heals a quarter of a heart each", StringComparison.Ordinal) && page.Contains("Seeds ×2 · 0.002 kg", StringComparison.Ordinal),
             "the Inventory page lists the chest's entries with their masses and caps, and the pockets beside it: " + page.Replace("\n", " | "));
         Check(page.Contains("The Gubble may not use the chest. You can let it in the settings (C).", StringComparison.Ordinal) && !screen.FindChildren("*", "CheckButton", true, false).Any(),
             "the Gubble's chest switch is read-only words here, off by default, with the setting in the settings and no switch on the page");
@@ -459,18 +472,24 @@ public partial class PlayHudTest
         await Frames(3);
         Check(host.ChestEntries.Any(e => e.Item == "obj:doorstop") && hud.CampFoot == "This avatar is already holding something. Put it down first.",
             "with the hands full the host's refusal is the answer: " + hud.CampFoot);
+        // Decision 120: no mass cap; the doorstop (0.3 kg) comes into the pockets, and goes back to the chest.
         hud.CampButton(InventoryPages.Target(InventoryPages.Take, "obj:doorstop", "pockets"));
-        Check(host.ChestEntries.Any(e => e.Item == "obj:doorstop") && hud.CampFoot == "That would be too heavy for your pockets: they hold 0.3 kg.", "and so is the pockets' cap: " + hud.CampFoot);
+        Check(host.PocketEntries.Any(e => e.Item == "obj:doorstop") && host.ChestEntries.All(e => e.Item != "obj:doorstop"), "the pockets take the doorstop, whatever it weighs: " + hud.CampFoot);
+        hud.CampButton(InventoryPages.Target(InventoryPages.Store, "obj:doorstop", "chest"));
+        Check(host.ChestEntries.Any(e => e.Item == "obj:doorstop") && host.PocketEntries.All(e => e.Item != "obj:doorstop"), "and Store puts it back in the chest: " + hud.CampFoot);
         screen.FindChild("inv|take|apple|pockets|1", true, false)!.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(3);
-        Check(InvUnits("apple") == 2 && host.ChestEntries.All(e => e.Item != "apple") && hud.CampFoot == "Took 1 Apple into your pockets.", "Take puts the chest's apple into the pockets' stack: " + hud.CampFoot);
-        Check(hud.CampPageText.Contains("Your pockets\n2 of 6 things · 0.045 of 0.3 kg\nApples ×2 · 0.04 kg", StringComparison.Ordinal), "and the pockets' lines follow: " + hud.CampPageText.Replace("\n", " | "));
+        Check(InvUnits("apple") == 1 && host.ChestEntries.All(e => e.Item != "apple") && hud.CampFoot == "Took 1 Apple into your pockets.", "Take puts the chest's apple into the pockets: " + hud.CampFoot);
+        var lines = hud.CampPageText;
+        Check(lines.Contains("Your pockets\n3 of 10 things\nBerries ×1", StringComparison.Ordinal) && lines.IndexOf("Seeds ×2", lines.IndexOf("Your pockets", StringComparison.Ordinal), StringComparison.Ordinal) is var seeds &&
+              seeds > 0 && lines.IndexOf("Apple ×1", seeds, StringComparison.Ordinal) > seeds,
+            "and the pockets' lines follow, in slot order (the apple in the first free slot after the seeds): " + hud.CampPageText.Replace("\n", " | "));
         // Store from the pockets: all of a stack, or one.
-        var storeAll = screen.FindChild("inv|store|apple|chest|all", true, false) as Button;
+        var storeAll = screen.FindChild("inv|store|seed|chest|all", true, false) as Button;
         Check(storeAll != null && screen.FindChild("inv|store|berries|chest|all", true, false) == null, "a stack of several has Store all, a single unit does not");
         storeAll!.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(3);
-        Check(InvUnits("apple") == 0 && host.ChestEntries.Any(e => e.Item == "apple" && e.Count == 2) && hud.CampFoot == "Stored 2 Apples in the chest.", "Store all puts both apples in the chest: " + hud.CampFoot);
+        Check(InvUnits("seed") == 0 && host.ChestEntries.Any(e => e.Item == "seed" && e.Count == 2) && hud.CampFoot == "Stored 2 Seeds in the chest.", "Store all puts both seeds in the chest: " + hud.CampFoot);
         screen.FindChild("inv|store|berries|chest|1", true, false)!.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(3);
         Check(InvUnits("berries") == 0 && host.ChestEntries.Any(e => e.Item == "berries") && hud.CampFoot == "Stored 1 Berries in the chest.", "and Store puts the berries away: " + hud.CampFoot);

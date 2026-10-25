@@ -14,7 +14,9 @@ namespace GarageGame.Native.Room;
 /// kernel says the food changed, the focus moved MovedM, or AskEveryS passed (food grows back by the island's clock). A picked spot
 /// is simply not among what the kernel hands over, so it shows nothing until it grows back. Nothing here is authoritative, collides
 /// or is seen by sight or the map: the command host's FoodSpotsNear is the source (Source), and the plant copies' view, whose child
-/// this is, gives the focus (the camera, else an avatar, else the player's spawn).
+/// this is, gives the focus (the camera, else an avatar, else the player's spawn). Since P-Inventory-2 the units dropped loose are drawn
+/// with them (decision 118): an apple or berries as on a plant, a seed a small brown bead, a log a short brown rod lying down, a stone a
+/// grey pebble, each pool hidden (no draw) while it holds none.
 /// </summary>
 public partial class FoodView : Node3D
 {
@@ -32,8 +34,13 @@ public partial class FoodView : Node3D
     public static readonly Color AppleColor = new("c8302a");
     public static readonly Color StalkColor = new("5a3b1d");
     public static readonly Color BerryColor = new("1e2a68");
+    /// <summary>The loose units' looks (P-Inventory-2): a seed, a log, a stone (sizes in metres; the kernel's reach boxes are FoodLaws.LooseM).</summary>
+    public const float SeedM = 0.004f, LogLengthM = 0.012f, LogRadiusM = 0.0025f, StoneM = 0.008f;
+    public static readonly Color SeedColor = new("6b4a2b");
+    public static readonly Color LogColor = new("7a5532");
+    public static readonly Color StoneColor = new("8a8a86");
 
-    public enum Look { Apple, Berries }
+    public enum Look { Apple, Berries, Seed, Log, Stone }
 
     /// <summary>One unit of food as drawn: its bottom centre in room metres, its look, and (an apple) its stalk's length up to its crown.</summary>
     public readonly record struct Spot(Vector3 PositionM, Look Look, float HangM);
@@ -46,6 +53,9 @@ public partial class FoodView : Node3D
     public MultiMeshInstance3D Apples { get; private set; } = null!;
     public MultiMeshInstance3D Stalks { get; private set; } = null!;
     public MultiMeshInstance3D Berries { get; private set; } = null!;
+    public MultiMeshInstance3D Seeds { get; private set; } = null!;
+    public MultiMeshInstance3D Logs { get; private set; } = null!;
+    public MultiMeshInstance3D Stones { get; private set; } = null!;
     /// <summary>What is drawn now, nearest the focus first.</summary>
     public IReadOnlyList<Spot> Drawn => _drawn;
     /// <summary>How many units the source offered at the last ask, the asks so far, the fills that changed the buffers, and their time.</summary>
@@ -72,6 +82,9 @@ public partial class FoodView : Node3D
         view.Apples = view.Pool("Apples", apple, AppleColor);
         view.Stalks = view.Pool("Stalks", stalk, StalkColor);
         view.Berries = view.Pool("Berries", berries, BerryColor);
+        view.Seeds = view.Pool("Seeds", new SphereMesh { Radius = SeedM * 0.5f, Height = SeedM * 0.7f, RadialSegments = 6, Rings = 3 }, SeedColor);
+        view.Logs = view.Pool("Logs", new CylinderMesh { TopRadius = LogRadiusM, BottomRadius = LogRadiusM, Height = LogLengthM, RadialSegments = 6, Rings = 0 }, LogColor);
+        view.Stones = view.Pool("Stones", new SphereMesh { Radius = StoneM * 0.5f, Height = StoneM * 0.7f, RadialSegments = 6, Rings = 3 }, StoneColor);
         view.AppleTriangles = Triangles(apple) + Triangles(stalk);
         view.BerryTriangles = Triangles(berries);
         return view;
@@ -114,10 +127,14 @@ public partial class FoodView : Node3D
 
     private void Fill()
     {
-        int apples = 0, berries = 0;
+        int apples = 0, berries = 0, seeds = 0, logs = 0, stones = 0;
         foreach (var spot in _drawn)
         {
-            if (spot.Look == Look.Apple)
+            if (spot.Look == Look.Seed) Seeds.Multimesh.SetInstanceTransform(seeds++, new Transform3D(Basis.Identity, spot.PositionM + Vector3.Up * (SeedM * 0.35f)));
+            else if (spot.Look == Look.Stone) Stones.Multimesh.SetInstanceTransform(stones++, new Transform3D(Basis.Identity, spot.PositionM + Vector3.Up * (StoneM * 0.35f)));
+            // A log lies on its side: the cylinder turned a quarter about Z.
+            else if (spot.Look == Look.Log) Logs.Multimesh.SetInstanceTransform(logs++, new Transform3D(new Basis(Vector3.Back, Mathf.Pi / 2), spot.PositionM + Vector3.Up * LogRadiusM));
+            else if (spot.Look == Look.Apple)
             {
                 Apples.Multimesh.SetInstanceTransform(apples, new Transform3D(Basis.Identity, spot.PositionM + Vector3.Up * (AppleM * 0.5f)));
                 // The stalk rises from the apple's top to its crown (a windfall's stands StalkM up from it), the unit cylinder stretched to its length.
@@ -132,6 +149,12 @@ public partial class FoodView : Node3D
         Berries.Multimesh.VisibleInstanceCount = berries;
         Apples.Visible = Stalks.Visible = apples > 0;
         Berries.Visible = berries > 0;
+        Seeds.Multimesh.VisibleInstanceCount = seeds;
+        Logs.Multimesh.VisibleInstanceCount = logs;
+        Stones.Multimesh.VisibleInstanceCount = stones;
+        Seeds.Visible = seeds > 0;
+        Logs.Visible = logs > 0;
+        Stones.Visible = stones > 0;
     }
 
     /// <summary>One pool: a MultiMesh of MaxDrawn instances (as many shown as are drawn), unshaded in its colour, casting no shadow.</summary>

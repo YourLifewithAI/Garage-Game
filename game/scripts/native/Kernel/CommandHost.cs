@@ -135,6 +135,8 @@ public partial class CommandHost : Node
         "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset",
         // P-Inventory (CommandHostInventory): the pockets and the chest. use and drop are the player's; store and take keep the chest's companion path.
         "inventory.store", "inventory.take", "inventory.use", "inventory.drop",
+        // P-Inventory-2 (CommandHostInventoryHand): the hand's selection, the player's alone and transient.
+        "inventory.select",
     };
     private static readonly HashSet<string> QueryOps = new()
     {
@@ -151,11 +153,11 @@ public partial class CommandHost : Node
     /// </summary>
     private static readonly HashSet<string> TransientOps = new() { "goal.set", "goal.stop", "effect.start", "effect.stop", "effect.adjust", "glow.configure", "entity.grab", "creation.activate", "world.set_physics", "world.set_mode", "wish.stop", "knack.set", "fractal.spend", "receipt.mark", "trust.reset",
         // P-Inventory: a use changes only the pockets (the team file) and the body; a store, a take and a drop are durable room changes, as item.gather is.
-        "inventory.use" };
+        "inventory.use", "inventory.select" };
     /// <summary>contracts $defs/player_only_ops: refused from a companion with permission_denied, never held.</summary>
-    private static readonly HashSet<string> PlayerOnlyOps = new() { "protect.unlock", "world.set_physics", "world.set_mode", "glow.configure", "wish.submit", "wish.stop", "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset", "inventory.use", "inventory.drop" };
+    private static readonly HashSet<string> PlayerOnlyOps = new() { "protect.unlock", "world.set_physics", "world.set_mode", "glow.configure", "wish.submit", "wish.stop", "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset", "inventory.use", "inventory.drop", "inventory.select" };
     /// <summary>The mechanics round's player-only ops (contracts/README.md "Player-only operations"): the player's own, with no tool.</summary>
-    private static readonly HashSet<string> MechanicsPlayerOps = new() { "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset", "inventory.use", "inventory.drop" };
+    private static readonly HashSet<string> MechanicsPlayerOps = new() { "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset", "inventory.use", "inventory.drop", "inventory.select" };
     /// <summary>The Gubble may find a Fractal and go to it, never gather it: the same refusal whether or not the Fractal exists.</summary>
     public const string FractalRefusal = "Only the player can pick up a Fractal.";
     /// <summary>The mechanics round's stubs' words (unsupported_capability at $.op), the mock host's too.</summary>
@@ -716,6 +718,7 @@ public partial class CommandHost : Node
                 "inventory.take" => InventoryTake(args, principal, actionId, fingerprint, preview),
                 "inventory.use" => InventoryUse(args, principal, actionId, fingerprint, preview),
                 "inventory.drop" => InventoryDrop(args, principal, actionId, fingerprint, preview),
+                "inventory.select" => InventorySelect(args, principal, actionId, fingerprint, preview),
                 _ => throw new Refusal("unsupported_capability", "This operation is not available yet.", "$.op"),
             };
             ObserveWishCommand(root, result, principal);

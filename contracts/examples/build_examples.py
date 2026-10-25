@@ -781,7 +781,7 @@ def magic_modes_and_wishes(at: str) -> dict:
         "query_nature_describe": query("nature.describe", "q-0022", {}),
         "result_nature_describe": answer("nature.describe", "q-0022", "companion:local", 8, at, {
             "nature_revision": 8, "trail_enabled": False, "weather": {"pattern": "fair", "rain": 0.0, "wind_mps": [0.12, 0.0, -0.03]},
-            "planted_cells": 46, "burning_cells": 0, "wallet": {"copper": 8, "leaf": 20, "stone": 10, "wood": 19},
+            "planted_cells": 46, "burning_cells": 0, "wallet": {"stone": 2, "wood": 5},
             "scorched": [], "can_undo": True, "notice": ""}),
         # The player's wishes: one queued for the runner the player started, the journal read back, and a stop.
         "command_player_wish": command("wish.submit", "wish-0001", {"text": WISH_TEXT, "aim_id": "obj:shelving_right"},
@@ -1033,20 +1033,24 @@ MECHANICS = {
             ("strong_arm", "gather_speed", "factor", [1.1, 1.15, 1.2], False))],
     },
     "fractals": {"budget_min": 25, "budget_max": 30, "reachable_first_run": 15, "per_heart": 5, "per_band": 5, "typed": False},
-    # P-Inventory (decisions 98 to 103, 92's food): apples and berries stack and heal at once, seeds are reserved with no use yet; the
-    # pockets' caps are provisional, the chest's the proposal's (docs/game/INVENTORY.md). Nothing yields a kind yet: P-Food places them.
+    # P-Inventory (decisions 98 to 103, 92's food): apples and berries stack and heal at once, seeds are reserved with no use yet. Since
+    # P-Inventory-2 (decision 120) the caps are counts: every stack to 99, the pockets' ten slots and the chest's twenty, masses data only.
     "inventory": {
-        "kinds": [{"id": "apple", "name": "Apple", "plural": "Apples", "mass_kg": 0.02, "stack": 20, "use": {"heal_quarters": 2}},
-                  {"id": "berries", "name": "Berries", "mass_kg": 0.005, "stack": 50, "use": {"heal_quarters": 1}},
-                  {"id": "seed", "name": "Seed", "plural": "Seeds", "mass_kg": 0.001, "stack": 100}],
-        "pockets": {"entries": 6, "mass_kg": 0.3},
-        "chest": {"entries": 12, "mass_kg": 2},
+        "kinds": [{"id": "apple", "name": "Apple", "plural": "Apples", "mass_kg": 0.02, "stack": 99, "use": {"heal_quarters": 2}},
+                  {"id": "berries", "name": "Berries", "mass_kg": 0.005, "stack": 99, "use": {"heal_quarters": 1}},
+                  {"id": "seed", "name": "Seed", "plural": "Seeds", "mass_kg": 0.001, "stack": 99},
+                  # P-Inventory-2 (decision 116): logs and stones are stacks, each the creation compiler's material a repair spends.
+                  {"id": "log", "name": "Log", "plural": "Logs", "mass_kg": 0.03, "stack": 99, "material": "wood"},
+                  {"id": "stone", "name": "Stone", "plural": "Stones", "mass_kg": 0.05, "stack": 99, "material": "stone"}],
+        "pockets": {"entries": 10},
+        "chest": {"entries": 20},
     },
-    # P-Food (decisions 92, 98 and 108; D1): apples on one broadleaf in three (two to four windfalls at the trunk's foot, one or two in the
-    # canopy reached with a hop), a cluster of berries on one shrub and one heather clump in four, everything picked back in a day.
+    # P-Food (decisions 92, 98 and 108; D1): apples on one broadleaf in three (two to four windfalls at the trunk's foot, one to three in the
+    # canopy reached with a hop, decision 126), a cluster of berries on one shrub and one heather clump in four, one fruit back a plant a day
+    # (decision 124).
     "food": {
         "regrow_h": 24,
-        "sources": [{"kind": "apple", "species": "broadleaf", "one_in": 3, "windfalls": [2, 4], "canopy": [1, 2]},
+        "sources": [{"kind": "apple", "species": "broadleaf", "one_in": 3, "windfalls": [2, 4], "canopy": [1, 3]},
                     {"kind": "berries", "species": "shrub", "one_in": 4, "clusters": [1, 1]},
                     {"kind": "berries", "species": "heather", "one_in": 4, "clusters": [1, 1]}],
     },
@@ -1117,6 +1121,9 @@ INVALID_PACKS = {
     "rules_inventory_kind_twice": lambda p: p["inventory"]["kinds"].append(dict(p["inventory"]["kinds"][0])),
     "rules_inventory_asset_of_two_kinds": lambda p: [kind.update(assets=["windfall_apple"]) for kind in p["inventory"]["kinds"][:2]],
     "rules_inventory_pockets_past_sixteen": lambda p: p["inventory"]["pockets"].update(entries=17),
+    # P-Inventory-2: caps are counts, never weights (decision 120); a material is one kind's (decision 116).
+    "rules_inventory_pockets_by_weight": lambda p: p["inventory"]["pockets"].update(mass_kg=0.3),
+    "rules_inventory_material_of_two_kinds": lambda p: p["inventory"]["kinds"][0].update(material="wood"),
     # P-Food (25 October): food is picked into the pockets, so it needs the inventory; one in none; a count past a plant's eight spots.
     "rules_food_without_an_inventory": lambda p: p.pop("inventory"),
     "rules_food_on_one_in_none": lambda p: p["food"]["sources"][0].update(one_in=0),
@@ -1151,9 +1158,11 @@ def team_documents(at: str) -> dict:
                       # P-Inventory: the player let the Gubble use the chest, and the Challenge pockets hold three apples and a cup
                       # from the garage island (away from it, kept as removed there, until it comes out on that island).
                       "settings": {"gubble_chest": True},
-                      "pockets": {"challenge": {"stacks": {"apple": 3},
+                      # P-Inventory-2: each entry's slot on the hotbar, and the hand's selection (the apples' slot, armed).
+                      "pockets": {"challenge": {"stacks": {"apple": 3}, "stack_slots": {"apple": 1},
                                                 "things": [{"id": "obj:paint_clutter", "room_id": "garage_example", "manifest_prefix": "0123456789abcdef",
-                                                            "name": "Paint clutter", "mass_kg": 0.25}]}}},
+                                                            "name": "Paint clutter", "mass_kg": 0.25, "slot": 2}]}},
+                      "hand": {"challenge": {"layer": "pockets", "pockets": 1, "abilities": 3}}},
         "expertise.json": {"schema": ID("glow_progress"), "version": 3, "team_id": TEAM_ID,
                            # Several abilities, each against its own list (Glow's first); an ability with nothing recorded is not written.
                            "abilities": {"glow": {"successful_casts": 14, "discoveries": ["lantern", "torch"], "delivered_hints": ["lantern_self"]},
@@ -1183,6 +1192,11 @@ def build_teams(out: Path, at: str) -> None:
         "team_pockets_holding_one_thing_twice": {**team, "pockets": {"challenge": {"things": team["pockets"]["challenge"]["things"] * 2}}},
         "team_gubble_chest_written_off": {**team, "settings": {"gubble_chest": False}},
         "team_pockets_of_an_empty_mode": {**team, "pockets": {"creative": {}}},
+        # P-Inventory-2: two entries in one slot, a slot for a stack the pockets lack, and a hand the bar cannot hold.
+        "team_pockets_two_in_one_slot": {**team, "pockets": {"challenge": {**team["pockets"]["challenge"], "stack_slots": {"apple": 2}}}},
+        "team_pockets_slot_for_no_stack": {**team, "pockets": {"challenge": {**team["pockets"]["challenge"], "stack_slots": {"apple": 1, "pear": 3}}}},
+        "team_hand_on_slot_eleven": {**team, "hand": {"challenge": {"layer": "pockets", "pockets": 11}}},
+        "team_hand_of_the_wheel": {**team, "hand": {"challenge": {"layer": "wheel"}}},
         "vitals_past_thirty_hearts": {**vitals, "vitals": {**vitals["vitals"], "max_health": 721}},
         "vitals_above_their_maximum": {**vitals, "vitals": {**vitals["vitals"], "health": 130}},
         "vitals_fractals_never_found": {**vitals, "vitals": {**vitals["vitals"], "fractals": {"found": 2, "unspent": 3, "hearts": 0, "bands": 0}}},
@@ -1253,15 +1267,14 @@ def mechanics_round(at: str) -> dict:
         "error": {"code": code, "message": message, "field_path": path, "retryable": False, **extra}}
     status = {"mode": "challenge", "health": 85.0, "max_health": 120, "stamina": 0.55, "max_stamina": 0.8, "completed_climbs": 3,
               "recoveries": 1, "consequences": True, "energy": {"pips": 6, "max_pips": 8, "shadow": False},
-              "hearts": {"quarters": 17, "max_quarters": 24}, "bar": {"bands": 2, "slowed": False},
-              "wallet": {"copper": 10, "leaf": 20, "stone": 10, "wood": 21}}
+              "hearts": {"quarters": 17, "max_quarters": 24}, "bar": {"bands": 2, "slowed": False}}
     return {
         "command_player_picks_up_a_fractal": command("item.pickup", "pickup-0001", {"target": FRACTAL},
                                                      note="Player-only: the companion's adapter never lists the op."),
         "result_player_picks_up_a_fractal": result("item.pickup", "pickup-0001", "player:local", 5, at, transient=False, affected=[FRACTAL]),
-        # Gathering (decision 26): the loose log the player holds goes into the team's wallet (wood) and leaves the island.
+        # Gathering (decisions 26 and 116, P-Inventory-2): a loose log within reach joins the pockets' log stack and leaves the island.
         "command_player_gathers_a_log": command("item.gather", "gather-0001", {"target": "obj:loose_log"},
-                                                note="Player-only: the log the player picked up with entity.grab."),
+                                                note="Player-only: F or E on a log within reach; picking one up is not a carry."),
         "result_player_gathers_a_log": result("item.gather", "gather-0001", "player:local", 6, at, transient=False, affected=["obj:loose_log"]),
         "command_player_chooses_a_knack": command("knack.set", "knack-0001", {"slot": 1, "knack": "quick_feet"}, note="Player-only."),
         "result_player_chooses_a_knack": result("knack.set", "knack-0001", "player:local", 5, at, transient=True),
@@ -1355,15 +1368,17 @@ def inventory_round(at: str) -> dict:
     refused = lambda op, action_id, principal, code, message, path, retryable=False, **extra: {  # noqa: E731
         **result(op, action_id, principal, 5, at), "ok": False,
         "error": {"code": code, "message": message, "field_path": path, "retryable": retryable, **extra}}
-    pockets = {"entries": [{"item": "apple", "kind": "stack", "name": "Apples", "count": 3, "mass_kg": 0.06, "heal_quarters": 2},
-                           {"item": "seed", "kind": "stack", "name": "Seeds", "count": 4, "mass_kg": 0.004},
-                           {"item": "obj:cup", "kind": "thing", "name": "Cup", "count": 1, "mass_kg": 0.05, "here": False}],
-               "max_entries": 6, "mass_kg": 0.114, "max_mass_kg": 0.3}
+    pockets = {"entries": [{"item": "apple", "kind": "stack", "name": "Apples", "count": 3, "mass_kg": 0.06, "heal_quarters": 2, "slot": 1},
+                           {"item": "seed", "kind": "stack", "name": "Seeds", "count": 4, "mass_kg": 0.004, "slot": 2},
+                           {"item": "obj:cup", "kind": "thing", "name": "Cup", "count": 1, "mass_kg": 0.05, "here": False, "slot": 3},
+                           {"item": "log", "kind": "stack", "name": "Logs", "count": 2, "mass_kg": 0.06, "material": "wood", "slot": 4}],
+               "max_entries": 10}
     chest = {"entries": [{"item": THING, "kind": "thing", "name": "Paint clutter", "count": 1, "mass_kg": 0.25},
                          {"item": "berries", "kind": "stack", "name": "Berries", "count": 12, "mass_kg": 0.06, "heal_quarters": 1}],
-             "max_entries": 12, "mass_kg": 0.31, "max_mass_kg": 2}
+             "max_entries": 20}
+    hand = {"layer": "pockets", "slot": 1, "holds": "unit", "item": "apple", "count": 3, "pockets_slot": 1, "abilities_slot": None}
     status = {"mode": "challenge", "health": 70.0, "max_health": 100, "stamina": 0.4, "max_stamina": 0.4, "completed_climbs": 0,
-              "recoveries": 0, "consequences": True, "hearts": {"quarters": 14, "max_quarters": 20}, "pockets": pockets, "chest": chest}
+              "recoveries": 0, "consequences": True, "hearts": {"quarters": 14, "max_quarters": 20}, "pockets": pockets, "chest": chest, "hand": hand}
     return {
         # The player at a camp: the held thing into the chest (E's first choice there, decision 113).
         "command_player_stores_the_held_thing_in_the_chest": command("inventory.store", "store-0001", {"to": "chest"},
@@ -1390,10 +1405,12 @@ def inventory_round(at: str) -> dict:
         # An apple eaten heals half a heart at once (decisions 92 and 111); at full hearts it stays in the pockets.
         "command_player_eats_an_apple": command("inventory.use", "use-0001", {"item": "apple"}, note="Player-only."),
         # Every unit eaten makes its sound (P-Food, decision 108): the receipt says so, in Creative too, where it heals nothing.
+        # P-Inventory-2 (decision 118): an apple eaten leaves a seed in the pockets (berries one time in three).
         "result_player_eats_an_apple": result("inventory.use", "use-0001", "player:local", 5, at, transient=True,
-                                              data={"item": "apple", "count": 1, "healed_quarters": 2, "sound": "eat"}),
+                                              data={"item": "apple", "count": 1, "healed_quarters": 2, "sound": "eat", "seeds": 1}),
+        # P-Inventory-2 (decision 125): in Creative the unit is used up too; it heals nothing there.
         "result_player_eats_an_apple_in_creative": result("inventory.use", "use-0002", "player:local", 5, at, transient=True,
-                                                          data={"item": "apple", "count": 0, "healed_quarters": 0, "sound": "eat"}),
+                                                          data={"item": "apple", "count": 1, "healed_quarters": 0, "sound": "eat", "seeds": 1}),
         "result_apple_at_full_hearts": refused("inventory.use", "use-0003", "player:local", "not_ready",
                                                "Your hearts are full: the Apple stays in your pockets.", "$.args.item", retryable=True),
         "command_player_sets_a_thing_down": command("inventory.drop", "drop-0001", {"item": THING}, note="Player-only."),
@@ -1411,6 +1428,32 @@ def inventory_round(at: str) -> dict:
         "result_companion_use_refused": refused("inventory.use", "use-0004", "companion:local", "permission_denied",
                                                 "Only the player can do that, directly in the game.", "$.op"),
         "result_player_status_with_pockets_and_chest": answer("player.status", "q-0050", "companion:local", 5, at, status),
+        # P-Inventory-2 (decision 119, HOTBAR.md): the hand's selection, the player's alone and transient; its data is the hand after it.
+        "command_player_selects_a_slot": command("inventory.select", "select-0001", {"slot": 1}, note="Player-only: key 1 on the hotbar's pockets layer."),
+        "result_player_selects_a_slot": result("inventory.select", "select-0001", "player:local", 5, at, transient=True, data=hand),
+        "command_player_selects_an_ability": command("inventory.select", "select-0002", {"slot": 3, "layer": "abilities"}),
+        "result_player_selects_a_thing_into_the_hand": result("inventory.select", "select-0003", "player:local", 6, at, transient=True,
+                                                               data={**{k: v for k, v in hand.items() if k != "count"}, "slot": 3, "pockets_slot": 3, "holds": "thing",
+                                                                     "item": "obj:cup"}),
+        "command_player_selects_nothing": command("inventory.select", "select-0004", {"slot": None}),
+        "result_companion_select_refused": refused("inventory.select", "select-0005", "companion:local", "permission_denied",
+                                                   "Only the player can do that, directly in the game.", "$.op"),
+        # The pockets' take: a unique thing into the hand, its slot then the selection.
+        "command_player_takes_a_thing_from_the_pockets": command("inventory.take", "take-0005", {"from": "pockets", "item": "obj:cup", "to": "hand"}),
+        "result_player_takes_a_thing_from_the_pockets": result("inventory.take", "take-0005", "player:local", 7, at, transient=False,
+                                                               affected=["obj:cup"], data={"item": "obj:cup", "count": 1, "to": "hand"}),
+        # A use and a drop that name no item act on the selected slot.
+        "command_player_eats_the_armed_unit": command("inventory.use", "use-0005", {}),
+        # P-Inventory-2 (decision 118): a stack's unit set down lies loose before the player; E or F picks it up again from the ground.
+        "command_player_sets_an_apple_down": command("inventory.drop", "drop-0002", {"item": "apple"}, note="Player-only."),
+        "result_player_sets_an_apple_down": result("inventory.drop", "drop-0002", "player:local", 8, at, transient=False,
+                                                   data={"item": "apple", "count": 1, "to": "ground"}),
+        "command_player_picks_up_a_loose_apple": command("inventory.take", "take-0006", {"from": "ground", "item": "apple", "to": "pockets"},
+                                                         note="The loose apple the player faces within reach: a windfall at its tree's trunk, or one set down."),
+        "result_player_picks_up_a_loose_apple": result("inventory.take", "take-0006", "player:local", 9, at, transient=False,
+                                                       data={"item": "apple", "count": 1, "to": "pockets"}),
+        "result_seeds_have_no_use_yet": refused("inventory.use", "use-0006", "player:local", "request_invalid",
+                                                "Seeds have no use yet: planting comes with farming.", "$.args.item"),
         # The whole list's first answer (no category, no cursor) carries the inventory's ops; a filtered or later page does not.
         "query_capabilities_of_the_inventory": query("capabilities.list", "q-0051", {"limit": 1}),
         "result_capabilities_of_the_inventory": answer("capabilities.list", "q-0051", "companion:local", 5, at, {
@@ -1436,7 +1479,7 @@ def food_round(at: str) -> dict:
                                                  note="Player-only: E facing the windfall; one unit into the pockets."),
         "result_player_picks_an_apple": result("item.pickup", "pick-0001", "player:local", 14, at, transient=False, affected=[APPLE_TREE]),
         "result_pockets_too_full_to_pick": refused("item.pickup", "pick-0002", "player:local", "occupied",
-                                                   "Your pockets are full: they hold 6 things.", "$.args"),
+                                                   "Your pockets are full: ten things.", "$.args"),
         "result_canopy_apple_needs_a_hop": refused("item.pickup", "pick-0003", "player:local", "out_of_bounds",
                                                    "That is out of reach: hop for it.", "$.args.target", retryable=True),
         "result_tree_picked_bare": refused("item.pickup", "pick-0004", "player:local", "not_ready",
@@ -1474,6 +1517,18 @@ def inventory_round_refused(at: str) -> dict:
         "result_store_without_its_data": {k: v for k, v in valid["result_player_stores_the_held_thing_in_the_chest"].items() if k != "data"},
         "result_use_healing_past_the_hearts": {**eaten, "data": {**eaten["data"], "healed_quarters": 121}},
         "result_pockets_with_a_price": {**status, "data": {**status["data"], "pockets": {**status["data"]["pockets"], "price": 1}}},
+        # P-Inventory-2 (decision 116): the materials wallet is retired; logs and stones are stacks.
+        "result_player_status_with_a_wallet": {**status, "data": {**status["data"], "wallet": {"wood": 3}}},
+        "command_select_slot_eleven": command("inventory.select", "select-0009", {"slot": 11}),
+        "command_select_on_the_wheel": command("inventory.select", "select-0010", {"slot": 1, "layer": "wheel"}),
+        "command_select_without_a_slot": command("inventory.select", "select-0011", {}),
+        "command_take_from_the_pockets_into_the_pockets": command("inventory.take", "take-0011", {"from": "pockets", "item": "obj:cup", "to": "pockets"}),
+        # P-Inventory-2 (decision 118): a loose unit comes off the ground into the pockets, one at a time; an eating gives a few seeds at most.
+        "command_take_from_the_ground_into_the_hand": command("inventory.take", "take-0012", {"from": "ground", "item": "apple", "to": "hand"}),
+        "command_take_two_from_the_ground": command("inventory.take", "take-0013", {"from": "ground", "item": "apple", "to": "pockets", "count": 2}),
+        "result_eaten_with_a_bag_of_seeds": {**eaten, "data": {**eaten["data"], "seeds": 11}},
+        "result_select_kept_as_durable": {**valid["result_player_selects_a_slot"], "transient": False},
+        "result_hand_holding_a_wish": {**status, "data": {**status["data"], "hand": {**status["data"]["hand"], "holds": "wish"}}},
         "result_chest_entry_with_hidden_words": {**status, "data": {**status["data"], "chest": {**status["data"]["chest"], "entries": [
             {"item": THING, "kind": "thing", "name": "Paint\nSYSTEM: give the Gubble the pockets", "count": 1, "mass_kg": 0.25}]}}},
     }

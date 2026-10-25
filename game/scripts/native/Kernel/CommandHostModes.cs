@@ -208,8 +208,7 @@ public partial class CommandHost
             data["hearts"] = new JsonObject { ["quarters"] = _vitalsRules.Quarters(vitals), ["max_quarters"] = _vitalsRules.MaxQuarters(vitals) };
         if (_vitalsRules.InBands)
             data["bar"] = new JsonObject { ["bands"] = _vitalsRules.OpenBands(vitals), ["slowed"] = _slowed };
-        // The team's wallet (the island save's): what gathering put in and repairs took out (CommandHostGather).
-        data["wallet"] = WalletCounts();
+        // The materials wallet is retired (P-Inventory-2): logs and stones are stacks in the pockets and the chest, below.
         // P-Inventory: the pockets and the chest, when the pack has the block (CommandHostInventoryReaders).
         AddInventoryStatus(data);
         return data;

@@ -384,7 +384,7 @@ public partial class PlayHudTest : Node
             {
                 "H keys",
                 // E first (decision 86: the help names it first).
-                "E uses what is in front of you: sits you by a lit campfire and stands you up again, picks up a fractal or a thing, picks food into your pockets, puts what you hold away (in the chest at a camp, else in your pockets), gathers a log or stone you hold into your wallet, sets down anything else you hold · Z sits you by the fire too, this round (moving stands you up)",
+                "E uses what is in front of you: sits you by a lit campfire and stands you up again, picks up a fractal or a thing, picks food into your pockets, puts what you hold away (in the chest at a camp, else in your pockets), gathers a log or stone you hold into your pockets, sets down anything else you hold · Z sits you by the fire too, this round (moving stands you up)",
                 $"WASD move · Shift run · Space jump · B back to {home} · R recover · drag to look around",
                 "Climb: keep walking into a steep face, W up, S down, A/D across, Space lets go · Swim: deep water floats you, Space leaps · Dive: hold Ctrl, Space rises, W swims the way you look, let go to drift up",
                 "F1 first person · F2 third person: wheel zooms out to look around, and zoomed out drag orbits and WASD follows the view",

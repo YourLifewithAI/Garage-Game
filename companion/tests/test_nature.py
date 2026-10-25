@@ -227,7 +227,8 @@ class Builds(NatureCase):
 
     def test_outside_creative_a_build_burns_with_no_ask_and_the_gubbles_fire_is_a_lesson(self):
         """Challenge: nothing asks; a build the Gubble's fire scorches is a consequence fact in the kernel's words that costs Trust
-        (its fire was paid); repair costs the build's materials from the team's wallet (storybook_wild v5 starts it empty)."""
+        (its fire was paid); repair costs the build's materials in logs and stones, the pockets first, then the chest (P-Inventory-2: the
+        wallet is retired; the mock keeps no player inventory, so its stand-in for the stacks starts empty)."""
         self.host.learn_fire()
         self.assertTrue(self.send(PLAYER, "world.set_mode", {"mode": "challenge"})["ok"])
         tower = self.build([0.6, 0.0, 1.2], "Tower")
@@ -237,8 +238,9 @@ class Builds(NatureCase):
         self.assertEqual(self.ask(PLAYER, "nature.describe")["data"]["scorched"], [tower])
         self.assertIn(m.BUILD_BURNT_START + 'your "Tower".', self.lessons())
         self.assertEqual(self.host.trust_count, -3)
-        self.assertEqual(refusal(self.send(PLAYER, "nature.repair", {"target": tower})), ("invalid_args", "$.args.target", m.REPAIR_NO_MATERIALS))
-        self.host.wallet["wood"] = 1
+        self.assertEqual(refusal(self.send(PLAYER, "nature.repair", {"target": tower})),
+                         ("invalid_args", "$.args.target", "This repair needs 1 log, more than your pockets and the chest hold."))
+        self.host.wallet["wood"] = 1  # a log gathered, as the kernel's pockets would hold it
         self.assertEqual(self.send(PLAYER, "nature.repair", {"target": tower}, preview=True)["data"], {"cost": {"wood": 1}})
         self.assertTrue(self.send(PLAYER, "nature.repair", {"target": tower})["ok"])
         self.assertEqual(self.ask(PLAYER, "nature.describe")["data"]["wallet"]["wood"], 0)
@@ -684,7 +686,7 @@ class TheBoundary(NatureCase):
                     "glow.configure": {"touch": "chime"}, "wish.submit": {"text": "Light a fire"}, "wish.stop": {},
                     "item.pickup": {"target": "fractal:k3x9q2"}, "item.gather": {"target": "obj:book"}, "knack.set": {"slot": 1, "knack": "quick_feet"},
                     "fractal.spend": {"grow": "heart"}, "receipt.mark": {"action_id": "n-1", "mark": "yes"}, "trust.reset": {},
-                    "inventory.use": {"item": "apple"}, "inventory.drop": {"item": "obj:book"}}
+                    "inventory.use": {"item": "apple"}, "inventory.drop": {"item": "obj:book"}, "inventory.select": {"slot": 1}}
         for op in sorted(contracts().player_only_ops):
             with self.subTest(op=op):
                 if op in contracts().query_ops:

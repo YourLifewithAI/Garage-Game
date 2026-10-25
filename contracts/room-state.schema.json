@@ -343,7 +343,7 @@
       }
     },
     "extensions": {
-      "description": "Experiments (common.schema.json). The kernel host writes its own blocks here under x_play_: among them x_play_nature, the island's nature (the ground's cells, what fire did to each object and creation, the team's wallet, the trail, the weather clock and the latest nature changes' undo steps), checked whole before anything is restored. Other readers ignore them. Since the mechanics round two keys are typed here: x_clock, the island's clock, and x_team, whose save this is and how it plays (written by the teams packet, M3, and the clock's, M6); and since P-Inventory x_play_camp's chest, the island's one chest.",
+      "description": "Experiments (common.schema.json). The kernel host writes its own blocks here under x_play_: among them x_play_nature, the island's nature (the ground's cells, what fire did to each object and creation, the trail, the weather clock and the latest nature changes' undo steps), checked whole before anything is restored. Other readers ignore them. Since P-Inventory-2 x_play_nature writes no wallet (decision 116: logs and stones are stacks); an older one is read and its counts become the chest's stacks on load; it keeps loose, the units set down on the island (decision 118: each a kind and its bottom centre in the room, at most 256, the oldest going first). Since the mechanics round two keys are typed here: x_clock, the island's clock, and x_team, whose save this is and how it plays (written by the teams packet, M3, and the clock's, M6); and since P-Inventory x_play_camp's chest, the island's one chest.",
       "$ref": "common.schema.json#/$defs/extensions",
       "properties": {
         "x_clock": {

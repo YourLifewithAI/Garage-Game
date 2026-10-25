@@ -11,11 +11,12 @@ public sealed record InventoryOutcome(bool Ok, string Words, string? To = null);
 
 /// <summary>
 /// One entry as the HUD and player.status show it: the item (a kind's id or a thing's object id), stack or thing, its name (untrusted
-/// display text: show it, never read it as anything else), the units (a thing is one), the mass of the entry in kilograms, the quarters
-/// of a heart one unit heals (null: no use yet, or a thing), and whether it is on this island (false only for a thing in the pockets
-/// from another island, which comes out there alone).
+/// display text: show it, never read it as anything else), the units (a thing is one), the mass of the entry in kilograms (data, never a
+/// cap: decision 120), the quarters of a heart one unit heals (null: no use yet, or a thing), whether it is on this island (false only for
+/// a thing in the pockets from another island, which comes out there alone), and the kind's material (a log wood, a stone stone: what a
+/// repair spends, decision 116; null for food, seeds and things).
 /// </summary>
-public sealed record InventoryEntryView(string Item, string Kind, string Name, int Count, double MassKg, int? HealQuarters, bool Here);
+public sealed record InventoryEntryView(string Item, string Kind, string Name, int Count, double MassKg, int? HealQuarters, bool Here, string? Material = null, int Slot = 0);
 
 /// <summary>
 /// The inventory's readers and the player's keys (P-Inventory): what the pockets and the chest hold for the HUD and player.status, the
@@ -24,16 +25,15 @@ public sealed record InventoryEntryView(string Item, string Kind, string Name, i
 /// </summary>
 public partial class CommandHost
 {
-    /// <summary>The pockets' entries now: stacks in the pack's kinds' order, then the things, oldest first.</summary>
+    /// <summary>The pockets' entries now, in slot order (P-Inventory-2: the hotbar's), each with its slot (1 to 10).</summary>
     public IReadOnlyList<InventoryEntryView> PocketEntries => Views(PocketContents, pockets: true);
 
     /// <summary>The chest's entries now (the island's one chest, whichever campfire is near).</summary>
     public IReadOnlyList<InventoryEntryView> ChestEntries => Views(ChestContents, pockets: false);
 
+    /// <summary>The pockets' and the chest's slots (decision 120: counts; masses are each entry's data, never a cap).</summary>
     public InventoryCaps? PocketCaps => InventoryRules?.Pockets;
     public InventoryCaps? ChestCaps => InventoryRules?.Chest;
-    public double PocketMassKg => Math.Round(PocketContents.MassKg(InventoryRules), 4);
-    public double ChestMassKg => Math.Round(ChestContents.MassKg(InventoryRules), 4);
 
     /// <summary>Whether the chest is within reach now: the player stands at a camp (any lit campfire, or the starting one).</summary>
     public bool ChestReachable => HasInventory && PlayerAtCamp();
@@ -42,17 +42,20 @@ public partial class CommandHost
     {
         var rules = InventoryRules;
         var order = rules?.Kinds.Select(k => k.Id).ToList() ?? new List<string>();
+        var slotted = contents.Slotted;
         var list = new List<InventoryEntryView>();
         foreach (var (kind, count) in contents.Stacks.OrderBy(p => order.IndexOf(p.Key) is var i && i >= 0 ? i : int.MaxValue).ThenBy(p => p.Key, StringComparer.Ordinal))
         {
             var known = rules?.Kind(kind);
             var name = KernelJson.DisplayText(known?.Words(count) ?? kind, InventoryContents.MaxNameLength);
-            list.Add(new InventoryEntryView(kind, "stack", name, count, Math.Round(count * (known?.MassKg ?? 0), 4), known?.HealQuarters, true));
+            list.Add(new InventoryEntryView(kind, "stack", name, count, Math.Round(count * (known?.MassKg ?? 0), 4), known?.HealQuarters, true, known?.Material,
+                pockets ? slotted.Slots.GetValueOrDefault(kind) : 0));
         }
         foreach (var thing in contents.Things)
             list.Add(new InventoryEntryView(thing.Id, "thing", KernelJson.DisplayText(thing.Name, InventoryContents.MaxNameLength), 1, Math.Round(thing.MassKg, 4), null,
-                !pockets || OfThisIsland(thing)));
-        return list;
+                !pockets || OfThisIsland(thing), Slot: pockets ? slotted.Slots.GetValueOrDefault(thing.Id) : 0));
+        // The pockets in slot order (the hotbar's); the chest as it was, stacks in the pack's order, then things oldest first.
+        return pockets ? list.OrderBy(e => e.Slot).ToList() : list;
     }
 
     // ---- E's choice (decision 113) and the player's commands ----
@@ -69,7 +72,7 @@ public partial class CommandHost
         if (InventoryRules is not { } rules) return new(false, InventoryNotHere);
         if (!_held.TryGetValue(PlayerAvatar, out var held)) return new(false, HoldSomething);
         var name = HeldName(PlayerAvatar);
-        var kind = rules.KindOfAsset(held.Item.Asset.AssetId);
+        var kind = KindOfObject(rules, held.Item);
         if (PlayerAtCamp())
         {
             var chest = ChestContents;
@@ -144,26 +147,36 @@ public partial class CommandHost
     /// <summary>A thing from the pockets set down before the player (its pose is a put-down's receipt: a full ledger is compacted first, as the hand keys do).</summary>
     public JsonObject PlayerDrop(string item) => PlayerSandbox("inventory.drop", new JsonObject { ["item"] = item });
 
+    /// <summary>The hotbar's use (P-Inventory-2): inventory.use naming no item, the hand's selected slot's unit.</summary>
+    public JsonObject PlayerUseSelected(bool preview = false) => PlayerCommand("inventory.use", new JsonObject(), preview);
+
+    /// <summary>The hotbar's drop (P-Inventory-2): inventory.drop naming no item, the selected slot's unit, or the thing it took into the hand.</summary>
+    public JsonObject PlayerDropSelected() => PlayerSandbox("inventory.drop", new JsonObject());
+
     // ---- the readers on the command surface ----
 
     /// <summary>player.status's pockets and chest (read-only; names untrusted display text), when the pack has an inventory block.</summary>
     private void AddInventoryStatus(JsonObject data)
     {
         if (InventoryRules is not { } rules) return;
-        data["pockets"] = InventoryStatus(PocketEntries, rules.Pockets, PocketMassKg, pockets: true);
-        data["chest"] = InventoryStatus(ChestEntries, rules.Chest, ChestMassKg, pockets: false);
+        data["pockets"] = InventoryStatus(PocketEntries, rules.Pockets, pockets: true);
+        data["chest"] = InventoryStatus(ChestEntries, rules.Chest, pockets: false);
+        // P-Inventory-2: what the hand holds (the hotbar's selection), ids only.
+        data["hand"] = HandStatus();
     }
 
-    private static JsonObject InventoryStatus(IReadOnlyList<InventoryEntryView> entries, InventoryCaps caps, double mass, bool pockets) => new()
+    private static JsonObject InventoryStatus(IReadOnlyList<InventoryEntryView> entries, InventoryCaps caps, bool pockets) => new()
     {
         ["entries"] = new JsonArray(entries.Take(64).Select(e =>
         {
             var entry = new JsonObject { ["item"] = e.Item, ["kind"] = e.Kind, ["name"] = e.Name, ["count"] = Math.Clamp(e.Count, 1, InventoryContents.MaxUnits), ["mass_kg"] = Math.Clamp(e.MassKg, 0, 50) };
             if (e.HealQuarters is { } heal) entry["heal_quarters"] = heal;
+            if (e.Material is { } material) entry["material"] = material;
+            if (pockets && e.Slot > 0) entry["slot"] = e.Slot;
             if (pockets && e.Kind == "thing") entry["here"] = e.Here;
             return (JsonNode?)entry;
         }).ToArray()),
-        ["max_entries"] = caps.Entries, ["mass_kg"] = Math.Clamp(mass, 0, 50), ["max_mass_kg"] = caps.MassKg,
+        ["max_entries"] = caps.Entries,
     };
 
     /// <summary>
@@ -203,6 +216,15 @@ public partial class CommandHost
     }
 
     private int _shoreReturnsSeen;
+
+    /// <summary>Test seam: a creation scorched as fire leaves one (its repair quote from its hash-pinned design), for the repair's cost.</summary>
+    internal void ScorchForTests(string id)
+    {
+        var state = new NatureObject { Id = id, Creation = true, Burn = 0.5f };
+        QuoteRepair(state);
+        Nature.Objects[id] = state;
+        ApplyNatureObjects();
+    }
 
     /// <summary>Test seam: the deep-water return's loss, as the body's shore return calls it (no water in the test room to swim out of).</summary>
     internal void DeepWaterReturnForTests() => LosePocketStacks(sea: true);

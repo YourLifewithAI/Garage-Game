@@ -39,8 +39,13 @@ namespace GarageGame.Native.Kernel;
 ///   the face, the face's normal, the ledge it reaches if any and its burn; at most NatureState.MaxIvy). A replanted plant keeps when
 ///   it was sown ("sown_s", no factor: a seedling's size is its phase on the island clock, never saved).
 /// - What was picked from the plants that bear food (P-Food, "food", absent while nothing is): by plant id, sorted, each the spots
-///   picked as bits ("picked", 1 to 255) and when the last was picked ("picked_s", whole seconds of the island clock's UTC), at most
-///   FoodLaws.MaxFoodPlants, each a plant of this room's copies (never a stone). No undo step remembers them: a pick is never taken back.
+///   picked as bits ("picked", 1 to 255) and when the regrowth clock started ("picked_s", whole seconds of the island clock's UTC; one
+///   fruit comes back each regrow_h after it, P-Inventory-2), at most FoodLaws.MaxFoodPlants, each a plant of this room's copies (never
+///   a stone). No undo step remembers them: a pick is never taken back.
+/// - The loose units dropped on the island (P-Inventory-2, decision 118: "loose", absent while none is): in the order dropped, each its
+///   kind (a token) and its bottom centre in this room's bounds, at most NatureState.MaxLoose. No undo step remembers them.
+/// - The retired materials wallet (P-Inventory-2, decision 116: "wallet", absent on every island since): an older block's is read for its
+///   migration into the chest (CommandHost.MigrateWallet), and only counts that could not move yet are written back.
 /// </summary>
 public static class NatureBlock
 {
@@ -88,7 +93,6 @@ public static class NatureBlock
                 ["cells"] = PackCells(remembered, Name),
                 ["objects"] = Objects(step.Objects.Where(p => p.Value != null).Select(p => p.Value!)),
                 ["created"] = new JsonArray(step.Objects.Where(p => p.Value == null).Select(p => p.Key).OrderBy(k => k, StringComparer.Ordinal).Select(k => (JsonNode?)k).ToArray()),
-                ["wallet"] = Wallet(step.Wallet),
                 ["trail"] = Trail(step.TrailEnabled, step.TrailPrincipal, step.TrailRulesSha256),
                 ["mode"] = step.Mode,
             });
@@ -103,7 +107,7 @@ public static class NatureBlock
             ["format"] = Format, ["cell_m"] = KernelJson.Num(NatureState.CellM), ["weather_s"] = state.WeatherS, ["changed_at"] = state.ChangedAt,
             ["trail"] = Trail(state.TrailEnabled, state.TrailPrincipal, state.TrailRulesSha256),
             ["names"] = new JsonArray(names.Select(n => (JsonNode?)n).ToArray()),
-            ["cells"] = cells, ["objects"] = Objects(state.Objects.Values), ["wallet"] = Wallet(state.Wallet), ["undo"] = undo,
+            ["cells"] = cells, ["objects"] = Objects(state.Objects.Values), ["undo"] = undo,
         };
         if (state.Fire is { } fire)
         {
@@ -121,6 +125,9 @@ public static class NatureBlock
         if (state.Bridges.Count > 0) block["bridges"] = Bridges(state.Bridges);
         if (state.Ivy.Count > 0) block["ivy"] = Ivy(state.Ivy);
         if (state.UndoneAt >= 0) block["undone"] = new JsonObject { ["at"] = state.UndoneAt, ["state_of"] = state.UndoneTo };
+        // The retired wallet (P-Inventory-2): never written for a new island; an older save's counts that could not move to the chest yet
+        // (no pack with the inventory loaded, copper and leaf, a full chest) are written back as they were, so nothing is lost.
+        if (state.Wallet.Any(p => p.Value > 0)) block["wallet"] = Wallet(new Dictionary<string, int>(state.Wallet.Where(p => p.Value > 0), StringComparer.Ordinal));
         // The Fractals picked up on this island (item.pickup), sorted; absent while none is (every earlier block reads as none).
         if (state.FractalsPicked.Count > 0)
             block["fractals"] = new JsonArray(state.FractalsPicked.OrderBy(id => id, StringComparer.Ordinal).Select(id => (JsonNode?)id).ToArray());
@@ -128,6 +135,9 @@ public static class NatureBlock
         if (state.Food.Count > 0)
             block["food"] = new JsonObject(state.Food.OrderBy(p => p.Key, StringComparer.Ordinal)
                 .Select(p => KeyValuePair.Create(p.Key, (JsonNode?)new JsonObject { ["picked"] = p.Value.Picked, ["picked_s"] = p.Value.PickedS })));
+        // P-Inventory-2: the loose units dropped, in the order dropped; absent while none is (every earlier block reads as none).
+        if (state.Loose.Count > 0)
+            block["loose"] = new JsonArray(state.Loose.Select(l => (JsonNode?)new JsonObject { ["kind"] = l.Kind, ["position_m"] = KernelJson.Vector(l.PositionM) }).ToArray());
         var resting = state.Cells.Values.Where(c => c.RestS > 0).OrderBy(c => c.X).ThenBy(c => c.Z).ToList();
         if (resting.Count > 0)
         {
@@ -311,7 +321,9 @@ public static class NatureBlock
             WeatherS = block["weather_s"]!.GetValue<double>(), ChangedAt = Int(block["changed_at"]),
             TrailEnabled = block["trail"]!["enabled"]!.GetValue<bool>(), TrailPrincipal = block["trail"]!["by"]!.GetValue<string>(),
             TrailRulesSha256 = block["trail"]!["rules_sha256"]!.GetValue<string>(),
-            Cells = new(StringComparer.Ordinal), Objects = ReadObjects(block["objects"]!.AsObject()), Wallet = ReadWallet(block["wallet"]!.AsObject()),
+            Cells = new(StringComparer.Ordinal), Objects = ReadObjects(block["objects"]!.AsObject()),
+            // The retired wallet: an older save's is read, for the host to move into the chest (CommandHost.MigrateWallet); none is written.
+            Wallet = block["wallet"] is JsonObject wallet ? ReadWallet(wallet) : new(StringComparer.Ordinal),
         };
         foreach (var (key, cell) in ReadCells(block["cells"]!.GetValue<string>(), names)) state.Cells[key] = cell!;
         if (block["fire"] is JsonObject fire)
@@ -332,7 +344,7 @@ public static class NatureBlock
             {
                 Principal = saved["principal"]!.GetValue<string>(), Revision = Int(saved["revision"]), Base = Int(saved["base"]), Label = saved["label"]!.GetValue<string>(),
                 Cells = ReadCells(saved["cells"]!.GetValue<string>(), names).ToDictionary(p => p.Key, p => p.Cell, StringComparer.Ordinal),
-                Wallet = ReadWallet(saved["wallet"]!.AsObject()),
+                Wallet = saved["wallet"] is JsonObject stepWallet ? ReadWallet(stepWallet) : new(StringComparer.Ordinal),
                 TrailEnabled = saved["trail"]!["enabled"]!.GetValue<bool>(), TrailPrincipal = saved["trail"]!["by"]!.GetValue<string>(),
                 TrailRulesSha256 = saved["trail"]!["rules_sha256"]!.GetValue<string>(),
                 Mode = saved["mode"]?.GetValue<string>() ?? "",
@@ -356,6 +368,8 @@ public static class NatureBlock
         if (block["food"] is JsonObject food)
             foreach (var (id, record) in food)
                 state.Food[id] = new NatureFood { Id = id, Picked = Int(record!["picked"]), PickedS = Long(record["picked_s"]) };
+        if (block["loose"] is JsonArray loose)
+            state.Loose = loose.Select(node => new NatureLoose { Kind = node!["kind"]!.GetValue<string>(), PositionM = Vector(node["position_m"]!) }).ToList();
         if (block["plants"] is JsonObject plants)
             foreach (var (id, plant) in ReadPlants(plants)) state.Plants[id] = plant!;
         if (block["waterpads"] is JsonArray pads) state.Waterpads = ReadWaterpads(pads);
@@ -455,11 +469,13 @@ public static class NatureBlock
     private static string? Unchecked(JsonNode? node, int storeRevision, RoomData? room)
     {
         if (Normalized(node) is not { } block) return "not an object";
-        var required = new[] { "format", "cell_m", "weather_s", "changed_at", "trail", "names", "cells", "objects", "wallet", "undo" };
-        if (block.Any(p => !required.Contains(p.Key) && p.Key is not ("fire" or "undone" or "rest" or "fractals" or "plants" or "waterpads" or "sprouts" or "bridges" or "ivy" or "food")) ||
+        // The retired wallet (P-Inventory-2) is optional: an older save's is read for its migration, a newer one has none.
+        var required = new[] { "format", "cell_m", "weather_s", "changed_at", "trail", "names", "cells", "objects", "undo" };
+        if (block.Any(p => !required.Contains(p.Key) && p.Key is not ("fire" or "undone" or "rest" or "fractals" or "plants" or "waterpads" or "sprouts" or "bridges" or "ivy" or "food" or "wallet" or "loose")) ||
             required.Any(k => !block.ContainsKey(k))) return "its fields";
         if (block["fractals"] is { } fractals && FractalsProblem(fractals)) return "its Fractals picked up";
         if (block["food"] is { } food && FoodProblem(food, room) is { } foodWhy) return "its food picked: " + foodWhy;
+        if (block["loose"] is { } loose && LooseProblem(loose, room) is { } looseWhy) return "its loose units: " + looseWhy;
         if (block["plants"] is { } plants && PlantsProblem(plants, room, absentAllowed: false) is { } plantsWhy) return "its plants: " + plantsWhy;
         if (block["waterpads"] is { } pads && WaterpadsProblem(pads, room, emptyAllowed: false) is { } padsWhy) return "its waterpads: " + padsWhy;
         if (UnlocksProblem(block, room, emptyAllowed: false) is { } unlocksWhy) return "its " + unlocksWhy;
@@ -483,7 +499,7 @@ public static class NatureBlock
         if (block["objects"] is not JsonObject objects || objects.Count > NatureState.MaxObjects) return "its objects";
         foreach (var (id, item) in objects)
             if (ObjectProblem(id, item, room) is { } why) return "an object: " + why;
-        if (WalletProblem(block["wallet"])) return "its wallet";
+        if (block["wallet"] is { } savedWallet && WalletProblem(savedWallet)) return "its wallet";
         if (block["fire"] is { } fire && FireProblem(fire, storeRevision, room) is { } fireWhy) return "its fire: " + fireWhy;
         if (block["fire"] == null && burning > 0) return "burning cells with no fire";
         if (block["undo"] is not JsonArray undo || undo.Count > NatureState.MaxUndoSteps) return "its undo steps";
@@ -492,8 +508,9 @@ public static class NatureBlock
         foreach (var stepNode in undo)
         {
             // A step saved before 13 October has no mode (and cannot be undone); a newer one says which mode recorded it.
-            if (stepNode is not JsonObject step || step.Count != 9 + new[] { "mode", "plants", "waterpads", "sprouts", "bridges", "ivy" }.Count(step.ContainsKey) ||
-                new[] { "principal", "revision", "base", "label", "cells", "objects", "created", "wallet", "trail" }.Any(k => !step.ContainsKey(k)))
+            // An older step keeps the retired wallet; a newer one has none (P-Inventory-2).
+            if (stepNode is not JsonObject step || step.Count != 8 + new[] { "mode", "plants", "waterpads", "sprouts", "bridges", "ivy", "wallet" }.Count(step.ContainsKey) ||
+                new[] { "principal", "revision", "base", "label", "cells", "objects", "created", "trail" }.Any(k => !step.ContainsKey(k)))
                 return "an undo step's fields";
             if (step["mode"] is { } mode && (mode.GetValueKind() != JsonValueKind.String || !PlayerModesProfile.ValidMode(mode.GetValue<string>()))) return "an undo step's mode";
             if (step["principal"]?.GetValueKind() != JsonValueKind.String || step["principal"]!.GetValue<string>() is not (CommandHost.PlayerPrincipal or CommandHost.CompanionPrincipal))
@@ -511,7 +528,7 @@ public static class NatureBlock
             if (step["created"] is not JsonArray created || created.Count > NatureState.MaxObjects ||
                 created.Any(c => c?.GetValueKind() != JsonValueKind.String || !(ObjectId.IsMatch(c.GetValue<string>()) || CreationId.IsMatch(c.GetValue<string>())) || stepObjects.ContainsKey(c.GetValue<string>())) ||
                 created.Select(c => c!.GetValue<string>()).Distinct(StringComparer.Ordinal).Count() != created.Count) return "an undo step's created objects";
-            if (WalletProblem(step["wallet"]) || TrailProblem(step["trail"])) return "an undo step's wallet or trail";
+            if ((step["wallet"] is { } stepWallet && WalletProblem(stepWallet)) || TrailProblem(step["trail"])) return "an undo step's wallet or trail";
             if (step["plants"] is { } stepPlants && PlantsProblem(stepPlants, room, absentAllowed: true) is { } stepPlantsWhy) return "an undo step's plants: " + stepPlantsWhy;
             if (step["waterpads"] is { } stepPads && WaterpadsProblem(stepPads, room, emptyAllowed: true) is { } stepPadsWhy) return "an undo step's waterpads: " + stepPadsWhy;
             if (UnlocksProblem(step, room, emptyAllowed: true) is { } stepUnlocksWhy) return "an undo step's " + stepUnlocksWhy;
@@ -790,6 +807,21 @@ public static class NatureBlock
             if (value is not JsonObject record || record.Count != 2 || !record.ContainsKey("picked") || !record.ContainsKey("picked_s")) return "a plant's fields";
             if (!Whole(record["picked"], (1 << FoodLaws.MaxSpots) - 1) || record["picked"]!.GetValue<double>() < 1) return "the spots picked";
             if (!Whole(record["picked_s"], GrowKindLaws.MaxSownS)) return "when it was picked";
+        }
+        return null;
+    }
+
+    private static readonly Regex KindToken = new(@"\A[a-z][a-z0-9_-]{0,63}\z", RegexOptions.Compiled);
+
+    /// <summary>The loose units (P-Inventory-2): 1 to NatureState.MaxLoose, each exactly its kind (a token) and its spot, in this room's bounds (with a room).</summary>
+    private static string? LooseProblem(JsonNode node, RoomData? room)
+    {
+        if (node is not JsonArray loose || loose.Count is < 1 or > NatureState.MaxLoose) return "not 1 to the most the island keeps";
+        foreach (var value in loose)
+        {
+            if (value is not JsonObject unit || unit.Count != 2 || unit["kind"]?.GetValueKind() != JsonValueKind.String || !KindToken.IsMatch(unit["kind"]!.GetValue<string>()) ||
+                !Vec3(unit["position_m"])) return "a unit's fields";
+            if (room != null && !room.Bounds.Grow(0.05f).HasPoint(Vector(unit["position_m"]!))) return "a unit outside the island";
         }
         return null;
     }

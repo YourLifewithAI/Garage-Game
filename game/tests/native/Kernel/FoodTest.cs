@@ -19,7 +19,8 @@ namespace GarageGame.Tests.Kernel;
 /// the real authority, nature on and a real team file: the pack's food block and its refusals, the deterministic layout, picking into
 /// the pockets (E's reader and key, the canopy reached with a hop, full pockets, the companion refused and shown no food), eating (at
 /// once, at full hearts, Creative's sound), growing back on the island clock, Grow ripening, fire burning the food and replanting
-/// returning it, a reload and room state keeping it, and the look's budget. With "-- --landscape=DIR" (the 1x garage fixture) the layout
+/// returning it, a reload and room state keeping it, the look's budget, and P-Inventory-2's loose units and seeds (dropped and picked up again with
+/// E or F, saved and capped, burnt; an apple's seed, berries' one in three, a harvest's). With "-- --landscape=DIR" (the 1x garage fixture) the layout
 /// is also checked on the stand-in garage; "-- --dump=DIR" writes every message and result for contracts/validate.py.
 /// </summary>
 public partial class FoodTest : Node3D
@@ -76,10 +77,15 @@ public partial class FoodTest : Node3D
             await TestCompanion();
             await TestEat();
             await TestRegrow();
+            await TestRegrowOneADay();
             await TestGrowRipens();
             await TestFireAndReplant();
             await TestReload();
             await TestView();
+            await TestLooseDropAndPickUp();
+            TestLooseCap();
+            await TestLooseBurns();
+            TestSeedRule();
             await FreeWorld();
             OS.RemoveLogger(_errors);
             Check(_errors.Count == 0, $"no script or engine error while the suite ran ({_errors.Count}; first: {_errors.First})");

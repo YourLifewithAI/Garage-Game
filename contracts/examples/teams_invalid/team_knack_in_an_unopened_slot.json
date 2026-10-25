@@ -32,15 +32,26 @@
       "stacks": {
         "apple": 3
       },
+      "stack_slots": {
+        "apple": 1
+      },
       "things": [
         {
           "id": "obj:paint_clutter",
           "room_id": "garage_example",
           "manifest_prefix": "0123456789abcdef",
           "name": "Paint clutter",
-          "mass_kg": 0.25
+          "mass_kg": 0.25,
+          "slot": 2
         }
       ]
+    }
+  },
+  "hand": {
+    "challenge": {
+      "layer": "pockets",
+      "pockets": 1,
+      "abilities": 3
     }
   }
 }

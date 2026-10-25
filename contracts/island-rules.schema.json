@@ -938,7 +938,7 @@
       }
     },
     "wallet": {
-      "description": "The team's wallet when a save is made, in the creation compiler's materials. Absent: today's (wood 20, stone 10, copper 10, leaf 20). Empty once gathering works (decision M, packet M1).",
+      "description": "Retired since P-Inventory-2 (decision 116: logs and stones are stacks in the pockets and the chest): read and ignored, so an older pack still loads. A new island has no wallet; an older save's wallet counts become the chest's stacks on load.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1482,7 +1482,7 @@
       }
     },
     "inventory": {
-      "description": "The pockets and the chest (P-Inventory; docs/game/MECHANICS.md decisions 98 to 103): the kinds that stack, the pockets' caps (carried everywhere, per team and mode) and the chest's (one per island save, shared by every campsite). A unique thing (a loose room object of no kind) takes an entry of its own and counts its asset's mass. Every number is provisional. Absent: no pockets and no chest, today's behaviour.",
+      "description": "The pockets and the chest (P-Inventory; docs/game/MECHANICS.md decisions 98 to 103 and 120): the kinds that stack, the pockets' slots (carried everywhere, per team and mode; the hotbar's ten, decision 119) and the chest's (one per island save, shared by every campsite). Caps are counts, never weights (decision 120): a stack holds up to its kind's stack (99 in storybook_wild v5), a unique thing (a loose room object of no kind) takes a slot of its own, and masses stay data. Every number is provisional. Absent: no pockets and no chest, today's behaviour.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1500,51 +1500,39 @@
           }
         },
         "pockets": {
-          "description": "The pockets: at most this many entries and this mass (provisional: 6 and 0.3 kg).",
+          "description": "The pockets: at most this many slots, each a stack or a unique thing (decision 120: ten, the hotbar's).",
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "entries",
-            "mass_kg"
+            "entries"
           ],
           "properties": {
             "entries": {
               "type": "integer",
               "minimum": 1,
               "maximum": 16
-            },
-            "mass_kg": {
-              "type": "number",
-              "exclusiveMinimum": 0,
-              "maximum": 10
             }
           }
         },
         "chest": {
-          "description": "The chest: at most this many entries and this mass (the proposal's 12 and 2 kg, the Gubble's own carry limit).",
+          "description": "The chest: at most this many slots (decision 120: twenty).",
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "entries",
-            "mass_kg"
+            "entries"
           ],
           "properties": {
             "entries": {
               "type": "integer",
               "minimum": 1,
               "maximum": 64
-            },
-            "mass_kg": {
-              "type": "number",
-              "exclusiveMinimum": 0,
-              "maximum": 50
             }
           }
         }
       }
     },
     "inventory_kind": {
-      "description": "One kind that stacks: its id, the words for one and for many (untrusted text, shown only), one unit's mass, the most units in one entry, and what a unit does when used (heal_quarters: quarters of a heart at once, decisions 92 and 111; absent: no use yet, as a seed). assets names the room assets that are a loose unit of this kind (a windfall), so a held one stores as a unit; absent, nothing in the world is one yet.",
+      "description": "One kind that stacks: its id, the words for one and for many (untrusted text, shown only), one unit's mass, the most units in one entry, and what a unit does when used (heal_quarters: quarters of a heart at once, decisions 92 and 111; absent: no use yet, as a seed). assets names the room assets that are a loose unit of this kind (a windfall), so a held one stores as a unit; absent, nothing in the world is one by its asset. material (P-Inventory-2, decision 116) names the creation compiler's material a unit is: a loose room object made of it (a log of bark or wood, a stone of stone) gathers as a unit of this kind, and a repair (building, later) spends a unit of it per unit of its cost, from the pockets first, then the chest; absent, the kind is no material. The kernel and validate.py refuse a material named by two kinds.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1587,7 +1575,8 @@
         "stack": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 1000
+          "maximum": 1000,
+          "description": "The most units in one stack (decision 120: 99; 999 later if needed)."
         },
         "use": {
           "type": "object",
@@ -1611,11 +1600,19 @@
           "items": {
             "$ref": "common.schema.json#/$defs/token"
           }
+        },
+        "material": {
+          "enum": [
+            "wood",
+            "stone",
+            "copper",
+            "leaf"
+          ]
         }
       }
     },
     "food": {
-      "description": "Food on the island's plants (P-Food; docs/game/MECHANICS.md decisions 92, 98 and 108, D1 in docs/runs/RUN-2-PLAYTEST-ROUND-2.md): the sources, one per species, each the inventory kind it bears; and regrow_h, the island hours (the clock's x_clock day scale) after a plant's last pick until everything picked from it is back (24: a day away restocks the island). Which copies bear and where on them is the kernel's, from each copy's plant: id alone, the same on every load, with no manifest field (a later x_food can replace it). Needs the inventory block: food is picked into the pockets. The kernel also refuses a source whose kind is not an inventory kind, a species named twice, a range whose least is above its most, and a source that can bear nothing or more than 8. Every number is provisional. Absent: no plant bears food.",
+      "description": "Food on the island's plants (P-Food; docs/game/MECHANICS.md decisions 92, 98 and 108, D1 in docs/runs/RUN-2-PLAYTEST-ROUND-2.md): the sources, one per species, each the inventory kind it bears; and regrow_h, the island hours (the clock's x_clock day scale) a picked unit takes to grow back: since P-Inventory-2 (decision 124) one unit a plant every regrow_h, the first regrow_h after a pick on a plant bearing everything, then one more each regrow_h until it bears everything again (24: one fruit a plant an island day). Which copies bear and where on them is the kernel's, from each copy's plant: id alone, the same on every load, with no manifest field (a later x_food can replace it). Needs the inventory block: food is picked into the pockets. The kernel also refuses a source whose kind is not an inventory kind, a species named twice, a range whose least is above its most, and a source that can bear nothing or more than 8. Every number is provisional. Absent: no plant bears food.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1639,7 +1636,7 @@
       }
     },
     "food_source": {
-      "description": "One species' food: the inventory kind it bears, one copy of the species in one_in bearing (chosen from the copy's id), and how many units in each place, each a range [least, most] (absent: none). windfalls lie on the ground round the stem's foot; canopy apples hang under a tree's lowest crown caps, reached with a hop (a tree only); clusters sit on the plant's side at the player's height. storybook_wild v5: apples on one broadleaf in three (2 to 4 windfalls, 1 or 2 in the canopy), a cluster of berries on one shrub in four and one heather clump in four.",
+      "description": "One species' food: the inventory kind it bears, one copy of the species in one_in bearing (chosen from the copy's id), and how many units in each place, each a range [least, most] (absent: none). windfalls lie on the ground round the stem's foot; canopy apples hang under a tree's lowest crown caps, reached with a hop (a tree only); clusters sit on the plant's side at the player's height. storybook_wild v5: apples on one broadleaf in three (2 to 4 windfalls, 1 to 3 in the canopy since P-Inventory-2, decision 126), a cluster of berries on one shrub in four and one heather clump in four.",
       "type": "object",
       "additionalProperties": false,
       "required": [

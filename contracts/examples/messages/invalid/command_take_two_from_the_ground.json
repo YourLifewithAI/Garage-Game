@@ -1,0 +1,13 @@
+{
+  "schema": "garage_game.command",
+  "version": 1,
+  "action_id": "take-0013",
+  "room_id": "garage_example",
+  "op": "inventory.take",
+  "args": {
+    "from": "ground",
+    "item": "apple",
+    "to": "pockets",
+    "count": 2
+  }
+}

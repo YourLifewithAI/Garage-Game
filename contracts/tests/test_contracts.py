@@ -74,6 +74,17 @@ EXPECTED_FAILURES = {
     "result_store_without_its_data": "'data' is a required property",
     "result_use_healing_past_the_hearts": "121 is greater than the maximum of 120",
     "result_pockets_with_a_price": "('price' was unexpected)",
+    "result_player_status_with_a_wallet": "('wallet' was unexpected)",
+    # P-Inventory-2: the hand's selection (decision 119).
+    "command_select_slot_eleven": "11 is greater than the maximum of 10",
+    "command_select_on_the_wheel": "'wheel' is not one of ['pockets', 'abilities']",
+    "command_select_without_a_slot": "'slot' is a required property",
+    "command_take_from_the_pockets_into_the_pockets": "'hand' was expected",
+    "command_take_from_the_ground_into_the_hand": "'pockets' was expected",
+    "command_take_two_from_the_ground": "1 was expected",
+    "result_eaten_with_a_bag_of_seeds": "11 is greater than the maximum of 10",
+    "result_select_kept_as_durable": "True was expected",
+    "result_hand_holding_a_wish": "'wish' is not one of",
     "result_chest_entry_with_hidden_words": "$.data.chest.entries[0].name",
     "command_with_a_misspelt_schema_id": "unknown schema 'garagegame.command'",
     "command_with_principal": "'principal' was unexpected",
@@ -337,7 +348,9 @@ PLAYER_ONLY_OPS = {"protect.unlock", "world.set_physics", "world.set_mode", "glo
                    # The second contract round (15 October): five Fractals spent at a camp.
                    "fractal.spend",
                    # P-Inventory (25 October): a unit used and a thing set down from the pockets; store and take keep a companion path to the chest.
-                   "inventory.use", "inventory.drop"}
+                   "inventory.use", "inventory.drop",
+                   # P-Inventory-2 (decision 119): the hand's selection is the player's alone.
+                   "inventory.select"}
 FACT_FIELDS = ("line", "subject", "actor", "directed_by", "pin_m", "state", "quantity", "job_id")
 NOTE_FIELDS = ("author", "text", "untrusted")
 
@@ -661,8 +674,11 @@ class MagicModesWishesAndNatureTests(unittest.TestCase):
         self.assertEqual(self.defs["creation_material"]["enum"], materials)
         nature = KERNEL / "NatureState.cs"
         if nature.is_file():
-            fresh = re.search(r"FreshWallet\(\) => new\(StringComparer\.Ordinal\) \{([^}]*)\}", nature.read_text(encoding="utf-8"))
-            self.assertEqual(set(re.findall(r'\["([a-z]+)"\]', fresh.group(1))), set(materials))
+            # P-Inventory-2 (decision 116): the materials wallet is retired; a new island's is empty, whatever the pack says.
+            self.assertIn("public static Dictionary<string, int> FreshWallet() => new(StringComparer.Ordinal);", nature.read_text(encoding="utf-8"))
+        # The kinds a repair spends name these materials (a log wood, a stone stone).
+        rules = validate.load_strict(CONTRACTS / "island-rules.schema.json")["$defs"]
+        self.assertEqual(rules["inventory_kind"]["properties"]["material"]["enum"], sorted(materials, key=["wood", "stone", "copper", "leaf"].index))
 
     def test_consequences_come_back_in_a_fixed_form_and_the_journal_keeps_the_lessons(self):
         """The notices on the Gubble's next result and the journal's 'consequence' facts: typed, closed, no one's words."""
@@ -1807,6 +1823,8 @@ RULES_FAILURES = {
     "rules_inventory_kind_twice": "inventory kind 'apple' appears more than once",
     "rules_inventory_asset_of_two_kinds": "asset 'windfall_apple' is a unit of more than one inventory kind",
     "rules_inventory_pockets_past_sixteen": "$.inventory.pockets.entries: 17 is greater than the maximum of 16",
+    "rules_inventory_pockets_by_weight": "('mass_kg' was unexpected)",
+    "rules_inventory_material_of_two_kinds": "material 'wood' is the material of more than one inventory kind",
     # P-Food (25 October).
     "rules_food_without_an_inventory": "'inventory' is a dependency of 'food'",
     "rules_food_on_one_in_none": "$.food.sources[0].one_in: 0 is less than the minimum of 1",
@@ -1835,6 +1853,10 @@ TEAM_FAILURES = {
     "team_pockets_holding_one_thing_twice": "the challenge pockets hold one thing twice",
     "team_gubble_chest_written_off": "$.settings.gubble_chest: True was expected",
     "team_pockets_of_an_empty_mode": "$.pockets.creative: {} should be non-empty",
+    "team_pockets_two_in_one_slot": "the challenge pockets put two entries in one slot",
+    "team_pockets_slot_for_no_stack": "the challenge pockets give a slot to 'pear', which they hold no stack of",
+    "team_hand_on_slot_eleven": "11 is greater than the maximum of 10",
+    "team_hand_of_the_wheel": "'wheel' is not one of ['pockets', 'abilities']",
 }
 
 
@@ -2000,20 +2022,23 @@ class MechanicsRoundTests(unittest.TestCase):
             self.assertIn('"world.set_mode" when args.TryGetProperty("difficulty", out _) => DifficultyNotYet', unsupported)
 
     def test_gathering_is_the_players_and_the_wallet_shows_on_the_status(self):
-        """M1's follow-up (decision 26): item.gather names the room object the player holds, never a creation or a Fractal;
-        player-only and durable with no data; the wallet's counts ride on player.status in the creation compiler's materials."""
+        """M1's follow-up (decision 26): item.gather names a room object, never a creation or a Fractal; player-only and durable with
+        no data. Since P-Inventory-2 (decision 116) a log or stone goes into the pockets' stack: the wallet is retired from player.status,
+        and nature.describe's "wallet" counts the stacks' materials in the creation compiler's vocabulary."""
         args = self.defs["args"]["item.gather"]
         self.assertEqual((args["required"], args["properties"]["target"]), (["target"], {"$ref": "#/$defs/object_id"}))
         self.assertIn("item.gather", self.defs["player_only_ops"]["enum"])
         for target in ("creation:00000001", "fractal:k3x9q2", "avatar:player", "obj:"):
             with self.subTest(target=target):
                 self.assertTrue(validate.schema_errors({**valid_example("command_player_gathers_a_log"), "args": {"target": target}}))
-        wallet = self.defs["data"]["player.status"]["properties"]["wallet"]
-        self.assertEqual(wallet["propertyNames"], {"$ref": "#/$defs/creation_material"})
+        self.assertNotIn("wallet", self.defs["data"]["player.status"]["properties"], "the wallet is retired")
         status = valid_example("result_player_status_with_energy")
-        self.assertEqual(status["data"]["wallet"], {"copper": 10, "leaf": 20, "stone": 10, "wood": 21})
-        self.assertTrue(validate.schema_errors({**status, "data": {**status["data"], "wallet": {"gold": 1}}}))
-        self.assertTrue(validate.schema_errors({**status, "data": {**status["data"], "wallet": {"wood": -1}}}))
+        self.assertNotIn("wallet", status["data"])
+        self.assertTrue(validate.schema_errors({**status, "data": {**status["data"], "wallet": {"wood": 1}}}))
+        materials = self.defs["data"]["nature.describe"]["properties"]["wallet"]
+        self.assertEqual(materials["propertyNames"], {"$ref": "#/$defs/creation_material"})
+        described = valid_example("result_nature_describe")
+        self.assertTrue(validate.schema_errors({**described, "data": {**described["data"], "wallet": {"gold": 1}}}))
 
     def test_a_fractal_has_one_spelling_and_the_kernel_reads_it_so(self):
         common = validate.load_strict(CONTRACTS / "common.schema.json")["$defs"]
@@ -2318,6 +2343,28 @@ class InventoryTests(unittest.TestCase):
     def setUp(self):
         self.defs = validate.load_strict(COMMAND_SCHEMA)["$defs"]
 
+    def test_the_hands_selection_is_the_players_transient_and_kept_with_the_team(self):
+        """P-Inventory-2 (decision 119, docs/game/HOTBAR.md): inventory.select is the player's alone and transient, its data the hand;
+        player.status.hand reads it with ids only; the team file keeps it per mode, and each pockets entry's slot; no request names an avatar."""
+        self.assertIn("inventory.select", self.defs["command_op"]["enum"])
+        self.assertIn("inventory.select", self.defs["player_only_ops"]["enum"])
+        self.assertEqual(set(self.defs["args"]["inventory.select"]["properties"]), {"slot", "layer"})
+        self.assertEqual(free_form_objects(self.defs["hand_status"], "hand_status", self.defs), [])
+        selected = valid_example("result_player_selects_a_slot")
+        self.assertEqual((selected["transient"], selected["data"]["holds"]), (True, "unit"))
+        self.assertEqual(validate.schema_errors(valid_example("command_player_selects_nothing")), [])
+        status = valid_example("result_player_status_with_pockets_and_chest")["data"]
+        self.assertEqual(status["hand"]["item"], "apple")
+        self.assertEqual([e["slot"] for e in status["pockets"]["entries"]], [1, 2, 3, 4], "the pockets' entries in slot order")
+        team = validate.load_strict(TEAM / "team.json")
+        self.assertEqual(team["hand"], {"challenge": {"layer": "pockets", "pockets": 1, "abilities": 3}})
+        schema = validate.load_strict(CONTRACTS / "team.schema.json")["$defs"]
+        self.assertNotIn("hand", schema["team"]["required"], "a team file from before reads as it was")
+        if (KERNEL / "CommandHost.cs").is_file():
+            host = KERNEL / "CommandHost.cs"
+            self.assertIn("inventory.select", kernel_set(host, "TransientOps"))
+            self.assertIn("inventory.select", kernel_set(host, "PlayerOnlyOps"))
+
     def test_the_four_ops_are_commands_with_data_and_only_a_use_is_transient(self):
         """Decided 25 October: a store, a take and a drop change the island's room state (the chest, a thing held away), so they are
         durable, one room revision each, as item.gather is; a use changes the pockets and the body only, and stays transient."""
@@ -2332,7 +2379,7 @@ class InventoryTests(unittest.TestCase):
             for document in documents:
                 with self.subTest(op=op, action=document["action_id"]):
                     self.assertEqual(document["transient"], op == "inventory.use")
-                    self.assertEqual(set(document["data"]) - {"item", "count", "to", "healed_quarters", "sound"}, set())
+                    self.assertEqual(set(document["data"]) - {"item", "count", "to", "healed_quarters", "sound", "seeds"}, set())
         self.assertEqual(free_form_objects(self.defs["data"]["inventory"], "data/inventory", self.defs), [])
         # The contract says so: a committed store, take or drop claiming to be transient is invalid, and a use claiming durability.
         for name, op, transient in (("result_player_stores_the_held_thing_in_the_chest", "inventory.store", True),
@@ -2384,7 +2431,9 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(free_form_objects(self.defs["data"]["capabilities.list"]["properties"]["inventory"], "capabilities inventory", self.defs), [])
         status = valid_example("result_player_status_with_pockets_and_chest")
         self.assertEqual(validate.check_document(EXAMPLES / "messages" / "valid" / "result_player_status_with_pockets_and_chest.json"), [])
-        self.assertIn("here", status["data"]["pockets"]["entries"][2], "a thing from another island says so")
+        entries = status["data"]["pockets"]["entries"]
+        self.assertIn("here", next(e for e in entries if e["kind"] == "thing"), "a thing from another island says so")
+        self.assertEqual(next(e for e in entries if e["item"] == "log")["material"], "wood", "a log names its material (decision 116)")
         # An answer from before P-Inventory, without them, stays valid.
         self.assertEqual(validate.schema_errors(valid_example("result_player_status_with_energy")), [])
 
@@ -2420,7 +2469,11 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(kinds["berries"]["use"], {"heal_quarters": 1}, "berries a quarter")
         self.assertNotIn("use", kinds["seed"], "seeds are reserved, with no use yet")
         self.assertFalse(any("assets" in kind for kind in v5["kinds"]), "no room asset is a loose unit yet: P-Food's food grows on the plants (the food block)")
-        self.assertEqual((v5["pockets"], v5["chest"]), ({"entries": 6, "mass_kg": 0.3}, {"entries": 12, "mass_kg": 2}))
+        # Decision 120: counts, not weights: the pockets' ten slots (the hotbar's), the chest's twenty, every stack to 99, no mass cap.
+        self.assertEqual((v5["pockets"], v5["chest"]), ({"entries": 10}, {"entries": 20}))
+        self.assertTrue(all(kind["stack"] == 99 for kind in v5["kinds"]))
+        caps = schema["$defs"]["inventory"]["properties"]
+        self.assertEqual((set(caps["pockets"]["properties"]), set(caps["chest"]["properties"])), ({"entries"}, {"entries"}), "no mass cap anywhere")
 
 
 class FoodTests(unittest.TestCase):
@@ -2456,7 +2509,8 @@ class FoodTests(unittest.TestCase):
         for name in ("result_player_eats_an_apple", "result_player_eats_an_apple_in_creative"):
             with self.subTest(example=name):
                 self.assertEqual(valid_example(name)["data"]["sound"], "eat")
-        self.assertEqual(valid_example("result_player_eats_an_apple_in_creative")["data"]["healed_quarters"], 0, "Creative heals nothing and keeps the sound")
+        creative = valid_example("result_player_eats_an_apple_in_creative")["data"]
+        self.assertEqual((creative["healed_quarters"], creative["count"]), (0, 1), "Creative heals nothing, keeps the sound and uses the unit up (decision 125)")
 
     def test_the_food_block_needs_the_inventory_and_v5_carries_d1s_numbers(self):
         schema = validate.load_strict(CONTRACTS / "island-rules.schema.json")
@@ -2465,8 +2519,9 @@ class FoodTests(unittest.TestCase):
         self.assertEqual(free_form_objects(schema["$defs"]["food"], "food", schema["$defs"]), [])
         food = validate.load_strict(STORYBOOK_WILD_V5)["food"]
         sources = {source["species"]: source for source in food["sources"]}
-        self.assertEqual(food["regrow_h"], 24, "a day away restocks everything")
-        self.assertEqual(sources["broadleaf"], {"kind": "apple", "species": "broadleaf", "one_in": 3, "windfalls": [2, 4], "canopy": [1, 2]})
+        self.assertEqual(food["regrow_h"], 24, "one fruit a plant grows back each island day (decision 124)")
+        self.assertEqual(sources["broadleaf"], {"kind": "apple", "species": "broadleaf", "one_in": 3, "windfalls": [2, 4], "canopy": [1, 3]},
+                         "one to three canopy apples a tree (decision 126)")
         self.assertEqual({sources[s]["one_in"] for s in ("shrub", "heather")}, {4})
         self.assertEqual({tuple(sources[s]["clusters"]) for s in ("shrub", "heather")}, {(1, 1)})
         kinds = {kind["id"] for kind in validate.load_strict(STORYBOOK_WILD_V5)["inventory"]["kinds"]}

@@ -1,0 +1,60 @@
+{
+  "schema": "garage_game.team",
+  "version": 1,
+  "team_id": "example_team",
+  "created_utc": "2026-10-14T18:00:00Z",
+  "profile": {
+    "display_name": "Mira",
+    "costume": "stickbear"
+  },
+  "knacks": {
+    "slots_open": 1,
+    "chosen": [
+      {
+        "slot": 1,
+        "knack": "quick_feet",
+        "rank": 1
+      }
+    ],
+    "earned": {
+      "high_hop": 2
+    }
+  },
+  "gubble": {
+    "name": "Wisp",
+    "colour": "#65b9b0"
+  },
+  "trust": {
+    "count": 0
+  },
+  "settings": {
+    "gubble_chest": true
+  },
+  "pockets": {
+    "challenge": {
+      "stacks": {
+        "apple": 3
+      },
+      "stack_slots": {
+        "apple": 2
+      },
+      "things": [
+        {
+          "id": "obj:paint_clutter",
+          "room_id": "garage_example",
+          "manifest_prefix": "0123456789abcdef",
+          "name": "Paint clutter",
+          "mass_kg": 0.25,
+          "slot": 2
+        }
+      ]
+    }
+  },
+  "hand": {
+    "challenge": {
+      "layer": "pockets",
+      "pockets": 1,
+      "abilities": 3
+    }
+  }
+}

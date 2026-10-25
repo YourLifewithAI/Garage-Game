@@ -87,10 +87,9 @@ public partial class CommandHost
     public void UseRules(IslandRules? rules, string notice = "")
     {
         EndEffects(_effects.ToList());
-        // An island nothing has happened to yet begins with the new rules' wallet (a save that holds play keeps its own).
-        var fresh = Nature.Untouched(trailAllowed: true, StartWallet);
         Rules = rules;
-        if (fresh) Nature.Wallet = NatureState.FreshWallet(rules?.Traits?.Wallet);
+        // P-Inventory-2: the materials wallet is retired; an older save's moves into the chest once a pack with the inventory arrives.
+        MigrateWallet();
         RulesNotice = rules == null ? (notice.Length > 0 ? notice : "This island has no rules, so the Gubble has no abilities.") : "";
         if (rules == null) GD.Print("COMMAND_HOST " + RulesNotice);
         // The body and the pool play by the pack's traits, cost and modes blocks (today's numbers without them).

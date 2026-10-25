@@ -7,7 +7,8 @@ decisions 98 to 103): small, for the companion's boundary.
   take is permission_denied at $.op. inventory.use and inventory.drop are player-only ops, refused before any handler runs.
 - With the switch on, the companion's one path: what its own avatar holds into the chest, at a camp (within the kernel's CampRadiusM of
   the player's spawn while the starting campfire burns, or of a lit campfire), and a thing back into its own hands. A thing in the chest
-  is gone from the room (removed) and keeps its id; the chest's caps are the pack's (entries and mass), occupied past either. The box
+  is gone from the room (removed) and keeps its id; the chest's cap is the pack's count of slots (decision 120: counts, not weights),
+  occupied past it, in the kernel's words ("The chest is full: twenty things."). The box
   world names no asset of a kind, so every held thing is a unique thing here, as under v5 in the kernel.
 - The player's inventory needs the body and the team file: the mock answers it not available yet (the kernel hosts it).
 - A store or a take is a durable room change with data, one room revision, as the kernel's (decided 25 October: the chest and a
@@ -36,6 +37,20 @@ HANDS_FULL = "This avatar is already holding something. Put it down first."
 PLAYER_ONLY = "Only the player can do that, directly in the game."
 CAMP_RADIUS_M = 0.5  # kernel: CommandHost.CampRadiusM
 DEFAULT_GUBBLE_CHEST = False  # decision 100: off unless the player turns it on
+
+
+_NUMBER_WORDS = ("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen",
+                 "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty")
+
+
+def number_words(count: int) -> str:
+    """The kernel's InventoryWords.Number: "ten" up to twenty, digits above."""
+    return _NUMBER_WORDS[count] if 0 <= count < len(_NUMBER_WORDS) else str(count)
+
+
+def chest_full_words(slots: int) -> str:
+    """The kernel's ChestFullWords (decision 120), for twenty slots: The chest is full: twenty things."""
+    return f"The chest is full: {number_words(slots)} thing{'' if slots == 1 else 's'}."
 
 
 def _kilograms(value: float) -> float:
@@ -79,8 +94,6 @@ class InventoryMixin:
             return True
         return any(self._is_lit(camp.id) and math.dist(position, camp.position) <= CAMP_RADIUS_M for camp in self._ensure_camps())
 
-    def _chest_mass(self) -> float:
-        return sum(self.entities[i].mass_kg or 0.0 for i in self.chest if i in self.entities)
 
     def _not_yet_for_the_player(self) -> None:
         from .mock_host import MECHANICS_NOT_YET
@@ -109,10 +122,7 @@ class InventoryMixin:
         if not self._at_camp(self.entities[actor].position):
             raise HostError("not_ready", CHEST_AT_CAMP, field_path="$.args.to", retryable=True)
         if len(self.chest) + 1 > caps["entries"]:
-            raise HostError("occupied", f"The chest is full: it holds {caps['entries']} things.", field_path="$.args", allowed=caps["entries"])
-        if self._chest_mass() + (held.mass_kg or 0.0) > caps["mass_kg"] + 1e-9:
-            raise HostError("occupied", f"That would be too heavy for the chest: it holds {_kilograms(caps['mass_kg']):g} kg.", field_path="$.args",
-                            allowed=round(caps["mass_kg"], 3))
+            raise HostError("occupied", chest_full_words(caps["entries"]), field_path="$.args", allowed=caps["entries"])
         if not apply:
             return {"affected": [held_id]}
         held.held_by = None
@@ -127,7 +137,8 @@ class InventoryMixin:
         item, to = args["item"], args["to"]
         player = principal.startswith("player:")
         if not player:
-            self._companion_chest_only("$.args.to" if to == "pockets" else None)
+            # P-Inventory-2: from the pockets (into the hand) or the ground (into the pockets) is the player's alone, as the kernel's.
+            self._companion_chest_only("$.args.to" if to == "pockets" else "$.args.from" if args.get("from") in ("pockets", "ground") else None)
         self._inventory_rules()
         if player:
             self._not_yet_for_the_player()
@@ -162,6 +173,8 @@ class InventoryMixin:
         self._not_yet_for_the_player()
 
     _op_inventory_drop = _op_inventory_use
+    # P-Inventory-2: the hand's selection is the player's alone (refused to a companion before this runs); the kernel hosts it.
+    _op_inventory_select = _op_inventory_use
 
     # ---- the readers ----
 
@@ -173,9 +186,8 @@ class InventoryMixin:
         entries = [{"item": i, "kind": "thing", "name": self.text.display_text(self.entities[i].display_name, 80), "count": 1,
                     "mass_kg": round(self.entities[i].mass_kg or 0.0, 4)} for i in self.chest if i in self.entities]
         return {
-            "pockets": {"entries": [], "max_entries": block["pockets"]["entries"], "mass_kg": 0, "max_mass_kg": block["pockets"]["mass_kg"]},
-            "chest": {"entries": entries, "max_entries": block["chest"]["entries"], "mass_kg": round(self._chest_mass(), 4),
-                      "max_mass_kg": block["chest"]["mass_kg"]},
+            "pockets": {"entries": [], "max_entries": block["pockets"]["entries"]},
+            "chest": {"entries": entries, "max_entries": block["chest"]["entries"]},
         }
 
     def _inventory_ops(self, args: dict) -> dict | None:

@@ -18,7 +18,7 @@ namespace GarageGame.Native.Kernel;
 /// <item><b>The pockets</b> are the team's, one set per mode (the team file's pockets; a fixture without a team keeps them for the
 /// session), carried everywhere: stacks of the rules pack's kinds up to each kind's size, and unique things, each a room object of one
 /// island that stays in that island's room state as removed (the nature block's gathered mark, as a gathered log does) and comes out
-/// there alone, with its own id. The pack's caps bound the entries and the mass.</item>
+/// there alone, with its own id. The pack's caps are counts (decision 120): the slots, and each kind's stack.</item>
 /// <item><b>The chest</b> is the island save's, one per island (decision 102), in its team block's camp block (room state's
 /// x_play_camp.chest), reachable at any lit campfire or the starting one (PlayerAtCamp). It never spills; the Creative copy into Challenge
 /// starts empty (Ui/Menu/MenuSaves.cs Strip).</item>
@@ -106,7 +106,9 @@ public partial class CommandHost
         get
         {
             var chest = ChestContents;
-            return Reconciling ? PocketsAsKept.Keeping(t => !OfThisIsland(t) || (HeldAway(t.Id) && chest.Thing(t.Id) == null)) : PocketsAsKept;
+            // A slot reserved for a thing taken into the hand lasts while the hand still holds it (P-Inventory-2: the hotbar's hand).
+            var kept = PocketsAsKept.KeepingReservations(id => HeldBy(PlayerAvatar) == id);
+            return Reconciling ? kept.Keeping(t => !OfThisIsland(t) || (HeldAway(t.Id) && chest.Thing(t.Id) == null)) : kept;
         }
     }
 
@@ -152,10 +154,11 @@ public partial class CommandHost
         if (from == "pockets") return StoreFromPockets(args, rules, principal, actionId, fingerprint, preview);
         var actor = principal == PlayerPrincipal ? PlayerAvatar : CompanionAvatarId;
         if (!_held.TryGetValue(actor, out var held)) throw new Refusal("request_invalid", HoldSomething, "$.args");
-        if (Str(args, "item") is { } named && named != held.Target && rules.KindOfAsset(held.Item.Asset.AssetId)?.Id != named)
+        if (Str(args, "item") is { } named && named != held.Target && KindOfObject(rules, held.Item)?.Id != named)
             throw new Refusal("request_invalid", NotWhatIsHeld, "$.args.item");
         if (args.TryGetProperty("count", out var count) && count.GetInt32() != 1) throw new Refusal("invalid_args", AThingIsOne, "$.args.count");
-        var kind = rules.KindOfAsset(held.Item.Asset.AssetId);
+        // A unit of a kind (a windfall by its asset, a log or stone by its material, decision 116) joins its stack; anything else is a thing.
+        var kind = KindOfObject(rules, held.Item);
         if (to == "pockets")
         {
             // Anywhere: a unit of a kind joins its stack; a unique thing takes an entry of its own (decision 99), under the pockets' caps.
@@ -209,9 +212,13 @@ public partial class CommandHost
     private JsonObject InventoryTake(JsonElement args, string principal, string actionId, string fingerprint, bool preview)
     {
         var to = Str(args, "to")!;
-        if (principal != PlayerPrincipal) CompanionChestOnly(to == "pockets" ? "$.args.to" : null);
+        var from = Str(args, "from") ?? "chest";
+        if (principal != PlayerPrincipal) CompanionChestOnly(to == "pockets" ? "$.args.to" : from is "pockets" or FromTheGround ? "$.args.from" : null);
         var rules = RequireInventory(principal);
         Settle();
+        // P-Inventory-2: a unique thing from the pockets into the hand (the hotbar's hand, CommandHostInventoryHand); a loose unit off the ground.
+        if (from == "pockets") return TakeFromPockets(args, rules, principal, actionId, fingerprint, preview);
+        if (from == FromTheGround) return TakeFromGround(args, rules, principal, actionId, fingerprint, preview);
         var item = Str(args, "item")!;
         var actor = principal == PlayerPrincipal ? PlayerAvatar : CompanionAvatarId;
         var chest = ChestContents;
@@ -267,25 +274,31 @@ public partial class CommandHost
 
     /// <summary>
     /// inventory.use (player-only): one unit of a stack in the pockets. A kind whose use heals heals at once, its heal_quarters (decisions 92
-    /// and 111: no unharmed wait); at full hearts the unit stays (not_ready); in Creative nothing changes but the receipt (decisions 101 and
-    /// 108). The unit goes first, then the heal is saved; a heal that cannot be saved puts the unit back.
+    /// and 111: no unharmed wait); at full hearts the unit stays (not_ready). In Creative eating uses the unit up too (decision 125: hearts do
+    /// nothing there, so nothing heals, at full hearts or not; the sound still plays, decision 108). The unit goes first, then the heal is
+    /// saved; a heal that cannot be saved puts the unit back. An apple eaten gives a seed, berries one time in three (decision 118).
     /// </summary>
     private JsonObject InventoryUse(JsonElement args, string principal, string actionId, string fingerprint, bool preview)
     {
         if (principal != PlayerPrincipal) throw new Refusal("permission_denied", "Only the player can do that, directly in the game.", "$.op");
         var rules = RequireInventory(principal);
         Settle();
-        var item = Str(args, "item")!;
+        // P-Inventory-2: no item named is the hand's selected slot (the hotbar's armed unit).
+        var item = Str(args, "item") ?? SelectedItem(forUse: true);
         var pockets = PocketContents;
         var have = pockets.Units(item);
         if (have == 0) throw new Refusal("target_not_found", NotInPockets, "$.args.item");
         var kind = rules.Kind(item);
-        if (kind?.HealQuarters is not { } heal) throw new Refusal("request_invalid", $"{kind?.Plural ?? "That"} {(kind == null ? "has" : "have")} no use yet.", "$.args.item");
+        if (kind?.HealQuarters is not { } heal) throw new Refusal("request_invalid", NoUseWords(kind), "$.args.item");
         if (Mode == "creative")
         {
             if (preview) return Previewed("inventory.use", principal, actionId);
-            // P-Food: eating makes its sound in Creative too (decision 108; CommandHostFood.Eaten).
-            return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), Eaten(item, Moved(item, 0, null, healed: 0)));
+            // P-Food: eating makes its sound in Creative too (decision 108; CommandHostFood.Eaten); P-Inventory-2: and uses the unit up (decision 125).
+            var (used, seedsThere) = WithSeeds(pockets.WithUnits(item, have - 1), SeedsFromEating(item, actionId));
+            SavePockets(used);
+            var creative = Eaten(item, Moved(item, 1, null, healed: 0));
+            creative["seeds"] = seedsThere;
+            return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), creative);
         }
         if (_playerVitalsUnavailable) throw new Refusal("not_ready", VitalsNotice, retryable: true);
         if (RecoveryPending || Vitals.Health <= 0) throw new Refusal("not_ready", NotOnYourFeet, "$.args.item", retryable: true);
@@ -293,7 +306,9 @@ public partial class CommandHost
         var (healed, quarters) = HealedBy(vitals, heal);
         if (quarters <= 0) throw new Refusal("not_ready", $"Your hearts are full: the {kind.Name} stays in your pockets.", "$.args.item", retryable: true);
         if (preview) return Previewed("inventory.use", principal, actionId);
-        SavePockets(pockets.WithUnits(item, have - 1));
+        // P-Inventory-2 (decision 118): an apple eaten gives a seed, berries one time in three, into the pockets in the same write.
+        var (eaten, seeds) = WithSeeds(pockets.WithUnits(item, have - 1), SeedsFromEating(item, actionId));
+        SavePockets(eaten);
         if (TrySaveVitals(_playerModes.WithCurrent(healed)) is not { } saved)
         {
             SavePockets(pockets, keepIfUnsaved: true);
@@ -301,7 +316,22 @@ public partial class CommandHost
         }
         _playerModes = saved;
         _vitalsDirty = false;
-        return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), Eaten(item, Moved(item, 1, null, healed: quarters)));
+        var data = Eaten(item, Moved(item, 1, null, healed: quarters));
+        data["seeds"] = seeds;
+        return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), data);
+    }
+
+    /// <summary>
+    /// Why a unit of a kind has no use (inventory.use, in the kernel's words): a seed waits for farming, a log or stone is material (it is
+    /// set down, or spent on a repair), anything else has none yet.
+    /// </summary>
+    private static string NoUseWords(InventoryKind? kind)
+    {
+        if (kind == null) return "That has no use yet.";
+        var plural = KernelJson.DisplayText(kind.Plural, InventoryContents.MaxNameLength);
+        if (kind.Id == FoodLaws.SeedKind) return $"{plural} have no use yet: planting comes with farming.";
+        if (kind.Material != null) return $"{plural} are for building and repairs: set one down, or keep them.";
+        return $"{plural} have no use yet.";
     }
 
     /// <summary>
@@ -331,13 +361,16 @@ public partial class CommandHost
         if (principal != PlayerPrincipal) throw new Refusal("permission_denied", "Only the player can do that, directly in the game.", "$.op");
         var rules = RequireInventory(principal);
         Settle();
-        var item = Str(args, "item")!;
+        // P-Inventory-2: no item named is the hand's selected slot; the thing it took into the hand is set down from there.
+        var item = Str(args, "item") ?? SelectedItem(forUse: false);
         var pockets = PocketContents;
+        if (_held.TryGetValue(PlayerAvatar, out var inHand) && inHand.Target == item && pockets.ReservedFor(item) != null)
+            return DropFromHand(inHand, principal, actionId, fingerprint, preview);
         if (!item.StartsWith("obj:", StringComparison.Ordinal))
         {
             if (pockets.Units(item) == 0) throw new Refusal("target_not_found", NotInPockets, "$.args.item");
-            var plural = rules.Kind(item)?.Plural ?? "Those";
-            throw new Refusal("unsupported_capability", $"{plural} cannot be set down yet: use them, or keep them in the chest.", "$.args.item");
+            // P-Inventory-2 (decision 118): a unit lies loose on the ground before the player, a thing in the world (CommandHostInventoryLoose).
+            return DropUnit(item, pockets, principal, actionId, fingerprint, preview);
         }
         var thing = pockets.Thing(item) ?? throw new Refusal("target_not_found", NotInPockets, "$.args.item");
         if (!OfThisIsland(thing)) throw new Refusal("request_invalid", OtherIsland, "$.args.item");
@@ -400,18 +433,21 @@ public partial class CommandHost
         return units;
     }
 
-    /// <summary>The caps a change must keep: a stack's own size, the entries and the mass (occupied past any).</summary>
+    /// <summary>
+    /// The caps a change must keep (decision 120: counts, not weights): a stack's own size, then the slots (occupied past either, in the
+    /// kernel's words: "A stack holds at most 99 Apples.", "Your pockets are full: ten things.", "The chest is full: twenty things.").
+    /// </summary>
     private static void CheckFits(InventoryContents next, InventoryRules rules, InventoryCaps caps, bool pockets, InventoryKind? kind)
     {
         if (kind != null && next.Units(kind.Id) > kind.Stack)
-            throw new Refusal("occupied", $"A stack holds at most {kind.Stack} {kind.Words(kind.Stack)}.", "$.args", allowed: JsonValue.Create(kind.Stack));
+            throw new Refusal("occupied", StackFullWords(kind), "$.args", allowed: JsonValue.Create(kind.Stack));
         if (next.Entries > caps.Entries)
-            throw new Refusal("occupied", pockets ? $"Your pockets are full: they hold {caps.Entries} things." : $"The chest is full: it holds {caps.Entries} things.", "$.args",
-                allowed: JsonValue.Create(caps.Entries));
-        if (next.MassKg(rules) > caps.MassKg + 1e-9)
-            throw new Refusal("occupied", pockets ? $"That would be too heavy for your pockets: they hold {Kilograms((float)caps.MassKg)} kg." :
-                $"That would be too heavy for the chest: it holds {Kilograms((float)caps.MassKg)} kg.", "$.args", allowed: JsonValue.Create(Math.Round(caps.MassKg, 3)));
+            throw new Refusal("occupied", pockets ? PocketsFullWords(caps) : ChestFullWords(caps), "$.args", allowed: JsonValue.Create(caps.Entries));
     }
+
+    public static string StackFullWords(InventoryKind kind) => $"A stack holds at most {kind.Stack} {kind.Words(kind.Stack)}.";
+    public static string PocketsFullWords(InventoryCaps caps) => $"Your pockets are full: {InventoryWords.Things(caps.Entries)}.";
+    public static string ChestFullWords(InventoryCaps caps) => $"The chest is full: {InventoryWords.Things(caps.Entries)}.";
 
     private static JsonObject Moved(string item, int count, string? to, int? healed = null)
     {
@@ -449,7 +485,7 @@ public partial class CommandHost
     /// write changes nothing: the chest is put back and the refusal is the authority's.
     /// </summary>
     private JsonObject CommitInventory(NatureState candidate, InventoryContents chest, string op, string principal, string actionId, string fingerprint,
-        IEnumerable<string> affected, JsonObject data)
+        IEnumerable<string> affected, JsonObject data, string? approvedBy = null)
     {
         if (_natureUnavailable) throw new Refusal("not_ready", NatureNotice, retryable: true);
         candidate.ChangedAt = Revision + 1;
@@ -457,6 +493,8 @@ public partial class CommandHost
         var before = _chest;
         _chest = chest;
         var meta = new Godot.Collections.Dictionary { ["fingerprint"] = fingerprint, ["op"] = op, ["at_utc"] = Now() };
+        // A Gubble's change the player said yes to (a repair spending the pockets) carries that yes, as CommitNature's does.
+        if (approvedBy != null && principal != PlayerPrincipal) meta["approved_by"] = approvedBy;
         var request = new Godot.Collections.Dictionary
         {
             ["op"] = "nature", ["action_id"] = actionId, ["expected_revision"] = Revision, ["expected_permission_revision"] = PermissionRevision,
@@ -476,6 +514,101 @@ public partial class CommandHost
         _teamDirty = false;
         _saveClock = 0;
         return Durable(Authority.Call(KernelNames.ReceiptFor, principal, actionId).AsGodotDictionary(), replayed: false);
+    }
+
+    // ---- the retired wallet (P-Inventory-2, decision 116): what repairs spend is the stacks, the pockets first, then the chest ----
+
+    /// <summary>
+    /// What a paid repair takes (decision 116): its cost, by the creation compiler's materials, in units of the pack's kinds whose material
+    /// each is, from the pockets first, then the chest (whose chest is the island's, wherever the repair is). Refused invalid_args, in the
+    /// kernel's words, when the pockets and the chest hold too few, or no kind is made of a material (copper and leaf have none yet).
+    /// </summary>
+    private RepairBill RepairSpend(IReadOnlyDictionary<string, int> cost)
+    {
+        Settle();
+        var rules = InventoryRules;
+        var pockets = PocketContents;
+        var chest = ChestContents;
+        var need = new List<string>();
+        var short_ = false;
+        // In the pack's order of its kinds (a log before a stone), then any material no kind is made of.
+        int Order(string material) => rules?.KindOfMaterial(material) is { } kind ? rules.Kinds.ToList().IndexOf(kind) : int.MaxValue;
+        foreach (var (material, units) in cost.OrderBy(c => Order(c.Key)).ThenBy(c => c.Key, StringComparer.Ordinal))
+        {
+            if (units <= 0) continue;
+            var kind = rules?.KindOfMaterial(material);
+            need.Add(kind == null ? $"{units} {material}" : $"{units} {KernelJson.DisplayText(kind.Words(units), InventoryContents.MaxNameLength).ToLowerInvariant()}");
+            if (kind == null) { short_ = true; continue; }
+            var fromPockets = Math.Min(units, pockets.Units(kind.Id));
+            var fromChest = Math.Min(units - fromPockets, chest.Units(kind.Id));
+            if (fromPockets + fromChest < units) short_ = true;
+            pockets = pockets.WithUnits(kind.Id, pockets.Units(kind.Id) - fromPockets);
+            chest = chest.WithUnits(kind.Id, chest.Units(kind.Id) - fromChest);
+        }
+        var words = need.Count switch { 0 => "nothing", 1 => need[0], _ => string.Join(", ", need.Take(need.Count - 1)) + " and " + need[^1] };
+        if (short_) throw new Refusal("invalid_args", $"This repair needs {words}, more than your pockets and the chest hold.", "$.args.target");
+        return new RepairBill(pockets, chest, words, !pockets.Same(PocketContents));
+    }
+
+    /// <summary>A repair's bill: the pockets and the chest after it, its cost in words ("2 logs and 1 stone"), and whether the pockets give.</summary>
+    private sealed record RepairBill(InventoryContents Pockets, InventoryContents Chest, string Words, bool FromPockets);
+
+    /// <summary>
+    /// A paid repair, one durable room revision (the island's nature, its team block with the chest after it, and the receipt), then the
+    /// pockets give (a pockets write lost now leaves the units unspent, never lost twice; a committed receipt is never taken back).
+    /// </summary>
+    private JsonObject CommitRepair(NatureState candidate, RepairBill bill, string principal, string actionId, string fingerprint, string? approvedBy, string id, JsonObject data)
+    {
+        if (bill.FromPockets) RequirePocketsFiled();
+        var result = CommitInventory(candidate, bill.Chest, "nature.repair", principal, actionId, fingerprint, new[] { id }, data, approvedBy);
+        if (bill.FromPockets) SavePockets(bill.Pockets, keepIfUnsaved: true);
+        return result;
+    }
+
+    /// <summary>The Gubble's ask for a repair (it waits for the player's yes): the player's own creation, and what it would spend of the player's.</summary>
+    private static string RepairAsk(string id, bool players, RepairBill? bill) =>
+        bill == null ? $"The Gubble asks to repair {id}, which you made." :
+        players ? $"The Gubble asks to repair {id}, which you made, with {bill.Words} from your pockets and the chest." :
+        $"The Gubble asks to repair {id}, with {bill.Words} from your pockets and the chest.";
+
+    /// <summary>
+    /// The retired wallet's counts become the chest's stacks (decision 116: "an older save's wallet counts become chest stacks on load"),
+    /// once the island's pack has an inventory block that names a kind for the material (a log for wood, a stone for stone): added to the
+    /// chest's stack of the kind, up to its size and the chest's slots. Whatever cannot be moved (copper and leaf, which no kind is made of
+    /// yet, or past a cap) stays in the retired wallet as it was, read and written back unchanged, never spent. The chest and the nature go
+    /// in one write of the island save (the authority's set_nature with the team block), so a save can never hold both the stacks and the
+    /// wallet they came from; a write that fails changes nothing, and the next load tries again. Called when nature loads and when rules
+    /// arrive (UseRules): the pack may come after the save.
+    /// </summary>
+    private void MigrateWallet()
+    {
+        if (Nature.Wallet.Count == 0 || InventoryRules is not { } rules || Room == null || _natureUnavailable) return;
+        if (Authority == null || !Authority.Call(KernelNames.IsReady).AsBool() || (_migrationOffer != null && !Godot.FileAccess.FileExists(SavePath))) return;
+        var wallet = Nature.Wallet;
+        var chest = ChestContents;
+        var left = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var (material, units) in wallet.OrderBy(p => p.Key, StringComparer.Ordinal))
+        {
+            if (units <= 0) continue;
+            var kind = rules.KindOfMaterial(material);
+            var have = kind == null ? 0 : chest.Units(kind.Id);
+            var moved = kind == null || (have == 0 && chest.Entries >= rules.Chest.Entries) ? 0 : Math.Min(units, Math.Max(0, kind.Stack - have));
+            if (moved > 0) chest = chest.WithUnits(kind!.Id, have + moved);
+            if (units - moved > 0) left[material] = units - moved;
+        }
+        var before = _chest;
+        _chest = chest;
+        Nature.Wallet = left;
+        using var team = KernelJson.ToVariant(ExportTeam(_notes));
+        using var nature = KernelJson.ToVariant(NatureBlock.Pack(Nature));
+        if (!SavedOk(Authority.Call(KernelNames.SetNature, nature, team)))
+        {
+            _chest = before;
+            Nature.Wallet = wallet;
+            return;
+        }
+        _teamDirty = false;
+        _saveClock = 0;
     }
 
     /// <summary>Before a change whose pockets give after the room revision: the team file must be there to keep them (not a file that would not read).</summary>
@@ -502,12 +635,13 @@ public partial class CommandHost
     /// This mode's pockets into the team file (a fixture without a team: this session). keepIfUnsaved: the change stands for the session
     /// even when the file cannot be written (a loss, a step back); otherwise nothing changes and the command is refused.
     /// </summary>
-    private void SavePockets(InventoryContents next, bool keepIfUnsaved = false)
+    private void SavePockets(InventoryContents next, bool keepIfUnsaved = false, HandSelection? hand = null)
     {
         if (Team is { } team)
         {
             TeamFile updated;
-            try { updated = team.WithPockets(Mode, next); }
+            // The hand's selection rides in the same write when it changes with the pockets (a gathered log's slot, P-Inventory-2).
+            try { updated = hand == null ? team.WithPockets(Mode, next) : team.WithPockets(Mode, next).WithHand(Mode, hand); }
             catch (TeamFileException) { if (keepIfUnsaved) return; throw new Refusal("not_ready", InventoryUnsaved, retryable: true); }
             if (ReferenceEquals(updated, team)) return;
             try { _teamStore?.Save(updated); }
@@ -521,29 +655,53 @@ public partial class CommandHost
         }
         if (_teamStore != null && !keepIfUnsaved) throw new Refusal("not_ready", PocketsWaitForTeam, retryable: true);
         _pocketsUnfiled[Mode] = next;
+        if (hand != null) _handUnfiled[Mode] = hand;
+    }
+
+    /// <summary>
+    /// inventory.drop of the unique thing the hand took from its slot (P-Inventory-2): set down before the player as a put-down settles it,
+    /// its pose saved first (an entity.place receipt under the host's own action id, as a drop from the pockets), then the drop's own
+    /// durable receipt; the slot is free again.
+    /// </summary>
+    private JsonObject DropFromHand(Held held, string principal, string actionId, string fingerprint, bool preview)
+    {
+        if (Player == null || !IsInstanceValid(Player) || !Player.IsInsideTree()) throw new Refusal("not_ready", "The player is not in the room.", retryable: true);
+        var (position, rotation) = Carried(PlayerAvatar, held);
+        var rest = Settled(Physics().Drop(ThingOf(held.Item, position, rotation), Player), "$.args.item");
+        if (!SandboxRules.WithinReach(Player, rest.Bounds)) throw OutOfReach("$.args.item");
+        if (preview) return Previewed("inventory.drop", principal, actionId, held.Target);
+        var (placed, placedFingerprint) = InnerAction("inventory.drop", fingerprint);
+        var meta = new Godot.Collections.Dictionary { ["fingerprint"] = placedFingerprint, ["op"] = "entity.place", ["at_utc"] = Now() };
+        MoveHeld(PlayerAvatar, held, rest, PlayerPrincipal, placed, meta);
+        var result = CommitInventory(Nature.Copy(), _chest, "inventory.drop", principal, actionId, fingerprint, new[] { held.Target }, Moved(held.Target, 1, "ground"));
+        SavePockets(PocketContents.Unreserving(held.Target), keepIfUnsaved: true);
+        return result;
     }
 
     // ---- the args (contracts: $defs/args/inventory.*) ----
 
     private static void CheckInventoryArgs(string op, JsonElement args)
     {
+        if (op == "inventory.select") { CheckSelectArgs(args); return; }
         string[] allowed = op switch
         {
             "inventory.store" => new[] { "to", "from", "item", "count" },
-            "inventory.take" => new[] { "item", "to", "count" },
+            "inventory.take" => new[] { "item", "to", "count", "from" },
             _ => new[] { "item" },
         };
         foreach (var property in args.EnumerateObject())
             if (!allowed.Contains(property.Name))
                 throw new Refusal("field_unknown", "This argument is not part of the operation.", "$.args." + KernelJson.DisplayText(property.Name, 64));
-        var required = op switch { "inventory.store" => new[] { "to" }, "inventory.take" => new[] { "item", "to" }, _ => new[] { "item" } };
+        // P-Inventory-2: a use or a drop with no item acts on the hand's selected slot.
+        var required = op switch { "inventory.store" => new[] { "to" }, "inventory.take" => new[] { "item", "to" }, _ => Array.Empty<string>() };
         foreach (var name in required)
             if (!args.TryGetProperty(name, out _)) throw new Refusal("request_invalid", $"This operation needs '{name}'.", "$.args." + name);
         var to = Str(args, "to");
         if (op == "inventory.store" && args.TryGetProperty("to", out _) && to is not ("chest" or "pockets"))
             throw new Refusal("request_invalid", "to is chest or pockets.", "$.args.to");
         if (op == "inventory.take" && to is not ("hand" or "pockets")) throw new Refusal("request_invalid", "to is hand or pockets.", "$.args.to");
-        if (args.TryGetProperty("from", out _) && Str(args, "from") is not ("hand" or "pockets")) throw new Refusal("request_invalid", "from is hand or pockets.", "$.args.from");
+        if (op == "inventory.store" && args.TryGetProperty("from", out _) && Str(args, "from") is not ("hand" or "pockets")) throw new Refusal("request_invalid", "from is hand or pockets.", "$.args.from");
+        if (op == "inventory.take" && args.TryGetProperty("from", out _) && Str(args, "from") is not ("chest" or "pockets" or FromTheGround)) throw new Refusal("request_invalid", "from is chest, pockets or ground.", "$.args.from");
         if (args.TryGetProperty("item", out var item))
         {
             var text = item.ValueKind == JsonValueKind.String ? item.GetString()! : "";

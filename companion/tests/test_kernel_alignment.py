@@ -262,7 +262,9 @@ NATURE = KERNEL / "Kernel" / "CommandHostNature.cs"
 GROW_KINDS = [KERNEL / "Kernel" / name for name in ("CommandHostGrowKinds.cs", "CommandHostGrowSprouts.cs", "CommandHostGrowReplant.cs",
                                                      "CommandHostGrowBridge.cs", "CommandHostGrowIvy.cs")]
 NATURE_SOURCES = [KERNEL / "Kernel" / name for name in ("CommandHostNature.cs", "CommandHostGrow.cs", "CommandHostFireKinds.cs",
-                                                         "CommandHostCamps.cs", "CommandHostConsequences.cs", "CommandHostEnergy.cs")] + GROW_KINDS
+                                                         "CommandHostCamps.cs", "CommandHostConsequences.cs", "CommandHostEnergy.cs",
+                                                         # P-Inventory-2: a repair's spend and the Gubble's ask for one (RepairSpend, RepairAsk).
+                                                         "CommandHostInventory.cs")] + GROW_KINDS
 
 
 def _nature_text() -> str:
@@ -351,7 +353,8 @@ class NatureMatchesTheKernel(unittest.TestCase):
         self.assertIn('$"Wait about {Math.Ceiling(wait):0} seconds after your last fire before lighting another."', source)
         self.assertIn('$"The island already keeps {NatureState.MaxGrownPlants} grown plants, the most it can: none more can grow."', source)
         self.assertIn('$"A Fireline is at most {FireKindLaws.FirelineMaxM:0.#} m long."', source)
-        self.assertIn('$"The Gubble asks to repair {id}, which you made, using the team\'s materials."', source)
+        self.assertIn('$"The Gubble asks to repair {id}, which you made."', source)
+        self.assertIn('$"This repair needs {words}, more than your pockets and the chest hold."', source)
         self.assertIn('$"{whose} would reach your builds.', source)
         # And every word the mock's handlers raise is one of these constants (none typed in place).
         for function in (mock_nature.NatureMixin._op_nature_cast, mock_nature.NatureMixin._check_cast, mock_nature.NatureMixin._cast_grow,
@@ -436,7 +439,9 @@ class NatureMatchesTheKernel(unittest.TestCase):
         self.assertIn('"grass" => GrassFuel, "herb" => HerbFuel, "shrub" => ShrubFuel, "broadleaf" or "conifer" => TreeFuel, _ => 0,', _text(grow))
         self.assertEqual((m.STARTING_ID, m.FIREPIT_PREFIX), (_match(camps, r'StartingId = "([^"]+)"'), _match(camps, r'FirepitPrefix = "([^"]+)"')))
         self.assertEqual(sorted(m.FLAMMABLE_MATERIALS), sorted(re.findall(r'"([a-z]+)"', _match(NATURE, r"FlammableMaterials = new\(StringComparer\.Ordinal\) \{([^}]*)\}"))))
-        self.assertEqual(m.FRESH_WALLET, {name: int(units) for name, units in re.findall(r'\["([a-z]+)"\] = (\d+)', _match(state, r"FreshWallet\(\) => new\(StringComparer\.Ordinal\) \{([^}]*)\}"))})
+        # The materials wallet is retired (P-Inventory-2): a new island's is empty on both hosts.
+        self.assertEqual(m.FRESH_WALLET, {})
+        self.assertIn("public static Dictionary<string, int> FreshWallet() => new(StringComparer.Ordinal);", _text(state))
         # The preview handles and their life: 32 kept at most, each for the approval lifetime, 128 random bits.
         self.assertIn("while (_naturePreviews.Count >= 32)", _text(NATURE))
         self.assertEqual(m.MAX_NATURE_PREVIEWS, 32)
@@ -499,7 +504,9 @@ class NatureMatchesTheKernel(unittest.TestCase):
         # The repair: the kernel's own refusals after its look-up (the mock's CheckPerceived for the companion comes first, as the
         # kernel's Execute runs CheckPerceived before the op), but its design check: a scorched build can be neither revised nor
         # locked (target_busy, _check_nature_remains), so on the mock its design cannot change before it is repaired.
-        repair = _codes(_method(nature, "private JsonObject Repair("))
+        # Since P-Inventory-2 its spend (too few logs and stones) is RepairSpend's, called where the wallet's check was.
+        repair = _codes(_method(nature, "private JsonObject Repair(")) + _codes(_method(_text(KERNEL / "Kernel" / "CommandHostInventory.cs"), "private RepairBill RepairSpend("))
+        self.assertIn("var bill = free || item.RepairCost.Count == 0 ? null : RepairSpend(item.RepairCost);", _method(nature, "private JsonObject Repair("))
         self.assertIn('"This creation\'s design changed; its old repair quote no longer applies."', _method(nature, "private JsonObject Repair("))
         self.assertEqual(_codes(inspect.getsource(mixin._op_nature_repair), r'HostError\("(\w+)"'), [c for c in repair if c != "revision_conflict"])
         command = _method(nature, "private JsonObject NatureCommand(")

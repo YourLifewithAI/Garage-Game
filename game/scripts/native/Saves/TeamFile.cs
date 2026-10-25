@@ -62,6 +62,27 @@ public sealed record TeamFile
     public IReadOnlyDictionary<string, InventoryContents> Pockets { get; init; } = NoPockets;
     /// <summary>"Let the Gubble use the chest" (settings.gubble_chest, decision 100): off unless the player turned it on.</summary>
     public bool GubbleChest { get; init; }
+    /// <summary>
+    /// The hand's selection by mode (P-Inventory-2, decision 119: inventory.select's state, the hotbar's): only a mode with a selection is
+    /// kept, so a team without one writes as before. The player's alone (no companion command reaches it).
+    /// </summary>
+    public IReadOnlyDictionary<string, HandSelection> Hands { get; init; } = NoHands;
+    public static readonly IReadOnlyDictionary<string, HandSelection> NoHands =
+        new System.Collections.ObjectModel.ReadOnlyDictionary<string, HandSelection>(new Dictionary<string, HandSelection>());
+
+    /// <summary>One mode's selection (none when the file keeps none for it).</summary>
+    public HandSelection HandOf(string mode) => Hands.TryGetValue(mode, out var hand) ? hand : HandSelection.None;
+
+    /// <summary>The team with one mode's selection (none takes the mode away); the same selection returns this record, so nothing is written.</summary>
+    public TeamFile WithHand(string mode, HandSelection hand)
+    {
+        if (HandOf(mode) == hand) return this;
+        var hands = new SortedDictionary<string, HandSelection>(StringComparer.Ordinal);
+        foreach (var (key, value) in Hands) hands[key] = value;
+        if (hand.IsNone) hands.Remove(mode);
+        else hands[mode] = hand;
+        return (this with { Hands = hands.Count == 0 ? NoHands : new System.Collections.ObjectModel.ReadOnlyDictionary<string, HandSelection>(hands) }).Checked();
+    }
     public static readonly IReadOnlyDictionary<string, InventoryContents> NoPockets =
         new System.Collections.ObjectModel.ReadOnlyDictionary<string, InventoryContents>(new Dictionary<string, InventoryContents>());
 
@@ -90,7 +111,8 @@ public sealed record TeamFile
         if (PocketsOf(mode).Same(contents)) return this;
         var pockets = new SortedDictionary<string, InventoryContents>(StringComparer.Ordinal);
         foreach (var (key, value) in Pockets) pockets[key] = value;
-        if (contents.IsEmpty) pockets.Remove(mode);
+        // A mode whose pockets hold nothing goes, unless a slot is kept for the thing in the hand (in memory only: never written).
+        if (contents.IsEmpty && !contents.HasReservations) pockets.Remove(mode);
         else pockets[mode] = contents;
         return (this with { Pockets = pockets.Count == 0 ? NoPockets : new System.Collections.ObjectModel.ReadOnlyDictionary<string, InventoryContents>(pockets) }).Checked();
     }
@@ -169,11 +191,13 @@ public sealed record TeamFile
             throw new TeamFileException("The team file has invalid knack ranks.");
         if (Trust is < -TrustBound or > TrustBound) throw new TeamFileException("The team file has an invalid Trust count.");
         // P-Inventory: a mode's pockets hold something, at most 16 entries, each thing once, every name display text.
-        if (Pockets == null || Pockets.Any(p => !TeamLayout.ValidMode(p.Key) || p.Value == null || p.Value.IsEmpty || p.Value.Entries > 16 ||
+        if (Pockets == null || Pockets.Any(p => !TeamLayout.ValidMode(p.Key) || p.Value == null || (p.Value.IsEmpty && !p.Value.HasReservations) || p.Value.Entries > 16 ||
                 p.Value.Stacks.Any(s => s.Key == null || !Token.IsMatch(s.Key) || s.Value is < 1 or > InventoryContents.MaxUnits) ||
                 p.Value.Things.Any(x => x == null || !InventoryContents.IsName(x.Name) || !double.IsFinite(x.MassKg) || x.MassKg is <= 0 or > 10) ||
                 p.Value.Things.Select(x => (x.RoomId, x.ManifestPrefix, x.Id)).Distinct().Count() != p.Value.Things.Count))
             throw new TeamFileException("The team file has invalid pockets.");
+        if (Hands == null || Hands.Any(p => !TeamLayout.ValidMode(p.Key) || p.Value == null || !p.Value.Valid || p.Value.IsNone))
+            throw new TeamFileException("The team file has an invalid hand.");
         return this;
     }
 
@@ -205,9 +229,14 @@ public sealed record TeamFile
         // P-Inventory's two optional keys, after the rest and only when there is something in them (the bytes before are unchanged).
         var extra = new System.Text.Json.Nodes.JsonObject();
         if (GubbleChest) extra["settings"] = new System.Text.Json.Nodes.JsonObject { ["gubble_chest"] = true };
-        if (Pockets.Count > 0)
-            extra["pockets"] = new System.Text.Json.Nodes.JsonObject(Pockets.OrderBy(p => Array.IndexOf(TeamLayout.Modes.ToArray(), p.Key))
+        // A mode whose pockets keep only a slot for the hand writes nothing (the hand is never saved).
+        if (Pockets.Any(p => !p.Value.IsEmpty))
+            extra["pockets"] = new System.Text.Json.Nodes.JsonObject(Pockets.Where(p => !p.Value.IsEmpty).OrderBy(p => Array.IndexOf(TeamLayout.Modes.ToArray(), p.Key))
                 .Select(p => KeyValuePair.Create(p.Key, (System.Text.Json.Nodes.JsonNode?)p.Value.PocketsBlock())));
+        // P-Inventory-2: the hand's selection by mode, only when there is one.
+        if (Hands.Count > 0)
+            extra["hand"] = new System.Text.Json.Nodes.JsonObject(Hands.OrderBy(p => Array.IndexOf(TeamLayout.Modes.ToArray(), p.Key))
+                .Select(p => KeyValuePair.Create(p.Key, (System.Text.Json.Nodes.JsonNode?)p.Value.Block())));
         if (extra.Count > 0)
         {
             var tail = Encoding.UTF8.GetBytes(extra.ToJsonString(options));
@@ -230,7 +259,7 @@ public sealed record TeamFile
             var root = document.RootElement;
             // settings and pockets are optional (P-Inventory): a team file from before them reads as it is.
             Fields(root, new[] { "schema", "version", "team_id", "created_utc", "profile", "knacks", "gubble", "trust" }
-                .Concat(new[] { "settings", "pockets" }.Where(name => root.ValueKind == JsonValueKind.Object && root.TryGetProperty(name, out _))).ToArray());
+                .Concat(new[] { "settings", "pockets", "hand" }.Where(name => root.ValueKind == JsonValueKind.Object && root.TryGetProperty(name, out _))).ToArray());
             if (!SchemaIds.IsSchema(Text(root, "schema"), "team") || root.GetProperty("version").GetRawText() != "1") throw new TeamFileException("The team file has an unsupported version.");
             var profile = root.GetProperty("profile");
             Fields(profile, "display_name", "costume");
@@ -283,13 +312,26 @@ public sealed record TeamFile
                 }
                 pockets = new System.Collections.ObjectModel.ReadOnlyDictionary<string, InventoryContents>(modes);
             }
+            var hands = NoHands;
+            if (root.TryGetProperty("hand", out var hand))
+            {
+                if (hand.ValueKind != JsonValueKind.Object || !hand.EnumerateObject().Any()) throw new TeamFileException("The team file has an invalid hand.");
+                var modes = new SortedDictionary<string, HandSelection>(StringComparer.Ordinal);
+                foreach (var mode in hand.EnumerateObject())
+                {
+                    if (!TeamLayout.ValidMode(mode.Name) || modes.ContainsKey(mode.Name) || HandSelection.FromBlock(mode.Value) is not { } selection)
+                        throw new TeamFileException("The team file has an invalid hand.");
+                    modes[mode.Name] = selection;
+                }
+                hands = new System.Collections.ObjectModel.ReadOnlyDictionary<string, HandSelection>(modes);
+            }
             return new TeamFile
             {
                 TeamId = Text(root, "team_id"), CreatedUtc = Text(root, "created_utc"),
                 DisplayName = Text(profile, "display_name"), Costume = Text(profile, "costume"),
                 SlotsOpen = Whole(knacks.GetProperty("slots_open")), Knacks = list, Earned = earned,
                 GubbleName = Text(gubble, "name"), GubbleColour = Text(gubble, "colour"), Trust = Whole(trust.GetProperty("count"), allowNegative: true),
-                GubbleChest = gubbleChest, Pockets = pockets,
+                GubbleChest = gubbleChest, Pockets = pockets, Hands = hands,
             }.Checked();
         }
         catch (Exception error) when (error is CanonicalJsonException or JsonException or InvalidOperationException or FormatException or OverflowException or DecoderFallbackException or KeyNotFoundException)

@@ -64,7 +64,9 @@ class Surface(unittest.IsolatedAsyncioTestCase):
                                              "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset",
                                              # P-Inventory: no tool eats from or drops out of the player's pockets (the chest's store
                                              # and take have tools, behind the player's switch).
-                                             "inventory.use", "inventory.drop"})
+                                             "inventory.use", "inventory.drop",
+                                             # P-Inventory-2: the hand's selection is the player's alone (no tool).
+                                             "inventory.select"})
 
     @with_harness
     async def test_mode_preferences_and_wish_controls_are_not_companion_tools(self):

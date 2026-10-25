@@ -69,6 +69,10 @@ class OnTheMock(unittest.TestCase):
                 self.assertEqual(refusal(self.send(COMPANION, "inventory.store", args)), ("permission_denied", path, mock_inventory.POCKETS_ARE_PLAYERS))
         self.assertEqual(refusal(self.send(COMPANION, "inventory.take", {"item": "apple", "to": "pockets"})),
                          ("permission_denied", "$.args.to", mock_inventory.POCKETS_ARE_PLAYERS))
+        # P-Inventory-2: the pockets' take into the hand and the take off the ground are the player's too, refused where the kernel refuses them.
+        for args, path in (({"from": "pockets", "item": "obj:cup", "to": "hand"}, "$.args.from"), ({"from": "ground", "item": "apple", "to": "pockets"}, "$.args.to")):
+            with self.subTest(args=args):
+                self.assertEqual(refusal(self.send(COMPANION, "inventory.take", args)), ("permission_denied", path, mock_inventory.POCKETS_ARE_PLAYERS))
         for op in ("inventory.use", "inventory.drop"):
             with self.subTest(op=op):
                 self.assertEqual(refusal(self.send(COMPANION, op, {"item": "apple"})), ("permission_denied", "$.op", mock_inventory.PLAYER_ONLY))
@@ -115,7 +119,7 @@ class OnTheMock(unittest.TestCase):
         self.assertTrue(self.send(COMPANION, "inventory.store", {"to": "chest"})["ok"])
         self.host.rules.inventory["chest"]["entries"] = 1
         self.gubble_holds("obj:doorstop")
-        self.assertEqual(refusal(self.send(COMPANION, "inventory.store", {"to": "chest"})), ("occupied", "$.args", "The chest is full: it holds 1 things."))
+        self.assertEqual(refusal(self.send(COMPANION, "inventory.store", {"to": "chest"})), ("occupied", "$.args", "The chest is full: one thing."))
 
     def test_the_players_inventory_is_the_kernels_and_the_readers_say_so(self):
         for op, args in (("inventory.store", {"to": "chest"}), ("inventory.take", {"item": "apple", "to": "pockets"}),
@@ -155,6 +159,9 @@ class TheKernelsWords(unittest.TestCase):
             with self.subTest(words=mock):
                 self.assertEqual(getattr(mock_inventory, mock), words(kernel))
         self.assertIn(f'throw new Refusal("target_busy", "{mock_inventory.HANDS_FULL}", "$.args.to")', source)
+        # Decision 120: the chest's words for its slots are the kernel's.
+        self.assertIn('public static string ChestFullWords(InventoryCaps caps) => $"The chest is full: {InventoryWords.Things(caps.Entries)}.";', source)
+        self.assertEqual((mock_inventory.chest_full_words(20), mock_inventory.chest_full_words(1)), ("The chest is full: twenty things.", "The chest is full: one thing."))
         teams = (REPO / "game" / "scripts" / "native" / "Saves" / "CommandHostTeams.cs").read_text(encoding="utf-8")
         self.assertEqual(float(re.search(r"public const float CampRadiusM = ([0-9.]+)f;", teams).group(1)), mock_inventory.CAMP_RADIUS_M)
         # The companion's checks come first in each command, the pockets before the switch, both before the rules and any lookup.
@@ -163,6 +170,8 @@ class TheKernelsWords(unittest.TestCase):
                 body = source[source.index(method):]
                 self.assertLess(body.index("CompanionChestOnly("), body.index("RequireInventory(principal)"))
                 self.assertLess(body.index("RequireInventory(principal)"), body.index("Settle()"))
+        # P-Inventory-2: a take from the pockets or the ground names the pockets in from, as the mock's does.
+        self.assertIn('CompanionChestOnly(to == "pockets" ? "$.args.to" : from is "pockets" or FromTheGround ? "$.args.from" : null);', source)
         only = source[source.index("private void CompanionChestOnly("):]
         self.assertLess(only.index("PocketsArePlayers"), only.index("GubbleChestOff"))
 

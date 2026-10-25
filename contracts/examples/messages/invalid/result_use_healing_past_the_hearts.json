@@ -15,6 +15,7 @@
     "item": "apple",
     "count": 1,
     "healed_quarters": 121,
-    "sound": "eat"
+    "sound": "eat",
+    "seeds": 1
   }
 }
