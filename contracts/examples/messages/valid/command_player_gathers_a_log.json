@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.command",
+  "schema": "garage_game.command",
   "version": 1,
   "action_id": "gather-0001",
   "room_id": "garage_example",
@@ -7,5 +7,5 @@
   "args": {
     "target": "obj:loose_log"
   },
-  "note": "Player-only: the log the player picked up with entity.grab."
+  "note": "Player-only: F or E on a log within reach; picking one up is not a carry."
 }

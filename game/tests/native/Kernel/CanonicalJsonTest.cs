@@ -13,6 +13,8 @@ namespace GarageGame.Tests.Kernel;
 public partial class CanonicalJsonTest : Node
 {
     private const string Fixture = "res://tests/fixtures/kernel/";
+    /// <summary>The golden digest, pinned here as in the GDScript and Python checks (the Garage Game fixture, since the rename's phase 4).</summary>
+    private const string GoldenSha256 = "ad3d1a8594e808790c035c49f00fc39fd49d49325d3237bb03bba6166fbccc94";
     private int _checks;
     private int _failures;
 
@@ -24,6 +26,7 @@ public partial class CanonicalJsonTest : Node
             var expected = FileAccess.GetFileAsBytes(Fixture + "canonical_expected.json");
             var digest = FileAccess.GetFileAsString(Fixture + "canonical_expected.sha256").Trim();
             Check(input.Length > 0 && expected.Length > 0 && digest.Length == 64, "golden fixture files are present");
+            Check(digest == GoldenSha256, "canonical_expected.sha256 is the pinned golden digest " + GoldenSha256);
             using (var document = CanonicalJson.Parse(input))
             {
                 var produced = CanonicalJson.Bytes(document.RootElement);

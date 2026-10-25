@@ -1,0 +1,8 @@
+{
+  "schema": "garage_game.command",
+  "version": 1,
+  "action_id": "select-0011",
+  "room_id": "garage_example",
+  "op": "inventory.select",
+  "args": {}
+}

@@ -14,6 +14,15 @@ public enum FireOutcome { Fireproof, Scorches, BurnsDown }
 /// <summary>One row of the fire rule: what fire does to a kind of thing in a mode, and whether the player is asked first.</summary>
 public readonly record struct FireRuling(FireOutcome Outcome, bool AskFirst);
 
+/// <summary>What a repair spent of one kind (decision 131): the pack's kind id, its units, and the kernel's words for them ("2 logs").</summary>
+public sealed record SpentUnits(string Kind, int Count, string Words);
+
+/// <summary>
+/// The Gubble's repair spent (CommandHost.RepairSpent, decision 131): the thing repaired, the point above it where the HUD's icon goes (the top
+/// centre of its bounds before the repair), and what was spent, each kind in the pack's order.
+/// </summary>
+public sealed record RepairSpentView(string Thing, Vector3 At, IReadOnlyList<SpentUnits> Spent);
+
 /// <summary>
 /// Grow (CommandHostGrow), weather and Fire on the ground field, host side (docs/magic/README.md). Bloom and its flower trail
 /// went with decision 52: an older island's flowers are dropped when it loads, and nature.trail is refused. Nature is room state:
@@ -170,6 +179,8 @@ public partial class CommandHost
         _natureUnavailable = false;
         NatureNotice = "";
         ApplyNatureObjects();
+        // P-Inventory-2: an older save's wallet becomes the chest's stacks (CommandHostInventory.MigrateWallet).
+        MigrateWallet();
         NatureChanged?.Invoke();
     }
 
@@ -250,10 +261,11 @@ public partial class CommandHost
             if (envelops.ValueKind != JsonValueKind.Undefined && (envelops.ValueKind != JsonValueKind.String || !AvatarId.IsMatch(envelops.GetString()!)))
                 throw new Refusal("request_invalid", "A Bubble's target is an avatar.", "$.args.target");
             CheckVector(args.GetProperty("center_m"), "$.args.center_m");
-            // Fireline's drag (decision 78): an end point, Fire's alone (CommandHostFireKinds).
+            // A drag's end: Fireline's (decision 78, CommandHostFireKinds) or a bridge's far lip (decision 106, CommandHostGrowBridge).
             if (args.TryGetProperty("end_m", out var end))
             {
-                if (Str(args, "capability") != "fire") throw new Refusal("request_invalid", "Only Fire names an end_m: the end of a Fireline.", "$.args.end_m");
+                if (Str(args, "capability") is not ("fire" or "grow"))
+                    throw new Refusal("request_invalid", "Only Fire and Grow name an end_m: the end of a Fireline, or a bridge's far lip.", "$.args.end_m");
                 CheckVector(end, "$.args.end_m");
             }
             // The contract's outer bounds; the island's narrower ones are the rules pack's (invalid_args when exceeded).
@@ -294,6 +306,8 @@ public partial class CommandHost
             var ability = Rules?.Ability(capability) ?? throw new Refusal("unsupported_capability", "This island does not grant that nature ability.", "$.args.capability");
             // Decision 72: no Fire until the first rest, whoever asks, before every other check of it (CommandHostCamps.RequireFireLearned).
             if (capability == "fire") RequireFireLearned();
+            // Decision 106: a drag of Grow is a bridge, refused before its count ahead of the cast's checks, as a Fireline is (CommandHostGrowKinds).
+            if (capability == "grow") RequireGrowDrag(args);
             // Decision 77: the place decides what a Fire cast is (CommandHostFireKinds.FireKindOf): a drag Fireline, water a
             // Will-o'-wisp, something burning Snuff (each once learned), else Fire (an unlit firepit lit on its path, CastFire).
             var kind = capability == "fire" ? FireKindOf(args) : FireKind.Fire;
@@ -334,9 +348,9 @@ public partial class CommandHost
         if (Companion == null || Companion.GlobalPosition.DistanceTo(center) > ability.ReachM)
             throw new Refusal("out_of_bounds", "Bring the Gubble closer before casting.", "$.args.center_m", retryable: true);
         if (!TeamSeesSpot(center, principal)) throw new Refusal("target_not_found", "The team must see the place the Gubble will affect.", "$.args.center_m");
-        // One fire on the island at a time. The player's own Fire is never kept waiting by the Gubble's: it puts that one out.
-        if (oneFire && Nature.Fire is { } burning && !(ability.Capability == "fire" && principal == PlayerPrincipal && burning.Principal == CompanionPrincipal))
-            throw new Refusal("target_busy", FireBusyWords(principal), retryable: true);
+        // One fire on the island at a time, whoever lit it: since decision 82 nothing but burning out or Snuff ends a fire, so the player's
+        // own Fire no longer puts the Gubble's out (Snuff aimed at it is no fire, and passes: FireKindOf, oneFire false).
+        if (oneFire && Nature.Fire != null) throw new Refusal("target_busy", FireBusyWords(principal), retryable: true);
         var intensity = ability.Params.TryGetValue("intensity", out var setting) ? (float)setting.Default : 0.6f;
         return new Cast(center, radius, duration, intensity);
     }
@@ -420,9 +434,6 @@ public partial class CommandHost
             return Hold(root, principal, action, fingerprint, "nature.cast", FireHoldReason(companion, asked.Count > 0, keyed),
                 asked.ToDictionary(t => t.Id, t => EntityRevision(t.Id), StringComparer.Ordinal), bindRevision: true, sparesOnDeny: asked.Count > 0 && !keyed);
         var candidate = Nature.Copy();
-        // The player's own Fire while the Gubble's burns: the Gubble's goes out as the player's is lit (one fire at a time).
-        var puttingOut = !companion && candidate.Fire is { Principal: CompanionPrincipal };
-        if (puttingOut) candidate.PutOutFire();
         // One fire, one undo step (decision 78: a Fireline too, taken back whole in Creative).
         var step = candidate.BeginUndo(lineCells != null ? "Fireline" : "Fire", Revision + 1, principal, Mode);
         var lit = lineCells != null
@@ -433,7 +444,6 @@ public partial class CommandHost
         // empty pool is never the reason given for a fire that could not start anyway); charged once the revision is saved. A
         // Fireline is priced as its kind (the pack's cost block, as the Bubble's kinds are).
         var price = GuardEnergy(lineCells != null ? FireKindWords.Fireline : ability.Capability, principal);
-        if (puttingOut) _companionFireSeenS = Nature.WeatherS;
         _naturePreviews.Remove(previewId);
         data.Remove("cells");
         data.Remove("cells_truncated");
@@ -459,11 +469,18 @@ public partial class CommandHost
         return "The Gubble asks to light a fire here. Approve this exact area or deny it.";
     }
 
+    /// <summary>
+    /// The player's words while the Gubble's fire burns (decision 82: X no longer puts it out): one fire at a time, so it burns out first,
+    /// or, once Snuff is learned, Fire aimed at it snuffs it. The HUD shows the host's words as they are.
+    /// </summary>
+    public const string GubbleFireBurningWords = "The Gubble's fire is burning: one fire at a time. Let it burn out first.";
+    public const string GubbleFireBurningSnuffWords = "The Gubble's fire is burning: one fire at a time. Let it burn out, or aim Fire at it to Snuff it.";
+
     /// <summary>Why another nature cast must wait for the fire that burns now, in words for whoever asks.</summary>
     private string FireBusyWords(string principal) => Nature.Fire?.Principal switch
     {
         CompanionPrincipal when principal != PlayerPrincipal => "Your fire is still burning: one fire at a time. Wait for it to go out.",
-        CompanionPrincipal => "The Gubble's fire is burning. Press X to put it out, or let it finish first.",
+        CompanionPrincipal => SnuffLearned ? GubbleFireBurningSnuffWords : GubbleFireBurningWords,
         _ => "Let the current fire finish first.",
     };
 
@@ -512,19 +529,54 @@ public partial class CommandHost
             throw new Refusal("revision_conflict", "This creation's design changed; its old repair quote no longer applies.", "$.args.target");
         if (Nature.Fire != null) throw new Refusal("target_busy", FireBusyWords(principal), retryable: true);
         var free = Mode == "creative";
-        if (!free && item.RepairCost.Any(c => Nature.Wallet.GetValueOrDefault(c.Key) < c.Value))
-            throw new Refusal("invalid_args", "The team's material supply cannot cover this repair yet.", "$.args.target");
+        // P-Inventory-2 (decision 116): the cost is logs and stones from the pockets first, then the chest (CommandHostInventory.RepairSpend).
+        var bill = free || item.RepairCost.Count == 0 ? null : RepairSpend(item.RepairCost);
         var data = new JsonObject { ["cost"] = free ? new JsonObject() : new JsonObject(item.RepairCost.OrderBy(c => c.Key, StringComparer.Ordinal).Select(c => KeyValuePair.Create(c.Key, (JsonNode?)c.Value))) };
+        // Decision 131: what a paid repair spends, by kind, on its receipt (the preview's too: what it would spend).
+        if (bill != null) data["spent"] = bill.Data();
         if (preview) return NaturePreviewed("nature.repair", principal, action, data, new[] { id });
-        if (principal != PlayerPrincipal && instance["owner_id"].AsString() == PlayerPrincipal && approvedBy == null)
-            return Hold(root, principal, action, fingerprint, "nature.repair", $"The Gubble asks to repair {id}, which you made, using the team's materials.",
-                new() { [id] = EntityRevision(id) }, bindRevision: true);
+        // The Gubble's repair of the player's own creation waits for the player's yes, as every change of what the player made does. A spend no
+        // longer asks (decision 131: the Gubble repairs without asking when a repair spends logs or stones, and the spend is shown instead).
+        var players = instance["owner_id"].AsString() == PlayerPrincipal;
+        if (principal != PlayerPrincipal && approvedBy == null && players)
+            return Hold(root, principal, action, fingerprint, "nature.repair", RepairAsk(id, bill), new() { [id] = EntityRevision(id) }, bindRevision: true);
+        // Where the HUD shows the spend: above the scorched thing, the top centre of its bounds as it stands before the repair.
+        var above = bill != null && principal != PlayerPrincipal ? AboveOf(id) : null;
         var candidate = Nature.Copy();
         var step = candidate.BeginUndo("Repair", Revision + 1, principal, Mode);
         candidate.RememberObject(step, id);
-        if (!free) foreach (var (material, units) in item.RepairCost) candidate.Wallet[material] -= units;
         candidate.Objects.Remove(id);
-        return CommitNature(candidate, "nature.repair", principal, action, fingerprint, approvedBy, new[] { id }, data, undo: false);
+        if (bill == null) return CommitNature(candidate, "nature.repair", principal, action, fingerprint, approvedBy, new[] { id }, data, undo: false);
+        var result = CommitRepair(candidate, bill, principal, action, fingerprint, approvedBy, id, data);
+        if (principal != PlayerPrincipal) RaiseRepairSpent(new RepairSpentView(id, above ?? Vector3.Zero, bill.Spent));
+        return result;
+    }
+
+    /// <summary>
+    /// The Gubble's repair spent logs or stones (decision 131: it repairs without asking, and the spend is made visible): the thing repaired,
+    /// where its icon goes (the top centre of its bounds before the repair) and what was spent, each kind's units and words ("2 logs"), in the
+    /// pack's order. Raised once the repair has committed (the receipt's data.spent says the same); the player's own repair raises none.
+    /// </summary>
+    public event Action<RepairSpentView>? RepairSpent;
+
+    /// <summary>The last Gubble repair's spend this session (tests; the HUD listens to RepairSpent).</summary>
+    public RepairSpentView? LastRepairSpent { get; private set; }
+
+    private void RaiseRepairSpent(RepairSpentView spent)
+    {
+        LastRepairSpent = spent;
+        // The repair has committed: a listener that fails can never turn its answer into a failure.
+        try { RepairSpent?.Invoke(spent); }
+        catch (Exception error) when (error is not OutOfMemoryException) { GD.Print("COMMAND_HOST a RepairSpent listener failed: " + error.GetType().Name); }
+    }
+
+    /// <summary>The top centre of a thing's bounds as the room's entities give them now, or null when it is not listed.</summary>
+    private Vector3? AboveOf(string id)
+    {
+        if (Entities().FirstOrDefault(e => e["id"]?.GetValue<string>() == id) is not { } entity || entity["bounds_m"] == null) return null;
+        var box = BoundsOf(entity);
+        var centre = box.GetCenter();
+        return new Vector3(centre.X, box.End.Y, centre.Z);
     }
 
     /// <summary>
@@ -649,10 +701,12 @@ public partial class CommandHost
             ["weather"] = new JsonObject { ["pattern"] = NatureWeather.Pattern, ["rain"] = NatureWeather.Rain01, ["wind_mps"] = KernelJson.Vector(NatureWeather.WindMps) },
             ["planted_cells"] = Nature.Cells.Values.Count(c => c.Growth > 0 && seesCell(c)),
             ["burning_cells"] = Nature.Cells.Values.Count(c => c.BurningS > 0 && seesCell(c)),
-            ["wallet"] = new JsonObject(Nature.Wallet.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => KeyValuePair.Create(p.Key, (JsonNode?)p.Value))),
+            // The materials a repair could spend now: the stacks of logs and stones in the pockets and the chest (the wallet is retired, P-Inventory-2).
+            ["wallet"] = MaterialCounts(),
             ["scorched"] = new JsonArray(Nature.Objects.Values.Where(o => o.Creation && o.Burn > 0 && knows(o.Id)).Select(o => o.Id).OrderBy(id => id, StringComparer.Ordinal).Select(id => (JsonNode?)id).ToArray()),
             ["can_undo"] = NatureCanUndo,
-            ["notice"] = KernelJson.DisplayText(NatureNotice, 200),
+            // An empty notice stays empty (the contract: "empty otherwise"): DisplayText answers "Refused." for empty text.
+            ["notice"] = NatureNotice.Length == 0 ? "" : KernelJson.DisplayText(NatureNotice, 200),
         };
     }
 
@@ -797,14 +851,28 @@ public partial class CommandHost
         var changed = Nature.Step(NatureLaws.StepS, Sample, NatureFireproof, Active);
         changed |= BurnNatureObjects(NatureLaws.StepS);
         changed |= BurnPlants(NatureLaws.StepS);
-        if (Player != null && IsInstanceValid(Player) && Nature.Cells.Values.Any(c => c.BurningS > 0 && c.Position.DistanceTo(Player.GlobalPosition) < NatureLaws.PlayerBurnM))
+        // P-Inventory-2: the loose units burn too (CommandHostInventoryLoose).
+        changed |= BurnLooseUnits();
+        if (Player != null && IsInstanceValid(Player))
         {
             var at = Player.GlobalPosition;
-            var source = Nature.Fire ?? fire;
-            if (BurnPlayer(NatureLaws.StepS) is { } harm && source != null)
+            var inCells = Nature.Cells.Values.Any(c => c.BurningS > 0 && c.Position.DistanceTo(at) < NatureLaws.PlayerBurnM);
+            // Decision 85: a lit campfire hurts a player standing in its flames as any fire does, at the same quarter a second (one burn a
+            // step however many fires reach them); the resting spot beside it is safe (CampLaws.FlamesM). A campfire is the player's camp,
+            // no fire of the Gubble's: its harm is no consequence of the Gubble's, unless its lead carried the player into it (NoteLeadHarm).
+            var inCampfire = !inCells && CampfireFlamesAt(at) != null;
+            if (inCells || inCampfire)
             {
-                NoteFireHarm(source, harm, at);
-                MarkFireHarm(source);
+                var source = Nature.Fire ?? fire;
+                if (BurnPlayer(NatureLaws.StepS) is { } harm)
+                {
+                    if (inCells && source != null)
+                    {
+                        NoteFireHarm(source, harm, at);
+                        MarkFireHarm(source);
+                    }
+                    else if (inCampfire) NoteLeadHarm(at);
+                }
             }
         }
         SeeCompanionFire();
@@ -812,6 +880,8 @@ public partial class CommandHost
         StepFireKinds();
         // Decision 73: rain puts the campfires out (CommandHostCamps.StepCampfireRain).
         StepCampfireRain(NatureLaws.StepS);
+        // Decision 104: the seedlings grow through their phases on the island clock (CommandHostGrowKinds.StepSeedlings).
+        StepSeedlings();
         if (LookHook != null) LookHook.Wind = new Vector2(NatureWeather.WindMps.X, NatureWeather.WindMps.Z);
         _natureClockMoved = true;
         var fireEnded = hadFire && Nature.Fire == null;

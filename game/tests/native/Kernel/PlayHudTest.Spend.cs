@@ -260,7 +260,7 @@ public partial class PlayHudTest
         host.PlayerMode("challenge");
         var refused = host.HandleObject(CanonicalJson.Text(new JsonObject
         {
-            ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = "hud-companion-spend", ["room_id"] = host.Room.RoomId, ["op"] = "fractal.spend",
+            ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = "hud-companion-spend", ["room_id"] = host.Room.RoomId, ["op"] = "fractal.spend",
             ["args"] = new JsonObject { ["grow"] = "heart" },
         }), CommandHost.CompanionPrincipal);
         Check(refused["ok"]?.GetValue<bool>() == false && refused["error"]?["code"]?.GetValue<string>() == "permission_denied" && host.Vitals.Fractals == new PlayerFractals(12, 12, 0, 0),
@@ -316,7 +316,7 @@ public partial class PlayHudTest
         Check(StandAtCamp(host), "(the player walks to the camp)");
         await Frames(40);
         Check(_hud.SpendHintCount == given + 1 && notice.Text == _hud.SpendHint &&
-              _hud.SpendHint == "You have 5 Fractals! Open the journal (J) and turn to Character to grow a heart or the next band.",
+              _hud.SpendHint == "You have 5 Fractals! Sit by the campfire (E) to spend them on a heart or the next band, or open the journal (J) at Character.",
             "at the camp with five in hand a short hint points to the journal: " + notice.Text);
         await Frames(80);
         Check(_hud.SpendHintCount == given + 1, "and it is given once for the arrival, not again while the player stands there");

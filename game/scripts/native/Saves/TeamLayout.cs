@@ -10,9 +10,9 @@ namespace GarageGame.Native.Saves;
 /// folder (Godot's user://, or a test's scratch folder): every path here is absolute, made with System.IO alone, so the migration
 /// runs the same on the game's folder and on a copy of it.
 /// <code>
-/// teams/&lt;team_id&gt;/team.json                         the team file (enfractal.team v1)
-/// teams/&lt;team_id&gt;/expertise.json                    the expertise store (enfractal.glow_progress v3)
-/// teams/&lt;team_id&gt;/modes/&lt;mode&gt;/vitals.json          the vitals store (enfractal.player_modes v2)
+/// teams/&lt;team_id&gt;/team.json                         the team file (garage_game.team v1)
+/// teams/&lt;team_id&gt;/expertise.json                    the expertise store (garage_game.glow_progress v3)
+/// teams/&lt;team_id&gt;/modes/&lt;mode&gt;/vitals.json          the vitals store (garage_game.player_modes v2)
 /// teams/&lt;team_id&gt;/modes/&lt;mode&gt;/islands/&lt;room_id&gt;/&lt;manifest prefix&gt;/inventions.json   the island save (creation-world)
 /// single_player/room/avatar_profile_v1.cfg              the machine's settings (MachineSettings), not a team's
 /// </code>

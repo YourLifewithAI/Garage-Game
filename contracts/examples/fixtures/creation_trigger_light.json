@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.creation", "version": 1, "name": "Trigger light", "seed": 11, "mount": "ground",
+  "schema": "garage_game.creation", "version": 1, "name": "Trigger light", "seed": 11, "mount": "ground",
   "parts": [
     {"id":"base","shape":"cylinder","position_m":[0,0.15,0],"rotation_deg":[0,0,0],"size_m":[2,0.3,2],"material":"stone"},
     {"id":"post","shape":"cylinder","position_m":[0,0.9,0],"rotation_deg":[0,0,0],"size_m":[0.15,1.2,0.15],"material":"wood"},

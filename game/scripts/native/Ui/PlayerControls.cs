@@ -48,17 +48,33 @@ public static class Act
     public static readonly StringName GubbleSlot3 = "gubble_slot_3";
     public static readonly StringName GubbleSlot4 = "gubble_slot_4";
     public static readonly StringName GubbleSlot5 = "gubble_slot_5";
-    /// <summary>6: Fire (decision 77): a tap previews the fire where you point, a drag (once Fireline is learned) a line; a hold of the ask lights it.</summary>
+    /// <summary>6: Fire (decisions 77 and 83): a tap lights the fire where you point at once, a drag (once Fireline is learned) a line.</summary>
     public static readonly StringName GubbleSlot6 = "gubble_slot_6";
-    /// <summary>The slot actions in slot order (index 0 is slot 1).</summary>
+    /// <summary>The ability slot actions in slot order (index 0 is slot 1): the six by category, the bar's first six keys.</summary>
     public static readonly StringName[] GubbleSlots = { GubbleSlot1, GubbleSlot2, GubbleSlot3, GubbleSlot4, GubbleSlot5, GubbleSlot6 };
+    /// <summary>The hotbar's seventh to ninth keys, 7 to 9 (docs/game/HOTBAR.md): pocket slots 7 to 9, or the magic still to come.</summary>
+    public static readonly StringName GubbleSlot7 = "gubble_slot_7";
+    public static readonly StringName GubbleSlot8 = "gubble_slot_8";
+    public static readonly StringName GubbleSlot9 = "gubble_slot_9";
+    /// <summary>The hotbar's tenth key, 0 (slot 10: the tenth pocket slot, or magic still to come).</summary>
+    public static readonly StringName GubbleSlot10 = "gubble_slot_10";
+    /// <summary>
+    /// The hotbar's ten keys in slot order (index 0 is slot 1; keys 1 to 0, decision 119): on the pockets' layer each chooses its pocket slot,
+    /// on the magic layer the first six are the abilities (GubbleSlots) and the rest the slots to come. (The map's names are the ability slots'
+    /// from before the bar: gubble_slot_1 to gubble_slot_10.)
+    /// </summary>
+    public static readonly StringName[] BarSlots = { GubbleSlot1, GubbleSlot2, GubbleSlot3, GubbleSlot4, GubbleSlot5, GubbleSlot6, GubbleSlot7, GubbleSlot8, GubbleSlot9, GubbleSlot10 };
     // The hands.
     /// <summary>Pick up what the player faces, or put down what it holds.</summary>
     public static readonly StringName Hands = "hands";
     public static readonly StringName Push = "push";
-    /// <summary>Gather what the hands hold into the wallet: a loose log or stone (item.gather, the mechanics round's decision 26).</summary>
-    public static readonly StringName ItemGather = "item_gather";
-    /// <summary>Sit down by a lit campfire to rest, and stand up again (Fire's camp, decision 70); moving stands up too.</summary>
+    /// <summary>
+    /// E, the one interaction key for the world (decisions 86 and 90): sit by a lit campfire and stand up again, pick up a Fractal or a
+    /// thing, set down or gather what the hands hold (RoomHud.Interact.cs). Its map name is from when E only gathered (item.gather, the
+    /// mechanics round's decision 26): the input map keeps it, as it keeps hud_customize and mouse_capture.
+    /// </summary>
+    public static readonly StringName Interact = "item_gather";
+    /// <summary>Z: sit down by a lit campfire to rest, and stand up again (Fire's camp, decision 70); moving stands up too. A second key for the camp this round (decision 90).</summary>
     public static readonly StringName Rest = "rest";
     // The testing toggles (the help lists them under "Testing").
     public static readonly StringName PhysicsNext = "physics_next";
@@ -73,13 +89,18 @@ public static class Act
     public static readonly StringName HudHelp = "hud_help";
     /// <summary>C: the settings panel (it was the Customize panel; the input action keeps its name, hud_customize, until project.godot renames it).</summary>
     public static readonly StringName HudCustomize = "hud_customize";
-    /// <summary>M: the Magic panel (the Gubble's magic: Grow, Fire's preview and hold, Glow's lights, wishes), opened and closed again.</summary>
+    /// <summary>M: the Magic panel (the Gubble's magic: Grow, Fire on the click, Glow's lights, wishes), opened and closed again.</summary>
     public static readonly StringName HudMagic = "hud_magic";
     /// <summary>The journal, the leather book at the lower right: opens it at its index, and closes it again.</summary>
     public static readonly StringName Journal = "journal";
+    /// <summary>
+    /// Tab: the hotbar's layer switch (docs/game/HOTBAR.md; RoomHud.Hotbar.cs), the pockets brought down or the Gubble's magic. Its map name
+    /// is from when Tab opened the pockets panel, which the bar retired: the input map keeps it, as it keeps item_gather.
+    /// </summary>
+    public static readonly StringName BarLayer = "pockets_panel";
     /// <summary>The eye icon above the journal: look through the Gubble's eyes, and back to the player's own.</summary>
     public static readonly StringName GubbleEyes = "gubble_eyes";
-    /// <summary>Esc: closes the settings panel and the journal, returns from the Gubble's eyes, cancels the wheel or a drag. (Its map name is from when it freed the captured mouse.)</summary>
+    /// <summary>Esc: first lets go of what is going on (a panel, the journal, the Gubble's eyes, the wheel, a drag, a chosen bubble), then opens the menu (decisions 81 and 97). (Its map name is from when it freed the captured mouse.)</summary>
     public static readonly StringName MouseRelease = "mouse_release";
     /// <summary>Hold and drag to look around (the left button); a click without a drag does nothing. (Its map name is from when a click captured the mouse.)</summary>
     public static readonly StringName LookDrag = "mouse_capture";
@@ -127,10 +148,10 @@ public static class PlayerControls
     public static void EnsureDefaults()
     {
         var changed = false;
-        if (!InputMap.HasAction(Act.ItemGather))
+        if (!InputMap.HasAction(Act.Interact))
         {
-            InputMap.AddAction(Act.ItemGather, 0.2f);
-            InputMap.ActionAddEvent(Act.ItemGather, new InputEventKey { PhysicalKeycode = Key.E });
+            InputMap.AddAction(Act.Interact, 0.2f);
+            InputMap.ActionAddEvent(Act.Interact, new InputEventKey { PhysicalKeycode = Key.E });
             changed = true;
         }
         // The rest key likewise (Fire's camp): Z, until project.godot carries the packet's rest action.
@@ -140,8 +161,13 @@ public static class PlayerControls
             InputMap.ActionAddEvent(Act.Rest, new InputEventKey { PhysicalKeycode = Key.Z });
             changed = true;
         }
-        // Fire on the wheel (decision 77): 6, and the Magic panel's key, M, until project.godot carries the packet's two actions.
-        foreach (var (action, key) in new[] { (Act.GubbleSlot6, Key.Key6), (Act.HudMagic, Key.M) })
+        // Fire on the wheel (decision 77): 6, and the Magic panel's key, M, until project.godot carries the packet's two actions;
+        // the bar's Tab and its keys 7 to 0 likewise (a fixture whose input map was built without project.godot's).
+        foreach (var (action, key) in new[]
+        {
+            (Act.GubbleSlot6, Key.Key6), (Act.HudMagic, Key.M), (Act.BarLayer, Key.Tab),
+            (Act.GubbleSlot7, Key.Key7), (Act.GubbleSlot8, Key.Key8), (Act.GubbleSlot9, Key.Key9), (Act.GubbleSlot10, Key.Key0),
+        })
         {
             if (InputMap.HasAction(action)) continue;
             InputMap.AddAction(action, 0.2f);
@@ -166,7 +192,9 @@ public static class PlayerControls
         new(Act.GubbleAsk, ControlContext.Always), new(Act.GubbleRecall, ControlContext.Always), new(Act.GubbleStop, ControlContext.Always),
         new(Act.GubbleSlot1, ControlContext.Always), new(Act.GubbleSlot2, ControlContext.Always), new(Act.GubbleSlot3, ControlContext.Always),
         new(Act.GubbleSlot4, ControlContext.Always), new(Act.GubbleSlot5, ControlContext.Always), new(Act.GubbleSlot6, ControlContext.Always),
-        new(Act.Hands, ControlContext.Always), new(Act.Push, ControlContext.Always), new(Act.ItemGather, ControlContext.Always),
+        new(Act.GubbleSlot7, ControlContext.Always), new(Act.GubbleSlot8, ControlContext.Always), new(Act.GubbleSlot9, ControlContext.Always),
+        new(Act.GubbleSlot10, ControlContext.Always),
+        new(Act.Hands, ControlContext.Always), new(Act.Push, ControlContext.Always), new(Act.Interact, ControlContext.Always),
         new(Act.Rest, ControlContext.Always),
         new(Act.PhysicsNext, ControlContext.Always), new(Act.TimeStep, ControlContext.Always),
         new(Act.SeasonStep, ControlContext.Always), new(Act.Lamps, ControlContext.Always),
@@ -174,6 +202,7 @@ public static class PlayerControls
         new(Act.HudHelp, ControlContext.Always),
         new(Act.HudCustomize, ControlContext.Always | ControlContext.Customize),
         new(Act.HudMagic, ControlContext.Always | ControlContext.Customize),
+        new(Act.BarLayer, ControlContext.Always),
         new(Act.Journal, ControlContext.Always | ControlContext.Customize | ControlContext.Reading),
         new(Act.GubbleEyes, ControlContext.Always | ControlContext.Customize | ControlContext.Looking),
         new(Act.MouseRelease, ControlContext.Always | ControlContext.Customize | ControlContext.Reading | ControlContext.Looking),

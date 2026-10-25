@@ -57,12 +57,13 @@ public partial class NatureTest
         await TestVitalsFixRound();
     }
 
-    /// <summary>A world under v5 with a body of our choosing in a mode (and difficulty).</summary>
+    /// <summary>A world under v5 (or v5 edited, before the body is read) with a body of our choosing in a mode (and difficulty).</summary>
     private async Task<EnergyStore> EnergyWorld(string name, string mode = "challenge", int pips = 8, string difficulty = "standard", Func<PlayerVitals, PlayerVitals>? body = null,
-        DateTime? written = null, RoomData? room = null)
+        DateTime? written = null, RoomData? room = null, Action<JsonObject>? editPack = null)
     {
         await NewWorld(SavePath(name), roomOverride: room);
         _host.LoadRules("storybook_wild", 5);
+        if (editPack != null) UseEditedV5(editPack);
         _host.UseDifficulty(difficulty);
         var rules = VitalsRules.For(_host.Rules, mode, difficulty);
         var vitals = rules.Fresh().With(pips: pips);
@@ -121,7 +122,11 @@ public partial class NatureTest
         Check(Exhausted(blocked, 3, 4) && _host.Revision == revision && Pips == 3,
             "the player's Grow at four pips with three in the pool is refused energy_exhausted, carrying the balance and the price, and nothing changes: " + Canonical(blocked["error"]));
         var lit = Fire(Companion, new Vector3(0.9f, 0.01f, 1.2f), 0.15, 6, out var firePreview);
-        Check(Ok(firePreview) && Ok(lit) && Pips == 0, $"the Gubble's Fire is previewed free and costs three pips when it is lit ({Pips} left)");
+        Check(Ok(firePreview) && Ok(lit) && Pips == 2, $"the Gubble's Fire is previewed free and costs one pip when it is lit, half of 2 ordered (decisions 83 and 94; {Pips} left)");
+        // The player's own Glow spends the last two pips; put out again, so the next light is not held back by the island's count.
+        var lastTwo = GlowSelf(Player);
+        Send(Command(NextId("stop"), "effect.stop", new JsonObject { ["effect"] = "all" }), Player);
+        Check(Ok(lastTwo) && Pips == 0, $"(the player's Glow spends the last two pips: {Pips} left)");
         var effects = _host.ActiveEffectIds.Count;
         var empty = GlowSelf(Companion);
         Check(Exhausted(empty, 0, 1) && _host.ActiveEffectIds.Count == effects, "an empty pool refuses even the cheapest cast, and nothing starts: " + Canonical(empty["error"]));
@@ -224,12 +229,56 @@ public partial class NatureTest
         var gentleEarly = _host.Vitals.Health;
         Steps(1);
         Check(gentleEarly == 100 && _host.Vitals.Health == 95, $"Gentle halves fire and removes none: one quarter every 2 s ({gentleEarly}, then {_host.Vitals.Health})");
+        // Under v5 hearts heal only at a camp (decision 84), a quarter a second there (91): away from it a minute's rest heals nothing.
         await EnergyWorld("energy-heal");
-        // Away from the camp, the pack's own pace: at a camp hearts refill CampLaws.CampHeartsFactor times faster (Fire's camp, below).
         var camp = _room.SpawnFor("player").PositionM;
-        Check(_player.TryTeleportTo(camp + new Vector3(0.8f, 0, 0)) && !_host.PlayerAtCamp(), "(the player stands away from the camp)");
+        var away = camp + new Vector3(0.8f, 0, 0);
+        Check(_player.TryTeleportTo(away) && !_host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == null, "(the player stands away from the camp, where v5 heals nothing)");
         _host.ApplyPlayerDamage(14, PlayerDamageSource.Fall);
         var hurt = _host.Vitals.Health;
+        for (var i = 0; i < 60; i++) _player.VitalsTick!(1f, true);
+        Check(hurt == 85 && _host.Vitals.Health == 85,
+            $"a hurt of 14 health takes three quarters (85), and a minute's rest on safe ground away from a camp heals none of it (decision 84; {_host.Vitals.Health})");
+        // Resting is sitting by the fire (decisions 70 and 84, P1 of the second playtest round): standing at the camp heals nothing.
+        Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == null, "(the player stands at the camp, by the starting campfire, and does not sit)");
+        await Frames(3);
+        var standing = _host.Vitals.Health;
+        for (var i = 0; i < 15; i++) _player.VitalsTick!(1f, true);
+        Check(standing == 85 && _host.Vitals.Health == 85, $"standing at the camp heals nothing under v5: only resting there does ({standing}, {_host.Vitals.Health})");
+        var sat = _host.PlayerRest();
+        Check(sat.Ok && _host.PlayerResting && _host.HealQuarterEveryHereS() == 1, "(the player sits down by the fire: a quarter a second there) " + sat.Words);
+        _host.ApplyPlayerDamage(_host.Vitals.Health - 5, PlayerDamageSource.Fall);
+        var low = _host.Vitals.Health;
+        _player.VitalsTick!(1.9f, true);
+        _player.VitalsTick!(0.2f, true);
+        var waited = _host.Vitals.Health;
+        for (var i = 0; i < 4; i++) _player.VitalsTick!(1f, true);
+        var fourSeconds = _host.Vitals.Health;
+        _host.PlayerStand();
+        for (var i = 0; i < 5; i++) _player.VitalsTick!(1f, true);
+        var stoodUp = _host.Vitals.Health;
+        Check(_player.TryTeleportTo(away) && !_host.PlayerAtCamp(), "(the player walks away from the camp)");
+        for (var i = 0; i < 10; i++) _player.VitalsTick!(1f, true);
+        var leftCamp = _host.Vitals.Health;
+        Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp(), "(and back to the camp)");
+        await Frames(3);
+        var again = _host.PlayerRest();
+        for (var i = 0; i < 15; i++) _player.VitalsTick!(1f, true);
+        Check(again.Ok && low == 5 && waited == 5 && fourSeconds == 25 && stoodUp == 25 && leftCamp == 25 && _host.Vitals.Health == 100,
+            $"resting at a camp heals nothing for 2 s after harm (decision 111, not 10), then a quarter every second (decision 91: five hearts in 20 s; 19 quarters in 19 s here); standing up or " +
+            $"walking away stops it ({low}, {waited}, {fourSeconds}, {stoodUp}, {leftCamp}, {_host.Vitals.Health})");
+        _host.ApplyPlayerDamage(PlayerVitals.ContractMaxHealth, PlayerDamageSource.Fall);
+        var status = Send(Query("player.status", new JsonObject()), Companion)["data"];
+        Check(_host.Vitals.Recoveries == 1 && _host.Vitals.Health == 50 && Pips >= 4 && status?["hearts"]?["quarters"]?.GetValue<int>() == 10,
+            $"a knockout wakes at camp with half the hearts (10 quarters) and the pool at least half full ({Pips})");
+        // Waking is no rest, even back on the spot where the player sat: the half stays until they sit down again.
+        for (var i = 0; i < 20; i++) _player.VitalsTick!(1f, true);
+        Check(!_host.PlayerResting && _host.Vitals.Health == 50, $"waking at camp with half the hearts stays: waking is not resting ({_host.Vitals.Health})");
+        // A pack that names none of the three (as every pack before decision 84): the pack's own pace anywhere, twice as fast at a camp.
+        await EnergyWorld("energy-heal-before", editPack: HealsAsBefore);
+        Check(_player.TryTeleportTo(away) && !_host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == 2.5, "(the player stands away from the camp)");
+        _host.ApplyPlayerDamage(14, PlayerDamageSource.Fall);
+        hurt = _host.Vitals.Health;
         _player.VitalsTick!(9.9f, true);
         var waiting = _host.Vitals.Health;
         _player.VitalsTick!(0.2f, true);
@@ -237,17 +286,13 @@ public partial class NatureTest
         var healed = _host.Vitals.Health;
         _player.VitalsTick!(5.1f, true);
         Check(hurt == 85 && waiting == 85 && healed == 90 && _host.Vitals.Health == 100,
-            $"a hurt of 14 health takes three quarters (85); nothing heals for 10 s, then a whole quarter every 2.5 s on safe ground ({waiting}, {healed}, {_host.Vitals.Health})");
-        Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp(), "(the player stands at the camp, by the starting campfire)");
+            $"without them, a hurt of 14 health takes three quarters (85); nothing heals for 10 s, then a whole quarter every 2.5 s on safe ground ({waiting}, {healed}, {_host.Vitals.Health})");
+        Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == 1.25, "(the player stands at the camp, by the starting campfire)");
         _host.ApplyPlayerDamage(14, PlayerDamageSource.Fall);
         _player.VitalsTick!(9.9f, true);
         _player.VitalsTick!(0.2f, true);
         _player.VitalsTick!(2.4f, true);
-        Check(_host.Vitals.Health == 95, $"at a camp the same 2.6 s heal twice as much: two quarters, not one (Fire's camp, decision 62; {_host.Vitals.Health})");
-        _host.ApplyPlayerDamage(PlayerVitals.ContractMaxHealth, PlayerDamageSource.Fall);
-        var status = Send(Query("player.status", new JsonObject()), Companion)["data"];
-        Check(_host.Vitals.Recoveries == 1 && _host.Vitals.Health == 50 && Pips >= 4 && status?["hearts"]?["quarters"]?.GetValue<int>() == 10,
-            $"a knockout wakes at camp with half the hearts (10 quarters) and the pool at least half full ({Pips})");
+        Check(_host.Vitals.Health == 95, $"and at a camp the same 2.6 s heal twice as much: two quarters, not one (Fire's camp, decision 62; {_host.Vitals.Health})");
         var bigHeart = await EnergyWorld("energy-big-heart");
         _host.UseKnacks(new Dictionary<string, int> { ["big_heart"] = 2 });
         var fall = PlayerVitals.FallDamage(MathF.Sqrt(2 * 3.5f * 1.5f), false);
@@ -257,13 +302,23 @@ public partial class NatureTest
             $"with Big heart at full rank the maximum is 120 and the same 1.5 m fall takes 16 quarters of 6, not 19 ({_host.Vitals.Health} left)");
     }
 
+    /// <summary>v5 without its four healing fields (decisions 84, 91, 93 and 111): hearts heal as every pack before them did.</summary>
+    private static void HealsAsBefore(JsonObject pack)
+    {
+        var hearts = pack["traits"]!["hearts"]!.AsObject();
+        foreach (var name in new[] { "heal_outside_camp", "camp_heal_quarter_every_s", "heal_while_closed", "camp_heal_after_unharmed_s" }) hearts.Remove(name);
+    }
+
     private async Task TestVitalsTimeAway()
     {
         await EnergyWorld("energy-away", pips: 1, body: v => v.With(health: 50, stamina: 0), written: _now - TimeSpan.FromSeconds(60));
+        Check(_host.Vitals.Health == 50 && Pips == 4 && Math.Abs(_host.Vitals.Stamina - _host.Vitals.MaxStamina) < 1e-6,
+            $"a minute away under v5: the hearts as they were (decision 93: no healing while the game is closed), the bar refilled, and the pool woke half full ({_host.Vitals.Health}, {Pips}, {_host.Vitals.Stamina})");
+        await EnergyWorld("energy-away-before", pips: 1, body: v => v.With(health: 50, stamina: 0), written: _now - TimeSpan.FromSeconds(60), editPack: HealsAsBefore);
         Check(_host.Vitals.Health == 100 && Pips == 4 && Math.Abs(_host.Vitals.Stamina - _host.Vitals.MaxStamina) < 1e-6,
-            $"a minute away: the hearts healed at the resting pace, the bar refilled, and the pool woke half full ({_host.Vitals.Health}, {Pips}, {_host.Vitals.Stamina})");
-        await EnergyWorld("energy-away-short", pips: 6, body: v => v.With(health: 50), written: _now - TimeSpan.FromSeconds(12.5));
-        Check(_host.Vitals.Health == 55 && Pips == 6, $"12.5 s away heals one quarter after the 10 s wait, and a fuller pool keeps what it had ({_host.Vitals.Health}, {Pips})");
+            $"a pack that names no heal_while_closed heals as before: a minute away, the hearts healed at the resting pace, the bar refilled, the pool half full ({_host.Vitals.Health}, {Pips}, {_host.Vitals.Stamina})");
+        await EnergyWorld("energy-away-short", pips: 6, body: v => v.With(health: 50), written: _now - TimeSpan.FromSeconds(12.5), editPack: HealsAsBefore);
+        Check(_host.Vitals.Health == 55 && Pips == 6, $"and 12.5 s away heals one quarter after the 10 s wait, and a fuller pool keeps what it had ({_host.Vitals.Health}, {Pips})");
         await EnergyWorld("energy-away-never", pips: 1, body: v => v.With(health: 50));
         Check(_host.Vitals.Health == 50 && Pips == 1, "a mode never written by this host has no time away to catch up");
     }
@@ -384,9 +439,9 @@ public partial class NatureTest
     }
 
     /// <summary>
-    /// Gathering (decision 26): the player picks a loose log up and gathers it into the wallet (wood); it leaves the island as
-    /// one durable revision, the wallet's count shows on player.status, and a save and reload keep both. The companion is
-    /// refused before anything is looked up; nothing held, or a thing that is no log or stone, is request_invalid.
+    /// Gathering (decisions 26 and 116; P-Inventory-2): the player gathers a loose log into the pockets' log stack (the wallet is retired);
+    /// it leaves the island as one durable revision, and a save and reload keep it gone. The companion is refused before anything is looked
+    /// up; a thing that is no log or stone is request_invalid; with the hands full another log waits (target_busy).
     /// </summary>
     private async Task TestGather()
     {
@@ -396,54 +451,50 @@ public partial class NatureTest
         Check(CommandHost.GatherMaterial(log) == "wood" && CommandHost.GatherMaterial(room.Objects.First(o => o.Id == "obj:stone")) == "stone" &&
               CommandHost.GatherMaterial(room.Objects.First(o => o.Id == "obj:book")) == null && CommandHost.GatherMaterial(room.Objects.First(o => o.Id == "obj:box")) == null,
             "a log (bark) gathers as wood and a stone as stone; a book or a cardboard box is no loose log or stone");
-        var before = Send(Query("player.status", new JsonObject()), Player)["data"]?["wallet"];
-        // The pack's starting wallet (decision 26: v5's is empty).
-        var wood = _host.Rules!.Traits!.Wallet!.Wood;
-        var stone = _host.Rules.Traits.Wallet.Stone;
+        int Units(string kind) => _host.PocketEntries.FirstOrDefault(e => e.Item == kind)?.Count ?? 0;
         var companion = Send(Command(NextId("gather"), "item.gather", new JsonObject { ["target"] = "obj:log" }), Companion);
-        var nothing = Send(Command(NextId("gather"), "item.gather", new JsonObject { ["target"] = "obj:log" }), Player);
+        var box = Send(Command(NextId("gather"), "item.gather", new JsonObject { ["target"] = "obj:box" }), Player);
         Check(Code(companion) == "permission_denied" && companion["error"]?["field_path"]?.GetValue<string>() == "$.op" &&
-              Code(nothing) == "request_invalid" && nothing["error"]?["field_path"]?.GetValue<string>() == "$.args.target" &&
-              before?["wood"]?.GetValue<int>() == wood && before["stone"]?.GetValue<int>() == stone,
-            "the companion is refused gathering outright, and the player holding nothing is told to pick it up first; the wallet starts as the pack says: " + Canonical(before));
+              Code(box) == "request_invalid" && box["error"]?["field_path"]?.GetValue<string>() == "$.args.target" && Units("log") == 0 &&
+              Send(Query("player.status", new JsonObject()), Player)["data"]?["wallet"] == null,
+            "the companion is refused gathering outright, the box is no log or stone, and there is no wallet any more (decision 116)");
         var grab = Send(Command(NextId("grab"), "entity.grab", new JsonObject { ["target"] = "obj:log", ["actor"] = CommandHost.PlayerAvatar }), Player);
         var other = Send(Command(NextId("gather"), "item.gather", new JsonObject { ["target"] = "obj:stone" }), Player);
-        Check(Ok(grab) && _host.HeldBy(CommandHost.PlayerAvatar) == "obj:log" && Code(other) == "request_invalid",
-            "the player picks the log up; gathering a thing it does not hold is request_invalid: " + Code(grab));
+        Check(Ok(grab) && _host.HeldBy(CommandHost.PlayerAvatar) == "obj:log" && Code(other) == "target_busy",
+            "the player holds the log; gathering the stone while its hands are full waits: " + Code(other));
         var revision = _host.Revision;
         var preview = Send(Command(NextId("gather"), "item.gather", new JsonObject { ["target"] = "obj:log" }, preview: true), Player);
         Check(Ok(preview) && _host.Revision == revision && _host.HeldBy(CommandHost.PlayerAvatar) == "obj:log", "a preview gathers nothing");
         var gather = Command("gather-log", "item.gather", new JsonObject { ["target"] = "obj:log" });
         var gathered = Send(gather, Player);
-        var status = Send(Query("player.status", new JsonObject()), Player)["data"];
         var entities = Send(Query("entities.list", new JsonObject()), Player)["data"]?["items"]?.AsArray();
         Check(Ok(gathered) && gathered["transient"]?.GetValue<bool>() == false && gathered["revision"]?.GetValue<int>() == revision + 1 && gathered["data"] == null &&
               gathered["affected"]?.AsArray().Select(a => a!.GetValue<string>()).SequenceEqual(new[] { "obj:log" }) == true,
             "the log is gathered: one durable room revision, the log in affected, no data: " + Canonical(gathered));
-        Check(status?["wallet"]?["wood"]?.GetValue<int>() == wood + CommandHost.GatherUnits && status["wallet"]?["stone"]?.GetValue<int>() == stone &&
-              _host.HeldBy(CommandHost.PlayerAvatar) == null && entities?.All(e => e?["id"]?.GetValue<string>() != "obj:log") == true &&
+        Check(Units("log") == CommandHost.GatherUnits && _host.HeldBy(CommandHost.PlayerAvatar) == null && entities?.All(e => e?["id"]?.GetValue<string>() != "obj:log") == true &&
               _host.Nature.Objects["obj:log"] is { Gathered: true, BurnedDown: true },
-            "the wallet holds one more wood on player.status, the player's hands are empty and the log has left the island: " + Canonical(status?["wallet"]));
+            "the pockets hold one log, the player's hands are empty and the log has left the island");
         var replay = Send(gather, Player);
         var fact = Send(Query("journal.read", new JsonObject { ["kind"] = "gathered" }), Player)["data"]?["entries"]?.AsArray().LastOrDefault();
-        Check(replay["replayed"]?.GetValue<bool>() == true && _host.Nature.Wallet["wood"] == wood + CommandHost.GatherUnits &&
-              fact?["line"]?.GetValue<string>() == $"You gathered \"Log\": {wood + CommandHost.GatherUnits} wood in the wallet." && fact["quantity"]?["count"]?.GetValue<int>() == wood + CommandHost.GatherUnits,
+        Check(replay["replayed"]?.GetValue<bool>() == true && Units("log") == CommandHost.GatherUnits &&
+              fact?["line"]?.GetValue<string>() == "You gathered \"Log\": 1 log in your pockets." && fact["quantity"]?["count"]?.GetValue<int>() == 1,
             "a retry replays and counts nothing twice; the journal keeps a gathered fact: " + Canonical(fact));
+        Check(Ok(Send(Command(NextId("gather"), "item.gather", new JsonObject { ["target"] = "obj:stone" }), Player)) && Units("stone") == 1,
+            "the stone, in reach and not held, is gathered straight into its own stack (not a carry)");
         var state = _host.ExportRoomState();
         var removed = state?["entities"]?["obj:log"];
         Check(removed?["removed"]?.GetValue<bool>() == true && state?["extensions"]?["x_play_nature"]?["objects"]?["obj:log"]?["gathered"]?.GetValue<bool>() == true &&
-              NatureBlock.Problem(state!["extensions"]!["x_play_nature"], _host.Revision, room) == null,
-            "room state keeps the log as a removed entity, marked gathered in the host's nature block, which checks whole");
+              state["extensions"]?["x_play_nature"]?["wallet"] == null && NatureBlock.Problem(state!["extensions"]!["x_play_nature"], _host.Revision, room) == null,
+            "room state keeps the log as a removed entity, marked gathered in the host's nature block, which checks whole and writes no wallet");
         // A pickup and a gather survive a save and reload (the authority keeps both receipts: its NATURE_OPS).
         var pickup = Command("pickup-in-gather", "item.pickup", new JsonObject { ["target"] = "fractal:near01" });
         Check(Ok(Send(pickup, Player)), "the player also picks up the Fractal before the reload");
         await EnergyWorld("energy-gather", room: room);
         var again = Send(gather, Player);
         var picked = Send(pickup, Player);
-        var reloaded = Send(Query("player.status", new JsonObject()), Player)["data"]?["wallet"];
         Check(_host.Authority.Call("is_ready").AsBool() && again["replayed"]?.GetValue<bool>() == true && picked["replayed"]?.GetValue<bool>() == true &&
-              reloaded?["wood"]?.GetValue<int>() == wood + CommandHost.GatherUnits && _host.Nature.Objects["obj:log"].Gathered && !_host.Fractals.Any(f => f.Id == "fractal:near01") &&
+              _host.Nature.Objects["obj:log"].Gathered && !_host.Fractals.Any(f => f.Id == "fractal:near01") &&
               Send(Query("entities.list", new JsonObject()), Player)["data"]?["items"]?.AsArray().All(e => e?["id"]?.GetValue<string>() != "obj:log") == true,
-            "after a save and reload the log is still gone, the wallet still holds it, the Fractal is still picked up, and both receipts replay");
+            "after a save and reload the log is still gone, the Fractal is still picked up, and both receipts replay");
     }
 }

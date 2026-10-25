@@ -214,7 +214,7 @@ public partial class NatureTest
         var glowed = GubbleGlows();
         var lit = Fire(Companion, PlayerSpot(), 0.25, 6, out _);
         Steps(2);
-        Check(Ok(lit) && Pips == 4 && _host.TrustCount == before - 3, $"a consequence fact of the Gubble's paid fire costs 3 ({before} to {_host.TrustCount}, {Pips} pips left)");
+        Check(Ok(lit) && Pips == 6 && _host.TrustCount == before - 3, $"a consequence fact of the Gubble's paid fire (one pip, decision 94) costs 3 ({before} to {_host.TrustCount}, {Pips} pips left)");
         Later(61);
         Check(Ok(glowed) && _host.TrustCount == before - 3, "the windows the consequence fell in (the fire's and the Glow before it) gain nothing");
         Check(Lessons().Any(l => l.StartsWith("The Gubble's fire burned you", StringComparison.Ordinal)), "the consequence fact is the journal's, as before M8");
@@ -308,9 +308,18 @@ public partial class NatureTest
         var shed = Build("Challenge shed", 1.25, 1.3);
         var lit = Fire(Companion, spot, 0.3, 6, out _);
         Steps(6);
-        var facts = Send(Query("journal.read", new JsonObject { ["kind"] = "consequence" }), Companion)["data"]?["entries"]?.AsArray().OfType<JsonObject>()
+        var read = Send(Query("journal.read", new JsonObject { ["kind"] = "consequence" }), Companion);
+        var facts = read["data"]?["entries"]?.AsArray().OfType<JsonObject>()
             .Where(e => e["line"]!.GetValue<string>().StartsWith("The Gubble's fire burned your", StringComparison.Ordinal)).ToList() ?? new();
         var fact = facts.FirstOrDefault();
+        // Decision 134: the Gubble hears it, on this very result (its next), in the fact's own words with the Trust it moved.
+        var heard = Heard(read);
+        Check(heard.Count == 1 && heard[0]["line"]?.GetValue<string>() == fact?["line"]?.GetValue<string>() && heard[0]["trust_change"]?.GetValue<int>() == TrustLaws.PerConsequence &&
+              heard[0]["at_utc"]?.GetValue<string>() == fact?["at_utc"]?.GetValue<string>() && heard[0].Count == 4,
+            "the Gubble's next result carries a consequence notice: the fact's line exactly as the journal keeps it (updated in place while unread), and the Trust it moved: " +
+            Canonical(read["notices"]));
+        Check(Heard(Send(Query("player.status", new JsonObject()), Companion)).Count == 0 && Heard(Send(Query("player.status", new JsonObject()), Player)).Count == 0,
+            "the notice is delivered once, and only to the Gubble");
         var named = fact?["subject"]?["entities"]?.AsArray().Select(n => n!.GetValue<string>()).ToList() ?? new();
         Check(Ok(lit) && barn.Length > 0 && shed.Length > 0 && _host.Nature.Objects.TryGetValue(barn, out var burnt) && burnt.Burn > 0 && facts.Count == 1 &&
             fact!["actor"]?.GetValue<string>() == Companion && fact["pin_m"] != null && named.Contains(barn) && named.Contains(shed) &&
@@ -344,6 +353,9 @@ public partial class NatureTest
         var glowed = GubbleGlows();
         var lit = Fire(Companion, PlayerSpot(), 0.25, 6, out _);
         Steps(2);
+        var told = Heard(Send(Query("player.status", new JsonObject()), Companion)).FirstOrDefault();
+        Check(told?["line"]?.GetValue<string>().StartsWith("The Gubble's fire burned you", StringComparison.Ordinal) == true && told["trust_change"]?.GetValue<int>() == 0,
+            "the Gubble hears its free fire's harm too, with no Trust moved (trust_change 0): " + Canonical(told));
         var hurt = Lessons().Any(l => l.StartsWith("The Gubble's fire burned you", StringComparison.Ordinal));
         var afterHarm = _host.TrustCount;
         Later(61);
@@ -366,14 +378,20 @@ public partial class NatureTest
     private async Task TestTrustBands()
     {
         var prices = new List<string>();
+        var shipped = new List<string>();
         foreach (var trust in new[] { 0, 5, 15, 30 })
         {
             await EnergyWorld($"trust-band-{trust}");
             TrustTeam($"trust-band-{trust}", trust);
+            shipped.Add($"{_host.TrustBand}:{_host.PriceFor("fire", Companion)}/{_host.PriceFor("fire", Player)}");
+            // Fire at its old 6 ordered, so the discount shows at every band (v5's 2 halves to one pip, the least a price falls to).
+            UseEditedV5(pack => Price(pack, "fire", 6));
             prices.Add($"{_host.TrustBand}:{_host.PriceFor("fire", Companion)}/{_host.PriceFor("grow", Companion)}/{_host.PriceFor("glow", Companion)}/{_host.PriceFor("fire", Player)}");
         }
+        Check(shipped.SequenceEqual(new[] { "0:1/2", "1:1/2", "2:1/2", "3:1/2" }),
+            "under v5's Fire of 2 ordered (decisions 83 and 94) the Gubble's own fire is one pip at every band, never less, and the player's 2: " + string.Join(" ", shipped));
         Check(prices.SequenceEqual(new[] { "0:3/2/1/6", "1:2/2/1/6", "2:2/1/1/6", "3:1/1/1/6" }),
-            "each band widens the discount on the Gubble's own ideas, Fire included; the player's price is the pack's: " + string.Join(" ", prices));
+            "each band widens the discount on the Gubble's own ideas, Fire included (priced 6 here); the player's price is the pack's: " + string.Join(" ", prices));
         var pips = _host.Vitals.Pips;
         var lit = Fire(Companion, new Vector3(1.0f, 0.01f, 1.0f), 0.1, 3, out _);
         Check(Ok(lit) && _host.Vitals.Pips == pips - 1, $"a cast at band 3 is charged the discounted price ({pips} to {_host.Vitals.Pips} pips)");
@@ -383,9 +401,12 @@ public partial class NatureTest
         _host.SetGubbleFire(false);
         var off = AnotherFire();
         _host.SetGubbleFire(true);
+        // Decision 82: X stops the Gubble and puts no fire out; its fire burns out (3 s) and the wait starts.
         var stop = Send(Command(NextId("x"), "goal.stop", new JsonObject { ["actor"] = CommandHost.CompanionAvatarId }), Player);
-        Check(Code(second) == "target_busy" && Code(off) == "permission_denied" && stop["data"]?["fires_put_out"]?.GetValue<int>() == 1 && _host.Nature.Fire == null,
-            $"band 3 never touches the guardrails: one Gubble fire at a time ({Code(second)}), the player's switch ({Code(off)}), X puts it out");
+        var burnsOn = _host.Nature.Fire != null;
+        for (var i = 0; i < 20 && _host.Nature.Fire != null; i++) Steps(1);
+        Check(Code(second) == "target_busy" && Code(off) == "permission_denied" && Ok(stop) && stop["data"]?["fires_put_out"] == null && burnsOn && _host.Nature.Fire == null,
+            $"band 3 never touches the guardrails: one Gubble fire at a time ({Code(second)}), the player's switch ({Code(off)}); X puts no fire out, it burns out");
         var cooling = AnotherFire();
         Check(Code(cooling) == "rate_limited", "and the wait after its last fire stands: " + Code(cooling));
 

@@ -211,7 +211,7 @@ public interface IPlayerVitalsStore
 }
 
 /// <summary>
-/// The vitals store (contracts/team.schema.json $defs/vitals_store, enfractal.player_modes version 2): one document per mode
+/// The vitals store (contracts/team.schema.json $defs/vitals_store, garage_game.player_modes version 2): one document per mode
 /// at &lt;root&gt;/modes/&lt;mode&gt;/vitals.json, strict and bounded, written atomically under an exclusive lease; a save
 /// that changed under it (another session) or that cannot be read is kept, never overwritten. Version 1 (the three modes in
 /// one file, user://single_player/progression/player_modes_v1.json) is read for a mode with no version 2 document yet, and
@@ -224,7 +224,7 @@ public interface IPlayerVitalsStore
 public sealed class LocalPlayerVitalsStore : IPlayerVitalsStore
 {
     public const string DefaultUserPath = "user://single_player/progression/player_modes_v1.json";
-    public const string SchemaId = "enfractal.player_modes";
+    public const string SchemaId = SchemaIds.PlayerModes;
     public const int Version = 2;
     public const int MaxBytes = 64 * 1024;
     public const string LocalTeamId = "local";
@@ -321,7 +321,8 @@ public sealed class LocalPlayerVitalsStore : IPlayerVitalsStore
             {
                 if (profile.Written(mode) is not { } at) continue;
                 var bytes = SerializeMode(_teamId, mode, at, profile.For(mode));
-                if (_baseline.GetValueOrDefault(mode) is { } same && same.AsSpan().SequenceEqual(bytes)) continue;
+                // A mode whose document is unchanged is not written, nor one that differs only in its id's spelling (SchemaIds).
+                if (_baseline.GetValueOrDefault(mode) is { } same && (same.AsSpan().SequenceEqual(bytes) || SchemaIds.OnlyTheIdDiffers(same, bytes, "player_modes"))) continue;
                 Write(mode, bytes);
             }
         }
@@ -401,7 +402,7 @@ public sealed class LocalPlayerVitalsStore : IPlayerVitalsStore
             using var document = CanonicalJson.Parse(bytes);
             var root = document.RootElement;
             Fields(root, "schema", "version", "team_id", "mode", "written_utc", "vitals");
-            if (root.GetProperty("schema").GetString() != SchemaId || root.GetProperty("version").GetRawText() != "2")
+            if (!SchemaIds.IsSchema(root.GetProperty("schema").GetString(), "player_modes") || root.GetProperty("version").GetRawText() != "2")
                 throw new PlayerVitalsException("Player traits have an unsupported version.");
             var team = root.GetProperty("team_id").GetString() ?? "";
             var mode = root.GetProperty("mode").GetString() ?? "";
@@ -447,7 +448,7 @@ public sealed class LocalPlayerVitalsStore : IPlayerVitalsStore
             using var document = CanonicalJson.Parse(bytes);
             var root = document.RootElement;
             Fields(root, "schema", "version", "mode", "modes");
-            if (root.GetProperty("schema").GetString() != SchemaId || root.GetProperty("version").GetRawText() != "1")
+            if (!SchemaIds.IsSchema(root.GetProperty("schema").GetString(), "player_modes") || root.GetProperty("version").GetRawText() != "1")
                 throw new PlayerVitalsException("Player traits have an unsupported version.");
             var modes = root.GetProperty("modes");
             Fields(modes, "creative", "challenge", "live");

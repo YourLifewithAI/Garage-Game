@@ -2,12 +2,12 @@
 
 Squared with [docs/game/MECHANICS.md](../game/MECHANICS.md) on 14 October 2026: where this page and that design differ, the design wins.
 
-**Status:** a design draft begun on 9 October 2026, updated with the founder's edits and decisions on 11 October. The playable implementation, begun on `codex/gubble-growth-runtime` and now merged into `run2/integration` (`6e41bc7`), includes the five Glow discoveries, expressive touches, Bloom and its trail, weather-driven Fire, mode-specific stamina/health and a player-started wish runner that has since been shelved (13 October: wishes and speech go to the AI already playing, parked as `run2/wishes-live`; the runner stays in the tree, dormant). See [the playtest checklist](PLAYTEST.md) for controls, provisional balance and the exact implementation limits. The baseline mechanics (hearts, the bar, pips, knacks, modes and growth) now live in [docs/game/MECHANICS.md](../game/MECHANICS.md), and their build plan is [RUN-2-MECHANICS.md](../runs/RUN-2-MECHANICS.md). The founder's word for this page's *discoveries* is *expertise* (`GlowProgress.Discoveries` in the code); this page keeps "discoveries", and the screen and the journal say expertise through the design's `names` block. This draft comes from the founder's notes, the kids' first wishes and five research reports in [research/](research/). Decisions the founder has made are marked **(decided)**; everything else is a proposal.
+**Status:** a design draft begun on 9 October 2026, updated with the founder's edits and decisions on 11 October. The playable implementation, begun on `codex/gubble-growth-runtime` and now merged into `run2/integration` (`6e41bc7`), includes the five Glow discoveries, expressive touches, Bloom (since renamed Grow, decision 52, with its flower trail retired), weather-driven Fire, mode-specific stamina/health and a player-started wish runner that has since been shelved (13 October: wishes and speech go to the AI already playing, parked as `run2/wishes-live`; the runner stays in the tree, dormant). See [the playtest checklist](PLAYTEST.md) for controls, provisional balance and the exact implementation limits. The baseline mechanics (hearts, the bar, pips, knacks, modes and growth) now live in [docs/game/MECHANICS.md](../game/MECHANICS.md), and their build plan is [RUN-2-MECHANICS.md](../runs/RUN-2-MECHANICS.md). The founder's word for this page's *discoveries* is *expertise* (`GlowProgress.Discoveries` in the code); this page keeps "discoveries", and the screen and the journal say expertise through the design's `names` block. This draft comes from the founder's notes, the kids' first wishes and five research reports in [research/](research/). Decisions the founder has made are marked **(decided)**; everything else is a proposal.
 
 **The founder's decisions (9 October, evening):**
-- **Fire is ability six,** built right after Bloom.
+- **Fire is ability six,** built right after Bloom (Grow since decision 52).
 - **The wheel works with no AI connected.** The founder: "This is fine for now. It's a placeholder testing system. We need to test them and see what works and what doesn't." So everything here is a starting point for playtests, not a fixed design.
-- **The flower trail is on by default, and the player can turn it off.**
+- **The flower trail is on by default, and the player can turn it off.** (Retired with Bloom, decision 52: Grow leaves no trail.)
 - **Retire the five geography-era templates now,** keeping the trigger machinery (a Lane P packet, under way).
 - **Evaluate and update the key bindings** (see "The keys").
 
@@ -153,11 +153,11 @@ Manual direction and future wishes earn exactly the same discoveries for the sam
 
 ### Expertise for Bubbles, Fire and Grow (M11, written 15 October)
 
-**The rules every list shares, as Glow's.** The host verifies each condition itself, at a committed cast or from the simulation's own state; previews, refused or held commands, restored effects, idle following and anything the AI says earn nothing. Either of the pair earns them, the Gubble's own idea included, once per team, kept in the team's expertise store under the ability's id (the store's `abilities` map: `glow`, `bubbles`, `fire`, and `grow` once Grow is built) and shared by every mode. A fire that hurt the player or scorched a creation earns no Fire expertise. The integrator's first lists for Bubbles and Fire (15 October) were replaced the same evening by the founder's, below. **Hints** follow Glow's: at a team's 10th, 20th, 30th, 40th and 50th successful cast of that ability, the hint of the first expertise in the list's order not yet learned; a hint points, never names the trigger; a list's unlearned entries show as smudged text in the journal. Each new expertise writes its pace line and the Gubble's wiggle line. **The pips' maximum** is 8 plus one per five expertise across every ability (ceiling 40 in the pack): Glow's five reach 9; with full lists for Bubbles, Fire and Grow, 12. Every number below is provisional.
+**The rules every list shares, as Glow's.** The host verifies each condition itself, at a committed cast or from the simulation's own state; previews, refused or held commands, restored effects, idle following and anything the AI says earn nothing. Either of the pair earns them, the Gubble's own idea included, once per team, kept in the team's expertise store under the ability's id (the store's `abilities` map: `glow`, `bubbles`, `fire` and `grow`) and shared by every mode. A fire that hurt the player or scorched a creation earns no Fire expertise. The integrator's first lists for Bubbles and Fire (15 October) were replaced the same evening by the founder's, below. **Hints** follow Glow's: at a team's 10th, 20th, 30th, 40th and 50th successful cast of that ability, the hint of the first expertise in the list's order not yet learned; a hint points, never names the trigger; a list's unlearned entries show as smudged text in the journal. Each new expertise writes its pace line and the Gubble's wiggle line. **The pips' maximum** is 8 plus one per five expertise across every ability (ceiling 40 in the pack): Glow's five reach 9; with full lists for Bubbles, Fire and Grow, 12. Every number below is provisional.
 
 **Bubbles** (`bubbles`; the founder's redesign of the evening of 15 October, MECHANICS.md decisions 55 to 60): one player-sized bubble cast at a spot, like Glow, and where it lands decides what it does. The list so far:
 
-1. `bubble_carry`, **Bubble carry**: the Bubble cast on the player (the ghost first); learned by the first carry that sets the player down safely, by the player's pop, its timer or its deflate.
+1. `bubble_carry`, **Bubble carry**: the Bubble cast on the player (the ghost first); learned by the first carry that sets the player down safely, by the player's pop or its timer (since decision 88 a pop in the air is a fall, and a fall that hurt sets no one down safely).
 2. `bubble_boat`, **Bubble boat**: the Bubble cast on water becomes a boat; learned by casting it there (the first boat the player steps into).
 3. `bubble_lift`, **Bubble lift**: a bubble led to a higher spot floats up there; learned the first time that works.
 4. and 5. Not chosen yet (candidates: a bubble led all the way to the marked spot without popping; Glow cast on a bubble).
@@ -190,7 +190,7 @@ Each needs its behaviour built first (the island's firepits from the generator, 
 - **How much:** each cast makes each plant a quarter of its natural size bigger. Full size (the cap) is twice its natural size or one band (0.4 m) taller than it started, whichever comes first: a 0.95 m tree is full in two casts at 1.35 m, a 5 cm tuft in four at 10 cm.
 - **Climbing:** a grown tree is climbed as trees are today, its trunk, pole and perches grown with it; the climb still costs the bar, and its top perch is at most 0.4 m higher, so it never skips a whole ladder. Shrubs, ferns, grass and flowers grow but are not climbable in this version.
 - **Saved:** the grown plants (id and size) in the island's nature save, at most 4,096; Creative's undo takes a cast back.
-- **Fire:** fire burns plants, grown or not, as it burns any other object (decision 67): a plant catches, burns as fuel, more when grown, and burns down, gone with its collision, leaving ash. Plants cannot burn today (the scattered plants are not fire's objects yet), so making them burn is part of the Grow packet, not a later one; the founder: "it should burn it as it would any other object". A burnt plant stays gone, like any other burnt object, unless it is replanted (decision 67, replacing decision 52's regrowth); replanting waits for Grow's later unlocks (growing without seeds).
+- **Fire:** fire burns plants, grown or not, as it burns any other object (decision 67): a plant catches, burns as fuel, more when grown, and burns down, gone with its collision, leaving ash. Plants could not burn then (the scattered plants were not fire's objects), so making them burn was part of the Grow packet, not a later one (built in the eighteenth session: a FireRule row, fuel 0.5 to 1.0, burnt down to ash and kept gone); the founder: "it should burn it as it would any other object". A burnt plant stays gone, like any other burnt object, unless it is replanted (decision 67, replacing decision 52's regrowth); replanting waits for Grow's later unlocks (growing without seeds).
 - **Price and names:** 4 ordered, 2 as the Gubble's idea (decision 52). Bloom's trail goes; `bloom` becomes `grow` in v5 (still a draft) with its own primitive, `growth.grow`, in the contract, the mock and the wheel; the store gains Grow's list above.
 
 ### Choose a touch
@@ -204,13 +204,13 @@ Start with **one optional expressive touch per ability**, selected outside the c
 | Fire | Ember-shaped particles, labelled “Ember sparkle”; no heat, ignition or extra illumination | Actual Fire support, fuel and spread laws, protected-target checks and the applicable preview/confirmation |
 | Ice | Frost-shaped sparkles; no cooling, slippery surface or freezing | An implemented freezing ability and the island's material and surface rules |
 
-Sound waits for an audio effects path, which does not exist yet. Physical fire, ice and Bloom also remain future work. A visual resemblance never grants the physical power. The UI describes the actual result, and a wish for real fire cannot quietly become decorative embers without the player accepting that alternative.
+Sound waits for an audio effects path, which does not exist yet. Physical fire, ice and Grow touches also remain future work. A visual resemblance never grants the physical power. The UI describes the actual result, and a wish for real fire cannot quietly become decorative embers without the player accepting that alternative.
 
 Touches remain inside rendering and effect budgets; “cosmetic” does not mean unlimited. Any extra light must use the light budget. A future physical combination uses the normal command path and all component checks and costs. The game determines previews, confirmations and receipts; learning more never lowers an approval requirement. Gameplay mastery is separate from the document's T0–T3 authority tiers. Locks, protected creations, stop and applicable undo keep their existing protections.
 
 ### Learned together, allowed here
 
-The loaded `storybook_wild` pack is v4 (`RoomWorld.DefaultRulesVersion`; its status is draft) and permits **five Glows**, with 2 m reach and at most 1.5 m radius; Bubbles permit two active effects, Fireworks three, Bloom one and Fire one. All effects together remain bounded by the engine's eight-active-effects room cap. **Three → four → five lights** is the learned allowance beneath the pack's five; the future island pack allowing at least five now exists. (This paragraph first described v2, which allowed three.) Five lights still leave only three room-effect slots for everything else.
+The loaded `storybook_wild` pack is v5 (`RoomWorld.DefaultRulesVersion`; its status is draft; v4, which names Grow Bloom, stays byte-exact) and permits **five Glows**, with 2 m reach and at most 1.5 m radius; Bubbles permit two active effects, Fireworks three, Grow one and Fire one. All effects together remain bounded by the engine's eight-active-effects room cap. **Three → four → five lights** is the learned allowance beneath the pack's five; the future island pack allowing at least five now exists. (This paragraph first described v2, which allowed three, and then v4.) Five lights still leave only three room-effect slots for everything else.
 
 Learned progress belongs to this player and Gubble together. When travel exists, they remember it across islands, but each island and mode exposes only the abilities and touches it supports, narrowed by its limits and the remaining shared budget. “We learned five; this island allows three” explains the difference. A new theme does not automatically translate an unfamiliar ability into an equivalent one. **Decided, 14 October ([MECHANICS.md](../game/MECHANICS.md), decision 2):** expertise travels across modes; hearts, the bar, the pips pool and Fractals are per mode. Today the Glow record is kept once per mode, and the teams packet (M3) merges those into one expertise store per team. A copy of a Creative island into Challenge carries the builds, the planted and burnt ground, the journal and the map, and strips undo (decision 13).
 
@@ -232,7 +232,7 @@ Most of the island's magic acts on one shared field over the land:
 - **Layers:** a ground layer and a cloud layer, as Divinity: Original Sin 2's surfaces do.
 - **Saved:** the field is saved in room state, so the room stays data and the scene is derived.
 
-Bloom, regrowth, snow and fire are all rules on this one field. Growth adds fuel, fire uses it, and regrowth refills it. That is why fire comes right after Bloom: it reuses the field.
+Bloom's flowers (retired by decision 52; Grow acts on the island's plants instead), regrowth, snow and fire were all meant as rules on this one field. Growth adds fuel, fire uses it, and regrowth refills it. That is why fire was built right after Bloom: it reuses the field.
 
 ## Weather patterns
 
@@ -249,7 +249,7 @@ The kids' wishes (9 October): a trail of flowers wherever the Gubble walks, fire
 | | Ability | Engine primitive | Through the land's laws | Tier | First version |
 |---|---|---|---|---|---|
 | 1 | **Glow** | `light.emit` | A real light source (light comes only from real sources). It lights what it reaches and casts shadows. In the dark it reveals glow-moss and shy things | T0 auto, stop ends it | The Gubble glows; it lights a spot; it follows as a lantern; later it lights the hamlet's lanterns |
-| 2 | **Bloom** (becomes **Grow**, decision 52 of MECHANICS.md: a cast that makes the plants in its circle bigger; the trail is removed) | `growth.seed` on the ground layer | Flowers only on soil: thick where sun and water are, sparse on dry crests, none on rock, water or sand | The trail is T0 and transient; painting a patch is T1 (auto with undo) | The trail behind the Gubble, blooming and fading after a few seconds (Divinity's "surface on path" is exactly this); **on by default, and the player can turn it off (decided)**. Paint a patch by dragging |
+| 2 | **Bloom**, now **Grow** (decision 52 of MECHANICS.md: a cast that makes the plants in its circle bigger; the trail was removed, and the cells below record Bloom's original design; Grow's is in "Grow's first version") | `growth.seed` on the ground layer | Flowers only on soil: thick where sun and water are, sparse on dry crests, none on rock, water or sand | The trail is T0 and transient; painting a patch is T1 (auto with undo) | The trail behind the Gubble, blooming and fading after a few seconds (Divinity's "surface on path" is exactly this); **on by default, and the player can turn it off (decided)**. Paint a patch by dragging |
 | 3 | **Bubbles** | `particles.float` | One player-sized bubble cast at a spot; the place decides what it is (decisions 55 to 60) | T0 | One bubble at a spot (no stream since the redesign): Later a big bubble that lifts a stone, or carries the a player across a pond or helps them reach high places: physics, not a script. The baseline design ([MECHANICS.md](../game/MECHANICS.md) section 5) names these as Bubbles expertise: **Bubble carry** (a bubble cast on the player that carries them for a timed duration; the ghost preview shows first, the player pops it at any moment with the dive key or X, and a bubble that pops in the air deflates into a slow drift down), **Bubble Boat** (cast on shallow water: a bubble with collision that floats; the player walks in and out and leaves with the dive key, and the Gubble may nudge and direct it, empty or occupied) and **Bubble lift** (a carry that rises, anywhere **[Open B]**). The player marks each result on its receipt |
 | 4 | **Fireworks** | `particles.burst` plus `light.emit` | They light the land for a moment; best at night.    | T0 | A burst where you point.        |
 | 5 | **Build** | `kit.assemble` (a ghost draft) | Snaps to flat ground, always enterable, sized for 10 cm figures (BUILDING.md) | The draft changes nothing; the player confirms the build | A bridge or ladder, then a cottage |
@@ -329,11 +329,11 @@ From research 4 (Apex's ping, Pikmin, marking menus, Valheim, Dragon Quest Build
 | W A S D, Shift, Space, Ctrl | Move, sprint, jump (rise when diving), dive | Unchanged | |
 | Mouse, left button | Look (F1, F2); orbit (F2 zoomed out past 0.8 m; was F3); the left button captures the mouse | Unchanged, plus aim. The reticle shows what "this" is | |
 | Right button | Unbound | **Tap: the smart ask. Hold: the Gubble wheel** | The Gubble's own button (Apex's ping) |
-| 1 to 5 | Follow, stay, come, stop, point ahead | **Glow, Bloom, Bubbles, Fireworks, Build** (hold for the ghost, release to cast; unlearned ones shrug) | The orders move to the smart ask, the wheel and Q; "point ahead" becomes the smart ask's "go and look there" |
-| Q, E | Turn the F4 view | **Q: come, then follow** (the recall). E unbound for now | The recall is the most-used order, next to W A S D |
+| 1 to 5 | Follow, stay, come, stop, point ahead | **Glow, Grow, Bubbles, Fireworks, Build** (2 was Bloom until decision 52; 6 is Fire, decision 77; hold for the ghost, release to cast; unlearned ones shrug) | The orders move to the smart ask, the wheel and Q; "point ahead" becomes the smart ask's "go and look there" |
+| Q, E | Turn the F4 view | **Q: come, then follow** (the recall). **E: the interaction key** (decision 90: the camp, a Fractal, a carried thing, food as it comes; round 2's P2) | The recall is the most-used order, next to W A S D |
 | [ and ] | Unbound | **Turn the F4 view** (and drag with the middle button). Shelved on 13 October with F4: unbound again | Q and E move to the Gubble |
 | X | Unbound | **Stop** the Gubble's action or countdown | |
-| Z | Unbound | **Undo** the Gubble's last change | |
+| Z | Unbound | **Rest** by a lit campfire (decision 70; was Undo, which lives in the Magic panel, Creative only) | A second key for the camp for one round (decision 90) |
 | Enter | Unbound | **The wish box** | |
 | F, V | Pick up or put down, push | Unchanged | The player's own hands |
 | B, R | Home to the jetty, recover | Unchanged | |
@@ -360,7 +360,7 @@ Every key stays remappable.
               1 Glow
      3 Bubbles      4 Fireworks
  Come (Q)                  Stay
-     Fetch          2 Bloom
+     Fetch          2 Grow
               5 Build
 ```
 
@@ -389,7 +389,7 @@ Every key stays remappable.
 3. The Gubble points at a dark nook hiding something lovely; lighting it leaves a lasting glow.
 4. If ignored, it asks once more, then waits for the next dusk. The tip goes into the journal, to read again.
 5. The other abilities follow the same pattern when they are useful:
-   - Bloom on a bare meadow;
+   - Grow among a meadow's plants;
    - Bubbles by water;
    - Fireworks at a celebration (a build finished);
    - Build when the player asks for shelter.
@@ -580,13 +580,13 @@ New with magic:
    - The wish ledger's local record.
    - The wish benchmark.
 3. **Bubbles and Fireworks** (effects; no ground layer needed).
-4. **The ground layer and Bloom** (the trail, then painting).
+4. **The ground layer and Bloom** (the trail, then painting; Bloom is Grow since decision 52, and the trail is retired).
 5. **Build:** the draft, a small kit, a bridge, then a cottage.
 6. **Fire.**
 
 ## Decisions and remaining design questions
 
-Answered on 9 October: fire's place (sixth, after Bloom), the wheel without an AI (yes), the flower trail (on by default, can be turned off), and evaluating the keys (the table above, in two steps).
+Answered on 9 October: fire's place (sixth, after Bloom), the wheel without an AI (yes), the flower trail (on by default, can be turned off; retired by decision 52), and evaluating the keys (the table above, in two steps).
 
 Decided on 10 October: consequence-free Creative play, with stamina limits and health damage in modes such as Challenge. The mode-specific rates, recovery, progression and undo consequences still need design.
 
@@ -599,4 +599,4 @@ Answered on 11 October:
 5. **Children's content:** curated first; all Gubble content they receive must be appropriate for an eleven-year-old.
 6. **Bindings:** try the proposed defaults in playtesting.
 
-Remaining work after the baseline mechanics ([MECHANICS.md](../game/MECHANICS.md); its numbers are provisional and tuned by playing): the repair interaction; which abilities get expertise tracks beyond Glow (Bloom, Bubbles and Fire: packet M11); camps as placeable things; the Bubble's body rules (Bubble Boat's and the carry's collision: packet M9); and, if the wish runner returns, the exact provider/authentication route, distribution terms and child-account eligibility before implementing each adapter. Stamina, damage, recovery, mode-specific undo and transfers between modes are specified there (decisions 2, 3, 10 and 13 of 14 October).
+Remaining work after the baseline mechanics ([MECHANICS.md](../game/MECHANICS.md); its numbers are provisional and tuned by playing): the repair interaction; which abilities get expertise tracks beyond Glow (Grow, Bubbles and Fire: packet M11); camps as placeable things; the Bubble's body rules (Bubble Boat's and the carry's collision: packet M9); and, if the wish runner returns, the exact provider/authentication route, distribution terms and child-account eligibility before implementing each adapter. Stamina, damage, recovery, mode-specific undo and transfers between modes are specified there (decisions 2, 3, 10 and 13 of 14 October).

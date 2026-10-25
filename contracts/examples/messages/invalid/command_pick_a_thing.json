@@ -1,0 +1,10 @@
+{
+  "schema": "garage_game.command",
+  "version": 1,
+  "action_id": "pick-0009",
+  "room_id": "garage_example",
+  "op": "item.pickup",
+  "args": {
+    "target": "obj:paint_clutter"
+  }
+}

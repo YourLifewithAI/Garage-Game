@@ -1,10 +1,10 @@
 {
-  "schema": "enfractal.playtest_manifest",
+  "schema": "garage_game.playtest_manifest",
   "version": 1,
   "record_id": "20261015-143000-island_example",
   "build": "c19d99b",
   "room_id": "island_example",
-  "room_sha256": "50bc3f66df1f3369df1799d7e16193e65f9c08e661bcdf1469c9e076177dba7b",
+  "room_sha256": "7cece13f07419bdf5dc1a269065ba98dc1a9e3f9b25774afcd92356b5fcdcb7f",
   "team_id": "example_team",
   "mode": "creative",
   "difficulty": "standard",

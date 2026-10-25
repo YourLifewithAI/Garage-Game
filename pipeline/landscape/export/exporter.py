@@ -5,9 +5,10 @@ from pathlib import Path
 from pipeline.landscape.harness.common import canonical, sha, require
 from pipeline.landscape.harness.kit import SIZES, prototype
 from pipeline.landscape.harness.package import read_package, world_scale
+from .ids import id_of
 from .materials import CONTRACT_ROLES, PALETTE, hex_color, material
 from .copies import build_copies, classify, MAX_SETS
-from .fractals import fractals_data, summit_data, tutorial_flag
+from .fractals import firepits_data, fractals_data, summit_data, tutorial_flag
 from .mesh import encode, transform
 from .sea import sea_data
 from .source import source_data
@@ -74,6 +75,8 @@ def _export(land, package_folder, source_room_folder, room_id, out):
     fractals = fractals_data(doc.get('x_generator'))
     tutorial = tutorial_flag(doc.get('x_generator'))
     summit = summit_data(doc.get('x_generator'))
+    # The island's firepits (decision 74), chosen by the generator: the manifest's x_firepits, which the kernel reads.
+    firepits = firepits_data(doc.get('x_generator'))
     margin = doc['x_generator'].get('margin_m') if sea is not None else None
     sea, bounds = sea_data(sea, intro_source['bounds'], margin) if sea is not None else (None, intro_source['bounds'])
     require(doc['terrain'], 'landscape has no terrain')
@@ -184,7 +187,7 @@ def _export(land, package_folder, source_room_folder, room_id, out):
         # never becomes a landmark entity; populated vegetation uses decoration
         # collision unless explicitly carriable.
         asset = {
-            'schema': 'enfractal.asset', 'version': 1, 'asset_id': asset_id,
+            'schema': id_of('asset'), 'version': 1, 'asset_id': asset_id,
             'display_name': display, 'category': kind[:60],
             'category_group': ('structure' if name in {'cottage', 'tower', 'fence'} or 'roof' in roles
                                else 'lighting' if name == 'lantern' else 'container' if name == 'crate' else 'decor'),
@@ -403,7 +406,7 @@ def _export(land, package_folder, source_room_folder, room_id, out):
                        'position_m': r['position_m'], 'color': '#ffe7bf',
                        'relative_intensity': .25, 'estimated': True})
     room = {
-        'schema': 'enfractal.room', 'version': 1, 'room_id': room_id,
+        'schema': id_of('room'), 'version': 1, 'room_id': room_id,
         'display_name': room_id.replace('_', ' ').replace('-', ' ').capitalize()[:80],
         'created_utc': CREATED, 'units': 'm', 'axes': 'y_up_neg_z_forward',
         'source': {'kind': 'procedural', 'pipeline': {'name': 'landscape-room-export', 'version': '1'}},
@@ -423,6 +426,7 @@ def _export(land, package_folder, source_room_folder, room_id, out):
                        **({'x_landscape_sea': sea} if sea is not None else {}),
                        **({'x_fractals': fractals} if fractals is not None else {}),
                        **({'x_summit': summit} if summit is not None else {}),
+                       **({'x_firepits': firepits} if firepits is not None else {}),
                        **({'x_island_tutorial': tutorial} if tutorial is not None else {})},
     }
     blobs['room.json'] = canonical(room)

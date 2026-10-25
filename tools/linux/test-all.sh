@@ -41,8 +41,7 @@ landscape_fixture() { # 1 or 10; prints the exported room's folder, built first 
     if [ ! -f "$final/fixture.json" ]; then
       part="$variant/$key.partial"; rm -rf "$part"; mkdir -p "$part"
       if ! (cd "$REPO" && if [ "$scale" != 1 ]; then
-              python3 -B -m pipeline.landscape.generator.scale --room "$source" --factor "$scale" --out "$part/room" && source="$part/room" &&
-              python3 -B -m pipeline.landscape.generator.generate --room "$source" --world-scale "$scale" --cell .1 --out "$part/package" --tutorial
+              python3 -B -m pipeline.landscape.generator.generate --room "$source" --world-scale "$scale" --out "$part/package" --tutorial
             else python3 -B -m pipeline.landscape.generator.generate --room "$source" --out "$part/package"; fi &&
             python3 -B -S -m pipeline.landscape.export --package "$part/package" --room "$source" --room-id landscape_garage_nominal --out "$part/landscape_garage_nominal") \
           > "$LOG/landscape_fixture_x$scale.log" 2>&1; then flock -u 9; exec 9>&-; return 1; fi
@@ -154,6 +153,17 @@ run native_kernel_nature "checks passed" --headless --path "$P" --fixed-fps 60 r
 if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" -I contracts/validate.py "$NATURE_DUMP"/*.json > "$LOG/nature_messages.log" 2>&1); then
   echo "PASS nature messages validate: $(tail -1 "$LOG/nature_messages.log")"
 else cat "$LOG/nature_messages.log"; failed=1; fi
+INVENTORY_DUMP="$LOG/inventory_messages"; rm -rf "$INVENTORY_DUMP"
+run native_kernel_inventory "NATIVE_KERNEL_INVENTORY: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native/Kernel/native_kernel_inventory.tscn -- --dump="$INVENTORY_DUMP"
+if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" -I contracts/validate.py "$INVENTORY_DUMP"/*.json > "$LOG/inventory_messages.log" 2>&1); then
+  echo "PASS inventory messages validate: $(tail -1 "$LOG/inventory_messages.log")"
+else cat "$LOG/inventory_messages.log"; failed=1; fi
+FOOD_DUMP="$LOG/food_messages"; rm -rf "$FOOD_DUMP"
+run native_kernel_food "NATIVE_KERNEL_FOOD: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native/Kernel/native_kernel_food.tscn -- --landscape="$LR" --dump="$FOOD_DUMP"
+if grep -q "FOOD_GARAGE skipped" "$LOG/native_kernel_food.out"; then echo "FAIL native_kernel_food skipped its garage checks"; failed=1; fi
+if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" -I contracts/validate.py "$FOOD_DUMP"/*.json > "$LOG/food_messages.log" 2>&1); then
+  echo "PASS food messages validate: $(tail -1 "$LOG/food_messages.log")"
+else cat "$LOG/food_messages.log"; failed=1; fi
 echo "== kernel canonical JSON (Python reference)"
 if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" tools/kernel/canonical_json.py --check game/tests/fixtures/kernel > "$LOG/canonical.log" 2>&1 \
     && "$LINUX/contracts-venv/bin/python" -m unittest discover -s tools/kernel >> "$LOG/canonical.log" 2>&1); then
@@ -183,7 +193,7 @@ if (cd "$REPO/pipeline/roomscan" && uv run --locked python -B -m unittest discov
   echo "PASS landscape corpus: $(grep -E '^Ran' "$LOG/corpus.log")"
 else cat "$LOG/corpus.log"; failed=1; fi
 echo "== landscape exporter (a package to a game room, validated against the contracts)"
-if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" -B -m unittest pipeline.landscape.export.tests.test_export pipeline.landscape.export.tests.test_loose > "$LOG/landscape_export.log" 2>&1); then
+if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" -B -m unittest pipeline.landscape.export.tests.test_export pipeline.landscape.export.tests.test_loose pipeline.landscape.export.tests.test_fractals > "$LOG/landscape_export.log" 2>&1); then
   echo "PASS landscape exporter: $(grep -E '^Ran' "$LOG/landscape_export.log") $(grep -E '^OK' "$LOG/landscape_export.log")"
 else echo "FAIL landscape exporter"; tail -20 "$LOG/landscape_export.log"; failed=1; fi
 echo "== landscape harness (package format and views; its Blender tests skip without Blender)"
@@ -191,7 +201,7 @@ if (cd "$REPO" && python3 -B -S -m unittest pipeline.landscape.harness.tests.tes
   echo "PASS landscape harness: $(grep -E '^Ran' "$LOG/harness.log") $(grep -E '^OK' "$LOG/harness.log")"
 else cat "$LOG/harness.log"; failed=1; fi
 echo "== landscape generator (determinism and the design's principles on corpus rooms)"
-if (cd "$REPO" && python3 -B -m unittest pipeline.landscape.generator.tests.test_generator > "$LOG/landscape_generator.log" 2>&1); then
+if (cd "$REPO" && python3 -B -m unittest pipeline.landscape.generator.tests.test_generator pipeline.landscape.generator.tests.test_firepits > "$LOG/landscape_generator.log" 2>&1); then
   echo "PASS landscape generator: $(grep -E '^Ran' "$LOG/landscape_generator.log") $(grep -E '^OK' "$LOG/landscape_generator.log")"
 else echo "FAIL landscape generator"; tail -20 "$LOG/landscape_generator.log"; failed=1; fi
 

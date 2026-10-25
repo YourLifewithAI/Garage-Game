@@ -4,16 +4,21 @@
   computed only from what happened, and counted in Challenge and Live only.
 - Clean initiative, +1, for paid actions only (decision 69, the founder, 16 October: "Only paid actions and consequences directly
   related to those actions earn trust"): a committed command of the Gubble's that the guard would charge pips for (paid: the
-  price above zero where the kernel's ChargeEnergy charges, read from the pack's prices, never a list of ops; the mock keeps no
-  pool, so it notes the price it would charge) opens a 60 s window; a window that closes with no consequence fact in it gains, at
+  price above zero where the kernel's ChargeEnergy charges, read from the pack's prices, never a list of ops: mock_energy.py's
+  _charge_energy notes it) opens a 60 s window; a window that closes with no consequence fact in it gains, at
   most once in two minutes. A goal's window opens only when its job succeeds, and a lead is paid only once its Lift is charged
   (the rise, which on the mock is its arrival); a lead that is no lift, a fetch, or one that fails gains nothing. Free commands
-  (grabs, pushes, releases, free builds, goals, stops, notes, checkpoints) never gain. The mock simulates no nature, so it writes
-  no consequence facts of its own; the -3, and its trace to a paid action, are the kernel's.
+  (grabs, pushes, releases, free builds, goals, stops, notes, checkpoints) never gain. A consequence fact the mock writes (a build
+  the Gubble's paid fire burned, mock_nature.py; the fall after the Gubble's own pop, player_lands) costs -3 and spoils the windows
+  open over it; fire hurting the player, which needs the body, is the kernel's.
 - receipt.mark and trust.reset are the player's alone: the companion is refused before any handler runs (player-only ops). A
   mark names a receipt of the Gubble's from this room's session, each once: +2 for yes, -2 for not that.
 - Readable, never writable: the journal keeps the marks, a tier's change and a reset as lessons (kind consequence), in the
   kernel's words, word for word. No request field moves Trust.
+- The Gubble hears its consequences (decision 134; the kernel's TellGubble): each consequence fact the mock writes about the Gubble's
+  own action is also a notice of kind consequence on the companion's next result, of any kind (the kernel's DeliverNotices): the
+  fact's line as the journal keeps it, the Trust it moved and when, nothing else; a fact updated in place updates its notice while
+  unread. Only these host paths add one; no request carries or asks for it.
 
 test_kernel_alignment.py holds these numbers and words equal to the kernel's.
 """
@@ -37,6 +42,8 @@ MAX_REMEMBERED = 1024  # kernel: TrustLaws.MaxRemembered
 TRUST_BOUND = 1_000_000  # kernel: Trust.Bound
 MARK_NOT_FOUND = "There is no receipt of the Gubble's from this session with that action id."  # kernel: CommandHost.MarkNotFound
 MARKED_ONCE = "That receipt is already marked: each receipt is marked once."  # kernel: CommandHost.MarkedOnce
+CONSEQUENCE_NOTICE_KIND = "consequence"  # kernel: CommandHost.ConsequenceNoticeKind
+MAX_NOTICES = 8  # kernel: CommandHost.MaxNotices
 CONSEQUENCE_PLACE_M = 1.5  # kernel: CommandHost.ConsequencePlaceM
 _NOT_ACTIONS = frozenset({"goal.stop", "effect.stop", "wish.stop", "journal.note", "room.checkpoint"})
 _KNOWN_ID = re.compile(r"(obj|creation):[A-Za-z0-9_-]{1,64}")
@@ -127,6 +134,47 @@ class TrustMixin:
         self._trust_entries: OrderedDict[str, TrustEntry] = OrderedDict()
         self._trust_last_gain: float | None = None
         self._trust_charged = 0  # the pips the guard would have charged since Trust last looked (the kernel's _trustCharged)
+        # The notices the Gubble has not read yet (the kernel's _notices) and, by fact, the unread consequence notice it was told.
+        self._notices: list[dict] = []
+        self._fact_notices: dict[int, tuple[dict, dict]] = {}
+
+    @property
+    def unread_notices(self) -> list[dict]:
+        """The notices the Gubble has not read yet (the kernel's UnreadNotices; tests)."""
+        return list(self._notices)
+
+    def _move_trust_for(self, was_paid: bool) -> int:
+        """A new consequence fact's Trust (the kernel's MoveTrustFor): the windows settled first, so the change measured is the fact's own."""
+        self._settle_trust()
+        before = self.trust_count
+        self._note_trust_consequence(was_paid)
+        return self.trust_count - before
+
+    def _tell_gubble(self, fact: dict, trust_change: int) -> None:
+        """Decision 134 (the kernel's TellGubble): a consequence fact just written about the Gubble's own action, told on its next result."""
+        notice = {"kind": CONSEQUENCE_NOTICE_KIND, "line": fact["line"], "trust_change": min(0, trust_change), "at_utc": fact["at_utc"]}
+        self._notices.append(notice)
+        del self._notices[:-MAX_NOTICES]
+        self._fact_notices = {key: pair for key, pair in self._fact_notices.items() if any(n is pair[1] for n in self._notices)}
+        self._fact_notices[id(fact)] = (fact, notice)
+
+    def _retell_gubble(self, fact: dict) -> None:
+        """A fact updated in place (the kernel's RetellGubble): its notice says so too while the Gubble has not read it."""
+        pair = self._fact_notices.get(id(fact))
+        if pair is None or pair[0] is not fact or not any(n is pair[1] for n in self._notices):
+            self._fact_notices.pop(id(fact), None)
+            return
+        pair[1]["line"] = fact["line"]
+        pair[1]["at_utc"] = fact["at_utc"]
+
+    def _deliver_notices(self, principal: str, result: dict) -> dict:
+        """The kernel's DeliverNotices: the Gubble's next result, of any kind, carries every notice it has not read, once."""
+        if principal != "companion:local" or not self._notices:
+            return result
+        delivered = {**result, "notices": [dict(n) for n in self._notices]}
+        self._notices.clear()
+        self._fact_notices.clear()
+        return delivered
 
     @property
     def trust_band(self) -> int:
@@ -155,22 +203,31 @@ class TrustMixin:
             return 0
         return self._trust_price(capability, principal)
 
-    def _trust_charge(self, capability: str, principal: str) -> None:
-        """The hook where the kernel's ChargeEnergy charges (an effect's start, a bubble's cast, a Lift's rise): the price it would
-        charge, noted for Trust. The mock keeps no pool, so nothing else moves."""
-        self._trust_charged += max(0, self._charge_price(capability, principal))
-
     def _take_trust_charge(self) -> int:
+        """What the guard charged since Trust last looked (mock_energy.py's _charge_energy notes it), taken once."""
         charged, self._trust_charged = self._trust_charged, 0
         return charged
 
     def _trust_lift_charged(self, lead: dict) -> None:
-        """The kernel's TrustLiftCharged: a lift's charge at its rise (on the mock, its arrival: no drift) makes the Gubble's lead a
-        paid action, its window gaining once the arrival's window closes clean. A lead the player set is theirs."""
-        self._trust_charge("bubble_lift", lead["principal"])
+        """The kernel's TrustLiftCharged: a lift's charge at its rise (on the mock, its arrival: no drift), just charged, makes the
+        Gubble's lead a paid action, its window gaining once the arrival's window closes clean. A lead the player set is theirs."""
         entry = self._trust_entries.get(lead["action_id"])
         if paid(self._take_trust_charge()) and not lead["principal"].startswith("player:") and entry is not None:
             entry.paid = True
+
+    def _note_trust_consequence(self, was_paid: bool) -> None:
+        """A new consequence fact (the kernel's NoteTrustConsequence): when it follows from a paid action of the Gubble's, it spoils
+        the windows of clean initiative open over it and costs Trust in Challenge and Live; a free action's fact moves nothing."""
+        if not was_paid:
+            return
+        self._settle_trust()
+        now = self.clock.now()
+        for entry in self._trust_entries.values():
+            opens = entry.at if entry.opened_at is None else entry.opened_at
+            if not entry.settled and (entry.pending or opens <= now <= entry.closes):
+                entry.spoiled = True
+        if self._trust_counts():
+            self._move_trust(PER_CONSEQUENCE, "companion:local")
 
     # ------------------------------------------------------------------ the Gubble's commands
 

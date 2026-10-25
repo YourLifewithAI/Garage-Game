@@ -46,6 +46,20 @@ public partial class NatureTest : Node3D
             if (_dump != null) System.IO.Directory.CreateDirectory(_dump);
             RemoveAll();
             _room = PlantedRoom();
+            // "-- --only=grow" runs Grow's suites alone (while iterating on them); the runners run everything.
+            if (OS.GetCmdlineUserArgs().Contains("--only=grow"))
+            {
+                await TestGrow();
+                await TestGrowExpertise();
+                await TestGrowUnlocks();
+                await FreeWorld();
+                OS.RemoveLogger(_errors);
+                Check(_errors.Count == 0, $"no script or engine error while the suite ran ({_errors.Count}; first: {_errors.First})");
+                GD.Print($"NATIVE_KERNEL_NATURE_GROW: {_checks - _failures}/{_checks} checks passed (Grow's suites alone)");
+                RemoveAll();
+                GetTree().Quit(_failures == 0 ? 0 : 1);
+                return;
+            }
             TestSimulation();
             TestBlock();
             await TestReview();
@@ -58,14 +72,18 @@ public partial class NatureTest : Node3D
             await TestCamps();
             await TestGrow();
             await TestGrowExpertise();
+            // Grow's unlocks (NatureTest.GrowUnlocks.cs, decisions 104 to 107): the gate, sprouts, replanting, the bridge, wall ivy.
+            await TestGrowUnlocks();
             // Fire's behaviours (NatureTest.FireKinds.cs): Fireline, Snuff, Will-o'-wisp, the place deciding.
             await TestFireKinds();
+            // The Bubble's time (NatureTest.BubbleTime.cs, decisions 95 and 112): 8 s, a boat 20 s.
+            await TestBubbleTime();
             await FreeWorld();
             OS.RemoveLogger(_errors);
             Check(_errors.Count == 0, $"no script or engine error while the suite ran ({_errors.Count}; first: {_errors.First})");
             GD.Print($"NATIVE_KERNEL_NATURE: {_checks - _failures}/{_checks} checks passed; the ground field's laws and bounds, time away, nature as room state (saved block, " +
                 "throttle, rebuild, migration), receipts and undo by room revision (Creative only), the authority's checks, what a companion learns, the fire rule and its one ask, " +
-                $"Grow (plants grown, saved, climbed and burnt), carried and burnt things, the Gubble's fire: consequences, guardrails and feedback, Trust (initiative, marks, burnt builds, bands, lessons), Fire's camp (start spots, resting, firepits; no Fire until the first rest, rain putting campfires out, firepits spread evenly), Grow's five expertise and the waterpad{(_dump != null ? $"; {_dumped} messages dumped" : "")}");
+                $"Grow (plants grown, saved, climbed and burnt), carried and burnt things, the Gubble's fire: consequences, guardrails and feedback, Trust (initiative, marks, burnt builds, bands, lessons), Fire's camp (start spots, resting, firepits; no Fire until the first rest, rain putting campfires out, firepits spread evenly), Grow's five expertise and the waterpad, Grow's unlocks (the gate, sprouts in phases, replanting, the bridge, wall ivy){(_dump != null ? $"; {_dumped} messages dumped" : "")}");
             RemoveAll();
             GetTree().Quit(_failures == 0 ? 0 : 1);
         }
@@ -112,6 +130,8 @@ public partial class NatureTest : Node3D
         _companion.Stay();
         _host = CommandHost.Create(_world, room, _player, _companion, null, savePath);
         _host.Clock = () => _now;
+        // The machine's own clock read in UTC on every machine: a seedling's daylight (decision 122) is the island clock's hour.
+        _host.MachineZone = TimeZoneInfo.Utc;
         _host.TeamSightIntervalS = 0;
         _host.SetProcess(false);
         _host.SetPhysicsProcess(false);
@@ -159,14 +179,14 @@ public partial class NatureTest : Node3D
 
     private JsonObject Command(string actionId, string op, JsonObject args, bool preview = false, int? expectedRevision = null)
     {
-        var command = new JsonObject { ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = actionId, ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args };
+        var command = new JsonObject { ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = actionId, ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args };
         if (preview) command["preview"] = true;
         if (expectedRevision != null) command["expected_revision"] = expectedRevision;
         return command;
     }
 
     private JsonObject Query(string op, JsonObject args) =>
-        new() { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = NextId("q"), ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args };
+        new() { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = NextId("q"), ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args };
 
     /// <summary>Sends a message as principal; contractValid false keeps a deliberately malformed message out of the dump.</summary>
     private JsonObject Send(JsonObject message, string principal, bool contractValid = true)
@@ -199,7 +219,7 @@ public partial class NatureTest : Node3D
 
     private static JsonObject Source(string name, string material = "wood") => new()
     {
-        ["schema"] = "enfractal.creation", ["version"] = 1, ["name"] = name, ["seed"] = 1, ["mount"] = "ground",
+        ["schema"] = "garage_game.creation", ["version"] = 1, ["name"] = name, ["seed"] = 1, ["mount"] = "ground",
         ["parts"] = new JsonArray(new JsonObject
         {
             ["id"] = "base", ["shape"] = "box", ["position_m"] = new JsonArray(0, 0.06, 0), ["rotation_deg"] = new JsonArray(0, 0, 0),

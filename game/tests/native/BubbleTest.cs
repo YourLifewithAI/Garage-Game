@@ -15,7 +15,7 @@ namespace GarageGame.Tests;
 /// SmallPlayerController.Bubble.cs) in the real test room with the real bodies and host, under storybook_wild v5's prices, with a 3 cm
 /// sheet of shallow water laid on the floor west of the player and a deep pool by the rug: the place deciding (effect.start), the
 /// consent (the ghost and its lead, the walk-in), every refusal, the price by what the place made and by principal, the pops and the
-/// receipts, one bubble at a time and the room's cap (BubbleTest.cs); the ride, the deflate, the walk-in, the boat, the security row
+/// receipts, one bubble at a time and the room's cap (BubbleTest.cs); the ride, the fall out of it, the walk-in, the boat, the security row
 /// and the budgets (BubbleTest.Body.cs); the Gubble's lead, the lift and the HUD's view (BubbleTest.Lead.cs). The security notes' row
 /// (docs/companion/SECURITY.md, "the companion casting on, or moving, the player's avatar") has its tests named for it. Pass
 /// "-- --dump=DIR" to write every message and result for contracts/validate.py, and "-- --verbose" to print every check.
@@ -69,7 +69,7 @@ public partial class BubbleTest : Node3D
             Check(_errors.Count == 0, $"no script or engine error while the suite ran ({_errors.Count}; first: {_errors.First})");
             GD.Print($"NATIVE_KERNEL_BUBBLE: {_checks - _failures}/{_checks} checks passed; the Bubble as redesigned: the place deciding (a carry on the player, a boat on " +
                 "water, a bubble to walk into), the ghost and its lead, the walk-in, every refusal, the price by what the place made and by principal, the pops and the " +
-                "receipts, one bubble at a time, the room's cap, the ride, the deflate, the boat, the Gubble's lead (arriving, popping short, its stop), the lift " +
+                "receipts, one bubble at a time, the room's cap, the ride, the fall out of it (a wall to grab), the boat, the Gubble's lead (arriving, popping short, its stop), the lift " +
                 "(charged at the rise, refused without pips, the 1.2 m rise), the HUD's view, the security row, the player's marks on a bubble and its lead, and the " +
                 "Wave 2 review's fixes (judged where it forms, no free ride up a slope, a lift under a ceiling, Trust only for a paid lift that arrives, a lead into fire paid or free, the lead's " +
                 $"sight, one rule for the island's bounds){(_dump != null ? $"; {_dumped} messages dumped" : "")}");
@@ -92,19 +92,21 @@ public partial class BubbleTest : Node3D
         await TestPopsAndReceipts();
         await TestOneAtATime();
         await TestTheRoomsCap();
-        await TestRideAndDeflate();
+        await TestRideAndFall();
         await TestWalkIn();
         await TestBoat();
         await TestLeadArrivesAndPops();
         await TestTheGubblesStopPopsWhatItLeads();
         await TestLift();
         await TestLiftPrice();
-        await TestDeflateIntoWater();
+        await TestFallIntoWater();
         await TestHudView();
         await TestSecurityRow();
         await TestBudget();
         await TestMarksOnTheBubble();
         await TestTheReviewsFixes();
+        // Decision 110: every way a bubble ends, classed as the Gubble's pop, the player's or the world's (BubbleTest.Pops.cs).
+        await TestEveryPopIsClassified();
     }
 
     // ---- the world ----
@@ -214,13 +216,13 @@ public partial class BubbleTest : Node3D
 
     private JsonObject Command(string actionId, string op, JsonObject args, bool preview = false)
     {
-        var command = new JsonObject { ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = actionId, ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args.Parent == null ? args : args.DeepClone() };
+        var command = new JsonObject { ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = actionId, ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args.Parent == null ? args : args.DeepClone() };
         if (preview) command["preview"] = true;
         return command;
     }
 
     private JsonObject Query(string op, JsonObject args) =>
-        new() { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = NextId("q"), ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args };
+        new() { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = NextId("q"), ["room_id"] = _room.RoomId, ["op"] = op, ["args"] = args };
 
     /// <summary>Sends a message as principal; contractValid false keeps a deliberately malformed message out of the dump.</summary>
     private JsonObject Send(JsonObject message, string principal, bool contractValid = true)
@@ -626,15 +628,15 @@ public partial class BubbleTest : Node3D
         Check(Ok(first) && Ok(second) && _host.ActiveBubbles.Count == 1 && _host.ActiveBubbles[0].Id == BubbleOf(second) &&
               ReceiptData(Companion, first)?["ended"]?.GetValue<string>() == "popped",
             "one bubble at a time: a recast pops the one already there (popped), whoever cast either: " + Canonical(ReceiptData(Companion, first)));
-        // A recast while a bubble holds the player pops it (the body deflates) and forms the new one.
+        // A recast while a bubble holds the player pops it (the body falls from there) and forms the new one.
         var carry = TheBubbleOnThePlayer(Companion);
         await Frames(30);
         var high = _player.GlobalPosition.Y;
         var recast = CastTheBubble(Companion, _player.GlobalPosition + new Vector3(0.35f, 0, 0.1f));
         await Frames(3);
         Check(Ok(carry) && Ok(recast) && !_host.PlayerInBubble && _host.ActiveBubbles.Count == 1 && ReceiptData(Companion, carry)?["ended"]?.GetValue<string>() == "popped" &&
-              _player.Ride is SmallPlayerController.BubbleRide.Deflating or SmallPlayerController.BubbleRide.None,
-            $"a recast pops the bubble holding the player, who drifts down ({_player.Ride} from {high:0.000} m)");
+              _player.Ride == SmallPlayerController.BubbleRide.None,
+            $"a recast pops the bubble holding the player, who falls from there ({_player.Ride} from {high:0.000} m)");
         await Frames(120);
         // No pause after the player pops out: the Gubble may offer again at once (the ghost and its lead are the consent, as ever).
         var again = TheBubbleOnThePlayer(Companion);

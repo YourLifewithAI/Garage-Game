@@ -22,7 +22,7 @@ from typing import Any, Callable, NamedTuple
 
 import numpy as np
 
-from .. import __version__
+from .. import __version__, ids
 from ..coverage.backend import MODEL_REGISTRY
 from ..jsonio import sha256_hex
 from ..paths import git_checkout_of
@@ -154,7 +154,7 @@ def source_block(scene: Scene) -> dict[str, Any]:
             },
         },
         "pipeline": {
-            "name": "enfractal-roomscan", "version": __version__,
+            "name": ids.GENERATOR, "version": __version__,
             "backends": [
                 {"stage": "poses", "name": "facebook/map-anything-apache", "version": poses["revision"][:7], "license": "Apache-2.0", "hosted": False},
                 {"stage": "layout", "name": "roomscan box fit with tape-fitted scale", "version": __version__, "license": "Apache-2.0", "hosted": False},
@@ -208,7 +208,7 @@ def build_manifest(plan: ShellPlan, spec: ShellSpec, scene: Scene, *, created_ut
     if not spawns:
         raise ShellError("a room needs player and companion spawns")
     room: dict[str, Any] = {
-        "schema": "enfractal.room", "version": 1,
+        "schema": ids.id_of("room"), "version": 1,
         "room_id": spec.room,
         "display_name": spec.display_name or spec.room.replace("_", " ").title(),
         "description": spec.description or "A scanned room: shell only.",

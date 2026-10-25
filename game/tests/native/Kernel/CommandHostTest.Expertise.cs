@@ -20,7 +20,7 @@ public partial class CommandHostTest
 {
     /// <summary>The founder's real store (18 casts, four Glow expertise, one hint delivered): version 3, Glow only.</summary>
     private const string FoundersStore =
-        "{\"schema\":\"enfractal.glow_progress\",\"version\":3,\"team_id\":\"local\",\"abilities\":{\"glow\":{\"successful_casts\":18," +
+        "{\"schema\":\"garage_game.glow_progress\",\"version\":3,\"team_id\":\"local\",\"abilities\":{\"glow\":{\"successful_casts\":18," +
         "\"discoveries\":[\"lantern\",\"torch\",\"bioluminesce\",\"constellation\"],\"delivered_hints\":[\"bioluminesce_water\"]}}," +
         "\"touch\":\"plain\",\"sound_volume\":0.35,\"muted\":false}\n";
 
@@ -83,7 +83,7 @@ public partial class CommandHostTest
         };
         foreach (var (label, document) in refusals)
             Check(Parsed(document).Length > 0, "the store refuses " + label);
-        var carry = "{\"schema\":\"enfractal.glow_progress\",\"version\":3,\"team_id\":\"local\",\"abilities\":{\"bubbles\":{\"successful_casts\":0," +
+        var carry = "{\"schema\":\"garage_game.glow_progress\",\"version\":3,\"team_id\":\"local\",\"abilities\":{\"bubbles\":{\"successful_casts\":0," +
             "\"discoveries\":[\"bubble_carry\"],\"delivered_hints\":[]}},\"touch\":\"plain\",\"sound_volume\":0.35,\"muted\":false}\n";
         var carried = LocalGlowProgressStore.Parse(Encoding.UTF8.GetBytes(carry));
         Check(carried.Has("bubbles", "bubble_carry") && carried.SuccessfulCasts == 0 && carried.ExpertiseCount == 1,

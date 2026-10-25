@@ -9,7 +9,7 @@ namespace GarageGame.Native;
 /// The small in-play settings panel (docs/game/MECHANICS.md sections 2 and 3, decision 1): the player's switches that left the
 /// Customize panel and the Magic page, and the two controls that belong to the pair. The switches belong to this computer, never to a
 /// team (the machine's profile, Saves/MachineSettings.cs): "Let my AI see", "Let the Gubble use fire", "Play the intro" and the
-/// numbers on the meters. Under "Your AI": "Change my AI", which says how to hand the Gubble to another AI (and whether one is
+/// numbers on the meters; and, the one that belongs to the team (its team file, decision 100), "Let the Gubble use the chest". Under "Your AI": "Change my AI", which says how to hand the Gubble to another AI (and whether one is
 /// connected now), and "Reset Trust" beside it, the player's alone: it asks first, then sends the player-only trust.reset through the
 /// host, which starts Trust over (the game never resets it, and the companion is refused it). The key is the one the Customize panel had
 /// (the input action keeps its name, hud_customize, until project.godot renames it).
@@ -20,6 +20,9 @@ public partial class RoomHud
     private Button _changeAi = null!, _resetTrust = null!, _confirmReset = null!, _keepTrust = null!;
     private HBoxContainer _trustConfirm = null!;
     private Label _aiNote = null!, _trustLine = null!;
+    private CheckButton? _chestToggle;
+    /// <summary>The fifth switch, "Let the Gubble use the chest" (the team's setting: the host writes it to the team file).</summary>
+    public CheckButton? ChestToggle => _chestToggle;
 
     public const string ChangeAiWords = "To change your AI, close the one that is connected and start the other. It finds the Gubble where it stands, with the same journal, expertise and Trust. The game never learns which AI it is.";
     public const string ResetTrustQuestion = "Start the Gubble's Trust over, from nothing?";
@@ -41,13 +44,14 @@ public partial class RoomHud
         var options = new VBoxContainer { Name = "SettingsColumn", CustomMinimumSize = new Vector2(560, 0) };
         panel.AddChild(options);
         options.AddChild(new Label { Text = "SETTINGS" });
-        var belongs = new Label { Text = "These belong to this computer, whichever team plays.", AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        var belongs = new Label { Text = "These belong to this computer, whichever team plays. The chest switch is the exception: it belongs to your team.", AutowrapMode = TextServer.AutowrapMode.WordSmart };
         belongs.AddThemeFontSizeOverride("font_size", 14);
         options.AddChild(belongs);
         BuildEyesSetting(options);
         BuildFireSetting(options);
         BuildIntroSetting(options);
         BuildNumbersSetting(options);
+        BuildChestSetting(options);
 
         options.AddChild(new Label { Text = "YOUR AI" });
         var buttons = new HBoxContainer { Name = "AiButtons" };
@@ -102,16 +106,44 @@ public partial class RoomHud
         {
             Name = "GubbleFireSetting", Text = "Let the Gubble use fire",
             ButtonPressed = Host?.GubbleFireAllowed ?? Kernel.CommandHost.LoadGubbleFire(ProfilePath),
-            TooltipText = "Your AI can light fires through the Gubble. In Challenge and Live its fire can hurt you, and it learns from that. X puts its fire out.",
+            // Decision 82: nothing but burning out or Snuff ends a fire; X stops the Gubble's moves, not its fire.
+            TooltipText = "Your AI can light fires through the Gubble. In Challenge and Live its fire can hurt you, and it learns from that. A fire burns until it burns itself out, or until Snuff puts it out: X stops the Gubble, not its fire.",
             FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(0, 38),
         };
         _gubbleFire.Toggled += SetGubbleFire;
         options.AddChild(_gubbleFire);
     }
 
+    /// <summary>
+    /// The player's own setting "Let the Gubble use the chest" (decision 100; off by default): the team's, kept in its team file by the host
+    /// (CommandHost.SetGubbleChest), never a command and never the companion's. Without an inventory on the island there is no chest to let it into.
+    /// </summary>
+    private void BuildChestSetting(Node options)
+    {
+        _chestToggle = new CheckButton
+        {
+            Name = "GubbleChestSetting", Text = "Let the Gubble use the chest",
+            ButtonPressed = Host?.GubbleChestAllowed ?? false, Disabled = Host is not { HasInventory: true },
+            TooltipText = "Your AI can store and take things in the camp's chest through the Gubble, with the Gubble's own hands. Never yours: not what you hold and not your pockets. It belongs to your team and is kept with it.",
+            FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(0, 38),
+        };
+        _chestToggle.Toggled += SetGubbleChest;
+        options.AddChild(_chestToggle);
+    }
+
+    /// <summary>The player's choice: the host follows it at once and writes it to the team file (this session only if it cannot, or there is no team file).</summary>
+    public void SetGubbleChest(bool allowed)
+    {
+        var saved = Host?.SetGubbleChest(allowed) ?? false;
+        if (_chestToggle != null && _chestToggle.ButtonPressed != allowed) _chestToggle.SetPressedNoSignal(allowed);
+        _noticeText = (allowed ? "The Gubble may use the chest." : "The Gubble will not use the chest.") + (saved ? "" : " (Not saved: it lasts this session.)");
+    }
+
     /// <summary>The panel opens: Trust in words as the host has it, no question pending, the first switch holds the keyboard focus.</summary>
     private void OnSettingsOpened()
     {
+        _chestToggle?.SetPressedNoSignal(Host?.GubbleChestAllowed ?? false);
+        if (_chestToggle != null) _chestToggle.Disabled = Host is not { HasInventory: true };
         _trustConfirm.Visible = false;
         _aiNote.Visible = false;
         _trustLine.Text = Host?.TrustWords ?? "";
@@ -153,7 +185,7 @@ public partial class RoomHud
         _resetTrust.GrabFocus();
     }
 
-    /// <summary>The key (C, the input action hud_customize), the button and Esc: the panel opens and closes, and the body waits while it is open.</summary>
+    /// <summary>The key (C, the input action hud_customize), the button, Esc and the Esc menu's Settings: the panel opens and closes, and the body waits while it is open.</summary>
     private void ToggleSettings()
     {
         CancelAsk();
@@ -164,5 +196,7 @@ public partial class RoomHud
         Player.SetInputEnabled(!_settings.Visible);
         Input.MouseMode = Input.MouseModeEnum.Visible;
         if (_settings.Visible) OnSettingsOpened();
+        // Opened from the Esc menu (RoomHud.Pause.cs): closing it goes back there.
+        else SettingsClosedForPause();
     }
 }

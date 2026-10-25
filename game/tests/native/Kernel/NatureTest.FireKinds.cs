@@ -11,8 +11,9 @@ namespace GarageGame.Tests.Kernel;
 /// Fire's behaviours (MECHANICS.md decisions 77 to 80) through the command path, in the test room: Fireline learned by three Fire casts
 /// along one line and then cast as a drag (the whole line at once, one undo step, Fire's guardrails), Snuff learned by rain on the Gubble's
 /// fire or a bubble cast on a fire and then cast on something burning (everything in 1.5 m out, campfires too, the ground damp for 30 s,
-/// the Gubble's Snuff of a lit campfire held for the player), and the Will-o'-wisp on water (transient, three at most, X removes the
-/// oldest, not the Gubble's one fire). Each kind teaches its expertise once; every committed Fire cast counts toward Fire's hints.
+/// the Gubble's Snuff of a lit campfire held for the player), and the Will-o'-wisp on water (transient, three at most, the fourth
+/// replacing the oldest; no fire, so X leaves it, decision 109; not the Gubble's one fire). Each kind teaches its expertise once; every
+/// committed Fire cast counts toward Fire's hints.
 /// </summary>
 public partial class NatureTest
 {
@@ -49,10 +50,69 @@ public partial class NatureTest
 
     private async Task TestFireKinds()
     {
+        await TestFireOnTheClick();
         await TestFireline();
         await TestSnuff();
         await TestSnuffByBubble();
         await TestWisp();
+    }
+
+    /// <summary>
+    /// Decision 83: the player's Fire lights on the click (PlayerFireLight, what the wheel, key 6 and the Magic panel call): its preview and
+    /// the cast of exactly that preview in one call, with no hold, so the outline can flash as it lights. The recorder sees a preview then a
+    /// cast; the price is charged once; a refused preview casts nothing; the place still decides (an unlit firepit, Snuff on a fire); and
+    /// Creative's one ask about builds still holds the cast for the player's card. The Gubble's own Fire stays two commands of its own.
+    /// </summary>
+    private async Task TestFireOnTheClick()
+    {
+        await FireKindsWorld("fire-click");
+        var handled = new System.Collections.Generic.List<CommandHandled>();
+        _host.Handled += handled.Add;
+        var at = new Vector3(0.2f, 0.01f, -0.6f);
+        var revision = _host.Revision;
+        var pips = _host.Vitals.Pips;
+        var click = _host.PlayerFireLight(at, radius: 0.2f, duration: 6);
+        var fire = handled.Where(h => h.Op == "nature.cast").Select(h => $"{(h.Preview ? "preview" : "cast")}:{(h.Ok ? "ok" : h.Code)}").ToArray();
+        Check(click.Previewed && click.Lit && !click.Held && click.Kind == FireKindWords.Fire && _host.Nature.Fire?.Principal == Player && _host.Revision == revision + 1 &&
+              click.Preview["data"]?["preview_id"] != null && click.Preview["data"]?["cells"]?.AsArray().Count > 0 && click.Preview["data"]?["radius_m"]?.GetValue<double>() == 0.2 &&
+              click.Result["data"]?["started_cells"]?.GetValue<int>() > 0 && fire.SequenceEqual(new[] { "preview:ok", "cast:ok" }) && _host.Vitals.Pips == pips - 2,
+            $"one click previews and lights the fire, the preview's outline and kind in hand for the flash, a preview then a cast for the recorder, 2 pips once " +
+            $"({string.Join(", ", fire)}; pips {pips} to {_host.Vitals.Pips}): " + Canonical(click.Result["error"]));
+        var busy = _host.PlayerFireLight(at + new Vector3(0.6f, 0, 0), radius: 0.2f, duration: 6);
+        Check(!busy.Previewed && !busy.Lit && ReferenceEquals(busy.Preview, busy.Result) && Code(busy.Result) == "target_busy" && _host.Revision == revision + 1,
+            "a click while a fire burns is refused at its preview, and nothing is cast: " + Code(busy.Result));
+        UndoFire();
+        // The wheel names no size: the pack's own Fire (v5: 1.5 m, 30 s), on the same one click.
+        var wheel = _host.PlayerFireLight(at);
+        Check(wheel.Lit && wheel.Preview["data"]?["radius_m"]?.GetValue<double>() == 1.5 && _host.Nature.Fire?.RemainingS > 20,
+            "a click that names no size lights the pack's own Fire (1.5 m, 30 s): " + Canonical(wheel.Result["error"] ?? wheel.Preview["data"]?["radius_m"]));
+        UndoFire();
+        // The place decides on the click as before: an unlit firepit is lit; and once Snuff is learned (rain on the Gubble's fire), a click
+        // on the Gubble's fire is Snuff, the player's one way to end a fire (decision 82).
+        var pit = new Vector3(0.9f, 0, 1.0f);
+        _host.FirepitsForTests = new[] { pit };
+        var lit = _host.PlayerFireLight(pit + new Vector3(0, 0.01f, 0), radius: 0.05f, duration: 6);
+        Check(lit.Lit && lit.Kind == FireKindWords.Firepit && _host.IsCampfireLit("firepit:1"), "a click on an unlit firepit lights it: " + Canonical(lit.Result["error"]));
+        var gubbleFire = Fire(Companion, NearGubble, 0.3, 30, out _);
+        Steps(1);
+        _host.Nature.WeatherS = RainAtS;
+        Steps(1);
+        _host.Nature.WeatherS = 300;
+        var cell = _host.Nature.Cells.Values.FirstOrDefault(c => c.BurningS > 0)?.Position ?? NearGubble;
+        var snuff = _host.PlayerFireLight(cell, radius: 0.2f, duration: 6);
+        Check(Ok(gubbleFire) && FireKnows(ExpertiseLists.Snuff) && snuff.Lit && snuff.Kind == FireKindWords.Snuff && _host.Nature.Fire == null &&
+              !_host.Nature.Cells.Values.Any(c => c.BurningS > 0),
+            "and once Snuff is learned a click on the Gubble's fire is Snuff: it all goes out: " + Canonical(snuff.Result["error"]));
+        // Creative's one ask about builds is unchanged: the click's cast is held for the player's card, and the yes lights it.
+        await FireKindsWorld("fire-click-ask");
+        var shed = Build("Click shed", 1.5, 1.2);
+        var asks = _host.PlayerFireLight(new Vector3(1.35f, 0.01f, 1.2f), radius: 0.3f, duration: 6);
+        var request = _host.PendingApprovals.FirstOrDefault()?.RequestId;
+        var waited = _host.Nature.Fire == null;
+        var approved = request == null ? new JsonObject() : _host.Approve(request);
+        Check(shed.Length > 0 && asks.Previewed && asks.Held && !asks.Lit && asks.Preview["data"]?["requires_approval"]?.GetValue<bool>() == true && waited &&
+              Ok(approved) && _host.Nature.Fire?.Principal == Player,
+            "in Creative a click whose fire would reach a build is held for the card (the one ask), and the player's yes lights it: " + Canonical(asks.Result["error"]?["code"]));
     }
 
     /// <summary>Decision 78: three Fire casts along a line teach Fireline; then a drag lights the whole line at once, one fire under Fire's guardrails.</summary>
@@ -79,16 +139,20 @@ public partial class NatureTest
         }
         Check(!FireKnows(ExpertiseLists.Fireline) && FireCasts == casts + 3, "three Fire casts in a triangle teach nothing; each committed cast is counted toward Fire's hints");
         _now += TimeSpan.FromSeconds(FireKindLaws.FirelineLearnWindowS + 1);
-        foreach (var at in new[] { a, b })
+        // The window is 5 minutes (provisional, the second playtest round; decision 78 said 2): casts 2.5 and 2.3 minutes apart, the
+        // first and the third 4.8 minutes apart, still teach it.
+        foreach (var (at, after) in new[] { (a, 150.0), (b, 140.0) })
         {
             var cast = Fire(Player, at, 0.15, 6, out _);
             Check(Ok(cast), "(a Fire cast) " + Canonical(cast["error"]));
             UndoFire();
+            _now += TimeSpan.FromSeconds(after);
         }
         var notYet = FireKnows(ExpertiseLists.Fireline);
         Check(Ok(Fire(Player, c, 0.15, 6, out _)), "(the third, along the line)");
         UndoFire();
-        Check(!notYet && FireKnows(ExpertiseLists.Fireline), "two minutes later the old casts no longer count; the third of three in a row, 0.6 m apart, teaches Fireline");
+        Check(FireKindLaws.FirelineLearnWindowS == 300 && !notYet && FireKnows(ExpertiseLists.Fireline),
+            $"past the window ({FireKindLaws.FirelineLearnWindowS} s) the old casts no longer count; three in a row, 0.6 m apart, within 5 minutes (290 s from the first to the third, past the old 2 minutes) teach Fireline");
         // The drag: the whole line catches at once; one fire, one undo step.
         var start = new Vector3(-0.3f, 0.01f, 1.2f);
         var end = new Vector3(1.2f, 0.01f, 1.2f);
@@ -108,22 +172,30 @@ public partial class NatureTest
         Check(Ok(undo) && _host.Nature.Fire == null && !_host.Nature.Cells.Values.Any(cell => cell.BurningS > 0), "Creative's undo takes the whole line back as one step");
         var tooLong = Send(Command(NextId("line-long"), "nature.cast", LineArgs(start, start + new Vector3(3.2f, 0, 0)), preview: true), Player);
         var far = Send(Command(NextId("line-far"), "nature.cast", LineArgs(b, new Vector3(2.9f, 0.01f, 1.0f)), preview: true), Player);
+        var boat = Send(Command(NextId("line-boat"), "nature.cast", new JsonObject
+        {
+            ["capability"] = "bubble_boat", ["center_m"] = new JsonArray(b.X, b.Y, b.Z), ["radius_m"] = 0.15, ["duration_s"] = 1, ["end_m"] = new JsonArray(c.X, c.Y, c.Z),
+        }, preview: true), Player, contractValid: false);
+        // Grow names an end too since decision 106: its drag is a bridge, refused before three Grow expertise (NatureTest.GrowUnlocks).
         var grow = Send(Command(NextId("line-grow"), "nature.cast", new JsonObject
         {
             ["capability"] = "grow", ["center_m"] = new JsonArray(b.X, b.Y, b.Z), ["radius_m"] = 0.15, ["duration_s"] = 1, ["end_m"] = new JsonArray(c.X, c.Y, c.Z),
-        }, preview: true), Player, contractValid: false);
-        Check(Code(tooLong) == "invalid_args" && Code(far) == "out_of_bounds" && Code(grow) == "request_invalid",
-            "a line longer than 3 m is refused, one whose end is beyond the Gubble's reach waits for it to come closer, and only Fire names an end");
-        // The Gubble's Fireline keeps every Fire guardrail: the player's switch, one fire of its own, X, and the wait after its last.
+        }, preview: true), Player);
+        Check(Code(tooLong) == "invalid_args" && Code(far) == "out_of_bounds" && Code(boat) == "request_invalid" && Code(grow) == "permission_denied",
+            "a line longer than 3 m is refused, one whose end is beyond the Gubble's reach waits for it to come closer, and only Fire and Grow name an end (Grow's a bridge, locked here)");
+        // The Gubble's Fireline keeps every Fire guardrail: the player's switch, one fire of its own, and the wait after its last; X stops
+        // the Gubble and puts no fire out (decision 82), so the line burns out first.
         _host.SetGubbleFire(false);
         var off1 = Send(Command(NextId("line-off"), "nature.cast", LineArgs(start, end), preview: true), Companion);
         _host.SetGubbleFire(true);
         var gubble = Fireline(Companion, start, end, out _);
         var second = Send(Command(NextId("line-second"), "nature.cast", LineArgs(start, end), preview: true), Companion);
         var x = Send(Command(NextId("x"), "goal.stop", new JsonObject { ["actor"] = CommandHost.CompanionAvatarId }), Player);
+        var burnsOn = _host.Nature.Fire != null;
+        for (var i = 0; i < 200 && _host.Nature.Fire != null; i++) Steps(1);
         var wait = Send(Command(NextId("line-wait"), "nature.cast", LineArgs(start, end), preview: true), Companion);
-        Check(Code(off1) == "permission_denied" && Ok(gubble) && Code(second) == "target_busy" && Ok(x) && _host.Nature.Fire == null && Code(wait) == "rate_limited",
-            $"the Gubble's Fireline: refused while the player's switch is off, lit when on, one at a time, put out by X, then the wait: {Code(off1)}, {Code(second)}, {Code(wait)}");
+        Check(Code(off1) == "permission_denied" && Ok(gubble) && Code(second) == "target_busy" && Ok(x) && burnsOn && _host.Nature.Fire == null && Code(wait) == "rate_limited",
+            $"the Gubble's Fireline: refused while the player's switch is off, lit when on, one at a time, burning on past X until it burns out, then the wait: {Code(off1)}, {Code(second)}, {Code(wait)}");
         // The island saved with Fireline receipts in it loads again, every receipt read back.
         var saved = _host.Revision;
         await NewWorld(SavePath("fire-kinds-line"));
@@ -189,7 +261,8 @@ public partial class NatureTest
         Steps((int)Math.Ceiling(FireKindLaws.SnuffDampS / NatureLaws.StepS) + 1);
         var gubbleFire = Fire(Companion, p, 0.15, 6, out _);
         Check(Ok(gubbleFire), "(the Gubble lights a fire) " + Canonical(gubbleFire["error"]));
-        Send(Command(NextId("x"), "goal.stop", new JsonObject { ["actor"] = CommandHost.CompanionAvatarId }), Player);
+        // It burns out (decision 82: X would put it out no more), and the Gubble's wait starts.
+        for (var i = 0; i < 200 && _host.Nature.Fire != null; i++) Steps(1);
         var waiting = Send(Command(NextId("wait"), "nature.cast", Cast("fire", p, 0.15, 6), preview: true), Companion);
         Check(Ok(Fire(Player, p + new Vector3(-0.6f, 0, 0), 0.3, 30, out _)), "(the player lights a fire, away from the firepit)");
         Steps(2);
@@ -215,7 +288,10 @@ public partial class NatureTest
         Check(!before && Ok(bubble) && FireKnows(ExpertiseLists.Snuff), "a Bubble cast on a fire teaches Snuff: " + Canonical(bubble["error"]));
     }
 
-    /// <summary>Decision 80: Fire on water makes a Will-o'-wisp: transient, three at most, X removes the oldest, not the Gubble's one fire.</summary>
+    /// <summary>
+    /// Decision 80: Fire on water makes a Will-o'-wisp: transient, three at most (the fourth replacing the oldest), not the Gubble's one
+    /// fire. Decision 109: a wisp is not a fire, so no stop removes it (X removed the oldest until 25 October).
+    /// </summary>
     private async Task TestWisp()
     {
         await FireKindsWorld("fire-kinds-wisp");
@@ -243,8 +319,14 @@ public partial class NatureTest
         var fourth = Fire(Player, on + new Vector3(0.2f, 0, 0.2f), 0.3, 30, out _);
         Check(Ok(third) && Ok(fourth) && _host.Wisps.Count == FireKindLaws.MaxWisps && _host.Wisps.All(w => w.Id != first!.Id),
             "three at most: the fourth removes the oldest (the Gubble's wisp burns nothing, so the player's fire switch does not stop it)");
-        Send(Command(NextId("x"), "goal.stop", new JsonObject { ["actor"] = CommandHost.CompanionAvatarId }), Player);
-        Check(_host.Wisps.Count == FireKindLaws.MaxWisps - 1, "X removes the oldest wisp");
+        // Decision 109: X naming the Gubble, X with no actor, the Gubble's own stop and an effect.stop naming one all leave every wisp.
+        var three = _host.Wisps.Select(w => w.Id).ToList();
+        var xGubble = Send(Command(NextId("x"), "goal.stop", new JsonObject { ["actor"] = CommandHost.CompanionAvatarId }), Player);
+        var xAll = Send(Command(NextId("x"), "goal.stop", new JsonObject()), Player);
+        var ownStop = Send(Command(NextId("stop"), "goal.stop", new JsonObject()), Companion);
+        var byId = Send(Command(NextId("stop"), "effect.stop", new JsonObject { ["effect"] = three[0] }), Player);
+        Check(Ok(xGubble) && Ok(xAll) && Ok(ownStop) && Ok(byId) && _host.Wisps.Select(w => w.Id).SequenceEqual(three),
+            $"a wisp is not a fire (decision 109): X (naming the Gubble or not), the Gubble's own stop and effect.stop leave all three ({_host.Wisps.Count} left)");
         _now += TimeSpan.FromSeconds(FireKindLaws.WispLifeS + 1);
         Steps(1);
         Check(_host.Wisps.Count == 0, $"each lasts {FireKindLaws.WispLifeS / 60:0} minutes");

@@ -10,7 +10,8 @@ namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The small in-play settings panel (M7; docs/game/MECHANICS.md section 3, decision 1): C, its button and Esc; the four switches that
-/// left the Customize panel and the Magic page ("Let my AI see", "Let the Gubble use fire", "Play the intro", the numbers); none of the
+/// left the Customize panel and the Magic page ("Let my AI see", "Let the Gubble use fire", "Play the intro", the numbers) and the team's
+/// "Let the Gubble use the chest" (PlayHudTest.Inventory.cs tests its switch); none of the
 /// avatars that moved to the menu; "Change my AI", and "Reset Trust" beside it, which asks first and then sends the player-only
 /// trust.reset through the host.
 /// </summary>
@@ -18,7 +19,7 @@ public partial class PlayHudTest
 {
     private static JsonObject AsGubble(CommandHost host, string op, JsonObject args) => host.HandleObject(new JsonObject
     {
-        ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = "settings-" + Guid.NewGuid().ToString("N")[..12], ["room_id"] = host.Room.RoomId, ["op"] = op, ["args"] = args,
+        ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = "settings-" + Guid.NewGuid().ToString("N")[..12], ["room_id"] = host.Room.RoomId, ["op"] = op, ["args"] = args,
     }.ToJsonString(), CommandHost.CompanionPrincipal);
 
     private async Task TestSettingsPanel()
@@ -33,8 +34,8 @@ public partial class PlayHudTest
 
         // What is in it: the four switches, "Your AI", and nothing of the avatars.
         var switches = panel.FindChildren("*", "CheckButton", true, false).OfType<CheckButton>().Select(b => b.Text).ToArray();
-        Check(switches.SequenceEqual(new[] { "Let my AI see through the Gubble's eyes", "Let the Gubble use fire", "Play the intro", "Show numbers on the meters" }),
-            "the switches are \"Let my AI see\", \"Let the Gubble use fire\", \"Play the intro\" and the numbers: " + string.Join(" | ", switches));
+        Check(switches.SequenceEqual(new[] { "Let my AI see through the Gubble's eyes", "Let the Gubble use fire", "Play the intro", "Show numbers on the meters", "Let the Gubble use the chest" }),
+            "the switches are \"Let my AI see\", \"Let the Gubble use fire\", \"Play the intro\", the numbers and, fifth, \"Let the Gubble use the chest\": " + string.Join(" | ", switches));
         var buttons = panel.FindChildren("*", "Button", true, false).OfType<Button>().Where(b => b is not CheckButton).Select(b => b.Text).ToArray();
         var labels = panel.FindChildren("*", "Label", true, false).OfType<Label>().Select(l => l.Text).ToArray();
         Check(buttons.SequenceEqual(new[] { "Change my AI", "Reset Trust", "Keep it", "Yes, reset Trust", "Back to the menu", "Done" }) && !labels.Contains("YOUR TWO AVATARS"),
@@ -57,7 +58,7 @@ public partial class PlayHudTest
         {
             ["source"] = new JsonObject
             {
-                ["schema"] = "enfractal.creation", ["version"] = 1, ["name"] = "Settings post", ["seed"] = 1, ["mount"] = "ground",
+                ["schema"] = "garage_game.creation", ["version"] = 1, ["name"] = "Settings post", ["seed"] = 1, ["mount"] = "ground",
                 ["parts"] = new JsonArray(new JsonObject
                 {
                     ["id"] = "base", ["shape"] = "box", ["position_m"] = new JsonArray(0, 0.06, 0), ["rotation_deg"] = new JsonArray(0, 0, 0), ["size_m"] = new JsonArray(0.12, 0.12, 0.12), ["material"] = "wood",
@@ -86,7 +87,7 @@ public partial class PlayHudTest
         await Frames(1);
         var lesson = JsonNode.Parse(host.Handle(new JsonObject
         {
-            ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "settings-journal", ["room_id"] = host.Room.RoomId, ["op"] = "journal.read",
+            ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "settings-journal", ["room_id"] = host.Room.RoomId, ["op"] = "journal.read",
             ["args"] = new JsonObject { ["kind"] = "consequence", ["limit"] = 10 },
         }.ToJsonString(), CommandHost.CompanionPrincipal))!.AsObject();
         var lines = lesson["data"]?["entries"]?.AsArray().Select(e => e?["line"]?.GetValue<string>() ?? "").ToArray() ?? Array.Empty<string>();

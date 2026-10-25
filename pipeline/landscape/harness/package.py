@@ -3,7 +3,7 @@ import argparse
 import copy
 import math
 from pathlib import Path, PurePosixPath
-from .common import (FORMAT, VERSION, FRAME, MAX_BYTES, MAX_TRIANGLES, MAX_INSTANCES, MAX_EXPANDED_TRIANGLES,
+from .common import (FORMAT, FORMATS, VERSION, FRAME, MAX_BYTES, MAX_TRIANGLES, MAX_INSTANCES, MAX_EXPANDED_TRIANGLES,
                      ROLES, canonical, sha, load_json, finite, fields, require,
                      number, vector, token)
 from .glb import encode_mesh, decode_mesh
@@ -169,7 +169,7 @@ def validate_records(doc, meshes, room):
     factor = land_factor(doc, meshes)
     fields(doc,['format','version','units','axes','floor_y_m','source','setup','generator',
                 'files','material_roles','meshes','terrain','water','scenery','prototypes','scatter','objects'])
-    require(doc['format']==FORMAT and type(doc['version']) is int and doc['version']==VERSION, 'format/version')
+    require(doc['format'] in FORMATS and type(doc['version']) is int and doc['version']==VERSION, 'format/version')
     require(doc['units']=='m' and doc['axes']==FRAME and doc['floor_y_m']==0, 'units/frame')
     require(room['units']=='m' and room['axes']==FRAME, 'room units/frame')
     fields(doc['source'],['room_id','room_sha256','inventory_sha256'])

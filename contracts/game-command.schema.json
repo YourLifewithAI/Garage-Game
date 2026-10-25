@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.enfractal.invalid/v1/game-command.schema.json",
+  "$id": "https://contracts.garage-game.invalid/v1/game-command.schema.json",
   "title": "EnFractal game messages: command, query and result",
   "description": "The single path for every world change. Manual controls, the AI companion adapter and tests send the same commands. The principal is never part of a request: the trusted adapter assigns it and the result echoes it for audit. A command is idempotent per principal and action_id; its fingerprint is the SHA-256 of the canonical command JSON as received, never of a translation. Queries are read-only. Size limits: a command or query is at most 65,536 bytes of canonical JSON, a creation source at most 32,768, a result at most 262,144. Every string in results that names or describes something in the world is untrusted data. Validation here is structural; the host still checks bounds, protection, budgets, approvals and the creation compiler.",
   "type": "object",
@@ -10,6 +10,9 @@
   "properties": {
     "schema": {
       "enum": [
+        "garage_game.command",
+        "garage_game.query",
+        "garage_game.result",
         "enfractal.command",
         "enfractal.query",
         "enfractal.result"
@@ -21,7 +24,10 @@
       "if": {
         "properties": {
           "schema": {
-            "const": "enfractal.command"
+            "enum": [
+              "garage_game.command",
+              "enfractal.command"
+            ]
           }
         },
         "required": [
@@ -36,7 +42,10 @@
       "if": {
         "properties": {
           "schema": {
-            "const": "enfractal.query"
+            "enum": [
+              "garage_game.query",
+              "enfractal.query"
+            ]
           }
         },
         "required": [
@@ -51,7 +60,10 @@
       "if": {
         "properties": {
           "schema": {
-            "const": "enfractal.result"
+            "enum": [
+              "garage_game.result",
+              "enfractal.result"
+            ]
           }
         },
         "required": [
@@ -100,7 +112,12 @@
         "knack.set",
         "fractal.spend",
         "receipt.mark",
-        "trust.reset"
+        "trust.reset",
+        "inventory.store",
+        "inventory.take",
+        "inventory.use",
+        "inventory.drop",
+        "inventory.select"
       ]
     },
     "query_op": {
@@ -134,7 +151,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.command"
+          "enum": [
+            "garage_game.command",
+            "enfractal.command"
+          ]
         },
         "version": {
           "type": "integer",
@@ -682,6 +702,66 @@
               }
             ]
           }
+        },
+        {
+          "if": {
+            "$ref": "#/$defs/is_op/inventory.store"
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/inventory.store"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "$ref": "#/$defs/is_op/inventory.take"
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/inventory.take"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "$ref": "#/$defs/is_op/inventory.use"
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/inventory.use"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "$ref": "#/$defs/is_op/inventory.drop"
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/inventory.drop"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "$ref": "#/$defs/is_op/inventory.select"
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/inventory.select"
+              }
+            }
+          }
         }
       ]
     },
@@ -698,7 +778,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.query"
+          "enum": [
+            "garage_game.query",
+            "enfractal.query"
+          ]
         },
         "version": {
           "type": "integer",
@@ -906,7 +989,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.result"
+          "enum": [
+            "garage_game.result",
+            "enfractal.result"
+          ]
         },
         "version": {
           "type": "integer",
@@ -1000,7 +1086,7 @@
           "$ref": "#/$defs/error"
         },
         "notices": {
-          "description": "Companion results only: what the Gubble's actions did to the player (consequence_notice), and what happened to the Gubble that it did not do itself (catch_up_notice: it caught up with the player), since its last result, each delivered once. A host that has none sends none.",
+          "description": "Companion results only: what the Gubble's actions did to the player (consequence_notice), the consequence facts the game wrote about the Gubble's own actions, in the game's words with the Trust they moved (consequence_fact_notice, since P-Round3, decision 134), and what happened to the Gubble that it did not do itself (catch_up_notice: it caught up with the player), since its last result, each delivered once. A host that has none sends none. Only the host writes them; no request carries, asks for or changes one.",
           "type": "array",
           "maxItems": 8,
           "items": {
@@ -1018,7 +1104,22 @@
               "$ref": "#/$defs/catch_up_notice"
             },
             "else": {
-              "$ref": "#/$defs/consequence_notice"
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "consequence"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "then": {
+                "$ref": "#/$defs/consequence_fact_notice"
+              },
+              "else": {
+                "$ref": "#/$defs/consequence_notice"
+              }
             }
           }
         },
@@ -1034,7 +1135,7 @@
           "$ref": "common.schema.json#/$defs/principal_id"
         },
         "transient": {
-          "description": "True for commands that change no saved state: goals, stops (wish.stop among them), effects and their adjustments, a Bubble's cast (bubble_carry, bubble_boat, bubble_lift), grabs, activations, the world's physics and the player's own settings (the game mode, Glow's touch and sound, a knack, a receipt's mark and a Trust reset), which the player's profile and the team file keep, never the room. Their receipts live for the session only. Nature changes (Grow, Fire, repairs) and their room.undo, and a Fractal's pickup, are durable.",
+          "description": "True for commands that change no saved state: goals, stops (wish.stop among them), effects and their adjustments, a Bubble's cast (bubble_carry, bubble_boat, bubble_lift), grabs, activations, the world's physics, the player's own settings (the game mode, Glow's touch and sound, a knack, a receipt's mark and a Trust reset) and an inventory.use and an inventory.select (the hand's selection), which the player's profile and the team file keep, never the room. Their receipts live for the session only. Nature changes (Grow, Fire, repairs) and their room.undo, a Fractal's pickup (or a plant's food picked), a gather and the inventory's store, take and drop (the chest and a thing held away are the island's room state) are durable.",
           "type": "boolean"
         }
       },
@@ -1893,6 +1994,188 @@
               "data": false
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "op": {
+                "enum": [
+                  "inventory.store",
+                  "inventory.take",
+                  "inventory.use",
+                  "inventory.drop"
+                ]
+              },
+              "preview": {
+                "const": false
+              }
+            },
+            "required": [
+              "ok",
+              "op",
+              "preview"
+            ]
+          },
+          "then": {
+            "required": [
+              "data"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/$defs/data/inventory"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "op": {
+                "enum": [
+                  "inventory.store",
+                  "inventory.take",
+                  "inventory.drop"
+                ]
+              },
+              "preview": {
+                "const": false
+              }
+            },
+            "required": [
+              "ok",
+              "op",
+              "preview"
+            ]
+          },
+          "then": {
+            "required": [
+              "transient"
+            ],
+            "properties": {
+              "transient": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "op": {
+                "enum": [
+                  "inventory.use"
+                ]
+              },
+              "preview": {
+                "const": false
+              }
+            },
+            "required": [
+              "ok",
+              "op",
+              "preview"
+            ]
+          },
+          "then": {
+            "required": [
+              "transient"
+            ],
+            "properties": {
+              "transient": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "enum": [
+                  "inventory.store",
+                  "inventory.take",
+                  "inventory.use",
+                  "inventory.drop"
+                ]
+              },
+              "preview": {
+                "const": true
+              }
+            },
+            "required": [
+              "op",
+              "preview"
+            ]
+          },
+          "then": {
+            "properties": {
+              "data": false
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "op": {
+                "const": "inventory.select"
+              },
+              "preview": {
+                "const": false
+              }
+            },
+            "required": [
+              "ok",
+              "op",
+              "preview"
+            ]
+          },
+          "then": {
+            "required": [
+              "data",
+              "transient"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/$defs/data/inventory.select"
+              },
+              "transient": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "inventory.select"
+              },
+              "preview": {
+                "const": true
+              }
+            },
+            "required": [
+              "op",
+              "preview"
+            ]
+          },
+          "then": {
+            "properties": {
+              "data": false
+            }
+          }
         }
       ]
     },
@@ -2067,7 +2350,7 @@
       "pattern": "^avatar:[A-Za-z0-9_-]{1,64}$"
     },
     "creation_source": {
-      "description": "An enfractal.creation manifest. The creation compiler is its authority; this contract fixes its top-level keys and sizes so nothing else rides along.",
+      "description": "An garage_game.creation manifest. The creation compiler is its authority; this contract fixes its top-level keys and sizes so nothing else rides along.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -2082,7 +2365,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.creation"
+          "enum": [
+            "garage_game.creation",
+            "enfractal.creation"
+          ]
         },
         "version": {
           "type": "integer",
@@ -2760,6 +3046,56 @@
         "required": [
           "op"
         ]
+      },
+      "inventory.store": {
+        "properties": {
+          "op": {
+            "const": "inventory.store"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "inventory.take": {
+        "properties": {
+          "op": {
+            "const": "inventory.take"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "inventory.use": {
+        "properties": {
+          "op": {
+            "const": "inventory.use"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "inventory.drop": {
+        "properties": {
+          "op": {
+            "const": "inventory.drop"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "inventory.select": {
+        "properties": {
+          "op": {
+            "const": "inventory.select"
+          }
+        },
+        "required": [
+          "op"
+        ]
       }
     },
     "args": {
@@ -2965,7 +3301,7 @@
         }
       },
       "goal.set": {
-        "description": "Give an avatar a goal. A goal with a target runs as a job (the result's job_id; poll jobs.status). fetch: walk to the target, pick it up (as entity.grab, with the same checks and carry limit) and bring it back to the player, still holding it; entity.release then puts it down. Its job succeeds when the companion is back beside the player holding it. A companion's fetch of a Fractal (fractal:) is refused permission_denied, the same answer whether or not it exists: the Gubble may find a Fractal, go to it and look at it, never gather it. lead (decision 57, the smart ask's steering): the Gubble leads a bubble (target: the bubble's effect: id, never an avatar or a thing) to a spot (position_m), the bubble trailing it on its string; it may pop before it arrives. A spot higher than the bubble can drift is a lift: it floats up there (at most 1.2 m), and the lift's price is charged when it starts to rise, to the principal who set the lead (no pips, no rise: energy_exhausted). The Gubble's own stop (goal.stop, or a new goal) pops the bubble it leads, and the player drifts down gently where it popped; the dive key or X pops it at any moment, even mid-lead. A lead itself costs nothing and is saved nowhere; its job succeeds when the bubble arrives, and the goal.set receipt's data says how it ended.",
+        "description": "Give an avatar a goal. A goal with a target runs as a job (the result's job_id; poll jobs.status). fetch: walk to the target, pick it up (as entity.grab, with the same checks and carry limit) and bring it back to the player, still holding it; entity.release then puts it down. Its job succeeds when the companion is back beside the player holding it. A companion's fetch of a Fractal (fractal:) is refused permission_denied, the same answer whether or not it exists: the Gubble may find a Fractal, go to it and look at it, never gather it. lead (decision 57, the smart ask's steering): the Gubble leads a bubble (target: the bubble's effect: id, never an avatar or a thing) to a spot (position_m), the bubble trailing it on its string; it may pop before it arrives. A spot higher than the bubble can drift is a lift: it floats up there (at most 1.2 m), and the lift's price is charged when it starts to rise, to the principal who set the lead (no pips, no rise: energy_exhausted). The Gubble's own stop (goal.stop, or a new goal) pops the bubble it leads, and the player falls from where it popped (decision 88: hurt by the landing as by any fall, a climbable face within reach can be grabbed; a fall that hurts after the Gubble's own pop is a consequence fact, decision 96); the dive key or X pops it at any moment, even mid-lead. A lead itself costs nothing and is saved nowhere; its job succeeds when the bubble arrives, and the goal.set receipt's data says how it ended.",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -3585,7 +3921,7 @@
         ]
       },
       "nature.cast": {
-        "description": "Cast a nature ability at center_m. The intensity is the pack's; the bounds are the island's. Fire is previewed first (preview: true answers a preview_id) and the cast names that preview. Locks never burn; what a fire does to creations and avatars is the host's fire rule by game mode (contracts/README.md, \"Nature\"), and a fire may wait for the player's yes. Grow and Fire are durable: one room revision, which room.undo takes back. The Gubble's fire is refused permission_denied when the player has turned off \"Let the Gubble use fire\", target_busy while its own fire burns and rate_limited for 20 s after its last went out. The price (the mechanics round): outside Creative a cast costs connection energy from the rules pack's cost block, and the price follows the principal alone, never a field, a tag or a wish's words: the player's keys, wheel and HUD pay the ordered price, every command on the Gubble's connection pays the own-idea price. It is charged once, at commit, never on a preview; stops and refused commands cost nothing; an empty pool refuses with energy_exhausted, carrying the balance and the price; in Creative a shadow pool shows the price and never refuses. The Bubbles expertise (bubble_carry, bubble_boat, bubble_lift) are cast here too, never by a new op: a bubble the player can leave, never a move of a body. The targets rule: only bubble_carry and bubble_lift may name a target, an avatar the bubble envelops; the companion may name the player's avatar, the one exception to \"companion effects target only its own avatar\". Such a cast is previewed first and names its preview_id (the ghost preview the player sees is the consent); a bubble cast at a point without a target carries the player only when the player steps in (the step-in is the consent); the dive key or X pops it at any moment, and a pop in the air deflates into a slow drift down. A committed bubble is transient (it lives for the session like an effect, and nothing about it is saved): the result's created and data.bubble name its effect: id, which effect.stop names (the player any, a companion its own) and goal.stop of the Gubble pops; its receipt says carried once it holds the player and ended (popped_by_player, timed_out or popped) once it is gone, so the player can mark it. A bubble moves only while the Gubble leads it (goal.set lead); it moves the player only while it holds them. A Gubble's cast on the player commits a moment after its preview (not_ready before it). One bubble at a time: a recast pops the one there. bubble_lift is refused as a cast (unsupported_capability): Lift is leading a bubble to a higher spot. The Bubble is cast too with effect.start of the island's Bubbles, where the place decides (on the player a carry, its ghost first; on water a boat; elsewhere a bubble to walk into). Fire's place decides too (decisions 77 to 80; the preview's and receipt's data.kind says what it made): an unlit firepit in its circle is lit (firepit); once learned, a cast that names end_m is a Fireline (the whole line catching at once, one fire under Fire's guardrails, priced as fireline), a cast on something burning is Snuff (everything burning in a 1.5 m circle goes out, lit campfires too, the ground damp and unable to catch for 30 s; no fire, allowed while the Gubble's fire budget waits, its Snuff of a lit campfire waiting for the player's yes; priced as snuff); a cast on water is a Will-o'-wisp (a cold flame hovering over the water that burns nothing and is no fire, lasting 5 minutes, at most three, transient like a bubble, the oldest removed by a fourth or by the Gubble's stop; priced as will_o_wisp). The kinds' prices are the pack's cost block's (a kind it does not price costs nothing). Every Fire kind is previewed first and names its preview. Snuff and the wisp keep transient receipts (no room revision); a Fireline is durable, one undo step in Creative.",
+        "description": "Cast a nature ability at center_m. The intensity is the pack's; the bounds are the island's. Fire is previewed first (preview: true answers a preview_id) and the cast names that preview. Locks never burn; what a fire does to creations and avatars is the host's fire rule by game mode (contracts/README.md, \"Nature\"), and a fire may wait for the player's yes. Grow and Fire are durable: one room revision, which room.undo takes back. The Gubble's fire is refused permission_denied when the player has turned off \"Let the Gubble use fire\", target_busy while its own fire burns and rate_limited for 20 s after its last went out. The price (the mechanics round): outside Creative a cast costs connection energy from the rules pack's cost block, and the price follows the principal alone, never a field, a tag or a wish's words: the player's keys, wheel and HUD pay the ordered price, every command on the Gubble's connection pays the own-idea price. It is charged once, at commit, never on a preview; stops and refused commands cost nothing; an empty pool refuses with energy_exhausted, carrying the balance and the price; in Creative a shadow pool shows the price and never refuses. The Bubbles expertise (bubble_carry, bubble_boat, bubble_lift) are cast here too, never by a new op: a bubble the player can leave, never a move of a body. The targets rule: only bubble_carry and bubble_lift may name a target, an avatar the bubble envelops; the companion may name the player's avatar, the one exception to \"companion effects target only its own avatar\". Such a cast is previewed first and names its preview_id (the ghost preview the player sees is the consent); a bubble cast at a point without a target carries the player only when the player steps in (the step-in is the consent); the dive key or X pops it at any moment, and a pop in the air is a fall from where it popped (decision 88, replacing the slow drift down). A committed bubble is transient (it lives for the session like an effect, and nothing about it is saved): the result's created and data.bubble name its effect: id, which effect.stop names (the player any, a companion its own) and goal.stop of the Gubble pops; its receipt says carried once it holds the player and ended (popped_by_player, timed_out or popped) once it is gone, so the player can mark it. A bubble moves only while the Gubble leads it (goal.set lead); it moves the player only while it holds them. A Gubble's cast on the player commits a moment after its preview (not_ready before it). One bubble at a time: a recast pops the one there (a Gubble recast the player said yes to, its held cast approved, is the player's pop: decision 115). bubble_lift is refused as a cast (unsupported_capability): Lift is leading a bubble to a higher spot. The Bubble is cast too with effect.start of the island's Bubbles, where the place decides (on the player a carry, its ghost first; on water a boat; elsewhere a bubble to walk into). Fire's place decides too (decisions 77 to 80; the preview's and receipt's data.kind says what it made): an unlit firepit in its circle is lit (firepit); once learned, a cast that names end_m is a Fireline (the whole line catching at once, one fire under Fire's guardrails, priced as fireline), a cast on something burning is Snuff (everything burning in a 1.5 m circle goes out, lit campfires too, the ground damp and unable to catch for 30 s; no fire, allowed while the Gubble's fire budget waits, its Snuff of a lit campfire waiting for the player's yes; priced as snuff); a cast on water is a Will-o'-wisp (a cold flame hovering over the water that burns nothing and is no fire, lasting 5 minutes, at most three, a fourth replacing the oldest, transient like a bubble; no fire, so no stop removes it, X and the Gubble's stop included (decision 109); priced as will_o_wisp). Grow's place decides too (decisions 75 and 104 to 107; data.kind names an unlock's): on water a waterpad (no kind); a drag (end_m) a bridge of plants from lip to lip; at a wall at least 70 degrees steep, ivy rooted at its foot (a climb on it drains the bar at a quarter of a bare face's rate); on burnt ground, the nearest burnt plant of a set that seeds replanted as a seedling (replant); elsewhere the plants in the circle grow, and a plant already at its cap ripens the food still unripe on it (decision 127: a plant grows first and ripens only at its cap; a cast that only ripens is charged as any Grow), and where none can grow or ripen and the soil is bare and fertile, up to 12 sprouts copying the nearest grass and flowers (sprouts). Each unlock opens with the team's Grow expertise count (two: sprouts and replant; three: bridge; five: ivy) and is refused permission_denied before it, whoever asks (capabilities.list names the locked ones, locked_kinds); a place-decided one falls back to plain Grow while that has anything to grow. Seedlings start at half their natural size and grow to it through phases of the island clock's daylight (only its hours from 06:00 to 18:00 count, decision 122: a sprout's cast never fails for light, and one made at night grows from sunrise); a reload continues them, the hours the game was closed counted as any (decision 121). Every Grow kind is priced as grow, durable, one undo step in Creative, and burns as a plant; none moves an avatar (a bridge's collision lies over the void alone, one-sided). The kinds' prices are the pack's cost block's (a kind it does not price costs nothing). Every Fire kind is previewed first and names its preview. Snuff and the wisp keep transient receipts (no room revision); a Fireline is durable, one undo step in Creative.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -3624,7 +3960,7 @@
             "$ref": "#/$defs/avatar_id"
           },
           "end_m": {
-            "description": "Fire only, once the team has learned Fireline (permission_denied before): the drag's end. The line from center_m to end_m, at least 0.2 m and at most 3 m long (invalid_args otherwise), catches at once wherever its ground can; both ends and its middle within the Gubble's reach and the team's sight. request_invalid for any other capability.",
+            "description": "A drag's end, for Fire and Grow (request_invalid for any other capability). Fire, once the team has learned Fireline (permission_denied before): the line from center_m to end_m, at least 0.2 m and at most 3 m long (invalid_args otherwise), catches at once wherever its ground can. Grow, once the team has learned three of Grow's expertise (permission_denied before, ahead of every other check of the cast; decision 106): a bridge of plants from the lip at center_m to the lip at end_m, standable ground each, level within 0.02 m, at least 0.4 m and never more than 1.2 m apart, over one true void between them (no ground within 0.15 m under the deck, or swimmable water) with nothing in the way (invalid_args otherwise), and no avatar where its collision would be (target_busy). Both ends and the middle within the Gubble's reach and the team's sight.",
             "$ref": "common.schema.json#/$defs/vec3"
           }
         },
@@ -3661,7 +3997,10 @@
             "then": {
               "properties": {
                 "capability": {
-                  "const": "fire"
+                  "enum": [
+                    "fire",
+                    "grow"
+                  ]
                 }
               }
             }
@@ -3683,7 +4022,7 @@
         ]
       },
       "nature.repair": {
-        "description": "Repair one scorched creation from its hash-pinned design, at its original material cost from the team's wallet (free in Creative). The Gubble's repair of a creation the player made waits for the player's yes. Durable.",
+        "description": "Repair one scorched creation from its hash-pinned design, at its original material cost (free in Creative), paid in logs and stones (P-Inventory-2, decision 116): a unit of the rules pack's kind whose material each is per unit of cost, from the pockets first, then the chest; invalid_args, in the kernel's words, when they hold too few (\"This repair needs 2 logs and 1 stone, more than your pockets and the chest hold.\") or no kind is made of a material. The Gubble's repair of a creation the player made waits for the player's yes, as every change of what the player made does; since P-Round3 (decision 131) a spend no longer asks: the Gubble repairs without asking when a repair spends logs or stones, charged from the pockets first, then the chest, as the player's repair is (refused in the kernel's words when they hold too few), and the spend is made visible (data.spent; the game shows it above the thing repaired). Durable.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -3773,7 +4112,7 @@
         }
       },
       "item.pickup": {
-        "description": "Pick up a Fractal within the player's reach: it leaves the island into the team's count for this mode (spent five at a time at a camp for a heart or the next stamina band). Player-only: the Gubble may find a Fractal and mark it on the minimap, never gather it. Durable (the Fractal is gone from this island save); no data, the Fractal is in affected. The torch round's items share the pickup rule (\"anyone\" for torches, \"player\" for Fractals). The kernel host picks one up (M1); the mock host, which places no Fractals, answers the player unsupported_capability.",
+        "description": "Pick up a Fractal within the player's reach: it leaves the island into the team's count for this mode (spent five at a time at a camp for a heart or the next stamina band). Player-only: the Gubble may find a Fractal and mark it on the minimap, never gather it. Durable (the Fractal is gone from this island save); no data, the Fractal is in affected. Since P-Food (25 October) the target may instead be a plant that bears food (the rules pack's food block; a plant: id of the room's copies): one unit of its food, the spot the player faces within reach (a canopy apple with a hop), goes into the pockets under their caps (occupied with the pockets' words when it would not fit, and nothing is picked); the plant's picked spots are the island's nature, everything picked grows back the pack's regrow_h island hours after its last pick. The same rules: player-only, durable, no data, the plant in affected. The torch round's items share the pickup rule (\"anyone\" for torches, \"player\" for Fractals). The kernel host picks one up (M1); the mock host, which places no Fractals, answers the player unsupported_capability.",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -3781,12 +4120,19 @@
         ],
         "properties": {
           "target": {
-            "$ref": "common.schema.json#/$defs/fractal_id"
+            "oneOf": [
+              {
+                "$ref": "common.schema.json#/$defs/fractal_id"
+              },
+              {
+                "$ref": "common.schema.json#/$defs/plant_id"
+              }
+            ]
           }
         }
       },
       "item.gather": {
-        "description": "Gather the loose log or stone the player is holding (an obj: it picked up with entity.grab) into the team's wallet: a log is wood, a stone is stone, by what the object is made of (its asset's material roles: bark or wood, or stone; a movable thing that is no container). It leaves the island as one durable room revision (room state keeps it as a removed entity, as fire's leaves a burnt one) and the wallet's count shows on player.status (wallet). Player-only: refused permission_denied to a companion before anything is looked up. Holding nothing, or holding something that is not a loose log or stone, is request_invalid at $.args.target. No data: the object is in affected.",
+        "description": "Gather a loose log or stone into the pockets (P-Inventory-2, decision 116 and the founder's refinement of 25 October: picking one up is not a carry): an obj: within the player's reach, or the one it holds. A log is a unit of the rules pack's inventory kind whose material is wood, a stone of the kind whose material is stone, by what the object is made of (its asset's material roles: bark or wood, or stone; a movable thing that is no container). It joins its stack at once and that slot becomes the hand's selection (inventory.select's state). Refused occupied in the pockets' own words when the stack or the slots are full, and the thing stays where it is; unsupported_capability without the pack's inventory block; request_invalid for a thing that is no loose log or stone; target_busy while the hands hold something else; out_of_bounds out of reach. It leaves the island as one durable room revision (room state keeps it as a removed entity, as fire's leaves a burnt one). Player-only: refused permission_denied to a companion before anything is looked up. No data: the object is in affected. The materials wallet it once filled is retired.",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -3858,6 +4204,190 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {}
+      },
+      "inventory.store": {
+        "description": "Put something away. From the hand (the default): what the actor holds into the chest, at a camp (a lit campfire or the starting one), or into the pockets, anywhere: a held stackable (a room object of a kind that names its asset, or since P-Inventory-2 a loose log or stone, by the kind whose material it is) as a unit of its stack, a unique thing as an entry of its own (decision 99). From the pockets: a stack or a thing into the chest, at a camp. A unique thing keeps its id: its entity stays in room state as removed (marked gathered in the kernel's nature block) until it comes out. Caps are counts (decision 120): the pack's slots for the pockets and the chest, and a stack's own size (occupied past either). The pockets and the hand are the player's alone: a companion naming the pockets is refused permission_denied before anything is looked up. The chest alone has a companion path: while the player's team setting \"Let the Gubble use the chest\" (gubble_chest) is on, the companion may store what its own avatar holds, at a camp; with it off every companion store is permission_denied at $.op before anything is looked up. No price. A durable receipt with data, one room revision, as item.gather's: the chest and a thing held away are the island's room state (the island save's nature, its team block and the receipt in one write; the team file's pockets beside it).",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "to"
+        ],
+        "properties": {
+          "to": {
+            "enum": [
+              "chest",
+              "pockets"
+            ]
+          },
+          "from": {
+            "description": "hand (the default) or pockets.",
+            "enum": [
+              "hand",
+              "pockets"
+            ]
+          },
+          "item": {
+            "description": "The pockets' entry to store (required from the pockets); from the hand it may name what is held, and must then be it.",
+            "$ref": "#/$defs/inventory_item"
+          },
+          "count": {
+            "description": "How many units of a stack (absent: the whole stack). A unique thing is one.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "from": {
+                  "const": "pockets"
+                }
+              },
+              "required": [
+                "from"
+              ]
+            },
+            "then": {
+              "required": [
+                "item"
+              ],
+              "properties": {
+                "to": {
+                  "const": "chest"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "inventory.take": {
+        "description": "Take something out: from the chest (the default), at a camp: a unique thing into the actor's hand (empty hands, within its carry limit) or into the pockets, a stack's units into the pockets; since P-Inventory-2 from the pockets (from: pockets), anywhere: a unique thing of this island into the player's hand, its slot kept for it and then the hand's selection (HOTBAR.md: the hand); a stack stays in the pockets (request_invalid: its slot arms a unit).; since P-Inventory-2 (decision 118) from the ground (from: ground), anywhere: the loose unit of the kind the player faces within reach (a windfall lying at its plant's trunk, its spot then picked until it grows back, or a unit set down with inventory.drop) into its stack in the pockets, one unit (to pockets; target_not_found when none is in reach; occupied in the pockets' words when it would not fit), nothing in affected. Into the pockets, and anything from them, is the player's alone (permission_denied to a companion before anything is looked up); while gubble_chest is on the companion may take a thing from the chest into its own hands, never the player's; with it off every companion take is permission_denied at $.op. A durable receipt with data, one room revision, as a store's.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "item",
+          "to"
+        ],
+        "properties": {
+          "item": {
+            "$ref": "#/$defs/inventory_item"
+          },
+          "to": {
+            "enum": [
+              "hand",
+              "pockets"
+            ]
+          },
+          "count": {
+            "description": "How many units of a stack (absent: the whole stack). A unique thing is one.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "from": {
+            "description": "chest (the default), pockets or ground.",
+            "enum": [
+              "chest",
+              "pockets",
+              "ground"
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "from": {
+                  "const": "pockets"
+                }
+              },
+              "required": [
+                "from"
+              ]
+            },
+            "then": {
+              "properties": {
+                "to": {
+                  "const": "hand"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "from": {
+                  "const": "ground"
+                }
+              },
+              "required": [
+                "from"
+              ]
+            },
+            "then": {
+              "properties": {
+                "to": {
+                  "const": "pockets"
+                },
+                "count": {
+                  "const": 1
+                }
+              }
+            }
+          }
+        ]
+      },
+      "inventory.use": {
+        "description": "Use one unit of a stack in the pockets: a kind whose use heals (heal_quarters) heals at once, with no unharmed wait (decision 111); at full hearts the unit stays (not_ready); in Creative it heals nothing (decision 108) and, since P-Inventory-2 (decision 125), the unit is used up there too, at full hearts or not (hearts do nothing in Creative; other effects will). Every unit eaten makes its sound (decision 108, Creative too): its receipt's data says so (sound eat). A kind with no use is request_invalid, in the kernel's words (a seed: planting comes with farming; a log or stone: for building and repairs). Since P-Inventory-2 (decision 118) an apple eaten gives a seed into the pockets, berries one time in three (chosen from the eating's action id, provisional), when it fits (data.seeds: how many went in); since P-Round3 (decision 132) a seed that does not fit lies loose at the player's feet instead, never lost (a durable inventory.drop of the seed under the host's own action id, data.seeds_loose), and with no ground there to lie on the eating is refused out_of_bounds in the kernel's words. Player-only. A transient receipt with data: a use changes the pockets (the team file) and the body, never the room. Since P-Inventory-2 no item is the hand's selected slot (inventory.select): its stack's unit; a thing there has no use (request_invalid); an empty slot is target_not_found; no pockets slot chosen is request_invalid.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "item": {
+            "description": "A kind in the pockets (absent: the hand's selected slot).",
+            "$ref": "common.schema.json#/$defs/token"
+          }
+        }
+      },
+      "inventory.drop": {
+        "description": "Set a unique thing from the pockets on the ground before the player (the room's physics settles it, as a put-down does), on the island it came from; it is back in the room with its own id. Since P-Inventory-2 (decision 118) a stack's unit is set down too: one unit lies loose on the ground before the player, a thing of its kind in the world (the kernel's x_play_nature loose list, at most 256 an island, the oldest going first; loose units burn in fire), picked up again with inventory.take from the ground; one durable room revision, nothing in affected, data to ground; no ground before the player is out_of_bounds (retryable). Player-only. A durable receipt with data, as a store's: the thing's new pose is saved first as a put-down's is (an entity.place receipt under the host's own action id, one room revision), then the drop's own receipt is the next. Since P-Inventory-2 no item is the hand's selected slot: the unique thing it took into the hand is set down from there, the same two revisions.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "item": {
+            "$ref": "#/$defs/inventory_item",
+            "description": "An entry of the pockets (absent: the hand's selected slot)."
+          }
+        }
+      },
+      "inventory.select": {
+        "description": "Choose what the hand holds (P-Inventory-2; docs/game/MECHANICS.md decision 119, docs/game/HOTBAR.md): a slot of one of the hotbar's two layers, 1 to 10, or null for none; layer pockets (the default) or abilities. Kept per mode in the team file (hand), so a reload keeps the hand. The pockets' layer is the kernel's: a stack's slot arms its unit (inventory.use and inventory.drop act on it when they name no item); a unique thing's slot takes it into the hand (an inventory.take from the pockets, a durable receipt under the host's own action id), its slot kept for it; any other choice on the pockets' layer (another slot or none, or the pockets brought down at a slot other than the one they kept) first returns what the hands carry to the pockets (an inventory.store, to its own slot when it came from one), refused occupied in the pockets' words when there is no room, and then nothing changes. Switching the layers never touches what the hands carry (decision 129): the abilities' layer in the hand, a choice within it, and the pockets brought back down at the slot they kept leave it held, so casting with full hands is allowed. The abilities' layer is the HUD's: the host only records it. A pockets slot past the pack's slots is invalid_args. Player-only: no companion command touches the selection or the hand. A transient receipt whose data is the hand after it (player.status's hand).",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "slot"
+        ],
+        "properties": {
+          "slot": {
+            "description": "1 to 10 (keys 1 to 0), or null for none.",
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 10
+          },
+          "layer": {
+            "description": "pockets (the default) or abilities.",
+            "enum": [
+              "pockets",
+              "abilities"
+            ]
+          }
+        }
       }
     },
     "data": {
@@ -4095,6 +4625,45 @@
           "next_cursor": {
             "type": "string",
             "maxLength": 128
+          },
+          "inventory": {
+            "description": "The inventory's four commands (P-Inventory), on the whole list's first answer (no category, no cursor) when the island's pack has an inventory block: which are the player's alone, and whether the player's team setting \"Let the Gubble use the chest\" is on now (the companion's one path: its own hands and the chest).",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ops",
+              "gubble_chest"
+            ],
+            "properties": {
+              "gubble_chest": {
+                "type": "boolean"
+              },
+              "ops": {
+                "type": "array",
+                "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "op",
+                    "player_only"
+                  ],
+                  "properties": {
+                    "op": {
+                      "enum": [
+                        "inventory.store",
+                        "inventory.take",
+                        "inventory.use",
+                        "inventory.drop"
+                      ]
+                    },
+                    "player_only": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -4254,7 +4823,7 @@
         }
       },
       "player.status": {
-        "description": "The player's mode and body: health, stamina and what climbing has earned. consequences is false in Creative. Since the mechanics round the host may add the connection energy (energy), the hearts in quarters (hearts) and the bar's bands (bar); the maximum health and stamina are fields of the vitals, up to 30 hearts with Big heart (720) and the top band with Big bar (4.8 m); and the team's wallet (wallet), the materials gathered and spent on repairs, as nature.describe counts them.",
+        "description": "The player's mode and body: health, stamina and what climbing has earned. consequences is false in Creative. Since the mechanics round the host may add the connection energy (energy), the hearts in quarters (hearts) and the bar's bands (bar); the maximum health and stamina are fields of the vitals, up to 30 hearts with Big heart (720) and the top band with Big bar (4.8 m); and since P-Inventory the pockets (pockets) and the island's chest (chest), when the pack has an inventory block. Since P-Inventory-2 the materials wallet is retired (decision 116): logs and stones are stacks in the pockets and the chest, each entry naming its material. Since P-Inventory-2 also the hand (hand): the hotbar's selection and what it holds.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -4390,17 +4959,17 @@
               }
             }
           },
-          "wallet": {
-            "description": "The team's materials (one wallet for the player and the Gubble, kept with the island save): what item.gather put in and repairs took out.",
-            "type": "object",
-            "propertyNames": {
-              "$ref": "#/$defs/creation_material"
-            },
-            "additionalProperties": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 100000
-            }
+          "pockets": {
+            "description": "The player's pockets in this mode (P-Inventory), when the island's rules pack has an inventory block.",
+            "$ref": "#/$defs/inventory_status"
+          },
+          "chest": {
+            "description": "The island's one chest, shared by every campsite (decision 102), when the pack has an inventory block.",
+            "$ref": "#/$defs/inventory_status"
+          },
+          "hand": {
+            "description": "What the hand holds (P-Inventory-2), when the pack has an inventory block.",
+            "$ref": "#/$defs/hand_status"
           }
         },
         "required": [
@@ -4470,7 +5039,7 @@
             "maximum": 200
           },
           "wallet": {
-            "description": "The team's materials for repairs, one wallet for the player and the Gubble.",
+            "description": "The materials a repair could spend now, by material: the units of the kinds with a material (a log wood, a stone stone) in the pockets and the chest together (P-Inventory-2: the wallet itself is retired; the name stays for its readers).",
             "type": "object",
             "propertyNames": {
               "$ref": "#/$defs/creation_material"
@@ -4852,7 +5421,7 @@
               "type": "boolean"
             },
             "ended": {
-              "description": "How it ended, once it is gone: popped_by_player (the dive key, X or the player's stop), timed_out (its duration ran out) or popped (anything else: the Gubble's own stop, the rules changing, the room closing, the body leaving it). Absent while it lasts.",
+              "description": "How it ended, once it is gone: popped_by_player (the dive key, X or the player's stop, or a Gubble recast the player said yes to: decision 115), timed_out (its duration ran out) or popped (anything else: the Gubble's own stop, the rules changing, the room closing, the body leaving it). Absent while it lasts.",
               "enum": [
                 "popped_by_player",
                 "timed_out",
@@ -4929,27 +5498,37 @@
               "maximum": 16000
             },
             "grown_plants": {
-              "description": "Grow: the plants that grew (each by the pack's intensity times its natural size, up to its cap: twice its natural size or 0.4 m taller; twice that while it rains), rooted in the circle the team sees; 1 for a water lily leaf grown on water (a waterpad); 0 when the cast only greened burnt ground. Absent for Fire.",
+              "description": "Grow: the plants that grew (each by the pack's intensity times its natural size, up to its cap: twice its natural size or 0.4 m taller; twice that while it rains), rooted in the circle the team sees; 1 for a water lily leaf grown on water (a waterpad); 0 when the cast only greened burnt ground or only ripened the food on plants already at their cap (decision 127); the sprouts that sprouted (at most 12); 1 for a plant replanted, a bridge or an ivy strip. Absent for Fire.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4096
+            },
+            "ripened_plants": {
+              "description": "Grow, since P-Round3 (decision 133): the plants whose unripe food the cast ripened (plants already at their cap with food picked and not grown back, decision 127); 0 when nothing ripened, and for a waterpad and every unlock (sprouts, replant, bridge, ivy). A plant the cast grew never ripens in the same cast, so a plant is counted in grown_plants or here, never both. Both hosts write it on every Grow; absent for Fire and on receipts from before P-Round3.",
               "type": "integer",
               "minimum": 0,
               "maximum": 4096
             },
             "kind": {
-              "description": "Fire: what the place made of the cast (decision 77): firepit, fireline, snuff or will_o_wisp. Absent: plain Fire, or Grow (today a Fireline's durable receipt keeps the plain shape too).",
+              "description": "What the place made of the cast. Fire (decision 77): firepit, fireline, snuff or will_o_wisp; absent, plain Fire (today a Fireline's durable receipt keeps the plain shape too). Grow's unlocks (decisions 104 to 107): sprouts (seedlings on bare fertile soil, grown_plants of them), replant (one burnt plant back as a seedling), bridge (a deck from lip to lip) or ivy (a strip up a wall); absent, plain Grow or a waterpad.",
               "enum": [
                 "fire",
                 "firepit",
                 "fireline",
                 "snuff",
-                "will_o_wisp"
+                "will_o_wisp",
+                "sprouts",
+                "replant",
+                "bridge",
+                "ivy"
               ]
             },
             "end_m": {
-              "description": "A Fireline: the end of its line (center_m is its start).",
+              "description": "A Fireline: the end of its line (center_m is its start). A bridge: its far lip at the deck's height (center_m is its near lip, at the same height).",
               "$ref": "common.schema.json#/$defs/vec3"
             },
             "wisp": {
-              "description": "A Will-o'-wisp: its id, also in created; transient, never saved; the Gubble's stop removes the oldest.",
+              "description": "A Will-o'-wisp: its id, also in created; transient, never saved; a fourth replaces the oldest, and no stop removes it (decision 109: a wisp is not a fire).",
               "type": "string",
               "pattern": "^effect:[A-Za-z0-9_-]{1,64}$"
             }
@@ -5016,7 +5595,13 @@
             "type": "boolean"
           },
           "grown_plants": {
-            "description": "Grow: the plants rooted in the circle that would grow (none at their cap), as the requester's team sees the place; 1 for a water lily leaf on water (a waterpad). Absent for Fire.",
+            "description": "Grow: the plants rooted in the circle that would grow (none at their cap; 0 for a cast that would only ripen the food on plants at their cap, decision 127), as the requester's team sees the place; 1 for a water lily leaf on water (a waterpad); the sprouts that would sprout; 1 for a plant replanted, a bridge or an ivy strip. Absent for Fire.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4096
+          },
+          "ripened_plants": {
+            "description": "Grow, since P-Round3 (decision 133): the plants whose unripe food the cast would ripen (at their cap, decision 127); 0 when none would, and for a waterpad and every unlock. Absent for Fire.",
             "type": "integer",
             "minimum": 0,
             "maximum": 4096
@@ -5054,17 +5639,21 @@
             "$ref": "#/$defs/avatar_id"
           },
           "kind": {
-            "description": "Fire: what the place makes of the cast (decision 77): fire, firepit, fireline, snuff or will_o_wisp; the outline the player sees follows it.",
+            "description": "What the place makes of the cast; the outline the player sees follows it. Fire (decision 77): fire, firepit, fireline, snuff or will_o_wisp. Grow's unlocks (decisions 104 to 107): sprouts, replant, bridge or ivy; absent, plain Grow or a waterpad.",
             "enum": [
               "fire",
               "firepit",
               "fireline",
               "snuff",
-              "will_o_wisp"
+              "will_o_wisp",
+              "sprouts",
+              "replant",
+              "bridge",
+              "ivy"
             ]
           },
           "end_m": {
-            "description": "A Fireline: the end of its line.",
+            "description": "A Fireline: the end of its line. A bridge: its far lip at the deck's height (center_m is its near lip).",
             "$ref": "common.schema.json#/$defs/vec3"
           }
         },
@@ -5161,10 +5750,24 @@
         ],
         "properties": {
           "cost": {
-            "description": "What it cost the team's wallet, by material (nothing in Creative).",
+            "description": "What it cost, by material (nothing in Creative): that many units of the kinds whose material each is, taken from the pockets first, then the chest.",
             "type": "object",
             "propertyNames": {
               "$ref": "#/$defs/creation_material"
+            },
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          },
+          "spent": {
+            "description": "Since P-Round3 (decision 131): what a paid repair spent (a preview: would spend), by the rules pack's inventory kind (log, stone) and its units, the pockets first, then the chest; whoever repaired. Absent when it spent nothing (Creative, or a creation of no cost). The game shows the Gubble's spend above the thing it repaired.",
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 16,
+            "propertyNames": {
+              "$ref": "common.schema.json#/$defs/token"
             },
             "additionalProperties": {
               "type": "integer",
@@ -5255,16 +5858,68 @@
             "maximum": 1000000
           },
           "fires_put_out": {
-            "description": "1 when the Gubble's fire went out (one fire at a time).",
+            "description": "Retired by decision 82 (24 October): no stop puts a fire out, so the hosts no longer write it; kept so that earlier documents stay valid (it was 1 when the Gubble's fire went out).",
             "type": "integer",
             "minimum": 1,
             "maximum": 1
           }
         }
+      },
+      "inventory": {
+        "description": "What an inventory command moved: the entry, how many units (an inventory.use in Creative used one since P-Inventory-2, decision 125; before it, 0), where it went, and for inventory.use the quarters of a heart it healed and the sound it made (eat: the unit was eaten, the game's FoodSound hook fired; Creative heals nothing and keeps the sound, decision 108, and uses the unit up, decision 125) and, since P-Inventory-2, the seeds it gave into the pockets (decision 118) and, since P-Round3, those that lie loose at the player's feet because they did not fit (decision 132).",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "item",
+          "count"
+        ],
+        "properties": {
+          "item": {
+            "$ref": "#/$defs/inventory_item"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "to": {
+            "enum": [
+              "chest",
+              "pockets",
+              "hand",
+              "ground"
+            ]
+          },
+          "healed_quarters": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 120
+          },
+          "sound": {
+            "enum": [
+              "eat"
+            ]
+          },
+          "seeds": {
+            "description": "inventory.use: the seeds the unit eaten put in the pockets (an apple one, berries one time in three; none when they would not fit).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "seeds_loose": {
+            "description": "inventory.use, since P-Round3 (decision 132): the seeds the unit eaten gave that did not fit the pockets and lie loose at the player's feet instead (where a unit set down lies, a hand's breadth before them on the ground, else at the feet), never lost: each a loose unit of the island (a durable inventory.drop of the seed kind under the host's own action id, before this receipt). Absent when every seed went in.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        }
+      },
+      "inventory.select": {
+        "$ref": "#/$defs/hand_status"
       }
     },
     "player_only_ops": {
-      "description": "Ops a companion principal can never perform. The companion adapter must not expose them and the host refuses them from companion principals (permission_denied), never holding them for a click. Unlocking is always a direct player action, and so are the player's own settings (the world's physics, the game mode, Glow's touch and sound), the player's wishes (submitting, stopping and reading them), and since the mechanics round picking up a Fractal (item.pickup), gathering a held loose log or stone into the wallet (item.gather), choosing a knack (knack.set), spending Fractals at a camp (fractal.spend, the second contract round), marking a receipt yes or not that (receipt.mark) and resetting Trust (trust.reset).",
+      "description": "Ops a companion principal can never perform. The companion adapter must not expose them and the host refuses them from companion principals (permission_denied), never holding them for a click. Unlocking is always a direct player action, and so are the player's own settings (the world's physics, the game mode, Glow's touch and sound), the player's wishes (submitting, stopping and reading them), and since the mechanics round picking up a Fractal (item.pickup; since P-Food also a unit of food from a plant, into the pockets), gathering a loose log or stone into the pockets (item.gather; the wallet it once filled is retired since P-Inventory-2), choosing a knack (knack.set), spending Fractals at a camp (fractal.spend, the second contract round), marking a receipt yes or not that (receipt.mark) and resetting Trust (trust.reset), and since P-Inventory using a unit from the pockets (inventory.use) and setting a thing from them down (inventory.drop), and since P-Inventory-2 choosing what the hand holds (inventory.select). inventory.store and inventory.take are the player's for the pockets and the hand too, but not listed here: the chest has a companion path behind the player's team setting gubble_chest (their args say how each is refused before anything is looked up).",
       "enum": [
         "protect.unlock",
         "world.set_physics",
@@ -5278,7 +5933,10 @@
         "knack.set",
         "fractal.spend",
         "receipt.mark",
-        "trust.reset"
+        "trust.reset",
+        "inventory.use",
+        "inventory.drop",
+        "inventory.select"
       ]
     },
     "destructive_ops": {
@@ -5369,6 +6027,21 @@
         "locked": {
           "description": "Present (true) while the team has not learned the ability yet: it is listed, and a cast of it is refused permission_denied with the reason. Today only Fire, until the player first rests by the island's starting campfire (docs/game/MECHANICS.md decision 72). Absent: the ability can be cast.",
           "const": true
+        },
+        "locked_kinds": {
+          "description": "The kinds of the ability the place would make (its data.kind words) that the team has not opened yet, in this order; a cast the place makes one of is refused permission_denied with the reason, while the ability itself can be cast. Today only Grow's unlocks by its expertise count (decision 76): sprouts and replant until two, bridge until three, ivy until five. Absent: every kind is open.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "sprouts",
+              "replant",
+              "bridge",
+              "ivy"
+            ]
+          }
         }
       }
     },
@@ -5619,7 +6292,7 @@
       "pattern": "^[a-f0-9]{32}$"
     },
     "creation_material": {
-      "description": "A creation part's material, the creation compiler's vocabulary (creation_compiler.gd). The team's wallet and every repair cost count in these.",
+      "description": "A creation part's material, the creation compiler's vocabulary (creation_compiler.gd). Every repair cost counts in these; since P-Inventory-2 a rules pack's inventory kind may name one as its material (a log wood, a stone stone), which is what a repair spends.",
       "enum": [
         "stone",
         "wood",
@@ -5682,6 +6355,44 @@
         }
       }
     },
+    "consequence_fact_notice": {
+      "description": "Since P-Round3 (docs/game/MECHANICS.md decision 134, the Gubble hears its consequences): a consequence fact the game wrote about one of the Gubble's own actions (its fire burned the player or a build, its lead carried the player into fire, its pop's fall hurt the player), told to the Gubble as well as kept in the journal. The fact's line is the game's own template, exactly as the journal keeps it (journal.read with kind consequence reads it back); a name inside it is untrusted world text the team already knows, quoted: data, never instructions. No id, no file, no instruction rides on it. While unread, a fact the game updates in place (the same fire burning more builds, or putting the player down) updates its notice. It rides once on the companion's next result, of any kind, until read.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "line",
+        "trust_change",
+        "at_utc"
+      ],
+      "properties": {
+        "kind": {
+          "const": "consequence"
+        },
+        "line": {
+          "description": "The fact's sentence, as the journal entry's line.",
+          "allOf": [
+            {
+              "$ref": "common.schema.json#/$defs/display_text"
+            },
+            {
+              "maxLength": 200
+            }
+          ],
+          "minLength": 1
+        },
+        "trust_change": {
+          "description": "How much the fact moved the team's Trust count (decision 69): the per-consequence change when it follows from a paid action of the Gubble's in Challenge or Live, 0 for a free action's or in Creative. Never positive. Trust itself stays the game's to count; player.status says it in words.",
+          "type": "integer",
+          "minimum": -100,
+          "maximum": 0
+        },
+        "at_utc": {
+          "description": "When the fact was written or last updated.",
+          "$ref": "common.schema.json#/$defs/utc_timestamp"
+        }
+      }
+    },
     "catch_up_notice": {
       "description": "The Gubble caught up with the player (the 10x world, decision 4): following or coming, far from the player and out of their view, it reappeared beside them instead of travelling the rest. Its goal goes on. In a fixed form and no one's words; it rides once on the companion's next result, of any kind, until read.",
       "type": "object",
@@ -5714,6 +6425,165 @@
         "at_utc": {
           "description": "When it caught up.",
           "$ref": "common.schema.json#/$defs/utc_timestamp"
+        }
+      }
+    },
+    "inventory_item": {
+      "description": "One entry of the pockets or the chest (P-Inventory, docs/game/MECHANICS.md decisions 98 to 103): a stack by its kind (the rules pack's inventory.kinds id, such as apple), or a unique thing by its room object id (it keeps its id while it is away from the island).",
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/token"
+        },
+        {
+          "$ref": "#/$defs/object_id"
+        }
+      ]
+    },
+    "inventory_entry": {
+      "description": "One entry: a stack (its kind, the pack's word for it, the units and their mass, and the quarters a unit heals when its use heals) or a unique thing (its object id, its name, its mass; in the pockets, here false when it belongs to another island, where alone it comes out). Names are untrusted display text, shown only. Since P-Inventory-2 a stack of a kind with a material (a log, a stone: what repairs spend, decision 116) names it (material).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item",
+        "kind",
+        "name",
+        "count",
+        "mass_kg"
+      ],
+      "properties": {
+        "item": {
+          "$ref": "#/$defs/inventory_item"
+        },
+        "kind": {
+          "enum": [
+            "stack",
+            "thing"
+          ]
+        },
+        "name": {
+          "allOf": [
+            {
+              "$ref": "common.schema.json#/$defs/display_text"
+            },
+            {
+              "maxLength": 80
+            }
+          ],
+          "minLength": 1
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "mass_kg": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "heal_quarters": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20
+        },
+        "here": {
+          "type": "boolean"
+        },
+        "material": {
+          "$ref": "#/$defs/creation_material"
+        },
+        "slot": {
+          "description": "The pockets' slot of the entry (P-Inventory-2: 1 to 10 on the hotbar; the chest's entries have none).",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
+        }
+      }
+    },
+    "inventory_status": {
+      "description": "The pockets or the chest as player.status shows them (read-only): the entries, in slot order for the pockets (each with its slot), oldest first for the chest, and the slots the rules pack sets (decision 120: counts, not weights).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entries",
+        "max_entries"
+      ],
+      "properties": {
+        "entries": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/inventory_entry"
+          }
+        },
+        "max_entries": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        }
+      }
+    },
+    "hand_status": {
+      "description": "What the hand holds (P-Inventory-2; decision 119, docs/game/HOTBAR.md), read-only: the layer of the hotbar in the hand and its selected slot (null: none); what the selection is: unit (a stack's unit armed: item its kind, count its units), thing (the slot's unique thing, now in the hand: item its id), pocketed (the slot's unique thing, still in the pockets: from another island, or too heavy to hold), ability (the abilities' layer: the HUD's to arm) or nothing; carrying, what the hands hold when it is not the selection's thing (a thing picked up with entity.grab); and each layer's slot. Ids only: names are the pockets' entries'.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "slot",
+        "holds",
+        "pockets_slot",
+        "abilities_slot"
+      ],
+      "properties": {
+        "layer": {
+          "enum": [
+            "pockets",
+            "abilities"
+          ]
+        },
+        "slot": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 10
+        },
+        "holds": {
+          "enum": [
+            "unit",
+            "thing",
+            "pocketed",
+            "ability",
+            "nothing"
+          ]
+        },
+        "item": {
+          "$ref": "#/$defs/inventory_item"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "carrying": {
+          "$ref": "#/$defs/object_id"
+        },
+        "pockets_slot": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 10
+        },
+        "abilities_slot": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 10
         }
       }
     }

@@ -1777,6 +1777,79 @@ def climb_checks(doc, meshes):
     return not fails, dict(knife_edges=len(bad), failing=len(fails), fail_rise_m=CLIMB_FAIL_RISE, worst=worst)
 
 
+def _base_reach(doc, meshes, terrain, room, floods=None):
+    """(the exact walk's flood from the player's spawn, its climb-aware reach for the base body: reach.Labels), made once per
+    `floods` (shared by the Fractals' and the firepits' checks). On a magnified room the faces in a detail block are not the
+    grid's (read at 2.5 cm), except a flight's, which keeps the base's surface."""
+    from . import fractals as Fractals, reach, sites
+    player = next((s for s in room['spawns'] if s['role'] == 'player'), room['spawns'][0])
+    start = (player['position_m'][0], player['position_m'][2])
+    floods = {} if floods is None else floods
+    if start not in floods:
+        floods[start] = Walker(doc, meshes, terrain, room).reach(start)
+    r0 = floods[start]
+    if ('base', start) in floods:
+        return r0, floods[('base', start)]
+    grid, h = _land_grid(doc, meshes)
+    detail = (doc.get('x_generator') or {}).get('detail')
+    blocks = {tuple(b) for b in detail['blocks']} if detail else set()
+    nx = grid.nx
+    held = set()
+    for row in ((doc.get('x_generator') or {}).get('fractals') or {}).get('routes', ()):
+        i0, i1, j0, j1 = sites.flight_box(Fractals.route_from_row(grid, row), 5)
+        for j in range(max(0, j0), min(grid.nz, j1+1)):
+            held.update(j*nx+i for i in range(max(0, i0), min(nx, i1+1)))
+    per = int(round(detail['block_m']/grid.cell)) if detail else 0
+    skip = (lambda i, j: (i//per, j//per) in blocks and j*nx+i not in held) if blocks else None
+    cr = reach.ClimbReach(r0.walker, r0, grid, h, skip=skip)
+    floods[('base', start)] = cr.run(1.)
+    return r0, floods[('base', start)]
+
+
+def firepit_checks(doc, meshes, terrain, room, floods=None):
+    """The island's firepits (firepits.py), proved again on the written package: each inside the island, on a node the strict
+    walk stands a body on, on the land as written, at the band it says (the climb-aware reach from the player's spawn; none:
+    no band reaches it), every two firepits.APART_M apart, FRACTAL_CLEAR_M from every Fractal and start_clear_m() from the
+    player's spawn, no more of them than the rule allows. A package without firepits has nothing to prove."""
+    fp = (doc.get('x_generator') or {}).get('firepits')
+    if fp is None:
+        return True, dict(placed=0)
+    from . import firepits as Firepits
+    r0, base = _base_reach(doc, meshes, terrain, room, floods)
+    w = r0.walker
+    player = next((s for s in room['spawns'] if s['role'] == 'player'), room['spawns'][0])
+    sx, sz = player['position_m'][0], player['position_m'][2]
+    lo, hi = room['bounds']['min_m'], room['bounds']['max_m']
+    fractals = [(i['position_m'][0], i['position_m'][2])
+                for i in ((doc['x_generator'].get('fractals') or {}).get('items') or ())]
+    items = fp['items']
+    bad = []
+    if len(items) > Firepits.MAX_FIREPITS:
+        bad.append(dict(firepits=len(items), problems=['more than the rule allows']))
+    eps = 1e-6
+    for n, item in enumerate(items):
+        x, y, z = item['position_m']
+        why = []
+        if not (lo[0] <= x <= hi[0] and lo[2] <= z <= hi[2]):
+            why.append('outside the island')
+        elif not w.standable(w.key(x, z)):
+            why.append('no body stands there')
+        elif abs(terrain.height(x, z)-y) > .002:
+            why.append('not on the land')
+        if base.band_at(x, z) != item.get('reach_band'):
+            why.append('not the band it says')
+        if math.hypot(x-sx, z-sz) < Firepits.start_clear_m()-eps:
+            why.append('too near the starting campfire')
+        if any(math.hypot(x-a, z-b) < Firepits.FRACTAL_CLEAR_M-eps for a, b in fractals):
+            why.append('too near a Fractal')
+        if any(math.hypot(x-o['position_m'][0], z-o['position_m'][2]) < Firepits.APART_M-eps for o in items[:n]):
+            why.append('too near another firepit')
+        if why:
+            bad.append(dict(firepit=n+1, position_m=item['position_m'], problems=why))
+    return not bad, dict(placed=len(items), failing=len(bad), problems=bad[:8],
+                         first_run=sum(1 for i in items if i.get('reach_band') == 1), counts=fp.get('counts'))
+
+
 def fractal_checks(doc, meshes, terrain, room, floods=None):
     """The mechanics round's Fractals and gates, proved again on the written package: the exact walk's climb-aware reach
     (reach.py, from the player's spawn) puts every bench of every route at the band it was built as, and every Fractal at
@@ -1784,26 +1857,7 @@ def fractal_checks(doc, meshes, terrain, room, floods=None):
     fx = (doc.get('x_generator') or {}).get('fractals')
     if not fx:
         return True, dict(placed=0)
-    from . import fractals as Fractals, gates, reach, sites
-    grid, h = _land_grid(doc, meshes)
-    player = next((s for s in room['spawns'] if s['role'] == 'player'), room['spawns'][0])
-    start = (player['position_m'][0], player['position_m'][2])
-    floods = {} if floods is None else floods
-    if start not in floods:
-        floods[start] = Walker(doc, meshes, terrain, room).reach(start)
-    r0 = floods[start]
-    detail = (doc.get('x_generator') or {}).get('detail')
-    blocks = {tuple(b) for b in detail['blocks']} if detail else set()
-    nx = grid.nx
-    held = set()
-    for row in fx['routes']:
-        i0, i1, j0, j1 = sites.flight_box(Fractals.route_from_row(grid, row), 5)
-        for j in range(max(0, j0), min(grid.nz, j1+1)):
-            held.update(j*nx+i for i in range(max(0, i0), min(nx, i1+1)))
-    per = int(round(detail['block_m']/grid.cell)) if detail else 0
-    skip = (lambda i, j: (i//per, j//per) in blocks and j*nx+i not in held) if blocks else None
-    cr = reach.ClimbReach(r0.walker, r0, grid, h, skip=skip)
-    base = cr.run(1.)
+    _, base = _base_reach(doc, meshes, terrain, room, floods)
     bad, bypassed = [], []
     benches = 0
     for row in fx['routes']:
@@ -1931,11 +1985,13 @@ def run(package, room_dir):
     s_ok, sea = sea_checks(doc, meshes, terrain, room, floods)
     c_ok, climbs = climb_checks(doc, meshes)
     x_ok, fractals = fractal_checks(doc, meshes, terrain, room, floods)
+    fp_ok, firepits = firepit_checks(doc, meshes, terrain, room, floods)
     # The climb principle is reported beside the others; it joins `ok` once the
     # generator meets it on the whole corpus (tall object crests still fail it).
-    return dict(ok=w_ok and g_ok and p_ok and f_ok and s_ok and x_ok, water_ok=w_ok, grounded_ok=g_ok,
-                walk_ok=p_ok, footprints_ok=f_ok, sea_ok=s_ok, climb_ok=c_ok, fractals_ok=x_ok, water=water, joins=joins,
-                grounding=ground, walks=walks, footprints=prints, sea=sea, climbs=climbs, fractals=fractals, stats=stats)
+    return dict(ok=w_ok and g_ok and p_ok and f_ok and s_ok and x_ok and fp_ok, water_ok=w_ok, grounded_ok=g_ok,
+                walk_ok=p_ok, footprints_ok=f_ok, sea_ok=s_ok, climb_ok=c_ok, fractals_ok=x_ok, firepits_ok=fp_ok, water=water,
+                joins=joins, grounding=ground, walks=walks, footprints=prints, sea=sea, climbs=climbs, fractals=fractals,
+                firepits=firepits, stats=stats)
 
 
 def main():
@@ -1973,9 +2029,11 @@ def main():
     print('CLIMB', json.dumps(result['climbs'], sort_keys=True))
     if result['fractals'].get('placed'):
         print('FRACTALS', json.dumps(result['fractals'], sort_keys=True))
-    print('CHECKS water=%s grounded=%s walk=%s footprints=%s sea=%s climb=%s fractals=%s overall=%s' % (
+    if result['firepits'].get('placed'):
+        print('FIREPITS', json.dumps(result['firepits'], sort_keys=True))
+    print('CHECKS water=%s grounded=%s walk=%s footprints=%s sea=%s climb=%s fractals=%s firepits=%s overall=%s' % (
         result['water_ok'], result['grounded_ok'], result['walk_ok'], result['footprints_ok'], result['sea_ok'],
-        result['climb_ok'], result['fractals_ok'], result['ok']))
+        result['climb_ok'], result['fractals_ok'], result['firepits_ok'], result['ok']))
     raise SystemExit(0 if result['ok'] else 1)
 
 

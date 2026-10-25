@@ -19,7 +19,7 @@ public partial class PlayHudTest
         await Frames(1);
         var look = new JsonObject
         {
-            ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "hud-look", ["room_id"] = _world.Room.RoomId, ["op"] = "view.look",
+            ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "hud-look", ["room_id"] = _world.Room.RoomId, ["op"] = "view.look",
             ["args"] = new JsonObject { ["actor"] = CommandHost.CompanionAvatarId },
         };
         var refused = await host.HandleObjectAsync(look.ToJsonString(), CommandHost.CompanionPrincipal);

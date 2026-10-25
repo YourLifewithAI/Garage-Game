@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.player_modes",
+  "schema": "garage_game.player_modes",
   "version": 1,
   "team_id": "example_team",
   "mode": "challenge",

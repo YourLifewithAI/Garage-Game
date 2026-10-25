@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.enfractal.invalid/v1/room-manifest.schema.json",
+  "$id": "https://contracts.garage-game.invalid/v1/room-manifest.schema.json",
   "title": "EnFractal room manifest (room.json)",
   "description": "The immutable baseline of one room: shell, object instances, spawns and light hints. Written by the capture exporter (or by hand for test rooms), read by the game. Its identity pin is the SHA-256 of the file bytes; every other file in the room directory is pinned through the files list, and each asset.json pins its own files. Runtime changes never rewrite this file; they live in room state. Every string in it is untrusted data. Captured rooms are written to the player's user data (user://rooms/<room_id>/), never into the repository.",
   "type": "object",
@@ -22,7 +22,10 @@
   ],
   "properties": {
     "schema": {
-      "const": "enfractal.room"
+      "enum": [
+        "garage_game.room",
+        "enfractal.room"
+      ]
     },
     "version": {
       "type": "integer",
@@ -181,7 +184,7 @@
       }
     },
     "extensions": {
-      "description": "Experiments (common.schema.json), and the keys the mechanics round types: x_fractals, the Fractals the island places, and x_island_tutorial (M0, 14 October 2026), and x_summit, the island's summit (the second contract round, 15 October). The landscape exporter writes them from the generator's package (M4); readers that do not know them ignore them, as every extension.",
+      "description": "Experiments (common.schema.json), and the keys the mechanics round types: x_fractals, the Fractals the island places, and x_island_tutorial (M0, 14 October 2026), x_summit, the island's summit (the second contract round, 15 October), and x_firepits, the island's firepits (decision 74, 24 October). The landscape exporter writes them from the generator's package (M4); readers that do not know them ignore them, as every extension.",
       "$ref": "common.schema.json#/$defs/extensions",
       "properties": {
         "x_fractals": {
@@ -193,6 +196,9 @@
         },
         "x_summit": {
           "$ref": "#/$defs/x_summit"
+        },
+        "x_firepits": {
+          "$ref": "#/$defs/x_firepits"
         }
       }
     }
@@ -1173,6 +1179,36 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 20
+        }
+      }
+    },
+    "x_firepits": {
+      "description": "The island's firepits (docs/game/MECHANICS.md decisions 62 and 74): spread evenly over the island by the generator, one per 250 m2 of standable dry land, at least 4 m apart, 1 m from any Fractal and 3 m from the starting campfire (which is the kernel's own, in front of the player's spawn, and never listed here). The kernel numbers them in this order (firepit:1 first: the generator lists the nearest the start first) and checks each spot on the island's own ground; one that does not check is left out and the kernel's own spread fills its place. Part of the pinned baseline, like x_fractals: a firepit lit is room state (the island save), never an edit here. Absent: the kernel spreads the firepits itself.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/x_firepit"
+          }
+        }
+      }
+    },
+    "x_firepit": {
+      "description": "One firepit: where it stands, its pivot at its bottom centre on its ground, in room metres.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "position_m"
+      ],
+      "properties": {
+        "position_m": {
+          "$ref": "common.schema.json#/$defs/vec3"
         }
       }
     },

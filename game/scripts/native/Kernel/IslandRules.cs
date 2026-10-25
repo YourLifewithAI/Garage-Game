@@ -49,7 +49,7 @@ public sealed class IslandAbility
 /// </summary>
 public sealed partial class IslandRules
 {
-    public const string SchemaId = "enfractal.island_rules";
+    public const string SchemaId = SchemaIds.IslandRules;
     /// <summary>A pack is small (at most 32 abilities); anything larger is refused before it is parsed.</summary>
     public const int MaxPackBytes = 65536;
 
@@ -58,7 +58,7 @@ public sealed partial class IslandRules
     private static readonly Regex ExtensionKey = new(@"\Ax_[a-z0-9_]{1,63}\z", RegexOptions.Compiled);
     private static readonly string[] ReservedParams = { "principal", "action_id", "approval", "approval_id", "approved", "owner", "owner_id", "room_id", "actor", "grant", "role" };
     // The mechanics round's six blocks (traits, cost, modes, names, knacks, fractals) are read by IslandRulesMechanics.cs.
-    private static readonly string[] TopFields = { "schema", "version", "rules_id", "rules_version", "display_name", "description", "status", "magic_word", "abilities", "extensions", "traits", "cost", "modes", "names", "knacks", "fractals" };
+    private static readonly string[] TopFields = { "schema", "version", "rules_id", "rules_version", "display_name", "description", "status", "magic_word", "abilities", "extensions", "traits", "cost", "modes", "names", "knacks", "fractals", "inventory", "food" };
     private static readonly string[] TopRequired = { "schema", "version", "rules_id", "rules_version", "display_name", "status", "magic_word", "abilities" };
     private static readonly string[] AbilityFields =
     {
@@ -131,7 +131,7 @@ public sealed partial class IslandRules
             var root = document.RootElement;
             Expect(root.ValueKind == JsonValueKind.Object, "A rules pack is a JSON object.");
             Fields(root, "$", TopFields, TopRequired);
-            Expect(Str(root, "schema", "$") == SchemaId, $"$.schema must be {SchemaId}.");
+            Expect(SchemaIds.IsSchema(Str(root, "schema", "$"), "island_rules"), $"$.schema must be {SchemaIds.Both("island_rules")}.");
             Expect(Int(root, "version", "$") == 1, "$.version must be 1.");
             var rulesId = TokenAt(root, "rules_id", "$");
             var rulesVersion = Int(root, "rules_version", "$");
@@ -158,11 +158,15 @@ public sealed partial class IslandRules
             if (expectedId != null) Expect(rulesId == expectedId, "The pack's rules_id is not the one its path names.");
             if (expectedVersion != null) Expect(rulesVersion == expectedVersion, "The pack's rules_version is not the one its path names.");
             var mechanics = ParseMechanics(root, abilities);
+            var inventory = ParseInventoryBlock(root);
             return new IslandRules
             {
                 RulesId = rulesId, RulesVersion = rulesVersion, DisplayName = displayName, Description = description, Status = status, MagicWord = magicWord,
                 Sha256 = CanonicalJson.Sha256Hex(bytes), Abilities = abilities,
                 Traits = mechanics.Traits, Cost = mechanics.Cost, Modes = mechanics.Modes, Names = mechanics.Names, Knacks = mechanics.Knacks, Fractals = mechanics.Fractals,
+                // P-Inventory's optional block (Kernel/Inventory/InventoryRules.cs), and P-Food's beside it (Kernel/CommandHostFoodLayout.cs).
+                Inventory = inventory,
+                Food = ParseFoodBlock(root, inventory),
             };
         }
     }

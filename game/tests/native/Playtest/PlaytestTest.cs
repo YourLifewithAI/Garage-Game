@@ -169,19 +169,20 @@ public partial class PlaytestTest : Node
         Check(verdict.Ok, $"{label}: contracts/validate.py passes it: {verdict.Output}");
     }
 
-    private JsonObject Player(string op, JsonObject args, string? actionId = null) => Send("enfractal.command", op, args, CommandHost.PlayerPrincipal, actionId);
-    private JsonObject Companion(string op, JsonObject args) => Send("enfractal.command", op, args, CommandHost.CompanionPrincipal);
+    private JsonObject Player(string op, JsonObject args, string? actionId = null) => Send("garage_game.command", op, args, CommandHost.PlayerPrincipal, actionId);
+    private JsonObject Companion(string op, JsonObject args) => Send("garage_game.command", op, args, CommandHost.CompanionPrincipal);
 
     private JsonObject Send(string schema, string op, JsonObject args, string principal, string? id = null)
     {
         var message = new JsonObject { ["schema"] = schema, ["version"] = 1, ["room_id"] = _host.Room.RoomId, ["op"] = op, ["args"] = args };
-        message[schema == "enfractal.query" ? "query_id" : "action_id"] = id ?? $"pt-{++_ids}";
+        message[schema == "garage_game.query" ? "query_id" : "action_id"] = id ?? $"pt-{++_ids}";
         return _host.HandleObject(message.ToJsonString(), principal);
     }
 
     private static InputEventKey Press(Key key, bool shift = false) => new() { PhysicalKeycode = key, Pressed = true, ShiftPressed = shift };
 
-    private string NoticeLine() => _hud.GetNode<PanelContainer>("HelpFooter").GetChild<VBoxContainer>(0).GetNode<Label>("Notice").Text;
+    // The notice left the footer for its own card under the reticle (the second playtest round's P2, item 4).
+    private string NoticeLine() => _hud.NoticeText;
 
     private string HelpLine(string name) => _hud.GetNode<PanelContainer>("HelpFooter").GetChild<VBoxContainer>(0).GetNode<VBoxContainer>("KeyHelp").GetNode<Label>(name).Text;
 

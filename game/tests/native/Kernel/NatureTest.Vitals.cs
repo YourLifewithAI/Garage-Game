@@ -48,15 +48,17 @@ public partial class NatureTest
 
     /// <summary>
     /// One launch in the game's order (RoomWorld): the vitals store as the host is attached, then the island's rules, then the
-    /// team's knacks and the boot's one set-mode (TeamBoot.Apply), all before the first frame.
+    /// team's knacks and the boot's one set-mode (TeamBoot.Apply), all before the first frame. editPack: the island's pack is v5 so
+    /// edited (UseEditedV5), as the pack the launch loads.
     /// </summary>
-    private async Task Launch(string team, IReadOnlyDictionary<string, int> knacks, RoomData? room = null, bool packLoads = true)
+    private async Task Launch(string team, IReadOnlyDictionary<string, int> knacks, RoomData? room = null, bool packLoads = true, Action<JsonObject>? editPack = null)
     {
         JsonObject? booted = null;
         await NewWorld(SavePath("launch-" + team), roomOverride: room,
             beforeRules: () => _host.ConfigurePlayerVitals(new LocalPlayerVitalsStore(TeamVitals(team, "challenge"))),
             afterRules: () =>
             {
+                if (editPack != null) UseEditedV5(editPack);
                 // A pack that did not load leaves the host with no rules (LoadRules' notice), as before teams.
                 if (!packLoads) _host.UseRules(null, "The island's rules did not load (a test).");
                 _host.UseKnacks(knacks);
@@ -89,13 +91,19 @@ public partial class NatureTest
             Check(saved.Health == 60 && saved.MaxHealth == 120 && saved.Stamina == body.Stamina && saved.MaxStamina == body.MaxStamina,
                 $"and leaves it saved as it was: {saved.Health}/{saved.MaxHealth}, {saved.Stamina}/{saved.MaxStamina} m");
         }
-        // 12.5 s away: one quarter heals after the 10 s wait, a quarter of 6 (the island's pace with the team's knack), once.
+        // 12.5 s away under a pack that heals while the game is closed (every pack before decision 93): one quarter heals after the
+        // 10 s wait, a quarter of 6 (the island's pace with the team's knack), once.
         _now += TimeSpan.FromSeconds(12.5);
-        await Launch("hearty", BigHeart);
+        await Launch("hearty", BigHeart, editPack: HealsAsBefore);
         Check(_host.BodyRules.Quarters(_host.Vitals) == 11 && _host.Vitals.Health == 66, "time away heals one quarter of 6 under the island's rules: " + Quarters());
         await FreeWorld();
-        await Launch("hearty", BigHeart);
+        await Launch("hearty", BigHeart, editPack: HealsAsBefore);
         Check(_host.Vitals.Health == 66 && SavedBody("hearty", "challenge").Health == 66, "and the next launch heals nothing more: " + Quarters());
+        await FreeWorld();
+        // Under v5 (decision 93) the time away heals nothing: the player comes back with the hearts they had.
+        _now += TimeSpan.FromSeconds(12.5);
+        await Launch("hearty", BigHeart);
+        Check(_host.Vitals.Health == 66 && SavedBody("hearty", "challenge").Health == 66, "under v5 12.5 s away heals nothing (decision 93): " + Quarters());
         await FreeWorld();
     }
 
@@ -121,7 +129,8 @@ public partial class NatureTest
                 $"launch {launch} reads the top body as saved: {vitals.Health}/{vitals.MaxHealth}, {vitals.Stamina}/{vitals.MaxStamina} m");
             var text = _host.Handle(Query("player.status", new JsonObject()).ToJsonString(), Companion);
             var status = Send(Query("player.status", new JsonObject()), Companion)["data"];
-            Check(text.Contains("\"stamina\":4.8,", StringComparison.Ordinal) && text.Contains("\"max_stamina\":4.8,", StringComparison.Ordinal) &&
+            // "stamina" is the answer's last key since the wallet's retirement (P-Inventory-2), so it ends the object.
+            Check((text.Contains("\"stamina\":4.8,", StringComparison.Ordinal) || text.Contains("\"stamina\":4.8}", StringComparison.Ordinal)) && text.Contains("\"max_stamina\":4.8,", StringComparison.Ordinal) &&
                   text.Contains("\"health\":720,", StringComparison.Ordinal) && text.Contains("\"max_health\":720,", StringComparison.Ordinal) &&
                   status?["stamina"]?.GetValue<double>() <= 4.8 && status["max_stamina"]?.GetValue<double>() <= 4.8 &&
                   status["hearts"]?["quarters"]?.GetValue<int>() == 120 && status["bar"]?["bands"]?.GetValue<int>() == 10,
@@ -149,29 +158,23 @@ public partial class NatureTest
     }
 
     /// <summary>
-    /// Review finding 2 (decision 26): the pack's traits.wallet.start was read and never used, so v5 islands began with 20 wood, 10
-    /// stone, 10 copper and 20 leaf. A new island's wallet is the pack's start now (today's materials only for a pack without one).
+    /// Review finding 2 (decision 26) made the pack's traits.wallet.start a new island's wallet; P-Inventory-2 (decision 116) retires the
+    /// wallet: logs and stones are stacks in the pockets and the chest. A new island has no wallet under any pack (traits.wallet is read
+    /// and ignored), player.status carries none, and the island still counts as untouched, so a room import or a migration may land on it.
     /// </summary>
     private async Task TestStartingWallet()
     {
         await NewWorld(SavePath("wallet-start"));
         var start = _host.Rules?.Traits?.Wallet;
-        var wallet = Send(Query("player.status", new JsonObject()), Player)["data"]?["wallet"];
-        Check(start == new WalletRules(0, 0, 0, 0) && wallet?["wood"]?.GetValue<int>() == 0 && wallet["stone"]?.GetValue<int>() == 0 &&
-              wallet["copper"]?.GetValue<int>() == 0 && wallet["leaf"]?.GetValue<int>() == 0,
-            "a new v5 island's wallet starts empty, as its pack says: " + Canonical(wallet));
+        var status = Send(Query("player.status", new JsonObject()), Player)["data"];
+        Check(start == new WalletRules(0, 0, 0, 0) && status?["wallet"] == null && _host.Nature.Wallet.Count == 0,
+            "a new v5 island has no wallet, and player.status carries none (the pack's traits.wallet is read and ignored): " + Canonical(status));
         Check(_host.Nature.Untouched(trailAllowed: false, _host.StartWallet),
             "and the new island still counts as untouched, so a room import or a migration may still land on it");
         _host.UseRules(IslandRules.Load("storybook_wild", 4));
-        var today = Send(Query("player.status", new JsonObject()), Player)["data"]?["wallet"];
-        Check(today?["wood"]?.GetValue<int>() == 20 && today["stone"]?.GetValue<int>() == 10 && today["copper"]?.GetValue<int>() == 10 && today["leaf"]?.GetValue<int>() == 20 &&
+        Check(_host.Nature.Wallet.Count == 0 && Send(Query("player.status", new JsonObject()), Player)["data"]?["wallet"] == null &&
               _host.Nature.Untouched(trailAllowed: false, _host.StartWallet),
-            "a pack without a wallet block keeps today's materials, and an island nothing happened to follows its rules: " + Canonical(today));
-        _host.UseRules(IslandRules.Load("storybook_wild", 5));
-        var trail = Send(Command(NextId("trail"), "nature.cast", Cast("grow", NearGubble, 0.15, 1)), Player);
-        _host.UseRules(IslandRules.Load("storybook_wild", 4));
-        Check(Ok(trail) && _host.Nature.Wallet.Values.All(units => units == 0),
-            "an island with play of its own keeps its wallet when the rules change: " + Canonical(Send(Query("player.status", new JsonObject()), Player)["data"]?["wallet"]));
+            "nor under a pack without a wallet block (once today's 20 wood, 10 stone, 10 copper and 20 leaf)");
         await FreeWorld();
     }
 

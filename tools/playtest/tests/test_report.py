@@ -358,6 +358,25 @@ class RefusalMatching(unittest.TestCase):
         refusals, _ = self.match([ev(1.0, "command", principal="player:local", op="x", result={"ok": False}, ms=1.0)])
         self.assertEqual(refusals[0].code, "(no code)")
 
+    def test_a_refused_preview_is_a_preview_not_a_refusal(self):
+        """The second recorded play (17 October): the reticle's lead previews the pool could not pay were the HUD asking, 32 of them
+        counted as silent refusals. The host now records them with result.preview: never a refusal the player met, counted apart."""
+        lead = command(10.0, "goal.set", ok=False, code="energy_exhausted", message="The Gubble needs a moment.", action_id="lead-1")
+        lead["result"]["preview"] = True
+        events = [lead, self.refusal(20.0, action_id="cast-1"), notice(20.1, "The Gubble needs a moment.", channel="refusal", action_id="cast-1")]
+        refusals, stray = self.match(events)
+        self.assertEqual(([r.ev.d.get("action_id") for r in refusals], stray), (["cast-1"], []))
+        play = load(self.dir, events)
+        rows = {r.op: r for r in report.command_rows(play)}
+        self.assertEqual((rows["goal.set"].total, rows["goal.set"].ok, rows["goal.set"].refused, rows["goal.set"].previews_refused), (1, 0, 0, 1))
+        self.assertEqual((rows["nature.cast"].refused, rows["nature.cast"].previews_refused), (1, 0))
+        report.write_report(write_play(self.dir, events))
+        written = (self.dir / support.RECORD / "REPORT.md").read_text(encoding="utf-8")
+        self.assertIn("**Refusals:** 1, 1 shown on screen, 0 not shown on screen; 1 refused preview not counted (the HUD asking, not a refusal)", written)
+        self.assertIn("1 refused, 1 shown on screen and 0 not shown on screen", section(written, "## Refusals"))
+        self.assertIn("| Refused previews |", section(written, "## Commands"))
+        self.assertIn("`goal.set` preview refused `energy_exhausted`", report.event_line(play.timeline[0], 0.0))
+
 
 class TimeBudgets(unittest.TestCase):
     def setUp(self):

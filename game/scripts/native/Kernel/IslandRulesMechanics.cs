@@ -5,8 +5,16 @@ using System.Text.Json;
 
 namespace GarageGame.Native.Kernel;
 
-/// <summary>Hearts, counted in quarters (the pack's traits.hearts).</summary>
-public sealed record HeartsRules(double HealthPerQuarter, int StartHearts, int CapHearts, double HealQuarterEveryS, double HealAfterUnharmedS);
+/// <summary>
+/// Hearts, counted in quarters (the pack's traits.hearts). Where and how fast they heal, each optional and today's when absent: away
+/// from a camp at HealQuarterEveryS (HealOutsideCamp, true: anywhere on safe ground); at a camp every CampHealQuarterEveryS (null:
+/// twice the pace, decision 62's CampLaws.CampHeartsFactor); and the time the game was closed caught up at the resting pace
+/// (HealWhileClosed, true). v5 says false, 1 s and false (decisions 84, 91 and 93: only resting at a camp heals, a quarter a second,
+/// and you wake with what you had). Every heal waits HealAfterUnharmedS without harm, except resting at a camp, which waits
+/// CampHealAfterUnharmedS (null: the same HealAfterUnharmedS, today's; v5 2 s, decision 111, provisional).
+/// </summary>
+public sealed record HeartsRules(double HealthPerQuarter, int StartHearts, int CapHearts, double HealQuarterEveryS, double HealAfterUnharmedS,
+    bool HealOutsideCamp = true, double? CampHealQuarterEveryS = null, bool HealWhileClosed = true, double? CampHealAfterUnharmedS = null);
 
 /// <summary>How the world hurts, in quarters (traits.harm). FallCapQuarters null: no cap, today's behaviour.</summary>
 public sealed record HarmRules(double FireQuartersPerS, int? FallCapQuarters);
@@ -18,7 +26,11 @@ public sealed record HarmRules(double FireQuartersPerS, int? FallCapQuarters);
 /// v5 says 1.5 and 0 (the founder, 16 October, decisions 64 and 65).
 /// </summary>
 public sealed record StaminaRules(double StartM, double BandM, int Bands, int BandsPerBar, double RunningMPerS, double RefillMPerS,
-    double? DeepWaterMPerS, double? DiveMPerS, double EmptyNoRunUntilFraction, double? ClimbMPerBarM = null, double? HoldingMPerS = null);
+    double? DeepWaterMPerS, double? DiveMPerS, double EmptyNoRunUntilFraction, double? ClimbMPerBarM = null, double? HoldingMPerS = null,
+    double? IvyClimbFactor = null);
+
+/// <summary>Grow's seedlings (traits.growth, decision 104): game hours a phase and the phases from half size to natural.</summary>
+public sealed record GrowthRules(double SeedlingPhaseH, int SeedlingPhases);
 
 /// <summary>Connection energy in whole pips (traits.pips).</summary>
 public sealed record PipsRules(int Start, int ExpertisePerPip, int Ceiling, double RefillNearEveryS, double RefillNearWithinM, double RefillFarEveryS, double CampFraction);
@@ -27,7 +39,7 @@ public sealed record PipsRules(int Start, int ExpertisePerPip, int Ceiling, doub
 public sealed record WalletRules(int Wood, int Stone, int Copper, int Leaf);
 
 /// <summary>The body's and the pool's numbers (the pack's traits block). Each part null: today's behaviour for it.</summary>
-public sealed record TraitsRules(HeartsRules? Hearts, HarmRules? Harm, StaminaRules? Stamina, PipsRules? Pips, WalletRules? Wallet);
+public sealed record TraitsRules(HeartsRules? Hearts, HarmRules? Harm, StaminaRules? Stamina, PipsRules? Pips, WalletRules? Wallet, GrowthRules? Growth = null);
 
 /// <summary>One ability's price: the player's order pays Ordered; the Gubble's own idea pays OwnIdea, a whole number of pips.</summary>
 public sealed record AbilityPrice(int Ordered, double OwnIdeaFactor)
@@ -193,17 +205,21 @@ public sealed partial class IslandRules
     {
         const string at = "$.traits";
         Expect(traits.ValueKind == JsonValueKind.Object, at + " must be an object.");
-        Fields(traits, at, new[] { "hearts", "harm", "stamina", "pips", "wallet" }, Array.Empty<string>());
+        Fields(traits, at, new[] { "hearts", "harm", "stamina", "pips", "wallet", "growth" }, Array.Empty<string>());
         Expect(traits.EnumerateObject().Any(), at + " holds at least one part.");
         HeartsRules? hearts = null;
         if (traits.TryGetProperty("hearts", out var h))
         {
             var where = at + ".hearts";
             Expect(h.ValueKind == JsonValueKind.Object, where + " must be an object.");
-            var names = new[] { "health_per_quarter", "start_hearts", "cap_hearts", "heal_quarter_every_s", "heal_after_unharmed_s" };
-            Fields(h, where, names, names);
+            var required = new[] { "health_per_quarter", "start_hearts", "cap_hearts", "heal_quarter_every_s", "heal_after_unharmed_s" };
+            Fields(h, where, required.Concat(new[] { "heal_outside_camp", "camp_heal_quarter_every_s", "heal_while_closed", "camp_heal_after_unharmed_s" }).ToArray(), required);
             hearts = new HeartsRules(Num(h, "health_per_quarter", where, 0, 6, exclusiveMin: true), IntIn(h, "start_hearts", where, 1, 30), IntIn(h, "cap_hearts", where, 1, 30),
-                Num(h, "heal_quarter_every_s", where, 0, 600, exclusiveMin: true), Num(h, "heal_after_unharmed_s", where, 0, 600));
+                Num(h, "heal_quarter_every_s", where, 0, 600, exclusiveMin: true), Num(h, "heal_after_unharmed_s", where, 0, 600),
+                !h.TryGetProperty("heal_outside_camp", out _) || Bool(h, "heal_outside_camp", where),
+                h.TryGetProperty("camp_heal_quarter_every_s", out _) ? Num(h, "camp_heal_quarter_every_s", where, 0, 600, exclusiveMin: true) : null,
+                !h.TryGetProperty("heal_while_closed", out _) || Bool(h, "heal_while_closed", where),
+                h.TryGetProperty("camp_heal_after_unharmed_s", out _) ? Num(h, "camp_heal_after_unharmed_s", where, 0, 600) : null);
             Expect(hearts.StartHearts <= hearts.CapHearts, where + ".start_hearts is above cap_hearts.");
         }
         HarmRules? harm = null;
@@ -221,7 +237,7 @@ public sealed partial class IslandRules
             var where = at + ".stamina";
             Expect(s.ValueKind == JsonValueKind.Object, where + " must be an object.");
             var required = new[] { "start_m", "band_m", "bands", "bands_per_bar", "running_m_per_s", "refill_m_per_s", "empty_no_run_until_fraction" };
-            Fields(s, where, required.Concat(new[] { "deep_water_m_per_s", "dive_m_per_s", "climb_m_per_bar_m", "holding_m_per_s" }).ToArray(), required);
+            Fields(s, where, required.Concat(new[] { "deep_water_m_per_s", "dive_m_per_s", "climb_m_per_bar_m", "holding_m_per_s", "ivy_climb_factor" }).ToArray(), required);
             stamina = new StaminaRules(Num(s, "start_m", where, 0, 4.8, exclusiveMin: true), Num(s, "band_m", where, 0, 4.8, exclusiveMin: true),
                 IntIn(s, "bands", where, 1, 20), IntIn(s, "bands_per_bar", where, 1, 20), Num(s, "running_m_per_s", where, 0, 1),
                 Num(s, "refill_m_per_s", where, 0, 10, exclusiveMin: true),
@@ -229,7 +245,17 @@ public sealed partial class IslandRules
                 s.TryGetProperty("dive_m_per_s", out _) ? Num(s, "dive_m_per_s", where, 0, 1) : null,
                 Num(s, "empty_no_run_until_fraction", where, 0, 1, exclusiveMin: true),
                 s.TryGetProperty("climb_m_per_bar_m", out _) ? Num(s, "climb_m_per_bar_m", where, 0, 10, exclusiveMin: true) : null,
-                s.TryGetProperty("holding_m_per_s", out _) ? Num(s, "holding_m_per_s", where, 0, 1) : null);
+                s.TryGetProperty("holding_m_per_s", out _) ? Num(s, "holding_m_per_s", where, 0, 1) : null,
+                s.TryGetProperty("ivy_climb_factor", out _) ? Num(s, "ivy_climb_factor", where, 0, 1, exclusiveMin: true) : null);
+        }
+        GrowthRules? growth = null;
+        if (traits.TryGetProperty("growth", out var g))
+        {
+            var where = at + ".growth";
+            Expect(g.ValueKind == JsonValueKind.Object, where + " must be an object.");
+            var names = new[] { "seedling_phase_h", "seedling_phases" };
+            Fields(g, where, names, names);
+            growth = new GrowthRules(Num(g, "seedling_phase_h", where, 0, 24, exclusiveMin: true), IntIn(g, "seedling_phases", where, 1, 6));
         }
         PipsRules? pips = null;
         if (traits.TryGetProperty("pips", out var p))
@@ -257,7 +283,7 @@ public sealed partial class IslandRules
             wallet = new WalletRules(IntIn(start, "wood", where + ".start", 0, 10000), IntIn(start, "stone", where + ".start", 0, 10000),
                 IntIn(start, "copper", where + ".start", 0, 10000), IntIn(start, "leaf", where + ".start", 0, 10000));
         }
-        return new TraitsRules(hearts, harm, stamina, pips, wallet);
+        return new TraitsRules(hearts, harm, stamina, pips, wallet, growth);
     }
 
     private static CostRules ParseCost(JsonElement cost, List<IslandAbility> abilities)

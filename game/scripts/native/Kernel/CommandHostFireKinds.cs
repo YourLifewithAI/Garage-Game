@@ -27,8 +27,11 @@ public static class FireKindWords
 public static class FireKindLaws
 {
     // Fireline (78).
-    /// <summary>Learning it: three committed Fire casts within this many seconds (decision 78: 2 minutes)...</summary>
-    public const double FirelineLearnWindowS = 120;
+    /// <summary>
+    /// Learning it: three committed Fire casts within this many seconds: 5 minutes, provisional (decision 78 said 2 minutes; the status
+    /// page's next-session list, "perhaps 5 minutes", for the second playtest round)...
+    /// </summary>
+    public const double FirelineLearnWindowS = 300;
     /// <summary>...each at least this far from the others (decision 78)...</summary>
     public const float FirelineLearnApartM = 0.5f;
     /// <summary>...whose centres all lie within this of one straight line (provisional: the decision says "along one line").</summary>
@@ -56,7 +59,7 @@ public static class FireKindLaws
     public const float WispAboveWaterM = 0.15f;
     public const float WispDriftM = 0.25f;
     public const float WispDriftPeriodS = 40f;
-    /// <summary>It lasts this long (decision 80: 5 minutes), at most MaxWisps at a time (decision 80: three), the oldest going first.</summary>
+    /// <summary>It lasts this long (decision 80: 5 minutes), at most MaxWisps at a time (decision 80: three), a fourth replacing the oldest; no stop removes one (decision 109).</summary>
     public const double WispLifeS = 300;
     public const int MaxWisps = 3;
     /// <summary>Water under the cast's point: its surface at most WispWaterAboveM above the point or WispWaterBelowM under it, at least WispMinDepthM deep.</summary>
@@ -81,17 +84,20 @@ public sealed class Wisp
 /// <item><b>Fireline</b> (78): a cast that names end_m, once learned, lights every ground cell along the line from center_m to end_m (at
 /// most 3 m) that can catch, at once; the fire spreads within Fire's caps round the line's middle. One fire, one undo step in Creative,
 /// every Fire guardrail, both ends and the middle within reach and sight (CheckFireline). Learned by three committed Fire casts within
-/// 2 minutes, at least 0.5 m apart, along one line (NoteFireForFireline). Priced as "fireline".</item>
+/// 5 minutes (FireKindLaws.FirelineLearnWindowS, provisional; decision 78 said 2), at least 0.5 m apart, along one line
+/// (NoteFireForFireline). Priced as "fireline".</item>
 /// <item><b>Snuff</b> (79): once learned, Fire aimed at something burning puts out every burning cell in a 1.5 m circle and every lit
 /// campfire in it (PutOutCampfire); the ground there cannot catch for 30 s (InSnuffZone). It never hurts anyone, is no fire, and is
 /// allowed while the Gubble's fire budget waits; the Gubble's own-idea Snuff of a lit campfire waits for the player's yes. A simulation
 /// change like X's, kept by the nature save, with a transient receipt. Learned by rain on a fire the Gubble started, or a bubble cast on
 /// a fire (StepFireKinds). Priced as "snuff".</item>
 /// <item><b>Will-o'-wisp</b> (80): Fire cast on water makes a cold flame hovering over it, drifting slowly (the look's), a light at night;
-/// it burns nothing and is not the Gubble's one fire; it lasts 5 minutes, at most three (the oldest goes), is never saved (transient, like
-/// a bubble), and X removes the oldest. The first one teaches it. Priced as "will_o_wisp".</item>
+/// it burns nothing and is not the Gubble's one fire; it lasts 5 minutes, at most three (a fourth replaces the oldest), and is never saved
+/// (transient, like a bubble). A wisp is not a fire (decision 109): no stop removes it, X included (X removed the oldest until 25
+/// October). The first one teaches it. Priced as "will_o_wisp".</item>
 /// </list>
-/// Every Fire kind is previewed first and committed as exactly that preview (the preview's kind and outline are what the HUD shows). The
+/// Every Fire kind is previewed first and committed as exactly that preview (the preview's kind and outline are what the HUD shows); since
+/// decision 83 the player's are both in one click, back to back (PlayerFireLight), while the Gubble's stay its own two commands. The
 /// shared rules: each expertise once per team, by either of the pair, announced by Fire's camp's chime and card; a committed Fire cast of
 /// any kind counts toward Fire's hints (RecordFireCast); a fire that hurt the player or scorched a creation teaches nothing (MarkFireHarm).
 /// </summary>
@@ -128,9 +134,44 @@ public partial class CommandHost
     /// <summary>The cast of exactly that preview.</summary>
     public JsonObject PlayerFireCast(Vector3 point, Vector3? end, string previewId) => PlayerCommand("nature.cast", FireArgs(point, end, previewId));
 
-    private JsonObject FireArgs(Vector3 point, Vector3? end, string? previewId)
+    /// <summary>
+    /// What the player's Fire on the click answered (PlayerFireLight, decision 83): the preview (what the place made of it, data.kind, and
+    /// its outline, data.center_m, radius_m, end_m and cells, for the HUD to flash as it lights) and the cast's own result: lit (ok), held
+    /// for Creative's one ask about builds (approval_required: the host's card, as before), or refused. A refused preview is both, and
+    /// nothing was cast.
+    /// </summary>
+    public readonly record struct FireClick(JsonObject Preview, JsonObject Result)
     {
-        var args = NatureCastArgs("fire", point, null, null);
+        /// <summary>The preview was made (its outline can flash), whatever the cast then answered.</summary>
+        public bool Previewed => Preview["ok"]?.GetValue<bool>() == true;
+        /// <summary>The fire (or firepit, Snuff, wisp, Fireline) is lit: the cast committed.</summary>
+        public bool Lit => Result["ok"]?.GetValue<bool>() == true;
+        /// <summary>Creative's one ask about builds holds the cast: the card answers it (approve: they burn; deny: the fire spares them).</summary>
+        public bool Held => Result["error"]?["code"]?.GetValue<string>() == "approval_required";
+        /// <summary>What the place made of it (FireKindWords: fire, firepit, fireline, snuff or will_o_wisp), from the preview; "" when refused.</summary>
+        public string Kind => Preview["data"]?["kind"]?.GetValue<string>() ?? "";
+    }
+
+    /// <summary>
+    /// The player's Fire lit on the click (decision 83: "being forced to wait for a preview [...] is annoying. Let's remove the wait time"),
+    /// from the wheel, key 6 or the Magic panel: the preview and the cast of exactly that preview back to back, with no hold and nothing
+    /// between them, on Fire's one command path (two nature.cast commands, as every Fire: the recorder logs the first as a preview, which
+    /// costs nothing). Everything else is as it was: the place decides (an unlit firepit, Snuff on something burning, a wisp on water, a
+    /// Fireline with an end once learned), Creative's one ask about builds still holds the cast for the player's card, the price is charged
+    /// once at commit, and every guardrail and refusal stands (a refused preview casts nothing). The radius and duration are the Magic
+    /// panel's when it names them; otherwise the pack's defaults, as the wheel's. The Gubble's own-idea Fire is untouched: its preview and
+    /// cast stay two commands of its own, a moment apart, as the companion sends them.
+    /// </summary>
+    public FireClick PlayerFireLight(Vector3 point, Vector3? end = null, float? radius = null, float? duration = null)
+    {
+        var preview = PlayerCommand("nature.cast", FireArgs(point, end, null, radius, duration), preview: true);
+        if (preview["ok"]?.GetValue<bool>() != true || preview["data"]?["preview_id"]?.GetValue<string>() is not { } token) return new FireClick(preview, preview);
+        return new FireClick(preview, PlayerCommand("nature.cast", FireArgs(point, end, token, radius, duration)));
+    }
+
+    private JsonObject FireArgs(Vector3 point, Vector3? end, string? previewId, float? radius = null, float? duration = null)
+    {
+        var args = NatureCastArgs("fire", point, radius, duration);
         if (end is { } to) args["end_m"] = KernelJson.Vector(to);
         if (previewId != null) args["preview_id"] = previewId;
         return args;
@@ -357,7 +398,7 @@ public partial class CommandHost
 
     /// <summary>
     /// A Will-o'-wisp: Fire cast on water makes a cold flame WispAboveWaterM over the water at the point; it burns nothing and is no fire
-    /// (the one-fire rule and the Gubble's guardrails pass it by), lasts WispLifeS and is one of at most MaxWisps (the oldest goes). It is
+    /// (the one-fire rule and the Gubble's guardrails pass it by), lasts WispLifeS and is one of at most MaxWisps (a fourth replaces the oldest). It is
     /// never saved: a transient receipt names its effect: id, as a bubble's does. The first one teaches the expertise.
     /// </summary>
     private JsonObject CastWisp(JsonElement root, IslandAbility ability, Cast cast, string principal, string action, string fingerprint, bool preview, string? approvedBy)
@@ -401,15 +442,6 @@ public partial class CommandHost
         data["started_cells"] = 0;
         data["wisp"] = wisp.Id;
         return FireTransient(principal, action, fingerprint, data, wisp.Id, approvedBy);
-    }
-
-    /// <summary>X (the player's stop of the Gubble, and the Gubble's own): the oldest wisp goes, whoever cast it. Returns whether one did.</summary>
-    internal bool RemoveOldestWisp()
-    {
-        if (_wisps.Count == 0) return false;
-        _wisps.RemoveAt(0);
-        WispsChanged?.Invoke();
-        return true;
     }
 
     // ---- each nature step ----

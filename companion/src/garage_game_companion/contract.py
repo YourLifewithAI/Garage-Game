@@ -30,16 +30,17 @@ from typing import Any
 
 from jsonschema import ValidationError, validators
 
-from . import canonical, textsafety
+from . import canonical, ids, textsafety
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 # companion/src/garage_game_companion/contract.py -> repository root is three levels above the package.
 DEFAULT_CONTRACTS_DIR = PACKAGE_DIR.parents[2] / "contracts"
 DEFAULT_REPO_ROOT = PACKAGE_DIR.parents[2]
 
-COMMAND_SCHEMA = "enfractal.command"
-QUERY_SCHEMA = "enfractal.query"
-RESULT_SCHEMA = "enfractal.result"
+# What the companion writes; it reads either spelling of each (ids.is_schema).
+COMMAND_SCHEMA = ids.id_of("command")
+QUERY_SCHEMA = ids.id_of("query")
+RESULT_SCHEMA = ids.id_of("result")
 CONTRACT_VERSION = 1
 INT64_MIN, INT64_MAX = -(2 ** 63), 2 ** 63 - 1
 
@@ -266,8 +267,8 @@ class Contracts:
     def schema_errors(self, document: Any) -> list[str]:
         """Every reason `document` is not a valid contract message: the schema (ECMA patterns),
         the value rules (hidden characters, int64, finite numbers) and the size limits."""
-        if not isinstance(document, dict) or document.get("schema") not in (COMMAND_SCHEMA, QUERY_SCHEMA, RESULT_SCHEMA):
-            return ["$: document must be an enfractal command, query or result"]
+        if not isinstance(document, dict) or ids.kind_of(document.get("schema")) not in ("command", "query", "result"):
+            return ["$: document must be a garage_game command, query or result"]
         problems = [f"{textsafety.field_path(e.absolute_path)}: {e.message[:200]}" for e in self.iter_errors(document)]
         problems += [f"{textsafety.field_path(path)}: {kind}" for path, kind in value_problems(document)]
         if not problems:
@@ -482,12 +483,12 @@ _OP_DESCRIPTIONS = {
     "entity.set_part": "Set a part of an entity (a door, a lid) to a value from 0 to 1.",
     "entity.remove": "Remove an entity from the room. Destructive: name expected_entities or expected_revision. The game may hold it for the player's approval.",
     "entity.transform": "Turn an entity into a creation while keeping its identity. Destructive: name expected_entities or expected_revision. The game may hold it for the player's approval.",
-    "creation.place": "Place a new creation from an enfractal.creation manifest.",
+    "creation.place": "Place a new creation from a garage_game.creation manifest.",
     "creation.revise": "Change a creation's manifest or placement. Destructive: name expected_entities or expected_revision. The game may hold it for the player's approval.",
     "creation.activate": "Trigger a creation's interact behaviour.",
     "protect.lock": "Protect entities so they resist changes. Only the player can unlock them. Destructive: name expected_entities or expected_revision.",
-    "goal.set": "Give the companion's own avatar a goal: follow, stay, come, look_at, point_at, go_to, fetch, wander or lead. look_at, point_at and go_to need a target or position_m; fetch needs a target. lead needs a target, a bubble's effect id (never an avatar or a thing), and position_m, the spot: you lead the bubble there like a balloon on a string, and it may pop before it gets there; a spot higher than it can drift floats it up there (a lift, at most 1.2 m), which costs the lift's price when it starts to rise (data.lift and data.lift_price say so; with too few pips it is refused energy_exhausted). A bubble holding the player moves only while you lead it, and the player may pop it at any moment. Your own goal_stop, or any new goal, pops the bubble you lead and the player drifts down gently where it popped; poll jobs_status to see whether it arrived, and receipt_lookup of the goal_set says how the lead ended (arrived, popped, popped_by_player, timed_out, blocked, no_pips or stopped). go_to, look_at, point_at, come and fetch may aim at something the companion remembers seeing but cannot see now: the result says target_seen 'remembered', and the game re-checks when the avatar arrives (poll jobs_status with the job_id). Other goals, and every command that changes a thing, need it in sight now.",
-    "goal.stop": "Stop the companion's goals and the effects it carries out (your glows and fireworks), and pop your bubbles and the bubble you lead. Always permitted.",
+    "goal.set": "Give the companion's own avatar a goal: follow, stay, come, look_at, point_at, go_to, fetch, wander or lead. look_at, point_at and go_to need a target or position_m; fetch needs a target. lead needs a target, a bubble's effect id (never an avatar or a thing), and position_m, the spot: you lead the bubble there like a balloon on a string, and it may pop before it gets there; a spot higher than it can drift floats it up there (a lift, at most 1.2 m), which costs the lift's price when it starts to rise (data.lift and data.lift_price say so; with too few pips it is refused energy_exhausted). A bubble holding the player moves only while you lead it, and the player may pop it at any moment. Your own goal_stop, or any new goal, pops the bubble you lead and the player falls from where it popped (in challenge and live mode a fall that hurts them is a consequence in your lessons and costs your Trust); poll jobs_status to see whether it arrived, and receipt_lookup of the goal_set says how the lead ended (arrived, popped, popped_by_player, timed_out, blocked, no_pips or stopped). go_to, look_at, point_at, come and fetch may aim at something the companion remembers seeing but cannot see now: the result says target_seen 'remembered', and the game re-checks when the avatar arrives (poll jobs_status with the job_id). Other goals, and every command that changes a thing, need it in sight now.",
+    "goal.stop": "Stop the companion's goals and the effects it carries out (your glows and fireworks), and pop your bubbles and the bubble you lead: a player held in one falls from where it popped. It puts out no fire: a fire burns out, or Snuff puts it out. Always permitted.",
     "effect.start": "Cast one of the island's abilities (capabilities_list), carried out by your own avatar: glow (a real light), bubbles (the Bubble) or fireworks (a burst of sparks with a brief flash), as the island grants them. Glow and fireworks work in one of two ways: self, targets [your avatar id], and the effect follows you (fireworks burst over you); or point, no targets, and the effect plays at area.center_m (a light floats there, a rocket bursts above it). bubbles is always a point and never self: one bubble the player's size at area.center_m (area.radius_m does not change its size), and the place decides what it is (data.kind): on the player's feet a carry round them (preview it first, with preview true, so the player sees its ghost round them, then send the same cast a moment later; sent unpreviewed it is refused revision_conflict, and straight after the preview not_ready), on water a boat they can step aboard, anywhere else a bubble that holds the player only when they walk into it. One bubble at a time: a new one pops the old. It never moves unless you lead it (goal_set lead), and the player pops it at any moment with the dive key or their stop; its receipt says carried once it held them and ended once it is gone. Every point must be within the ability's reach of your avatar (an out_of_bounds refusal gives it in error.allowed) and in sight of you or the player. You may target nothing but your own avatar. params, area.radius_m and duration_s must stay inside the ability's bounds; omitted params take the island's defaults. The result's created names the effect id; it ends after duration_s, or with effect_stop. A few abilities wait for the player's yes (approval_required).",
     "effect.stop": "Stop one of your effects by its effect id, or 'all' of yours. Always permitted: an id that is not running, or not yours, stops nothing.",
     "style.set": "Switch the room to another style preset version. The game may hold it for the player's approval.",
@@ -499,8 +500,8 @@ _OP_DESCRIPTIONS = {
     "room.undo": "Take back the latest nature changes (grow, fire, repairs): to_revision is the room revision just before one of them, and expected_revision the room revision now. Other kinds of change (building, moving, protecting) cannot be undone: unsupported_capability. A revision the island cannot reach back to is invalid_args, with the reachable one in error.allowed. Undoing a change you did not make waits for the player's approval. Undo is for creative mode; in challenge and live mode the game may refuse it outright.",
     "nature.cast": "Cast a nature ability (capabilities_list names it with command_op nature.cast: grow, every plant rooted in the circle grows a quarter of its natural size, up to twice its size or 0.4 m taller, and stays grown, twice as much while it rains; on burnt ground it greens the ash; on water it grows a large water lily leaf the player can stand on; a cast where nothing can grow is refused with the reason; fire (yours only once the player has rested by the starting campfire: until then refused permission_denied, and capabilities_list marks it locked), which burns dry fuel and plants, grown ones longer, and spreads with dryness and wind) at center_m, within its reach of your avatar and in sight of you or the player, with radius_m and duration_s inside the ability's bounds. Fire is previewed first: send it with preview true, read what it would reach and its preview_id, then cast the same fire with that preview_id. Locks never burn. What a fire does to the player's creations depends on the game mode (read player_status), and a fire may wait for the player's approval first (approval_required). In challenge and live mode fire hurts anyone standing in it, whoever lit it. One fire at a time. Fire's place decides what it is (the preview's data.kind): an unlit firepit is lit as a campfire; once the team has learned each, a cast that names end_m (the line from center_m to end_m, at most 3 m, all of it within your reach and in sight) is a Fireline, the whole line catching at once (one fire, as Fire); a cast on something burning is Snuff, putting out everything burning within 1.5 m and any campfire there (no fire: allowed while your wait after a fire runs; snuffing a lit campfire waits for the player's yes); a cast on water is a Will-o'-wisp, a cold flame over the water that burns nothing and is no fire (at most three, gone after 5 minutes, never saved). Each is previewed first, as any fire. The Bubble is usually cast with effect_start (bubbles, where the place decides); here you may name its form instead: bubble_carry with target the player's avatar (preview it first, read its preview_id, then cast the same naming it a moment later: the ghost the player sees is their consent), or bubble_carry at a point beside them (it holds them only when they walk in), or bubble_boat on water. bubble_lift is no cast: a lift is leading a bubble to a higher spot (goal_set lead). One bubble at a time; the player pops it at any moment; it moves only while you lead it.",
     "nature.trail": "The flower trail went with Bloom (Bloom became grow): this is refused unsupported_capability and changes nothing. Use nature_cast with grow.",
-    "nature.repair": "Repair a scorched creation at its original material cost from the team's wallet (free in creative mode). Repairing one the player made waits for the player's approval.",
-    "nature.describe": "The island's nature as you and the player know it: the weather, how much is growing or burning where you have seen, the team's materials, scorched creations, whether the latest change can be undone, and nature_revision, the room revision of the last nature change.",
+    "nature.repair": "Repair a scorched creation at its original material cost, paid in the logs and stones in the player's pockets and the chest (free in creative mode). Repairing one the player made, or any repair that spends, waits for the player's approval.",
+    "nature.describe": "The island's nature as you and the player know it: the weather, how much is growing or burning where you have seen, the logs and stones a repair could spend (wallet), scorched creations, whether the latest change can be undone, and nature_revision, the room revision of the last nature change.",
     "effect.adjust": "Move one of your own free glow points (a constellation point at a spot) to center_m and choose which of your other points it links to (up to four). Comes once the team has earned the fifth light.",
     "player.status": "The player's game mode and body: health, stamina, climbs completed and recoveries. Read it before risky magic in challenge or live mode.",
 }
@@ -550,7 +551,7 @@ def dumps_compact(document: Any) -> str:
 
 def creation_sources(document: Any) -> list[tuple[str, dict]]:
     """(path, source) for the creation manifests a command carries."""
-    if not isinstance(document, dict) or document.get("schema") != COMMAND_SCHEMA:
+    if not isinstance(document, dict) or not ids.is_schema(document.get("schema"), "command"):
         return []
     args = document.get("args") if isinstance(document.get("args"), dict) else {}
     into = args.get("into") if isinstance(args.get("into"), dict) else {}

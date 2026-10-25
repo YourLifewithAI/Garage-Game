@@ -115,7 +115,7 @@ def test_colours_are_broad_and_deterministic():
 # --- curation ----------------------------------------------------------------------------------------------
 
 def test_curation_is_read_strictly_and_names_places_not_ids():
-    doc = {"schema": "enfractal.inventory_curation", "version": 1,
+    doc = {"schema": "garage_game.inventory_curation", "version": 1,
            "drop": [{"at_m": [1, 0, 1], "radius_m": 0.5, "kind": "backpack"}],
            "relabel": [{"near": {"at_m": [0, 0, 0], "radius_m": 0.4}, "kind": "couch"}],
            "add": [{"kind": "jar", "at_m": [0.3, 0.8, 1.6], "size_hint_m": 0.15}],
@@ -128,9 +128,13 @@ def test_curation_is_read_strictly_and_names_places_not_ids():
                        ("override", [{"near": {"at_m": [0, 0, 0], "radius_m": 1}, "size_m": [1, 2]}]),
                        ("mystery", [])]:
         with pytest.raises(CurationError):
-            parse_curation({"schema": "enfractal.inventory_curation", "version": 1, key: value})
-    with pytest.raises(CurationError):
-        parse_curation({"schema": "something else", "version": 1})
+            parse_curation({"schema": "garage_game.inventory_curation", "version": 1, key: value})
+    for wrong in ("something else", "garagegame.inventory_curation", "enfractal.inventory"):
+        with pytest.raises(CurationError):
+            parse_curation({"schema": wrong, "version": 1})
+    # The founder's curation written before the rename (decision C) names its kind the old way: read as it is.
+    old = parse_curation({**doc, "schema": "enfractal.inventory_curation"})
+    assert old.new_kind("table", np.array([0.1, 0, 0])) == "couch"
 
 
 # --- lifting, tracking, clusters ----------------------------------------------------------------------------

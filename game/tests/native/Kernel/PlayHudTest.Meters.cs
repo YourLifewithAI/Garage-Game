@@ -313,12 +313,14 @@ public partial class PlayHudTest
         await Frames(JournalMoveFrames);
         _hud.Journal.OpenPage(JournalPages.Abilities);
         var abilities = _hud.Journal.PageText;
-        Check(abilities.Contains("Costs 2 pips", StringComparison.Ordinal) && abilities.Contains("Costs 4 pips", StringComparison.Ordinal) && abilities.Contains("Costs 6 pips", StringComparison.Ordinal),
-            "the journal's Abilities page names each ability's cost in pips (Glow 2, Grow 4, Fire 6)");
+        var fireAt = abilities.IndexOf("· Fire", StringComparison.Ordinal);
+        Check(abilities.Contains("Costs 2 pips", StringComparison.Ordinal) && abilities.Contains("Costs 4 pips", StringComparison.Ordinal) && !abilities.Contains("Costs 6 pips", StringComparison.Ordinal) &&
+              fireAt >= 0 && abilities.IndexOf("Costs 2 pips", fireAt, StringComparison.Ordinal) > fireAt,
+            "the journal's Abilities page names each ability's cost in pips (Glow 2, Grow 4, Fire 2: decision 83)");
         _hud.Journal.OpenPage(JournalPages.Character);
         var sheet = _hud.Journal.PageText;
-        Check(sheet.Contains("Pips 0/8", StringComparison.Ordinal) && sheet.Contains("In your wallet: ", StringComparison.Ordinal) && sheet.Contains("Health ", StringComparison.Ordinal),
-            "and the character page keeps its numbers: health, stamina, the pool (Pips 0/8) and the wallet");
+        Check(sheet.Contains("Pips 0/8", StringComparison.Ordinal) && sheet.Contains("Logs and stones: ", StringComparison.Ordinal) && sheet.Contains("Health ", StringComparison.Ordinal),
+            "and the character page keeps its numbers: health, stamina, the pool (Pips 0/8), and the logs and stones (the wallet is retired)");
         _hud.CloseJournal();
         await Frames(JournalMoveFrames);
 
@@ -542,9 +544,9 @@ public partial class PlayHudTest
     }
 
     /// <summary>
-    /// E gathers what the hands hold into the wallet through item.gather, as the player's command: nothing held says to pick it up
-    /// first, a thing that is no log or stone is refused with the host's words, a held log leaves the island as one durable
-    /// revision and the notice names the wallet's counts after it; the journal's sheet keeps them.
+    /// E gathers what the hands hold into the pockets through item.gather, as the player's command (P-Inventory-2: the wallet is retired, a
+    /// log is a unit of its stack): a held log leaves the island as one durable revision and the notice names the pockets' logs and stones
+    /// after it; the journal's sheet and the Magic panel name them too.
     /// </summary>
     private async Task TestGatherKey()
     {
@@ -564,47 +566,74 @@ public partial class PlayHudTest
             var hud = world.GetNode<RoomHud>("RoomHud");
             var notice = (Label)hud.FindChild("Notice", true, false)!;
             world.Player.ReadKeyboard = false;
-            Check(PlayerControls.Label(Act.ItemGather) == "E" && PlayerControls.Specs.Any(spec => spec.Action == Act.ItemGather) && InputMap.HasAction(Act.ItemGather),
-                "the gather key is E, an input action of its own in the map and in the list of controls");
-            Check(hud.FindChild("HandActions", true, false)!.GetChildren().OfType<Button>().Any(b => b.Text == "E Gather"), "the hands' row has its button, naming the key");
-
+            Check(PlayerControls.Label(Act.Interact) == "E" && Act.Interact == "item_gather" && PlayerControls.Specs.Any(spec => spec.Action == Act.Interact) && InputMap.HasAction(Act.Interact),
+                "the interaction key is E, the input map's item_gather action (its name is from when E only gathered) and in the list of controls");
+            Check(hud.FindChild("HandActions", true, false)!.GetChildren().OfType<Button>().Any(b => b.Text == "E Use"), "the hands' row has its button, naming the key");
+            // Away from the campfire and facing nothing, with empty hands: E has nothing to do and says what it works on.
+            var spawnAt = world.Player.GlobalPosition;
+            Check(world.Player.TryTeleportTo(spawnAt + new Vector3(-0.45f, 0, 0)), "(the player steps away from the campfire and the log)");
+            world.Player.Rotation = new Vector3(0, Mathf.Pi / 2, 0);
+            await Frames(40);
             var revision = host.Revision;
+            var idle = hud.Interaction;
             hud._UnhandledInput(Press(Key.E));
             await Frames(2);
-            Check(host.Revision == revision && notice.Text.Contains("Hold a loose log or stone", StringComparison.Ordinal),
-                "E with empty hands changes nothing and says to pick one up first, in the host's words: " + notice.Text);
+            Check(idle.Kind == RoomHud.InteractKind.None && host.Revision == revision && notice.Text == hud.InteractNothingWords() && host.HeldBy(CommandHost.PlayerAvatar) == null,
+                "E with empty hands and nothing in front changes nothing and says what it works on: " + notice.Text);
+            Check(world.Player.TryTeleportTo(spawnAt), "(back by the log)");
+            await Frames(10);
             // The log in hand (picked up as the player, a command); a thing that is no log is refused.
-            var wallet = host.Nature.Wallet.GetValueOrDefault("wood");
+            int Logs() => host.PocketEntries.FirstOrDefault(e => e.Item == "log")?.Count ?? 0;
+            var wallet = Logs();
             var grab = host.HandleObject(CanonicalJson.Text(new JsonObject
             {
-                ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = "hud-grab-log", ["room_id"] = host.Room.RoomId, ["op"] = "entity.grab",
+                ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = "hud-grab-log", ["room_id"] = host.Room.RoomId, ["op"] = "entity.grab",
                 ["args"] = new JsonObject { ["target"] = "obj:log", ["actor"] = CommandHost.PlayerAvatar },
             }), CommandHost.PlayerPrincipal);
             Check(grab["ok"]?.GetValue<bool>() == true && host.HeldBy(CommandHost.PlayerAvatar) == "obj:log", "the player picks the log up");
+            await Frames(40);
+            // By the campfire the chest comes first (decision 113); the wallet is where a log is banked away from a camp.
+            Check(hud.Interaction.Kind == RoomHud.InteractKind.Store && hud.Interaction.Words == "E: store Log in the chest" && hud.InteractPrompt.Visible,
+                "holding the log at the camp, E's prompt says it stores it in the chest first (the hands first): " + hud.Interaction.Words);
+            Check(world.Player.TryTeleportTo(spawnAt + new Vector3(-0.9f, 0, 0)), "(the player carries the log a few steps from the camp)");
+            await Frames(40);
+            Check(hud.Interaction.Kind == RoomHud.InteractKind.Gather && hud.Interaction.Words.StartsWith("E: gather ", StringComparison.Ordinal) && hud.Interaction.Words.EndsWith(" into your pockets", StringComparison.Ordinal) &&
+                  hud.InteractPrompt.Visible && hud.InteractPrompt.Text == hud.Interaction.Words,
+                "away from a camp, E's prompt says it gathers it into the pockets (the hands first; item.gather, its stack's slot then selected): " + hud.Interaction.Words);
             revision = host.Revision;
             hud._UnhandledInput(Press(Key.E));
             await Frames(2);
-            var wood = host.Nature.Wallet.GetValueOrDefault("wood");
+            var wood = Logs();
             Check(wood == wallet + CommandHost.GatherUnits && host.Revision == revision + 1 && host.HeldBy(CommandHost.PlayerAvatar) == null && host.Nature.Objects["obj:log"].Gathered,
-                $"E gathers it through the host: one durable revision, the log gone, the wallet's wood {wallet} to {wood}");
-            Check(notice.Text.StartsWith("Gathered. In your wallet: ", StringComparison.Ordinal) && notice.Text.Contains($"Wood {wood}", StringComparison.Ordinal),
-                "and the notice says what the wallet holds now: " + notice.Text);
+                $"E gathers it through the host: one durable revision, the log gone, the pockets' logs {wallet} to {wood}");
+            Check(notice.Text == $"Gathered. In your pockets: {wood} log", "and the notice says what the pockets hold of logs and stones now: " + notice.Text);
+            // The gathered log's slot is chosen on the hotbar (decision 116: the stack's unit held for immediate use): with nothing else here a
+            // second E sets one down, loose before the player, and a third picks it up again (RoomHud.Hotbar.cs).
+            await Frames(40);
+            Check(hud.Interaction.Kind == RoomHud.InteractKind.UseUnit && hud.Interaction.Words == "E: set a log down" && host.Hand is { Holds: "unit", Item: "log" },
+                "the gathered log's slot is chosen on the bar, so E's prompt sets one down: " + hud.Interaction.Words);
             hud._UnhandledInput(Press(Key.E));
             await Frames(2);
-            Check(host.Nature.Wallet.GetValueOrDefault("wood") == wood && host.Revision == revision + 1 && notice.Text.Contains("Hold a loose log or stone", StringComparison.Ordinal),
-                "a second E, hands empty, gathers nothing more");
-            // The sheet keeps the wallet's counts.
+            Check(Logs() == wood - 1 && host.HeldBy(CommandHost.PlayerAvatar) == null && notice.Text == "You set a log down." && host.LooseUnits.Any(u => u.Kind == "log"),
+                "a second E, hands empty, sets the armed log down, loose before the player: " + notice.Text);
+            await Frames(40);
+            hud._UnhandledInput(Press(Key.E));
+            await Frames(2);
+            Check(Logs() == wood && !host.LooseUnits.Any(u => u.Kind == "log"), "and a third E picks it up again: " + notice.Text);
+            if (hud.Sitting) hud.RestKey();
+            // The sheet names the logs and stones (the wallet is retired).
             hud.OpenJournal();
             await Frames(JournalMoveFrames);
             hud.Journal.OpenPage(JournalPages.Character);
-            Check(hud.Journal.PageText.Contains($"Wood {wood}", StringComparison.Ordinal), "and the journal's character page lists the wallet with it");
+            Check(hud.Journal.PageText.Contains($"Logs and stones: {wood} log in your pockets", StringComparison.Ordinal) && !hud.Journal.PageText.Contains("wallet", StringComparison.Ordinal),
+                "and the journal's character page lists the pockets' log, and no wallet");
             hud.CloseJournal();
             await Frames(JournalMoveFrames);
-            // The Island page shows the wallet's counts in Creative too.
+            // The Island page shows the logs and stones in every mode.
             hud.ToggleMagicPanel();
             await Frames(14);
-            var materials = (Label)hud.FindChild("Island", true, false)!.FindChildren("*", "Label", true, false).OfType<Label>().First(l => l.Text.Contains("In your wallet", StringComparison.Ordinal));
-            Check(materials.Text.Contains($"Wood {wood}", StringComparison.Ordinal), "the Magic panel's Island page names the wallet in every mode: " + materials.Text.Replace("\n", " | "));
+            var materials = (Label)hud.FindChild("Island", true, false)!.FindChildren("*", "Label", true, false).OfType<Label>().First(l => l.Text.Contains("Logs and stones", StringComparison.Ordinal));
+            Check(materials.Text.Contains($"{wood} log", StringComparison.Ordinal), "the Magic panel's Island page names the logs and stones in every mode: " + materials.Text.Replace("\n", " | "));
             hud.ToggleMagicPanel();
             world.Free();
             await Frames(2);

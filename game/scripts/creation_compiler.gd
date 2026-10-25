@@ -4,6 +4,7 @@ extends RefCounted
 
 const JSON_KERNEL = preload("res://scripts/creation_json.gd")
 const TEXT = preload("res://scripts/creation_text.gd")
+const SCHEMA_IDS = preload("res://scripts/schema_ids.gd")
 const COMPILER_VERSION := 1
 const STYLE_VERSION := "painterly_v1"
 const MAX_BYTES := 32768
@@ -14,7 +15,7 @@ const MAX_EDGES := 32
 
 static func registry() -> Dictionary:
 	return {
-		"schema": "enfractal.creation", "version": 1,
+		"schema": SCHEMA_IDS.id_of("creation"), "version": 1,
 		"limits": {"json_bytes": MAX_BYTES, "parts": MAX_PARTS, "nodes": MAX_NODES, "edges": MAX_EDGES,
 			"name_bytes": 64, "id_bytes": 32, "position_min": -4.0, "position_max": 4.0,
 			"size_min": 0.1, "size_max": 4.0, "rotation_min": -180.0, "rotation_max": 180.0},
@@ -58,8 +59,8 @@ static func compile(manifest: Variant) -> Dictionary:
 	var error := _keys(manifest, ["schema", "version", "name", "seed", "mount", "parts", "nodes", "edges"], "$")
 	if not error.is_empty():
 		return error
-	if manifest.schema != "enfractal.creation":
-		return _error("schema", "$.schema", "Expected enfractal.creation source.")
+	if not SCHEMA_IDS.is_schema(manifest.schema, "creation"):
+		return _error("schema", "$.schema", "Expected a garage_game.creation source.")
 	if not _integer(manifest.version) or int(manifest.version) != 1:
 		return _error("version", "$.version", "Only creation schema version 1 is supported.")
 	# A name is untrusted world text: the project's invisible-character rule (creation_text.gd) refuses
@@ -224,7 +225,9 @@ static func compile(manifest: Variant) -> Dictionary:
 	parts.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.id < b.id)
 	nodes.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.id < b.id)
 	edges.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return (a.from + ":" + a.to) < (b.from + ":" + b.to))
-	var source := {"schema": "enfractal.creation", "version": 1, "name": manifest.name.strip_edges(),
+	# The source keeps the spelling of its id it was written with: its hash pins it (a saved creation's source_sha256, a
+	# repair's quote), so a creation saved before the rename stays the same creation (contracts/README.md, "Schema ids").
+	var source := {"schema": manifest.schema, "version": 1, "name": manifest.name.strip_edges(),
 		"seed": int(manifest.seed), "mount": manifest.mount, "parts": parts, "nodes": nodes, "edges": edges}
 	return {"ok": true, "artifact": {"source": source, "hash": canonical_json(source).sha256_text(),
 		"compiler_version": COMPILER_VERSION, "style_version": STYLE_VERSION, "order": order,
@@ -233,7 +236,7 @@ static func compile(manifest: Variant) -> Dictionary:
 			"fields": counts.wind, "lights": counts.light, "rotors": counts.spin}}}
 
 
-## EnFractal canonical JSON v1 (scripts/creation_json.gd): exact numbers, sorted keys, no
+## Garage Game canonical JSON v1 (scripts/creation_json.gd): exact numbers, sorted keys, no
 ## whitespace; byte-identical with the C# command host and tools/kernel/canonical_json.py.
 ## compile performs the depth/size/type guard first; callers hashing requests should likewise
 ## bound them before using this general utility. Returns "" for a value JSON cannot hold.

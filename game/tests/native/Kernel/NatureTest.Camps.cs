@@ -29,6 +29,146 @@ public partial class NatureTest
         await TestFireLock();
         await TestCampfireRain();
         await TestFirepitSpotsSaved();
+        // The generator's firepits (NatureTest.Firepits.cs): the manifest's x_firepits, checked on the island, the spread filling in.
+        await TestManifestFirepits();
+        await TestCampfireHurts();
+        await TestRestingHeals();
+        await TestCampHealsSooner();
+    }
+
+    /// <summary>
+    /// Decision 111: resting at a camp heals sooner than 10 s after harm, after the pack's camp_heal_after_unharmed_s (2 s in v5,
+    /// provisional; NatureTest.Energy's rest shows the quarter a second from there). A pack that names no camp wait keeps today's 10 s at
+    /// the camp too; and a pack that heals away from a camp keeps 10 s there, and for a player standing at the camp, whatever its camp wait.
+    /// </summary>
+    private async Task TestCampHealsSooner()
+    {
+        var camp = _room.SpawnFor("player").PositionM;
+        var away = camp + new Vector3(0.8f, 0, 0);
+        // A quarter healed at a camp's resting pace (1 s, v5) from a hurt at the given seconds: the health after each tick.
+        async Task<float[]> RestHurt(params float[] ticks)
+        {
+            Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp(), "(the player stands at the camp)");
+            await Frames(3);
+            var sat = _host.PlayerRest();
+            Check(sat.Ok && _host.PlayerResting, "(and sits down by the fire) " + sat.Words);
+            _host.ApplyPlayerDamage(_host.Vitals.Health - 5, PlayerDamageSource.Fall);
+            var seen = new float[ticks.Length];
+            for (var i = 0; i < ticks.Length; i++)
+            {
+                _player.VitalsTick!(ticks[i], true);
+                seen[i] = _host.Vitals.Health;
+            }
+            return seen;
+        }
+        await EnergyWorld("camp-heal-sooner");
+        var v5 = await RestHurt(1.9f, 0.2f, 1f);
+        Check(_host.BodyRules is { CampHealAfterUnharmedS: 2, HealAfterUnharmedS: 10 } && _host.HealAfterUnharmedHereS() == 2 && v5.SequenceEqual(new[] { 5f, 5f, 10f }),
+            $"v5: resting at a camp, healing starts 2 s after harm (decision 111), not 10: nothing at 1.9 s, then a quarter a second ({string.Join(", ", v5)})");
+        await EnergyWorld("camp-heal-unsaid", editPack: pack => pack["traits"]!["hearts"]!.AsObject().Remove("camp_heal_after_unharmed_s"));
+        var unsaid = await RestHurt(1.9f, 0.2f, 7.8f, 0.2f, 1f);
+        Check(_host.HealAfterUnharmedHereS() == 10 && unsaid.SequenceEqual(new[] { 5f, 5f, 5f, 5f, 10f }),
+            $"a pack that names no camp wait keeps today's: resting at a camp heals nothing for 10 s after harm ({string.Join(", ", unsaid)})");
+        // A pack that heals anywhere (as before decision 84) and names the camp's 2 s: only the rest at a camp waits less.
+        await EnergyWorld("camp-heal-anywhere", editPack: pack =>
+        {
+            var hearts = pack["traits"]!["hearts"]!.AsObject();
+            foreach (var name in new[] { "heal_outside_camp", "camp_heal_quarter_every_s", "heal_while_closed" }) hearts.Remove(name);
+        });
+        Check(_player.TryTeleportTo(away) && !_host.PlayerAtCamp(), "(the player stands away from the camp)");
+        _host.ApplyPlayerDamage(14, PlayerDamageSource.Fall);
+        _player.VitalsTick!(9.9f, true);
+        var awayWaiting = _host.Vitals.Health;
+        _player.VitalsTick!(0.2f, true);
+        _player.VitalsTick!(2.4f, true);
+        var awayHealed = _host.Vitals.Health;
+        Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp() && !_host.PlayerResting, "(back at the camp, standing)");
+        await Frames(3);
+        _host.ApplyPlayerDamage(14, PlayerDamageSource.Fall);
+        var standingHurt = _host.Vitals.Health;
+        _player.VitalsTick!(9.9f, true);
+        var standingWaiting = _host.Vitals.Health;
+        Check(awayWaiting == 85 && awayHealed == 90 && standingHurt == 75 && standingWaiting == 75 && _host.HealAfterUnharmedHereS() == 10,
+            $"away from a camp nothing changes: 10 s without harm before a quarter heals, and standing at the camp the same ({awayWaiting}, {awayHealed}; {standingHurt}, {standingWaiting})");
+        var resting = await RestHurt(1.9f, 0.2f, 1.25f);
+        Check(_host.HealAfterUnharmedHereS() == 2 && resting.SequenceEqual(new[] { 5f, 5f, 10f }),
+            $"and sitting down there it waits the camp's 2 s, then heals at the camp's pace ({string.Join(", ", resting)})");
+    }
+
+    /// <summary>
+    /// Decision 85 (the second recorded play: "The campfire doesn't hurt the player when they stand over it. It should hurt them."): a lit
+    /// campfire hurts a player standing in its flames as any fire does, a quarter a second under v5 in Challenge; the resting spot beside it
+    /// is safe, the rest key never sits anyone down in the flames, a campfire that is out hurts no one, and in Creative nothing hurts.
+    /// </summary>
+    private async Task TestCampfireHurts()
+    {
+        await NewWorld(SavePath("camp-flames"), challenge: true);
+        var fire = _host.StartingCampfire!.PositionM;
+        var spawn = _room.SpawnFor("player").PositionM;
+        Check(_player.TryTeleportTo(fire + new Vector3(0.01f, 0.005f, 0)) && _host.CampfireFlamesAt(_player.GlobalPosition)?.Id == CampLaws.StartingId,
+            "(the player stands in the starting campfire's flames)");
+        await Frames(3);
+        var before = _host.Vitals.Health;
+        Steps(1);
+        var half = _host.Vitals.Health;
+        Steps(1);
+        var one = _host.Vitals.Health;
+        Steps(2);
+        Check(before == 100 && half == 100 && one == 95 && _host.Vitals.Health == 90 && _host.LastDamageSource == PlayerDamageSource.Fire,
+            $"standing in a lit campfire hurts as any fire does, a quarter a second ({before}, {half}, {one}, {_host.Vitals.Health})");
+        var inFlames = _host.PlayerRest();
+        var canRest = _host.PlayerCanRest();
+        Check(!inFlames.Ok && inFlames.Words == CommandHost.RestInFlames && !_host.PlayerResting && !canRest.Ok && canRest.Words == CommandHost.RestInFlames,
+            "the rest key never sits the player down in the flames: " + inFlames.Words);
+        // The resting spot beside it is safe: the spawn, 0.2 m from the fire, and anywhere out of its flames.
+        Check(_player.TryTeleportTo(spawn) && _host.CampfireFlamesAt(_player.GlobalPosition) == null, "(the player steps back to the resting spot)");
+        await Frames(3);
+        var beside = _host.Vitals.Health;
+        var sit = _host.PlayerRest();
+        Steps(8);
+        Check(sit.Ok && _host.PlayerResting && _host.Vitals.Health == beside, $"the resting spot beside it is safe: sitting there 4 s costs nothing ({beside}, {_host.Vitals.Health})");
+        Check(_player.TryTeleportTo(fire + new Vector3(CampLaws.FlamesM + 0.02f, 0.005f, 0)), "(the player stands just outside the ring of stones)");
+        await Frames(3);
+        var edge = _host.Vitals.Health;
+        Steps(4);
+        Check(_host.Vitals.Health == edge, $"just outside the flames ({CampLaws.FlamesM + 0.02f:0.00} m from the centre) nothing burns ({edge}, {_host.Vitals.Health})");
+        // A campfire that is out burns no one.
+        Check(_host.PutOutCampfire(CampLaws.StartingId) && _player.TryTeleportTo(fire + new Vector3(0.01f, 0.005f, 0)), "(rain puts the campfire out; the player stands on its logs)");
+        await Frames(3);
+        var dark = _host.Vitals.Health;
+        Steps(4);
+        Check(_host.Vitals.Health == dark && _host.CampfireFlamesAt(_player.GlobalPosition) == null, $"a campfire that is out hurts no one ({dark}, {_host.Vitals.Health})");
+        // Creative: nothing hurts.
+        await NewWorld(SavePath("camp-flames-creative"));
+        Check(_player.TryTeleportTo(_host.StartingCampfire!.PositionM + new Vector3(0.01f, 0.005f, 0)), "(in Creative, the player stands in the campfire)");
+        await Frames(3);
+        Steps(6);
+        Check(_host.Vitals.Health == 100, $"in Creative the campfire hurts no one ({_host.Vitals.Health})");
+    }
+
+    /// <summary>
+    /// Decision 84 under v5 (heal_outside_camp false; decisions 91 and 93): hearts heal only while the player rests, sitting by a lit
+    /// campfire, a quarter a second after the unharmed wait; standing at the camp heals nothing, nor does standing up, walking away, or the
+    /// campfire going out under them; a knockout wakes at camp with half the hearts, not resting.
+    /// </summary>
+    private async Task TestRestingHeals()
+    {
+        await NewWorld(SavePath("camp-heal"), challenge: true);
+        var spawn = _room.SpawnFor("player").PositionM;
+        Check(_player.TryTeleportTo(spawn) && _host.PlayerAtCamp(), "(the player stands at the camp)");
+        await Frames(3);
+        _host.ApplyPlayerDamage(_host.Vitals.Health - 5, PlayerDamageSource.Fall);
+        for (var i = 0; i < 30; i++) _player.VitalsTick!(1f, true);
+        var standing = _host.Vitals.Health;
+        var sat = _host.PlayerRest();
+        for (var i = 0; i < 4; i++) _player.VitalsTick!(1f, true);
+        var rested = _host.Vitals.Health;
+        Check(standing == 5 && sat.Ok && _host.PlayerResting && rested == 25,
+            $"half a minute standing at the camp heals nothing; sitting down by the fire, four seconds heal four quarters ({standing}, then {rested})");
+        // The campfire going out under them ends the rest: no camp, no heal.
+        Check(_host.PutOutCampfire(CampLaws.StartingId) && !_host.PlayerResting, "(rain puts the campfire out: the player is no longer resting)");
+        for (var i = 0; i < 5; i++) _player.VitalsTick!(1f, true);
+        Check(_host.Vitals.Health == 25 && _host.HealQuarterEveryHereS() == null, $"a campfire that is out heals no one sitting by it ({_host.Vitals.Health})");
     }
 
     /// <summary>Spread checks on made-up land (decision 74), each named: every land point within this of a site (the starting campfire or a firepit)...</summary>
@@ -172,7 +312,8 @@ public partial class NatureTest
         var beside = pits[0] + new Vector3(0.15f, 0.01f, 0);
         Check(_player.TryTeleportTo(beside), "(the player stands by the first firepit)");
         await Frames(3);
-        Check(!_host.PlayerAtCamp() && _host.CampHeartsFactorNow() == 1f && _host.PlayerRest().Words == CommandHost.RestUnlit, "an unlit firepit is no camp yet, and sitting there says so");
+        Check(!_host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == null && _host.PlayerRest().Words == CommandHost.RestUnlit,
+            "an unlit firepit is no camp yet: hearts do not heal there (v5, decision 84), and sitting there says so");
         Check(_companion.TryTeleportTo(pits[0] + new Vector3(0, 0.01f, -0.3f)), "(the Gubble floats beside it)");
         await Frames(2);
         var revision = _host.Revision;
@@ -181,10 +322,11 @@ public partial class NatureTest
               _host.Nature.Fire == null && _host.Nature.Cells.Values.All(c => c.BurningS <= 0),
             "the Gubble's Fire cast on the firepit lights it, one durable revision, and nothing else catches: " + (lit["error"]?["message"]?.GetValue<string>() ?? ""));
         Check(_host.GlowProgress.Has(ExpertiseLists.Fire, ExpertiseLists.Campfire) && store.Saves == 1, "the first firepit lit teaches Campfire");
-        // A lit campfire is a full camp: the camp's spends and knacks (PlayerAtCamp), hearts faster, and the camp the player wakes at.
-        Check(_host.PlayerAtCamp() && _host.CampHeartsFactorNow() == CampLaws.CampHeartsFactor, "beside the lit campfire the player is at a camp, and hearts refill faster");
+        // A lit campfire is a full camp: the camp's spends and knacks (PlayerAtCamp), its hearts' pace, and the camp the player wakes at.
+        Check(_host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == null, "beside the lit campfire the player is at a camp, where hearts heal only once they sit down (v5, decision 84)");
         var rest = _host.PlayerRest();
-        Check(rest.Ok && rest.NewCamp && _host.HomeCamp == "firepit:1" && !rest.LearnedFire, "sitting by it makes it the player's camp: " + rest.Words);
+        Check(rest.Ok && rest.NewCamp && _host.HomeCamp == "firepit:1" && !rest.LearnedFire && _host.HealQuarterEveryHereS() == 1,
+            "sitting by it makes it the player's camp, and hearts heal there while they rest, a quarter a second (v5, decision 91): " + rest.Words);
         var sat = _player.GlobalPosition;
         Check(_player.TryTeleportTo(spawn) && _player.RecoverAtSpawn() && CampLaws.Flat(_player.GlobalPosition, sat) < 0.05f, "and a knockout's recovery wakes the player there");
         // Lit campfires are saved with the island.
@@ -257,8 +399,8 @@ public partial class NatureTest
         Check(_player.TryTeleportTo(pits[0] + new Vector3(0.15f, 0.01f, 0)), "(the player stands by the firepit that is out)");
         await Frames(3);
         var outRest = _host.PlayerRest();
-        Check(!_host.PlayerAtCamp() && _host.CampHeartsFactorNow() == 1f && !outRest.Ok && outRest.Words == CommandHost.RestOut,
-            "a campfire that is out is no camp: no spends or knacks, no faster hearts, and resting there says so: " + outRest.Words);
+        Check(!_host.PlayerAtCamp() && _host.HealQuarterEveryHereS() == null && !outRest.Ok && outRest.Words == CommandHost.RestOut,
+            "a campfire that is out is no camp: no spends or knacks, no healing hearts (v5), and resting there says so: " + outRest.Words);
         Check(_player.TryTeleportTo(spawn), "(the player stands by the starting campfire)");
         await Frames(3);
         var look = CampfireLook.Create(_host);
@@ -283,8 +425,9 @@ public partial class NatureTest
     }
 
     /// <summary>
-    /// Decision 74's saves: a lit firepit keeps its id while its spot is the same (the spot is saved beside it); one whose spot moved is
-    /// unlit and the island loads; a save written before the change (no spots) is matched by the old rule's spots (the test room has none).
+    /// Decision 74's saves: a lit firepit keeps its id while its spot is the same (the spot is saved beside it); where the island's own
+    /// firepit of that id moved, the saved spot wins (no save changes meaning) and the island loads; a save written before the change (no
+    /// spots) is matched by the old rule's spots (the test room has none, so its firepits are unlit).
     /// </summary>
     private async Task TestFirepitSpotsSaved()
     {
@@ -302,7 +445,10 @@ public partial class NatureTest
         Check(camp["pits_m"]?["firepit:1"] is JsonArray && camp["pits_m"]?["firepit:2"] is JsonArray, "each lit firepit's spot is saved beside it");
         await NewWorld(SavePath("camp-moved"));
         _host.FirepitsForTests = new[] { pits[0] + new Vector3(0.5f, 0, 0), pits[1] };
-        Check(!_host.IsCampfireLit("firepit:1") && _host.IsCampfireLit("firepit:2"), "a lit firepit whose spot moved is unlit and the island loads; one whose spot is the same keeps its id, lit");
+        var one = _host.CampSites.FirstOrDefault(c => c.Id == "firepit:1");
+        Check(_host.IsCampfireLit("firepit:1") && one != null && one.PositionM.DistanceTo(pits[0]) < 0.01f && _host.IsCampfireLit("firepit:2") &&
+              !_host.CampSites.Any(c => c.PositionM.DistanceTo(pits[0] + new Vector3(0.5f, 0, 0)) < 0.01f),
+            "a lit firepit whose island spot moved keeps its saved spot, lit (the save wins over the spread), and the island loads; one whose spot is the same keeps its id, lit");
         camp.Remove("pits_m");
         await NewWorld(SavePath("camp-older"));
         _host.FirepitsForTests = pits;

@@ -130,6 +130,10 @@ public partial class CommandHost
         Player.FallObserved = ObservePlayerFall;
         Player.ClimbCompleted = ObservePlayerClimb;
         Player.StaminaLedger = _ledger;
+        // P-Inventory: the deep-water return loses the pockets' stacks in Challenge and Live (decision 101).
+        _shoreReturnsSeen = Player.ShoreReturns;
+        Player.WentHome -= PlayerWentHome;
+        Player.WentHome += PlayerWentHome;
         _priorKnacks = Player.Knacks;
         ApplyBodyKnacks();
         Player.ResetVitalsObservation();
@@ -144,6 +148,7 @@ public partial class CommandHost
         if (Player.FallObserved == ObservePlayerFall) Player.FallObserved = _priorFallObserved;
         if (Player.ClimbCompleted == ObservePlayerClimb) Player.ClimbCompleted = _priorClimbCompleted;
         if (ReferenceEquals(Player.StaminaLedger, _ledger)) Player.StaminaLedger = _priorStaminaLedger;
+        Player.WentHome -= PlayerWentHome;
         if (_priorKnacks != null) Player.Knacks = _priorKnacks;
     }
 
@@ -203,8 +208,9 @@ public partial class CommandHost
             data["hearts"] = new JsonObject { ["quarters"] = _vitalsRules.Quarters(vitals), ["max_quarters"] = _vitalsRules.MaxQuarters(vitals) };
         if (_vitalsRules.InBands)
             data["bar"] = new JsonObject { ["bands"] = _vitalsRules.OpenBands(vitals), ["slowed"] = _slowed };
-        // The team's wallet (the island save's): what gathering put in and repairs took out (CommandHostGather).
-        data["wallet"] = WalletCounts();
+        // The materials wallet is retired (P-Inventory-2): logs and stones are stacks in the pockets and the chest, below.
+        // P-Inventory: the pockets and the chest, when the pack has the block (CommandHostInventoryReaders).
+        AddInventoryStatus(data);
         return data;
     }
 
@@ -279,15 +285,21 @@ public partial class CommandHost
             }
         }
         var rest = Math.Max(0, seconds - Positive(exertion.SprintS));
-        var heal = _damageRestS >= _vitalsRules.HealAfterUnharmedS && vitals.Health < vitals.MaxHealth;
+        // The unharmed wait is the camp's while the player rests at one (decision 111: 2 s in v5), heal_after_unharmed_s elsewhere.
+        var heal = vitals.Health < vitals.MaxHealth && _damageRestS >= HealAfterUnharmedHereS();
         if (safelyGrounded && (vitals.Stamina < vitals.MaxStamina || heal))
         {
+            // In quarters the pack says where hearts heal and how fast (HealQuarterEveryHereS): at a camp its camp pace, elsewhere its
+            // own or, where it heals only at camp (v5, decision 84), not at all.
+            var every = heal && _vitalsRules.InQuarters ? HealQuarterEveryHereS() : null;
+            if (heal && _vitalsRules.InQuarters && every == null) heal = false;
             vitals = _vitalsRules.Rest(vitals, rest, heal);
-            // In quarters the heal lands whole: one quarter every heal_quarter_every_s.
-            if (heal && _vitalsRules.InQuarters)
+            // In quarters the heal lands whole: one quarter every `every` seconds, counted against heal_quarter_every_s so the camp's
+            // pace and the outside one share the count (a second at a camp counts heal_quarter_every_s / camp_heal_quarter_every_s:
+            // 2 by default, decision 62's; 2.5 under v5's quarter a second, decision 91).
+            if (heal && every is { } quarterS)
             {
-                // At a camp (the starting one or any lit campfire) hearts refill faster (decision 62; CampLaws.CampHeartsFactor).
-                _healS += seconds * CampHeartsFactorNow();
+                _healS += seconds * (_vitalsRules.HealQuarterEveryS / quarterS);
                 while (_healS >= _vitalsRules.HealQuarterEveryS && vitals.Health < vitals.MaxHealth)
                 {
                     _healS -= _vitalsRules.HealQuarterEveryS;
@@ -411,8 +423,21 @@ public partial class CommandHost
         return true;
     }
 
-    private void ObservePlayerFall(float landingSpeedMps, bool deepWater) =>
-        ApplyPlayerDamage((Player?.Knacks ?? BodyKnacks.None).FallDamage(landingSpeedMps, deepWater), PlayerDamageSource.Fall);
+    /// <summary>
+    /// The body's landing report (each grounded or water-caught tick): its fall damage as any fall (decision 24), and, out of a bubble
+    /// (decision 88), what the landing means for the carry that ended: a hurt carry set no one down safely, and the landing that ends the
+    /// fall after the Gubble's own pop is its consequence when it hurt (NotePopFall, decision 96).
+    /// </summary>
+    private void ObservePlayerFall(float landingSpeedMps, bool deepWater)
+    {
+        // Taken before the hurt: a landing that knocks the player out recovers them at camp inside it (which forgets the pop's fall).
+        var popFall = _popFallPending;
+        _popFallPending = false;
+        var at = Player?.GlobalPosition ?? Vector3.Zero;
+        var harm = ApplyPlayerDamage((Player?.Knacks ?? BodyKnacks.None).FallDamage(landingSpeedMps, deepWater), PlayerDamageSource.Fall);
+        if (harm != null && _carrySetDownPending) _carryFallHurt = true;
+        if (popFall) NotePopFall(harm, at);
+    }
 
     /// <summary>
     /// Injury recovery at the spawn (the camp, today): half the hearts and the bar, the pool at least half full, a moment when
@@ -428,8 +453,14 @@ public partial class CommandHost
         _recoveredAt = Player.GlobalPosition;
         _fireQuarters = 0;
         _healS = 0;
+        // Waking at camp is no rest (decision 84), even where the player last sat: they wake with half the hearts and sit down again to heal.
+        _resting = false;
+        // A fall still pending after the Gubble's pop has ended here (its landing, if that was what put them down, was already counted).
+        ForgetPopFall();
         MakeRecoverySafe(Player.GlobalPosition);
         _vitalsDirty = true;
+        // P-Inventory (decision 101): a knockout loses the pockets' stacks in Challenge and Live; unique things stay, the chest never spills.
+        LosePocketStacks(sea: false);
         return true;
     }
 
@@ -458,9 +489,10 @@ public partial class CommandHost
 
     /// <summary>
     /// While the player is away the world keeps living (MECHANICS section 4): the time since this mode was last written heals
-    /// hearts at the resting pace (after the unharmed wait), refills the bar, and wakes the pool at least half full, as at
-    /// camp. Nothing in Creative needs it but the shadow pool. A mode never written by this host (fresh, or only in a version
-    /// 1 save) has no time away. Applied to the body as read (BroughtTo), only once rules are loaded: never under none.
+    /// hearts at the resting pace (after the unharmed wait) where the pack lets it (heal_while_closed; v5 says not, decision 93: you
+    /// come back with the hearts you had), refills the bar, and wakes the pool at least half full, as at camp. Nothing in Creative
+    /// needs it but the shadow pool. A mode never written by this host (fresh, or only in a version 1 save) has no time away.
+    /// Applied to the body as read (BroughtTo), only once rules are loaded: never under none.
     /// </summary>
     private PlayerVitals CaughtUp(VitalsRules rules, PlayerVitals vitals, DateTime? written)
     {
@@ -471,7 +503,7 @@ public partial class CommandHost
         if (!rules.Consequences) return pips == vitals.Pips ? vitals : vitals.With(pips: pips);
         var resting = Math.Max(0, away - rules.HealAfterUnharmedS);
         var health = vitals.Health;
-        if (resting > 0 && health > 0)
+        if (resting > 0 && health > 0 && rules.HealsWhileClosed)
             health = rules.InQuarters
                 ? (float)(Math.Min(rules.MaxQuarters(vitals), rules.Quarters(vitals) + Math.Floor(resting / rules.HealQuarterEveryS)) * rules.HealthPerQuarter)
                 : (float)Math.Min(vitals.MaxHealth, health + 2 * resting);

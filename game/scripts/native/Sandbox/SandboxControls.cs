@@ -8,7 +8,7 @@ namespace GarageGame.Native.Sandbox;
 
 /// <summary>
 /// What the player's hand keys aim at (F pick up and put down, V push). The keys only choose a target and send the
-/// same enfractal.command the companion would; the host's checks decide. Aim is the body's facing, which follows the
+/// same garage_game.command the companion would; the host's checks decide. Aim is the body's facing, which follows the
 /// mouse in F1 and F2 and the direction of travel in F3 and F4, so the keys work the same in every view.
 /// </summary>
 public static class SandboxControls

@@ -34,8 +34,8 @@ _CONTRACTS: Contracts | None = None
 _MEMORY_CONTRACTS: Contracts | None = None
 # The perception-memory result fields proposed in docs/companion/proposals/contracts-run1.diff.
 MEMORY_EXTENSION = COMPANION_DIR / "tests" / "fixtures" / "contract_memory_v1.json"
-contract_validate.validator_for("enfractal.result")  # warm the validator once, off any event loop
-logging.getLogger("enfractal").setLevel(logging.CRITICAL)  # refusals are asserted, not logged
+contract_validate.validator_for("garage_game.result")  # warm the validator once, off any event loop
+logging.getLogger("garage_game").setLevel(logging.CRITICAL)  # refusals are asserted, not logged
 
 
 def contracts() -> Contracts:
@@ -72,7 +72,7 @@ def memory_contracts_dir() -> Path:
     command_schema = json.loads((CONTRACTS / "game-command.schema.json").read_bytes())
     if has_memory_fields(command_schema):
         return CONTRACTS
-    copy_dir = Path(tempfile.mkdtemp(prefix="enfractal-memory-contracts-"))
+    copy_dir = Path(tempfile.mkdtemp(prefix="garage-game-memory-contracts-"))
     atexit.register(shutil.rmtree, copy_dir, True)
     for path in list(CONTRACTS.glob("*.schema.json")) + [CONTRACTS / "validate.py"]:
         shutil.copyfile(path, copy_dir / path.name)
@@ -114,14 +114,14 @@ def new_host(policy: HostPolicy | None = None, clock: FakeClock | None = None, *
 
 
 def command(op: str, args: dict, action_id: str, room_id: str = "test_room", **extra) -> dict:
-    message = {"schema": "enfractal.command", "version": 1, "action_id": action_id, "room_id": room_id,
+    message = {"schema": "garage_game.command", "version": 1, "action_id": action_id, "room_id": room_id,
                "op": op, "args": args}
     message.update(extra)
     return message
 
 
 def query(op: str, args: dict, query_id: str = "q-1", room_id: str = "test_room") -> dict:
-    return {"schema": "enfractal.query", "version": 1, "query_id": query_id, "room_id": room_id, "op": op, "args": args}
+    return {"schema": "garage_game.query", "version": 1, "query_id": query_id, "room_id": room_id, "op": op, "args": args}
 
 
 GUBBLE = "avatar:companion"

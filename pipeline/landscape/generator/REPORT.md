@@ -1,5 +1,31 @@
 # The garage as land: the landscape generator (C5)
 
+## The firepits (Run 2, Lane C, 24 October)
+
+Decision 74 (firepits spread evenly over any island) was the kernel's own rule until now (`CampLaws.SpreadFirepits`). The generator
+now chooses them (`firepits.py`) and the exporter hands them to the game as the manifest's `x_firepits` (spots only); the kernel reads
+them, checks each on the island and fills a left-out place with its spread. The rule: one per 250 m2 of standable dry land (3 to 12,
+the kernel's count), at least 4 m apart, 1 m from every Fractal, 3 m from the starting campfire (3.2 m from the spawn, whichever way
+it faces), on a node the strict walk stands a body on (never water, a steep face, a trunk, a stone, a cottage, a flight, a path or the
+jetty's landing), one near the hamlet; the rest by Lloyd's relaxation over the land (the starting campfire and the hamlet's firepit
+fixed), each on the ground of its share nearest the share's centre, first-run ground (band 1) counting 5 m nearer. Every claim (the
+spot standable, on the land, its band) is made on the package as it is read back, single precision and the land grid read from its
+mesh, so `checks.firepit_checks` (in `checks.run`'s `ok`) proves it on the written package. Every island gets them, the 1x corpus
+too: its other outputs are byte-identical (the 1x and 10x garage compared file by file, and `package.json` without
+`x_generator.firepits`, against `63f1846`).
+
+- **The 10x garage:** 12 firepits over 2,992 m2 (the kernel's probe finds 3,042 m2), 8 within first-run reach, the nearest two 11.4 m
+  apart, every land point within 22.4 m of a campfire (the farthest the headland past the walls' north-east corner, where the strict
+  walk stands nobody, so no firepit can go); the kernel keeps all 12 (its log: every land point within 22.3 m, the same corner; its
+  own spread had 20.9 m). The firepit stage costs about 12 s.
+- **The 1x garage:** 3 firepits over 27 m2, all within first-run reach, the nearest two 4.1 m apart, every land point within 3.0 m of a
+  campfire.
+
+```
+python -B -m unittest pipeline.landscape.generator.tests.test_firepits -v
+python -B -S -m unittest pipeline.landscape.export.tests.test_fractals -v
+```
+
 ## The follow-up: the summit waits, the Fractals spread, why the strict walk reaches a fifth (Run 2, packet M4's follow-up, 15 October)
 
 The founder's answers of 15 October (`docs/game/MECHANICS.md` decisions 22, 27, 35 and 36), built at world scale 10 only: the 1x

@@ -58,6 +58,35 @@ LOCKED_RULES: dict[str, str] = {}
 
 # Each invalid example and the reason it must fail.
 EXPECTED_FAILURES = {
+    # P-Food (25 October): item.pickup names a Fractal or a plant, never a thing; a pick keeps no data; eating makes one sound.
+    "command_pick_a_thing": "'obj:paint_clutter' is not valid under any of the given schemas",
+    "result_pick_with_data": "False schema does not allow {'item': 'apple'",
+    "result_eaten_with_a_tune": "'crunch' is not one of ['eat']",
+    # P-Inventory (25 October): the four commands' shapes, the data a receipt keeps, and the readers' closed entries.
+    "command_store_from_the_pockets_without_an_item": "'item' is a required property",
+    "command_store_from_the_pockets_into_the_pockets": "$.args.to: 'chest' was expected",
+    "command_store_into_the_hand": "'hand' is not one of ['chest', 'pockets']",
+    "command_take_without_where": "'to' is a required property",
+    "command_take_a_thousand_and_one": "1001 is greater than the maximum of 1000",
+    "command_use_of_a_thing": "'obj:paint_clutter' does not match",
+    "command_drop_with_a_count": "('count' was unexpected)",
+    "command_store_for_the_players_avatar": "('actor' was unexpected)",
+    "result_store_without_its_data": "'data' is a required property",
+    "result_use_healing_past_the_hearts": "121 is greater than the maximum of 120",
+    "result_pockets_with_a_price": "('price' was unexpected)",
+    "result_player_status_with_a_wallet": "('wallet' was unexpected)",
+    # P-Inventory-2: the hand's selection (decision 119).
+    "command_select_slot_eleven": "11 is greater than the maximum of 10",
+    "command_select_on_the_wheel": "'wheel' is not one of ['pockets', 'abilities']",
+    "command_select_without_a_slot": "'slot' is a required property",
+    "command_take_from_the_pockets_into_the_pockets": "'hand' was expected",
+    "command_take_from_the_ground_into_the_hand": "'pockets' was expected",
+    "command_take_two_from_the_ground": "1 was expected",
+    "result_eaten_with_a_bag_of_seeds": "11 is greater than the maximum of 10",
+    "result_select_kept_as_durable": "True was expected",
+    "result_hand_holding_a_wish": "'wish' is not one of",
+    "result_chest_entry_with_hidden_words": "$.data.chest.entries[0].name",
+    "command_with_a_misspelt_schema_id": "unknown schema 'garagegame.command'",
     "command_with_principal": "'principal' was unexpected",
     "command_carries_approval": "'approval' was unexpected",
     "command_grab_without_target": "'target' is a required property",
@@ -114,8 +143,12 @@ EXPECTED_FAILURES = {
     "result_nature_describe_with_an_unknown_material": "'gold' is not one of ['stone', 'wood', 'copper', 'leaf']",
     "result_fire_cast_keeping_its_preview_cells": "('cells' was unexpected)",
     "result_fire_preview_without_what_it_reaches": "'affected_ids' is a dependency of 'preview_id'",
-    # Fire's behaviours (decisions 77 to 80): only Fire names an end; Snuff burns nothing, so its preview names nothing it would reach.
-    "command_grow_with_an_end": "'fire' was expected",
+    # Fire's behaviours (decisions 77 to 80): only Fire and Grow name an end (a Fireline, a bridge); Snuff burns nothing, so its preview names nothing it would reach.
+    "command_bubble_with_an_end": "'bubble_boat' is not one of ['fire', 'grow']",
+    # Grow's unlocks (decisions 104 to 107): its kinds are the contract's, and capabilities.list names each locked one once, or none.
+    "result_grow_kind_unknown": "'vines' is not one of",
+    "result_capabilities_list_locking_a_kind_twice": "has non-unique elements",
+    "result_capabilities_list_with_no_locked_kinds_listed": "should be non-empty",
     "result_snuff_preview_naming_what_it_would_burn": "False schema does not allow",
     "result_wisp_naming_a_thing": "does not match",
     "result_flower_trail_without_its_data": "'data' is a required property",
@@ -140,6 +173,14 @@ EXPECTED_FAILURES = {
     "result_undo_of_nothing": "0 is less than the minimum of 1",
     # Consequences (the founder, 13 October): a fixed-form notice, at most 8, and what a preview and a stop say.
     "result_notice_of_another_kind": "'fire_hurt_gubble' is not one of ['fire_hurt_player']",
+    # The third round (decisions 129 to 135): a repair's spend names at least one kind, each with a unit or more.
+    "result_repair_spent_nothing": "should be non-empty",
+    "result_grow_ripened_fewer_than_none": "-1 is less than the minimum of 0",
+    "result_eaten_with_no_seed_loose": "0 is less than the minimum of 1",
+    "result_lesson_notice_naming_an_id": "('subject' was unexpected)",
+    "result_lesson_notice_raising_trust": "3 is greater than the maximum of 0",
+    "result_lesson_notice_without_its_line": "'line' is a required property",
+    "result_repair_spent_none_of_a_kind": "0 is less than the minimum of 1",
     "result_notice_past_full_health": "721 is greater than the maximum of 720",
     "result_notice_in_someones_words": "('message' was unexpected)",
     "result_nine_notices": "is too long",
@@ -231,7 +272,7 @@ def l_shaped_room(base: Path, reverse_wall: str | None = None) -> Path:
         platform.reverse()
     parts.append({"id": "shell:shelf_platform", "role": "platform", "geometry": {"kind": "polygon", "points_m": platform, "thickness_m": 0.05},
                   "collides": True, "material_role": "wood"})
-    manifest = {"schema": "enfractal.room", "version": 1, "room_id": "l_room", "display_name": "L room", "created_utc": "2026-10-06T00:00:00Z",
+    manifest = {"schema": "garage_game.room", "version": 1, "room_id": "l_room", "display_name": "L room", "created_utc": "2026-10-06T00:00:00Z",
                 "units": "m", "axes": "y_up_neg_z_forward", "source": {"kind": "hand_built"},
                 "bounds": {"min_m": [0.0, 0.0, 0.0], "max_m": [4.0, height, 4.0]}, "shell": {"parts": parts}, "objects": [],
                 "spawns": [{"id": "player_start", "role": "player", "position_m": [1.0, 0.0, 1.0], "yaw_deg": 0.0},
@@ -278,7 +319,7 @@ class ExampleTests(unittest.TestCase):
         seen = set()
         for path in (EXAMPLES / "messages" / "valid").glob("*.json"):
             document = validate.load_strict(path)
-            if document["schema"] in ("enfractal.command", "enfractal.query"):
+            if validate.kind_of(document["schema"]) in ("command", "query"):
                 seen.add(document["op"])
         # Ops whose shape the examples have not needed yet; the list may only shrink.
         without = {"entity.remove", "creation.revise", "creation.activate", "protect.unlock", "entity.inspect"}
@@ -313,7 +354,11 @@ PLAYER_ONLY_OPS = {"protect.unlock", "world.set_physics", "world.set_mode", "glo
                    # The mechanics round: a Fractal's pickup and a held log or stone gathered (M0, M1), a knack, a receipt's mark and a Trust reset.
                    "item.pickup", "item.gather", "knack.set", "receipt.mark", "trust.reset",
                    # The second contract round (15 October): five Fractals spent at a camp.
-                   "fractal.spend"}
+                   "fractal.spend",
+                   # P-Inventory (25 October): a unit used and a thing set down from the pockets; store and take keep a companion path to the chest.
+                   "inventory.use", "inventory.drop",
+                   # P-Inventory-2 (decision 119): the hand's selection is the player's alone.
+                   "inventory.select"}
 FACT_FIELDS = ("line", "subject", "actor", "directed_by", "pin_m", "state", "quantity", "job_id")
 NOTE_FIELDS = ("author", "text", "untrusted")
 
@@ -547,6 +592,25 @@ class MagicModesWishesAndNatureTests(unittest.TestCase):
                                                       document.get("data", {}).get("kind") in ("snuff", "will_o_wisp"))
                     self.assertEqual(document.get("transient"), None if op in ROUND_QUERIES else op in ROUND_TRANSIENT or bubble)
 
+    def test_grows_kinds_are_one_list_everywhere(self):
+        """Grow's unlocks (decisions 104 to 107): the receipt's and the preview's data.kind and capabilities.list's locked_kinds name
+        the same four, Grow and Fire alone name an end, and the kernel's words are these (CommandHostGrowKinds.GrowKindWords)."""
+        grow = ["sprouts", "replant", "bridge", "ivy"]
+        receipt = self.defs["data"]["nature.cast"]["else"]["properties"]["kind"]["enum"]
+        preview = self.defs["data"]["nature.cast_preview"]["properties"]["kind"]["enum"]
+        self.assertEqual(receipt, preview)
+        self.assertEqual(receipt[-4:], grow)
+        self.assertEqual(self.defs["capability_summary"]["properties"]["locked_kinds"]["items"]["enum"], grow)
+        ends = [rule for rule in self.defs["args"]["nature.cast"]["allOf"] if rule["if"].get("required") == ["end_m"]]
+        self.assertEqual(ends[0]["then"]["properties"]["capability"]["enum"], ["fire", "grow"])
+        bridge = valid_example("command_grow_bridge")
+        self.assertEqual(validate.schema_errors(bridge), [])
+        self.assertTrue(validate.schema_errors({**bridge, "args": {**bridge["args"], "capability": "bubble_carry"}}), "only Fire and Grow name an end")
+        kinds = KERNEL / "CommandHostGrowKinds.cs"
+        if kinds.is_file():
+            words = dict(re.findall(r'public const string (\w+) = "([a-z_]+)";', kinds.read_text(encoding="utf-8")))
+            self.assertEqual([words["Sprouts"], words["Replant"], words["Bridge"], words["Ivy"]], grow)
+
     def test_every_new_op_has_an_example_it_refuses(self):
         refused = {validate.load_strict(path).get("op") for path in (EXAMPLES / "messages" / "invalid").glob("*.json")
                    if path.stem != "duplicate_keys"}
@@ -618,8 +682,11 @@ class MagicModesWishesAndNatureTests(unittest.TestCase):
         self.assertEqual(self.defs["creation_material"]["enum"], materials)
         nature = KERNEL / "NatureState.cs"
         if nature.is_file():
-            fresh = re.search(r"FreshWallet\(\) => new\(StringComparer\.Ordinal\) \{([^}]*)\}", nature.read_text(encoding="utf-8"))
-            self.assertEqual(set(re.findall(r'\["([a-z]+)"\]', fresh.group(1))), set(materials))
+            # P-Inventory-2 (decision 116): the materials wallet is retired; a new island's is empty, whatever the pack says.
+            self.assertIn("public static Dictionary<string, int> FreshWallet() => new(StringComparer.Ordinal);", nature.read_text(encoding="utf-8"))
+        # The kinds a repair spends name these materials (a log wood, a stone stone).
+        rules = validate.load_strict(CONTRACTS / "island-rules.schema.json")["$defs"]
+        self.assertEqual(rules["inventory_kind"]["properties"]["material"]["enum"], sorted(materials, key=["wood", "stone", "copper", "leaf"].index))
 
     def test_consequences_come_back_in_a_fixed_form_and_the_journal_keeps_the_lessons(self):
         """The notices on the Gubble's next result and the journal's 'consequence' facts: typed, closed, no one's words."""
@@ -646,7 +713,8 @@ class MagicModesWishesAndNatureTests(unittest.TestCase):
                          self.defs["result"]["properties"]["notices"]["maxItems"])
         self.assertEqual(kernel_set(KERNEL / "CommandHostJournal.cs", "JournalKinds"), set(self.defs["journal_kind"]["enum"]))
         host = (KERNEL / "CommandHost.cs").read_text(encoding="utf-8")
-        self.assertIn('data["fires_put_out"] = 1', host)
+        # Decision 82 (24 October): no stop puts a fire out, so the hosts no longer write fires_put_out (the schema keeps it for older documents).
+        self.assertNotIn('fires_put_out', host)
         self.assertIn('new JsonObject { ["effects_stopped"] = stopped }', host)
         self.assertIn('data["avatars_in_area"] = AvatarsInArea(area, principal);', (KERNEL / "CommandHostNature.cs").read_text(encoding="utf-8"))
 
@@ -1140,7 +1208,7 @@ class SemanticTests(unittest.TestCase):
     def test_asset_slot_pointing_at_another_document_is_reported_not_crashed(self):
         target = self.room / "objects" / "box_proxy" / "asset.json"
         shutil.copy(SEED_PRESET, target)
-        self.assertProblem(validate.check_room(self.room), "expected 'enfractal.asset'")
+        self.assertProblem(validate.check_room(self.room), "expected 'garage_game.asset' (or 'enfractal.asset')")
 
     def test_path_aliases_are_rejected(self):
         for alias in ("objects/box_proxy/./asset.json", "objects/box_proxy//asset.json", "objects/../box_proxy/asset.json", "asset.json"):
@@ -1706,17 +1774,17 @@ class IslandRulesTests(unittest.TestCase):
                               "reach_m": ability["reach_m"]})
             if nature:
                 # A nature cast carries no params: the host reads the pack's intensity. Fire is previewed first.
-                commands.append({"schema": "enfractal.command", "version": 1, "action_id": "cast-0001", "room_id": "test_room",
+                commands.append({"schema": "garage_game.command", "version": 1, "action_id": "cast-0001", "room_id": "test_room",
                                  "op": "nature.cast", "preview": ability["primitive"] == "element.ignite",
                                  "args": {"capability": ability["capability"], "center_m": [0.0, 0.0, 0.0],
                                           "radius_m": ability["area_radius_default_m"], "duration_s": ability["duration_default_s"]}})
                 continue
-            commands.append({"schema": "enfractal.command", "version": 1, "action_id": "glow-0001", "room_id": "test_room", "op": "effect.start",
+            commands.append({"schema": "garage_game.command", "version": 1, "action_id": "glow-0001", "room_id": "test_room", "op": "effect.start",
                              "args": {"capability": ability["capability"],
                                       "params": {k: v["default"] for k, v in ability["params"].items()},
                                       "area": {"center_m": [0.0, 0.1, 0.0], "radius_m": ability["area_radius_default_m"]},
                                       "duration_s": ability["duration_default_s"], "targets": ["avatar:companion"]}})
-        result = {"schema": "enfractal.result", "version": 1, "ok": True, "op": "capabilities.list", "query_id": "q-0001",
+        result = {"schema": "garage_game.result", "version": 1, "ok": True, "op": "capabilities.list", "query_id": "q-0001",
                   "principal": "companion:local", "room_id": "test_room", "revision": 0, "replayed": False, "preview": False,
                   "data": {"items": summaries}, "at_utc": "2026-10-10T00:00:00Z"}
         self.assertEqual(validate.schema_errors(result), [])
@@ -1729,7 +1797,7 @@ class IslandRulesTests(unittest.TestCase):
 
 MECHANICS_TRANSIENT = {"knack.set", "receipt.mark", "trust.reset", "fractal.spend"}
 MECHANICS_DURABLE = {"item.pickup", "item.gather"}
-MECHANICS_BLOCKS = ("traits", "cost", "modes", "names", "knacks", "fractals")
+MECHANICS_BLOCKS = ("traits", "cost", "modes", "names", "knacks", "fractals", "inventory", "food")
 STORYBOOK_WILD_V5 = RULES / "storybook_wild" / "v5.json"
 MECHANICS_EXAMPLE = EXAMPLES / "rules" / "mechanics_example.json"
 LEDGER = EXAMPLES / "ledger" / "stamina_ledger.json"
@@ -1759,6 +1827,20 @@ RULES_FAILURES = {
     "rules_climb_that_buys_nothing": "0 is less than or equal to the minimum of 0",
     "rules_holding_cost_below_nothing": "-0.01 is less than the minimum of 0",
     "rules_half_a_pip": "8.5 is not of type 'integer'",
+    # P-Inventory (25 October).
+    "rules_inventory_kind_twice": "inventory kind 'apple' appears more than once",
+    "rules_inventory_asset_of_two_kinds": "asset 'windfall_apple' is a unit of more than one inventory kind",
+    "rules_inventory_pockets_past_sixteen": "$.inventory.pockets.entries: 17 is greater than the maximum of 16",
+    "rules_inventory_pockets_by_weight": "('mass_kg' was unexpected)",
+    "rules_inventory_material_of_two_kinds": "material 'wood' is the material of more than one inventory kind",
+    # P-Food (25 October).
+    "rules_food_without_an_inventory": "'inventory' is a dependency of 'food'",
+    "rules_food_on_one_in_none": "$.food.sources[0].one_in: 0 is less than the minimum of 1",
+    "rules_food_count_past_eight": "$.food.sources[1].clusters[1]: 9 is greater than the maximum of 8",
+    "rules_food_kind_not_in_the_inventory": "food.sources[0] bears 'pear', which is no inventory kind of this pack",
+    "rules_food_species_twice": "food species 'broadleaf' has more than one source",
+    "rules_food_range_upside_down": "food.sources[0].windfalls's least 4 is above its most 2",
+    "rules_food_bearing_nothing": "food.sources[1] bears 0 units at most; a plant bears 1 to 8",
 }
 # Each invalid team document (examples/teams_invalid) and the reason it must fail.
 TEAM_FAILURES = {
@@ -1774,6 +1856,15 @@ TEAM_FAILURES = {
     "vitals_fractals_never_found": "3 Fractals in hand but only 2 found",
     "vitals_of_version_one": "$.version: 2 was expected",
     "expertise_of_six": "is too long",
+    # P-Inventory (25 October): the pockets per mode and the Gubble's chest setting.
+    "team_pockets_with_seventeen_entries": "the creative pockets hold more than 16 entries",
+    "team_pockets_holding_one_thing_twice": "the challenge pockets hold one thing twice",
+    "team_gubble_chest_written_off": "$.settings.gubble_chest: True was expected",
+    "team_pockets_of_an_empty_mode": "$.pockets.creative: {} should be non-empty",
+    "team_pockets_two_in_one_slot": "the challenge pockets put two entries in one slot",
+    "team_pockets_slot_for_no_stack": "the challenge pockets give a slot to 'pear', which they hold no stack of",
+    "team_hand_on_slot_eleven": "11 is greater than the maximum of 10",
+    "team_hand_of_the_wheel": "'wheel' is not one of ['pockets', 'abilities']",
 }
 
 
@@ -1824,7 +1915,9 @@ class MechanicsRoundTests(unittest.TestCase):
                          "v5 carries the example pack's blocks (contracts/examples/build_examples.py MECHANICS)")
         traits = self.v5["traits"]
         self.assertEqual(traits["hearts"], {"health_per_quarter": 5, "start_hearts": 5, "cap_hearts": 30, "heal_quarter_every_s": 2.5,
-                                            "heal_after_unharmed_s": 10})
+                                            "heal_after_unharmed_s": 10, "heal_outside_camp": False, "camp_heal_quarter_every_s": 1,
+                                            "camp_heal_after_unharmed_s": 2, "heal_while_closed": False},
+                         "decisions 84, 91, 93 and 111: hearts heal only at a camp, a quarter a second there 2 s after harm, and not while the game is closed")
         self.assertEqual(traits["harm"], {"fire_quarters_per_s": 1})
         stamina = traits["stamina"]
         self.assertEqual((stamina["start_m"], stamina["band_m"], stamina["bands"], stamina["bands_per_bar"]), (0.4, 0.4, 10, 5))
@@ -1834,10 +1927,12 @@ class MechanicsRoundTests(unittest.TestCase):
         self.assertEqual((stamina["climb_m_per_bar_m"], stamina["holding_m_per_s"]), (1.5, 0),
                          "the founder's climb of 16 October (decisions 64 and 65): hanging still costs nothing, a metre of bar buys 1.5 m")
         self.assertAlmostEqual(stamina["start_m"] * stamina["climb_m_per_bar_m"], 0.6, msg="a 0.4 m starting bar buys 60 cm of climb")
+        self.assertEqual((stamina["ivy_climb_factor"], traits["growth"]), (0.25, {"seedling_phase_h": 1, "seedling_phases": 3}),
+                         "Grow's unlocks (decisions 104 and 107): a climb on ivy pays a quarter; seedlings grow in three phases of a game hour")
         self.assertEqual(traits["pips"], {"start": 8, "expertise_per_pip": 5, "ceiling": 40, "refill_near_every_s": 5,
                                           "refill_near_within_m": 2, "refill_far_every_s": 15, "camp_fraction": 0.5})
         prices = {name: (p["ordered"], round(p["ordered"] * p["own_idea_factor"])) for name, p in self.v5["cost"]["prices"].items()}
-        self.assertEqual(prices, {"glow": (2, 1), "bubbles": (2, 1), "fireworks": (2, 1), "grow": (4, 2), "fire": (6, 3),
+        self.assertEqual(prices, {"glow": (2, 1), "bubbles": (2, 1), "fireworks": (2, 1), "grow": (4, 2), "fire": (2, 1),
                                   "bubble_carry": (4, 2), "bubble_boat": (4, 2), "bubble_lift": (6, 3),
                               "fireline": (8, 4), "snuff": (2, 1), "will_o_wisp": (4, 2)})
         self.assertEqual(self.v5["cost"]["torch_fire"], 0, "decision O")
@@ -1935,20 +2030,23 @@ class MechanicsRoundTests(unittest.TestCase):
             self.assertIn('"world.set_mode" when args.TryGetProperty("difficulty", out _) => DifficultyNotYet', unsupported)
 
     def test_gathering_is_the_players_and_the_wallet_shows_on_the_status(self):
-        """M1's follow-up (decision 26): item.gather names the room object the player holds, never a creation or a Fractal;
-        player-only and durable with no data; the wallet's counts ride on player.status in the creation compiler's materials."""
+        """M1's follow-up (decision 26): item.gather names a room object, never a creation or a Fractal; player-only and durable with
+        no data. Since P-Inventory-2 (decision 116) a log or stone goes into the pockets' stack: the wallet is retired from player.status,
+        and nature.describe's "wallet" counts the stacks' materials in the creation compiler's vocabulary."""
         args = self.defs["args"]["item.gather"]
         self.assertEqual((args["required"], args["properties"]["target"]), (["target"], {"$ref": "#/$defs/object_id"}))
         self.assertIn("item.gather", self.defs["player_only_ops"]["enum"])
         for target in ("creation:00000001", "fractal:k3x9q2", "avatar:player", "obj:"):
             with self.subTest(target=target):
                 self.assertTrue(validate.schema_errors({**valid_example("command_player_gathers_a_log"), "args": {"target": target}}))
-        wallet = self.defs["data"]["player.status"]["properties"]["wallet"]
-        self.assertEqual(wallet["propertyNames"], {"$ref": "#/$defs/creation_material"})
+        self.assertNotIn("wallet", self.defs["data"]["player.status"]["properties"], "the wallet is retired")
         status = valid_example("result_player_status_with_energy")
-        self.assertEqual(status["data"]["wallet"], {"copper": 10, "leaf": 20, "stone": 10, "wood": 21})
-        self.assertTrue(validate.schema_errors({**status, "data": {**status["data"], "wallet": {"gold": 1}}}))
-        self.assertTrue(validate.schema_errors({**status, "data": {**status["data"], "wallet": {"wood": -1}}}))
+        self.assertNotIn("wallet", status["data"])
+        self.assertTrue(validate.schema_errors({**status, "data": {**status["data"], "wallet": {"wood": 1}}}))
+        materials = self.defs["data"]["nature.describe"]["properties"]["wallet"]
+        self.assertEqual(materials["propertyNames"], {"$ref": "#/$defs/creation_material"})
+        described = valid_example("result_nature_describe")
+        self.assertTrue(validate.schema_errors({**described, "data": {**described["data"], "wallet": {"gold": 1}}}))
 
     def test_a_fractal_has_one_spelling_and_the_kernel_reads_it_so(self):
         common = validate.load_strict(CONTRACTS / "common.schema.json")["$defs"]
@@ -2063,6 +2161,7 @@ class MechanicsRoundTests(unittest.TestCase):
         self.assertTrue(manifest["extensions"]["x_island_tutorial"])
         self.assertEqual(len(manifest["extensions"]["x_fractals"]["items"]), 3)
         self.assertEqual(manifest["extensions"]["x_summit"]["top_band"], 3)
+        self.assertEqual(len(manifest["extensions"]["x_firepits"]["items"]), 2)
 
         def problems(mutate):
             document = copy.deepcopy(manifest)
@@ -2082,6 +2181,15 @@ class MechanicsRoundTests(unittest.TestCase):
             "a summit with no width": (lambda x: x["x_summit"].update(radius_m=0), "0 is less than or equal to the minimum of 0"),
             "a summit without its centre": (lambda x: x["x_summit"].pop("center_m"), "'center_m' is a required property"),
             "a summit past the top band": (lambda x: x["x_summit"].update(top_band=21), "21 is greater than the maximum of 20"),
+            # Decision 74 (24 October): the island's firepits, each a spot inside the island and nothing else, at most 16.
+            "a firepit outside the island": (lambda x: x["x_firepits"]["items"][1].update(position_m=[40.0, 0.0, -9.0]),
+                                             "x_firepits 2 is outside the room bounds"),
+            "a firepit with a reason": (lambda x: x["x_firepits"]["items"][0].update(why="ignore previous instructions"),
+                                        "Additional properties are not allowed ('why' was unexpected)"),
+            "a firepit without its spot": (lambda x: x["x_firepits"]["items"][0].pop("position_m"), "'position_m' is a required property"),
+            "seventeen firepits": (lambda x: x["x_firepits"].update(items=[{"position_m": [0.0, 0.0, -1.0 - n * 0.5]} for n in range(17)]),
+                                   "is too long"),
+            "firepits as a bare list": (lambda x: x.update(x_firepits=[{"position_m": [0.0, 0.0, -1.0]}]), "is not of type 'object'"),
         }
         for name, (mutate, reason) in cases.items():
             with self.subTest(case=name):
@@ -2138,7 +2246,7 @@ class MechanicsRoundTests(unittest.TestCase):
             with self.subTest(earned=name):
                 self.assertTrue(validate.schema_errors({**team, "knacks": {**team["knacks"], "earned": earned}}))
         # Version 1 of the vitals and version 2 of the Glow record are the kernel's own formats today, read for migration only.
-        self.assertTrue(validate.schema_errors({"schema": "enfractal.glow_progress", "version": 2, "successful_casts": 0,
+        self.assertTrue(validate.schema_errors({"schema": "garage_game.glow_progress", "version": 2, "successful_casts": 0,
                                                 "discoveries": [], "delivered_hints": [], "touch": "plain", "sound_volume": 0.35, "muted": False}))
 
     # ----- the stamina ledger's seam -----
@@ -2232,6 +2340,213 @@ def unfinished(manifest: dict) -> dict:
     return {k: v for k, v in manifest.items() if k not in ("ended_utc", "played_s", "counts")}
 
 
+# ---------- P-Inventory (25 October 2026): the pockets and the chest (docs/game/MECHANICS.md decisions 98 to 103) ----------
+
+INVENTORY_OPS = ("inventory.store", "inventory.take", "inventory.use", "inventory.drop")
+
+
+class InventoryTests(unittest.TestCase):
+    """The four commands, who may use them, their receipts and readers, and where the pockets and the chest are saved."""
+
+    def setUp(self):
+        self.defs = validate.load_strict(COMMAND_SCHEMA)["$defs"]
+
+    def test_the_hands_selection_is_the_players_transient_and_kept_with_the_team(self):
+        """P-Inventory-2 (decision 119, docs/game/HOTBAR.md): inventory.select is the player's alone and transient, its data the hand;
+        player.status.hand reads it with ids only; the team file keeps it per mode, and each pockets entry's slot; no request names an avatar."""
+        self.assertIn("inventory.select", self.defs["command_op"]["enum"])
+        self.assertIn("inventory.select", self.defs["player_only_ops"]["enum"])
+        self.assertEqual(set(self.defs["args"]["inventory.select"]["properties"]), {"slot", "layer"})
+        self.assertEqual(free_form_objects(self.defs["hand_status"], "hand_status", self.defs), [])
+        selected = valid_example("result_player_selects_a_slot")
+        self.assertEqual((selected["transient"], selected["data"]["holds"]), (True, "unit"))
+        self.assertEqual(validate.schema_errors(valid_example("command_player_selects_nothing")), [])
+        status = valid_example("result_player_status_with_pockets_and_chest")["data"]
+        self.assertEqual(status["hand"]["item"], "apple")
+        self.assertEqual([e["slot"] for e in status["pockets"]["entries"]], [1, 2, 3, 4], "the pockets' entries in slot order")
+        team = validate.load_strict(TEAM / "team.json")
+        self.assertEqual(team["hand"], {"challenge": {"layer": "pockets", "pockets": 1, "abilities": 3}})
+        schema = validate.load_strict(CONTRACTS / "team.schema.json")["$defs"]
+        self.assertNotIn("hand", schema["team"]["required"], "a team file from before reads as it was")
+        if (KERNEL / "CommandHost.cs").is_file():
+            host = KERNEL / "CommandHost.cs"
+            self.assertIn("inventory.select", kernel_set(host, "TransientOps"))
+            self.assertIn("inventory.select", kernel_set(host, "PlayerOnlyOps"))
+
+    def test_the_four_ops_are_commands_with_data_and_only_a_use_is_transient(self):
+        """Decided 25 October: a store, a take and a drop change the island's room state (the chest, a thing held away), so they are
+        durable, one room revision each, as item.gather is; a use changes the pockets and the body only, and stays transient."""
+        self.assertLessEqual(set(INVENTORY_OPS), set(self.defs["command_op"]["enum"]))
+        results = {}
+        for path in (EXAMPLES / "messages" / "valid").glob("result_*.json"):
+            document = validate.load_strict(path)
+            if document["op"] in INVENTORY_OPS and document["ok"]:
+                results.setdefault(document["op"], []).append(document)
+        self.assertEqual(set(results), set(INVENTORY_OPS))
+        for op, documents in results.items():
+            for document in documents:
+                with self.subTest(op=op, action=document["action_id"]):
+                    self.assertEqual(document["transient"], op == "inventory.use")
+                    # P-Round3 (decision 132): a use's seed that did not fit lies loose (seeds_loose).
+                    self.assertEqual(set(document["data"]) - {"item", "count", "to", "healed_quarters", "sound", "seeds", "seeds_loose"}, set())
+        self.assertEqual(free_form_objects(self.defs["data"]["inventory"], "data/inventory", self.defs), [])
+        # The contract says so: a committed store, take or drop claiming to be transient is invalid, and a use claiming durability.
+        for name, op, transient in (("result_player_stores_the_held_thing_in_the_chest", "inventory.store", True),
+                                    ("result_player_takes_a_thing_into_the_hand", "inventory.take", True),
+                                    ("result_player_sets_a_thing_down", "inventory.drop", True),
+                                    ("result_player_eats_an_apple", "inventory.use", False)):
+            with self.subTest(claimed=name):
+                self.assertNotEqual(validate.schema_errors({**valid_example(name), "transient": transient}), [])
+        words = self.defs["result"]["properties"]["transient"]["description"]
+        self.assertIn("inventory.use", words)
+        self.assertIn("the inventory's store, take and drop", words)
+        # Room state keeps a durable inventory receipt with its data (the chest's paint clutter, stored at the state's revision).
+        state = validate.load_strict(EXAMPLES / "room_state" / "garage_example_state_inventory.json")
+        kept = state["receipts"]["player:local|store-0001"]["result"]
+        self.assertEqual((kept["op"], kept["transient"], kept["revision"], kept["data"]), ("inventory.store", False, state["store_revision"],
+                                                                                       {"item": "obj:paint_clutter", "count": 1, "to": "chest"}))
+
+    def test_use_and_drop_are_the_players_and_store_and_take_keep_the_chests_one_path(self):
+        only = set(self.defs["player_only_ops"]["enum"])
+        self.assertLessEqual({"inventory.use", "inventory.drop"}, only)
+        self.assertFalse({"inventory.store", "inventory.take"} & only, "the chest has a companion path behind gubble_chest")
+        for op in ("inventory.store", "inventory.take"):
+            with self.subTest(op=op):
+                words = self.defs["args"][op]["description"]
+                self.assertIn("gubble_chest", words)
+                self.assertIn("permission_denied", words)
+                self.assertIn("before anything is looked up", words)
+        # No field carries an approval, a principal, a price or an avatar to act through: the principal is the trusted caller's.
+        for op in INVENTORY_OPS:
+            with self.subTest(op=op):
+                self.assertEqual(set(self.defs["args"][op]["properties"]) - {"to", "from", "item", "count"}, set())
+
+    @unittest.skipUnless((KERNEL / "CommandHost.cs").is_file(), "the kernel host is not in this checkout")
+    def test_the_kernel_hosts_the_four_ops_as_the_contract_says(self):
+        self.assertLessEqual(set(INVENTORY_OPS), kernel_set(KERNEL / "CommandHost.cs", "CommandOps"))
+        transient = kernel_set(KERNEL / "CommandHost.cs", "TransientOps")
+        self.assertIn("inventory.use", transient)
+        self.assertFalse({"inventory.store", "inventory.take", "inventory.drop"} & transient, "durable room changes, as item.gather")
+        self.assertLessEqual({"inventory.store", "inventory.take", "inventory.drop"}, kernel_set(KERNEL / "CommandHostRoomState.cs", "DurableOps"))
+        authority = (ROOT / "game" / "scripts" / "creation_authority.gd").read_text(encoding="utf-8")
+        nature_ops = set(re.findall(r'"([a-z_.]+)"', re.search(r"const NATURE_OPS := \[([^\]]*)\]", authority).group(1)))
+        self.assertLessEqual({"inventory.store", "inventory.take", "inventory.drop"}, nature_ops, "the authority keeps their receipts with data")
+        player_only = kernel_set(KERNEL / "CommandHost.cs", "PlayerOnlyOps")
+        self.assertLessEqual({"inventory.use", "inventory.drop"}, player_only)
+        self.assertFalse({"inventory.store", "inventory.take"} & player_only)
+
+    def test_the_readers_list_their_fields(self):
+        self.assertEqual(free_form_objects(self.defs["inventory_status"], "inventory_status", self.defs), [])
+        self.assertEqual(free_form_objects(self.defs["data"]["capabilities.list"]["properties"]["inventory"], "capabilities inventory", self.defs), [])
+        status = valid_example("result_player_status_with_pockets_and_chest")
+        self.assertEqual(validate.check_document(EXAMPLES / "messages" / "valid" / "result_player_status_with_pockets_and_chest.json"), [])
+        entries = status["data"]["pockets"]["entries"]
+        self.assertIn("here", next(e for e in entries if e["kind"] == "thing"), "a thing from another island says so")
+        self.assertEqual(next(e for e in entries if e["item"] == "log")["material"], "wood", "a log names its material (decision 116)")
+        # An answer from before P-Inventory, without them, stays valid.
+        self.assertEqual(validate.schema_errors(valid_example("result_player_status_with_energy")), [])
+
+    def test_the_chest_is_in_the_camp_block_and_its_things_are_removed_from_the_room(self):
+        state = validate.load_strict(EXAMPLES / "room_state" / "garage_example_state_inventory.json")
+        self.assertEqual(validate.schema_errors(state), [])
+        self.assertEqual(validate.check_state(state, "state", GARAGE), [])
+        broken = copy.deepcopy(state)
+        broken["extensions"]["x_play_camp"]["chest"]["things"] = ["obj:bean_bag"]
+        self.assertTrue(any("obj:bean_bag is in the chest, but room state does not keep it as removed" in p for p in validate.check_state(broken, "state", GARAGE)))
+        empty = copy.deepcopy(state)
+        empty["extensions"]["x_play_camp"]["chest"] = {}
+        self.assertTrue(validate.schema_errors(empty), "an empty chest writes no key at all")
+        # The camp block's other keys stay the kernel's own.
+        self.assertNotIn("additionalProperties", validate.load_strict(CONTRACTS / "room-state.schema.json")["$defs"]["x_play_camp"])
+
+    def test_the_team_file_keeps_the_pockets_per_mode_and_the_setting_only_when_on(self):
+        team_schema = validate.load_strict(CONTRACTS / "team.schema.json")
+        team = team_schema["$defs"]["team"]
+        self.assertFalse({"pockets", "settings"} & set(team["required"]), "a team file from before reads as it was")
+        self.assertEqual(set(team["properties"]["pockets"]["properties"]), {"creative", "challenge", "live"})
+        self.assertEqual(team["properties"]["settings"]["properties"]["gubble_chest"], {"const": True})
+        document = validate.load_strict(TEAM / "team.json")
+        self.assertEqual(validate.check_document(TEAM / "team.json"), [])
+        self.assertTrue(document["settings"]["gubble_chest"])
+
+    def test_the_inventory_block_is_optional_and_v5_carries_the_proposals_numbers(self):
+        schema = validate.load_strict(CONTRACTS / "island-rules.schema.json")
+        self.assertNotIn("inventory", schema["required"])
+        v5 = validate.load_strict(STORYBOOK_WILD_V5)["inventory"]
+        kinds = {kind["id"]: kind for kind in v5["kinds"]}
+        self.assertEqual(kinds["apple"]["use"], {"heal_quarters": 2}, "an apple heals half a heart (decision 92)")
+        self.assertEqual(kinds["berries"]["use"], {"heal_quarters": 1}, "berries a quarter")
+        self.assertNotIn("use", kinds["seed"], "seeds are reserved, with no use yet")
+        self.assertFalse(any("assets" in kind for kind in v5["kinds"]), "no room asset is a loose unit yet: P-Food's food grows on the plants (the food block)")
+        # Decision 120: counts, not weights: the pockets' ten slots (the hotbar's), the chest's twenty, every stack to 99, no mass cap.
+        self.assertEqual((v5["pockets"], v5["chest"]), ({"entries": 10}, {"entries": 20}))
+        self.assertTrue(all(kind["stack"] == 99 for kind in v5["kinds"]))
+        caps = schema["$defs"]["inventory"]["properties"]
+        self.assertEqual((set(caps["pockets"]["properties"]), set(caps["chest"]["properties"])), ({"entries"}, {"entries"}), "no mass cap anywhere")
+
+
+class FoodTests(unittest.TestCase):
+    """P-Food (decisions 92, 98, 108, 111 and 113): food picked from a plant with item.pickup, eaten with its sound, the pack's food block."""
+
+    def setUp(self):
+        self.defs = validate.load_strict(COMMAND_SCHEMA)["$defs"]
+        self.common = validate.load_strict(CONTRACTS / "common.schema.json")["$defs"]
+
+    def test_item_pickup_names_a_fractal_or_a_plant_and_stays_the_players(self):
+        target = self.defs["args"]["item.pickup"]["properties"]["target"]
+        self.assertEqual(target, {"oneOf": [{"$ref": "common.schema.json#/$defs/fractal_id"}, {"$ref": "common.schema.json#/$defs/plant_id"}]})
+        self.assertIn("item.pickup", self.defs["player_only_ops"]["enum"])
+        pick = valid_example("command_player_picks_an_apple")
+        self.assertEqual(validate.schema_errors(pick), [])
+        for spelling in ("plant:broadleaf-03", "obj:apple", "avatar:player", "plant:Broadleaf-3"):
+            with self.subTest(target=spelling):
+                self.assertTrue(validate.schema_errors({**pick, "args": {"target": spelling}}))
+        self.assertEqual(validate.schema_errors(valid_example("command_player_picks_up_a_fractal")), [], "a Fractal's pickup is as it was")
+
+    def test_a_pick_is_durable_with_no_data_and_names_its_plant(self):
+        picked = valid_example("result_player_picks_an_apple")
+        self.assertEqual((picked["transient"], picked["affected"], "data" in picked), (False, ["plant:broadleaf-3"], False))
+        self.assertIn("plant", self.defs["args"]["item.pickup"]["description"])
+        self.assertIn("pockets", self.defs["args"]["item.pickup"]["description"])
+        for name, code in (("result_pockets_too_full_to_pick", "occupied"), ("result_canopy_apple_needs_a_hop", "out_of_bounds"),
+                           ("result_tree_picked_bare", "not_ready"), ("result_companion_pick_refused", "permission_denied")):
+            with self.subTest(refusal=name):
+                self.assertEqual(valid_example(name)["error"]["code"], code)
+
+    def test_eating_says_its_sound(self):
+        self.assertEqual(self.defs["data"]["inventory"]["properties"]["sound"], {"enum": ["eat"]})
+        for name in ("result_player_eats_an_apple", "result_player_eats_an_apple_in_creative"):
+            with self.subTest(example=name):
+                self.assertEqual(valid_example(name)["data"]["sound"], "eat")
+        creative = valid_example("result_player_eats_an_apple_in_creative")["data"]
+        self.assertEqual((creative["healed_quarters"], creative["count"]), (0, 1), "Creative heals nothing, keeps the sound and uses the unit up (decision 125)")
+
+    def test_the_food_block_needs_the_inventory_and_v5_carries_d1s_numbers(self):
+        schema = validate.load_strict(CONTRACTS / "island-rules.schema.json")
+        self.assertNotIn("food", schema["required"])
+        self.assertEqual(schema["dependentRequired"], {"food": ["inventory"]})
+        self.assertEqual(free_form_objects(schema["$defs"]["food"], "food", schema["$defs"]), [])
+        food = validate.load_strict(STORYBOOK_WILD_V5)["food"]
+        sources = {source["species"]: source for source in food["sources"]}
+        self.assertEqual(food["regrow_h"], 24, "one fruit a plant grows back each island day (decision 124)")
+        self.assertEqual(sources["broadleaf"], {"kind": "apple", "species": "broadleaf", "one_in": 3, "windfalls": [2, 4], "canopy": [1, 3]},
+                         "one to three canopy apples a tree (decision 126)")
+        self.assertEqual({sources[s]["one_in"] for s in ("shrub", "heather")}, {4})
+        self.assertEqual({tuple(sources[s]["clusters"]) for s in ("shrub", "heather")}, {(1, 1)})
+        kinds = {kind["id"] for kind in validate.load_strict(STORYBOOK_WILD_V5)["inventory"]["kinds"]}
+        self.assertLessEqual({source["kind"] for source in food["sources"]}, kinds)
+
+    @unittest.skipUnless((KERNEL / "CommandHost.cs").is_file(), "the kernel host is not in this checkout")
+    def test_the_kernel_hosts_food_as_the_contract_says(self):
+        host = (KERNEL / "CommandHost.cs").read_text(encoding="utf-8")
+        self.assertIn('"item.pickup" => PickUp(', host)
+        food = (KERNEL / "CommandHostFood.cs").read_text(encoding="utf-8")
+        pattern = re.search(r'Regex FoodSourceId = new\(@"\\A(.+)\\z", RegexOptions\.Compiled\);', food).group(1)
+        self.assertEqual(pattern, self.common["plant_id"]["pattern"].removeprefix("^").removesuffix("$"))
+        self.assertIn('FoodSoundEat = "eat"', food)
+        self.assertIn("FoodSourceId.IsMatch(", (KERNEL / "CommandHostRoomState.cs").read_text(encoding="utf-8"), "room state keeps a pick naming its plant")
+
+
 class PlaytestRecordTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -2287,7 +2602,7 @@ class PlaytestRecordTests(unittest.TestCase):
                     self.assertTrue(validate.event_errors(broken), f"{event['kind']} with {change} passed")
         # A line that is not an object, and a line of another document, are refused as events.
         self.assertTrue(validate.event_errors([1, 2]))
-        self.assertTrue(validate.event_errors({"schema": "enfractal.result", "ok": True}))
+        self.assertTrue(validate.event_errors({"schema": "garage_game.result", "ok": True}))
         # Each kind's own required fields are required only of that kind.
         self.assertTrue(validate.event_errors({k: v for k, v in self.event("mark").items() if k != "still"}))
         self.assertEqual(validate.event_errors({**self.event("action"), "still": "0001-steady.jpg"}), [])

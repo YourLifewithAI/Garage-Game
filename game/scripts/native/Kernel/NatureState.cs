@@ -107,7 +107,7 @@ public static class NatureLaws
 
     // ---- the guardrails on the Gubble's fire (the founder, 13 October: consequences with guardrails, not holds) ----
 
-    /// <summary>After the Gubble's fire goes out (burnt out, put out or taken back), it waits this long before lighting another. The player never waits for it.</summary>
+    /// <summary>After the Gubble's fire goes out (burnt out, snuffed or taken back), it waits this long before lighting another. The player never waits for it.</summary>
     public const float CompanionFireCooldownS = 20f;
     /// <summary>After an injury recovery, fire cannot hurt the player for this long.</summary>
     public const float RecoveryFireGraceS = 5f;
@@ -180,7 +180,9 @@ public sealed class NatureObject
 /// What Grow and fire did to one of the island's plant copies (plant:&lt;set&gt;-&lt;row&gt;, contracts/README.md "Plant copies"): its size
 /// as a factor of its natural size (1 natural, up to its cap: PlantLaws.CapFactor), and how far it has burned. A plant at 1 burn
 /// has burned down: gone with its drawing and its collision, for good unless it is replanted (decision 67); the simulation never
-/// regrows it. Room state, never the manifest, which is pinned.
+/// regrows it. A replanted one (decision 105) is a seedling again: SownS is when it was sown on the island clock, and its factor is
+/// the seedling's phase (GrowKindLaws.SeedlingFactor: half its natural size, natural after the last phase), derived from the clock
+/// (CommandHost.RefreshSeedlings), never saved. Room state, never the manifest, which is pinned.
 /// </summary>
 public sealed class NaturePlant
 {
@@ -188,14 +190,97 @@ public sealed class NaturePlant
     public float Factor { get; set; } = 1;
     /// <summary>0 to 1; at 1 it has burned down.</summary>
     public float Burn { get; set; }
+    /// <summary>A replanted seedling: when it was sown, in whole seconds of the island clock's UTC (null: not replanted, or grown on since).</summary>
+    public long? SownS { get; set; }
     public bool Burnt => Burn >= 1;
     public bool Grown => !Burnt && Factor > 1;
+    /// <summary>Still growing through its phases (below its natural size): Grow does not grow it yet.</summary>
+    public bool Seedling => SownS != null && !Burnt && Factor < 1;
     /// <summary>The factor the island draws and collides it at: 0 when it burned down.</summary>
     public float Shown => Burnt ? 0 : Factor;
     public NaturePlant Copy() => (NaturePlant)MemberwiseClone();
 }
 
-/// <summary>The one fire that may burn at a time: who lit it, at whose direction, and what it was allowed to touch.</summary>
+/// <summary>
+/// What was picked from a plant that bears food (P-Food, decision 108; CommandHostFood): the spots picked since it last bore all of
+/// it, as bits (bit n is the plant's spot n, FoodLayout's order; the count picked is how many are set), and when its regrowth clock
+/// started, in whole seconds of the island clock's UTC (P-Inventory-2, decision 124: one unit grows back every FoodRules.RegrowH island
+/// hours from then, the lowest spot first, derived from the clock, never saved; CommandHostFood.Picking keeps the clock's phase across
+/// picks). A plant with no record bears all its food. Not part of any undo step: a pick is never
+/// taken back. A Grow cast that grows the plant ripens it (the record goes), and so does the plant burning down (its food burns with
+/// it), so a replanted plant bears again.
+/// </summary>
+public sealed class NatureFood
+{
+    public string Id { get; set; } = "";
+    public int Picked { get; set; }
+    public long PickedS { get; set; }
+    public NatureFood Copy() => (NatureFood)MemberwiseClone();
+}
+
+/// <summary>
+/// A loose unit lying in the world (P-Inventory-2, decision 118): a unit of a stack set down with inventory.drop (an apple, berries, a
+/// seed, a log, a stone), of the rules pack's kind, its bottom centre on the ground. Picked up again into its stack with F or E (the
+/// pockets' take from the ground); burns in fire. Saved with the island in the order dropped, at most NatureState.MaxLoose, the oldest
+/// going first. A windfall is not one of these: it lies loose at its plant's trunk from the start, by the food layout (FoodLayout).
+/// </summary>
+public sealed class NatureLoose
+{
+    public string Kind { get; set; } = "";
+    public Vector3 PositionM { get; set; }
+    public NatureLoose Copy() => (NatureLoose)MemberwiseClone();
+}
+
+/// <summary>
+/// A sprout (decision 104, Grow's seedless growth): a plant Grow grew on bare fertile soil, copying one of the island's grass or flower
+/// copies (Template, plant:&lt;set&gt;-&lt;row&gt;: its set's mesh, its size and its tint), rooted at PositionM and turned by a hash of its spot.
+/// It is a seedling from SownS on the island clock, growing through its phases to its natural size (Factor, derived, never saved); it
+/// burns as a plant (Burn 0 to 1) and is gone at 1. Saved with the island beside the plants; Creative's undo takes a cast back.
+/// </summary>
+public sealed class NatureSprout
+{
+    public string Template { get; set; } = "";
+    public Vector3 PositionM { get; set; }
+    public long SownS { get; set; }
+    public float Burn { get; set; }
+    /// <summary>Its size now, a factor of the copy's natural size: the seedling's phase (derived from SownS, never saved).</summary>
+    public float Factor { get; set; } = GrowKindLaws.SeedlingStart;
+    public NatureSprout Copy() => (NatureSprout)MemberwiseClone();
+}
+
+/// <summary>
+/// A bridge of plants (decision 106): a level deck GrowKindLaws.BridgeWidthM wide from one lip of a gap to the other (FromM to ToM, the
+/// same height), at most GrowKindLaws.BridgeMaxM long; its collision covers only the void between them (SpanFromM to SpanToM along
+/// the deck, from FromM), one-sided facing up. It burns as a plant (Burn 0 to 1) and is gone at 1. Saved and undone like the waterpad.
+/// </summary>
+public sealed class NatureBridge
+{
+    public string Id { get; set; } = "";
+    public Vector3 FromM { get; set; }
+    public Vector3 ToM { get; set; }
+    public float SpanFromM { get; set; }
+    public float SpanToM { get; set; }
+    public float Burn { get; set; }
+    public float LengthM => FromM.DistanceTo(ToM);
+    public NatureBridge Copy() => (NatureBridge)MemberwiseClone();
+}
+
+/// <summary>
+/// Wall ivy (decision 107): a strip GrowKindLaws.IvyLengthM long and GrowKindLaws.IvyWidthM wide up a wall at least 70 degrees steep,
+/// rooted on the standable ground at its foot: BaseM is the strip's bottom on the wall's face, NormalM the face's outward normal, and
+/// LedgeM the standable ledge its top reaches, if any (one ivy a ledge). Drawn, not collided: a climb on it drains the bar at
+/// GrowKindLaws.IvyClimbFactor of a bare face's rate. It burns as a plant (Burn 0 to 1) and is gone at 1. Saved and undone like the waterpad.
+/// </summary>
+public sealed class NatureIvy
+{
+    public string Id { get; set; } = "";
+    public Vector3 BaseM { get; set; }
+    public Vector3 NormalM { get; set; }
+    public Vector3? LedgeM { get; set; }
+    public float Burn { get; set; }
+    public NatureIvy Copy() => (NatureIvy)MemberwiseClone();
+}
+
 /// <summary>
 /// A waterpad (decision 75): one large water lily leaf a Grow cast on water grew, floating at the surface, the player able to stand on
 /// it. Its spot is its leaf's centre at the top of the leaf; it burns like any plant (burn 0 to 1) and is gone at 1. Saved with the
@@ -209,6 +294,7 @@ public sealed class NatureWaterpad
     public NatureWaterpad Copy() => (NatureWaterpad)MemberwiseClone();
 }
 
+/// <summary>The one fire that may burn at a time: who lit it, at whose direction, and what it was allowed to touch.</summary>
 public sealed class NatureFire
 {
     /// <summary>The principal whose cast lit it (a fire saved before 13 October counts as the player's: no one is blamed without proof).</summary>
@@ -254,6 +340,10 @@ public sealed class NatureUndoStep
     public Dictionary<string, NaturePlant?> Plants { get; set; } = new(StringComparer.Ordinal);
     /// <summary>The waterpads before this step changed them (a waterpad grown or burnt); null while the step did not touch them.</summary>
     public List<NatureWaterpad>? Waterpads { get; set; }
+    /// <summary>The sprouts, bridges and ivy before this step changed them (Grow's unlocks, decisions 104 to 107); null while it did not.</summary>
+    public List<NatureSprout>? Sprouts { get; set; }
+    public List<NatureBridge>? Bridges { get; set; }
+    public List<NatureIvy>? Ivy { get; set; }
     public Dictionary<string, int> Wallet { get; set; } = new(StringComparer.Ordinal);
     public bool TrailEnabled { get; set; }
     public string TrailPrincipal { get; set; } = "player";
@@ -266,6 +356,7 @@ public sealed class NatureUndoStep
         Objects = Objects.ToDictionary(p => p.Key, p => p.Value?.Copy(), StringComparer.Ordinal),
         Plants = Plants.ToDictionary(p => p.Key, p => p.Value?.Copy(), StringComparer.Ordinal),
         Waterpads = Waterpads?.Select(w => w.Copy()).ToList(),
+        Sprouts = Sprouts?.Select(s => s.Copy()).ToList(), Bridges = Bridges?.Select(b => b.Copy()).ToList(), Ivy = Ivy?.Select(i => i.Copy()).ToList(),
         Wallet = new(Wallet, StringComparer.Ordinal), TrailEnabled = TrailEnabled, TrailPrincipal = TrailPrincipal, TrailRulesSha256 = TrailRulesSha256,
     };
 }
@@ -289,11 +380,17 @@ public sealed class NatureState
     public const int MaxBurntPlants = 8192;
     /// <summary>The most waterpads an island keeps (decision 75's per-island cap, provisional).</summary>
     public const int MaxWaterpads = 8;
+    /// <summary>Grow's unlocks (decisions 104 to 107): the sprouts an island keeps (about 80 KB saved), its bridges and its ivy strips.</summary>
+    public const int MaxSprouts = 1024;
+    public const int MaxBridges = 8;
+    public const int MaxIvy = 8;
     /// <summary>Durable nature changes room.undo can still take back, and the cells they remember together; the oldest go first.</summary>
     public const int MaxUndoSteps = 8;
     public const int MaxUndoCells = 8192;
     public const int MaxWalletKinds = 32;
     public const int MaxWalletUnits = 100000;
+    /// <summary>The loose units an island keeps (P-Inventory-2, decision 118); the 257th dropped takes the oldest's place.</summary>
+    public const int MaxLoose = 256;
 
     public double WeatherS { get; set; }
     /// <summary>The room revision of the latest durable nature change (0 before any): nature.describe's nature_revision.</summary>
@@ -309,7 +406,15 @@ public sealed class NatureState
     public Dictionary<string, NaturePlant> Plants { get; set; } = new(StringComparer.Ordinal);
     /// <summary>The waterpads Grow grew on the island's water (decision 75), at most MaxWaterpads, in the order grown.</summary>
     public List<NatureWaterpad> Waterpads { get; set; } = new();
-    /// <summary>Prototype material accounting: one unit per original authored part; no prior economy exists.</summary>
+    /// <summary>Grow's unlocks, each in the order grown: the sprouts on bare soil (at most MaxSprouts), the bridges and the ivy strips.</summary>
+    public List<NatureSprout> Sprouts { get; set; } = new();
+    public List<NatureBridge> Bridges { get; set; } = new();
+    public List<NatureIvy> Ivy { get; set; } = new();
+    /// <summary>
+    /// The retired materials wallet (P-Inventory-2, decision 116: logs and stones are stacks in the pockets and the chest now). Only an
+    /// older save's is read (NatureBlock.Unpack), and the host moves it into the chest's stacks on load (CommandHost.MigrateWallet); it is
+    /// never written again, so it is empty on every island once loaded.
+    /// </summary>
     public Dictionary<string, int> Wallet { get; set; } = FreshWallet();
     public NatureFire? Fire { get; set; }
     /// <summary>The undo steps room.undo can reach, oldest first.</summary>
@@ -322,13 +427,23 @@ public sealed class NatureState
     /// an edit of the manifest. Not part of any undo step: a pickup is never taken back.
     /// </summary>
     public HashSet<string> FractalsPicked { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>What was picked from the plants that bear food (P-Food), by plant id: only plants picked and not grown back yet.</summary>
+    public Dictionary<string, NatureFood> Food { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>The loose units dropped on the island (P-Inventory-2), oldest first, at most MaxLoose. No undo step remembers them.</summary>
+    public List<NatureLoose> Loose { get; set; } = new();
 
-    /// <summary>Today's wallet, for a pack without traits.wallet (or none loaded): 20 wood, 10 stone, 10 copper and 20 leaf.</summary>
-    public static Dictionary<string, int> FreshWallet() => new(StringComparer.Ordinal) { ["wood"] = 20, ["stone"] = 10, ["copper"] = 10, ["leaf"] = 20 };
+    /// <summary>A unit dropped loose: at the end of the list, the oldest going when the island already keeps MaxLoose.</summary>
+    public void Drop(NatureLoose unit)
+    {
+        while (Loose.Count >= MaxLoose) Loose.RemoveAt(0);
+        Loose.Add(unit);
+    }
 
-    /// <summary>A new island's wallet: the rules pack's traits.wallet.start (storybook_wild v5's is empty, decision 26), else today's.</summary>
-    public static Dictionary<string, int> FreshWallet(WalletRules? start) => start is not { } pack ? FreshWallet()
-        : new(StringComparer.Ordinal) { ["wood"] = pack.Wood, ["stone"] = pack.Stone, ["copper"] = pack.Copper, ["leaf"] = pack.Leaf };
+    /// <summary>A new island's wallet: empty, whatever the pack says (the wallet is retired, P-Inventory-2; traits.wallet.start is read and ignored).</summary>
+    public static Dictionary<string, int> FreshWallet() => new(StringComparer.Ordinal);
+
+    /// <summary>A new island's wallet under a pack: empty, as FreshWallet() (a pack's traits.wallet.start no longer fills it).</summary>
+    public static Dictionary<string, int> FreshWallet(WalletRules? start) => FreshWallet();
     public static string Key(int x, int z) => $"{x}:{z}";
     public static (int X, int Z) Grid(Vector3 at) => ((int)Math.Floor(at.X / CellM), (int)Math.Floor(at.Z / CellM));
 
@@ -338,7 +453,7 @@ public sealed class NatureState
     /// Gubble walks, with no command.
     /// </summary>
     public bool Untouched(bool trailAllowed, IReadOnlyDictionary<string, int> startWallet) =>
-        Objects.Count == 0 && Plants.Count == 0 && Waterpads.Count == 0 && Fire == null && Undo.Count == 0 && UndoneAt < 0 && ChangedAt == 0 && TrailEnabled && TrailPrincipal == "player" && FractalsPicked.Count == 0 &&
+        Objects.Count == 0 && Plants.Count == 0 && Waterpads.Count == 0 && Sprouts.Count == 0 && Bridges.Count == 0 && Ivy.Count == 0 && Fire == null && Undo.Count == 0 && UndoneAt < 0 && ChangedAt == 0 && TrailEnabled && TrailPrincipal == "player" && FractalsPicked.Count == 0 && Food.Count == 0 && Loose.Count == 0 &&
         TrailRulesSha256.Length == 0 && Wallet.Count == startWallet.Count && startWallet.All(p => Wallet.GetValueOrDefault(p.Key, -1) == p.Value) &&
         (trailAllowed || Cells.Count == 0);
 
@@ -349,8 +464,11 @@ public sealed class NatureState
         Objects = Objects.ToDictionary(p => p.Key, p => p.Value.Copy(), StringComparer.Ordinal),
         Plants = Plants.ToDictionary(p => p.Key, p => p.Value.Copy(), StringComparer.Ordinal),
         Waterpads = Waterpads.Select(w => w.Copy()).ToList(),
+        Sprouts = Sprouts.Select(s => s.Copy()).ToList(), Bridges = Bridges.Select(b => b.Copy()).ToList(), Ivy = Ivy.Select(i => i.Copy()).ToList(),
         Wallet = new(Wallet, StringComparer.Ordinal), Fire = Fire?.Copy(), Undo = Undo.Select(s => s.Copy()).ToList(),
         UndoneAt = UndoneAt, UndoneTo = UndoneTo, FractalsPicked = new(FractalsPicked, StringComparer.Ordinal),
+        Food = Food.ToDictionary(p => p.Key, p => p.Value.Copy(), StringComparer.Ordinal),
+        Loose = Loose.Select(l => l.Copy()).ToList(),
     };
 
     /// <summary>The weather now: a function of the saved clock, so a reload resumes the same weather (with no offline catch-up).</summary>
@@ -397,7 +515,7 @@ public sealed class NatureState
     {
         var step = new NatureUndoStep
         {
-            Principal = principal, Revision = revision, Base = Effective(revision - 1), Label = label, Mode = mode, Wallet = new(Wallet, StringComparer.Ordinal),
+            Principal = principal, Revision = revision, Base = Effective(revision - 1), Label = label, Mode = mode,
             TrailEnabled = TrailEnabled, TrailPrincipal = TrailPrincipal, TrailRulesSha256 = TrailRulesSha256,
         };
         if (Undo.Count > 0 && Undo[^1].Revision != step.Base) Undo.Clear();
@@ -464,6 +582,35 @@ public sealed class NatureState
             if (Waterpads.All(w => w.Id != "waterpad:" + n)) return "waterpad:" + n;
     }
 
+    /// <summary>The sprouts, bridges and ivy as they are, each list remembered once by a step that grows or burns one of them.</summary>
+    public void RememberSprouts(NatureUndoStep? step)
+    {
+        if (step != null && step.Sprouts == null) step.Sprouts = Sprouts.Select(s => s.Copy()).ToList();
+    }
+
+    public void RememberBridges(NatureUndoStep? step)
+    {
+        if (step != null && step.Bridges == null) step.Bridges = Bridges.Select(b => b.Copy()).ToList();
+    }
+
+    public void RememberIvy(NatureUndoStep? step)
+    {
+        if (step != null && step.Ivy == null) step.Ivy = Ivy.Select(i => i.Copy()).ToList();
+    }
+
+    /// <summary>A new bridge's or ivy strip's id: bridge:n or ivy:n, the smallest n the island's others do not have.</summary>
+    public string NextBridgeId()
+    {
+        for (var n = 1; ; n++)
+            if (Bridges.All(b => b.Id != "bridge:" + n)) return "bridge:" + n;
+    }
+
+    public string NextIvyId()
+    {
+        for (var n = 1; ; n++)
+            if (Ivy.All(i => i.Id != "ivy:" + n)) return "ivy:" + n;
+    }
+
     public void RememberPlant(NatureUndoStep? step, string id)
     {
         if (step != null && !step.Plants.ContainsKey(id)) step.Plants[id] = Plants.TryGetValue(id, out var value) ? value.Copy() : null;
@@ -522,7 +669,10 @@ public sealed class NatureState
                 else Plants[id] = plant.Copy();
             }
             if (step.Waterpads != null) Waterpads = step.Waterpads.Select(w => w.Copy()).ToList();
-            Wallet = new(step.Wallet, StringComparer.Ordinal);
+            if (step.Sprouts != null) Sprouts = step.Sprouts.Select(s => s.Copy()).ToList();
+            if (step.Bridges != null) Bridges = step.Bridges.Select(b => b.Copy()).ToList();
+            if (step.Ivy != null) Ivy = step.Ivy.Select(i => i.Copy()).ToList();
+            // The wallet is retired (P-Inventory-2): an older step's is not brought back; logs and stones are stacks, which no undo touches.
             TrailEnabled = step.TrailEnabled;
             TrailPrincipal = step.TrailPrincipal;
             TrailRulesSha256 = step.TrailRulesSha256;
@@ -692,15 +842,6 @@ public sealed class NatureState
             }
         }
         return false;
-    }
-
-    /// <summary>Puts out the one fire and every burning cell (the player's Stop of the Gubble's fire, the player's own Fire replacing it).</summary>
-    public bool PutOutFire()
-    {
-        var any = Fire != null || Cells.Values.Any(c => c.BurningS > 0);
-        Fire = null;
-        foreach (var cell in Cells.Values) cell.BurningS = 0;
-        return any;
     }
 
     /// <summary>Puts out the burning cells within radius of a point, horizontally (where the player recovers).</summary>

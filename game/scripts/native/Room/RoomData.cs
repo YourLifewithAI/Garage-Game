@@ -161,7 +161,7 @@ public sealed partial class RoomData
         var manifestBytes = ReadPinned(directory + "/room.json", "room.json");
         using var document = Parse(manifestBytes, "room.json");
         var root = document.RootElement;
-        Expect(Str(root, "schema") == "enfractal.room" && Int(root, "version") == SchemaVersion, "room.json is not an enfractal.room version 1 manifest");
+        Expect(SchemaIds.IsSchema(Str(root, "schema"), "room") && Int(root, "version") == SchemaVersion, $"room.json is not a {SchemaIds.Both("room")} version 1 manifest");
         Expect(Str(root, "units") == "m" && Str(root, "axes") == "y_up_neg_z_forward", "room.json must use metres and Godot axes");
         var roomId = Str(root, "room_id");
         Expect(Token.IsMatch(roomId), "room_id is not a valid token");
@@ -286,7 +286,7 @@ public sealed partial class RoomData
     {
         using var document = Parse(bytes, label);
         var root = document.RootElement;
-        Expect(Str(root, "schema") == "enfractal.asset" && Int(root, "version") == 1, $"{label} is not an enfractal.asset version 1 document");
+        Expect(SchemaIds.IsSchema(Str(root, "schema"), "asset") && Int(root, "version") == 1, $"{label} is not a {SchemaIds.Both("asset")} version 1 document");
         Expect(Str(root, "pivot") == "bottom_center", $"{label} must use the bottom_center pivot");
         var assetId = Str(root, "asset_id");
         Expect(assetDirectory.EndsWith("/" + assetId, StringComparison.Ordinal), $"{label}: asset_id must match its directory name");

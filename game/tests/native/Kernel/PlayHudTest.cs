@@ -54,6 +54,10 @@ public partial class PlayHudTest : Node
             await TestGlowJournalFresh();
             await TestMagicPanel();
             await TestFoldedHelp();
+            // The hotbar's layout by numbers (PlayHudTest.Hotbar.cs).
+            await TestHotbarLayout();
+            // Notices where the eye is: under the reticle, fading after about four seconds (PlayHudTest.Notice.cs).
+            await TestNotices();
             // The card is in the help and the full-screen key (PlayHudTest.Screen.cs); the swim hint is with the views, which move the body.
             await TestCardIsInTheHelp();
             TestFullscreenAtBoot();
@@ -106,6 +110,8 @@ public partial class PlayHudTest : Node
             await TestEyesSetting();
             // The settings panel that took the Customize panel's switches (PlayHudTest.Settings.cs), and Reset Trust beside Change my AI.
             await TestSettingsPanel();
+            // Esc is the menu (PlayHudTest.Pause.cs): it pauses, cancels what is going on first, saves, loads, settings, the main menu.
+            await TestPauseMenu();
             await TestGubbleView();
             await TestCharacterChoice();
             await TestWearingCharacters();
@@ -125,10 +131,20 @@ public partial class PlayHudTest : Node
             await TestSwimHint();
             // Fire's camp: the rest key and the expertise announcement (PlayHudTest.Camp.cs).
             await TestCampHud();
+            // E, the one interaction key, and its prompt (PlayHudTest.Interact.cs).
+            await TestInteractKey();
+            // The inventory and food HUD pass (PlayHudTest.Inventory.cs): E's order, the Tab panel, the camp's Inventory page, the chest switch.
+            await TestInventoryHud();
+            // The camp's screen: sitting opens it (PlayHudTest.CampScreen.cs).
+            await TestCampScreen();
             // The Fire behaviours packet (PlayHudTest.FireBehaviours.cs): Fractals collected by touch, the Magic panel's key, Fire on the wheel.
             await TestFractalTouch();
             await TestMagicKey();
+            // The hotbar's magic layer (PlayHudTest.Hotbar.cs), before Fire is learned.
+            await TestHotbarAbilities();
             await TestFireWheel();
+            // Grow's drag from lip to lip and its locks (PlayHudTest.GrowDrag.cs).
+            await TestGrowDragAndLocks();
             // The playtest record's keys (PlayHudTest.Playtest.cs).
             await TestPlaytestKeys();
 
@@ -191,6 +207,9 @@ public partial class PlayHudTest : Node
         ("gubble_slot_4", Key.Key4, false), ("gubble_slot_5", Key.Key5, false),
         // Fire on the wheel (decision 77): 6; and the Magic panel's own key, M (it was only a button inside H).
         ("gubble_slot_6", Key.Key6, false), ("hud_magic", Key.M, false),
+        // The hotbar's layer switch (the pockets panel's Tab, the panel retired into the bar), and its keys 7 to 0.
+        ("pockets_panel", Key.Tab, false),
+        ("gubble_slot_7", Key.Key7, false), ("gubble_slot_8", Key.Key8, false), ("gubble_slot_9", Key.Key9, false), ("gubble_slot_10", Key.Key0, false),
         ("hands", Key.F, false), ("push", Key.V, false), ("item_gather", Key.E, false),
         // Fire's camp: sit down by a lit campfire (decision 70).
         ("rest", Key.Z, false),
@@ -352,7 +371,7 @@ public partial class PlayHudTest : Node
     private string[] HelpLines()
     {
         var column = _hud.GetNode<PanelContainer>("HelpFooter").GetChild<VBoxContainer>(0);
-        return new[] { column.GetChild<Label>(0).Text }.Concat(column.GetNode<VBoxContainer>("KeyHelp").GetChildren().OfType<Label>().Select(l => l.Text)).ToArray();
+        return new[] { column.GetChild<Label>(0).Text }.Concat(HelpLabels(column.GetNode<VBoxContainer>("KeyHelp")).Select(l => l.Text)).ToArray();
     }
 
     private string[] ButtonTexts(string row) => _hud.FindChild(row, true, false)!.GetChildren().OfType<Button>().Select(b => b.Text).ToArray();
@@ -369,16 +388,20 @@ public partial class PlayHudTest : Node
             var expected = new[]
             {
                 "H keys",
+                // E first (decision 86: the help names it first).
+                "E uses what is in front of you: sits you by a lit campfire and stands you up again, picks up a fractal or a thing, picks food into your pockets, puts what you hold away (in the chest at a camp, else in your pockets), gathers a log or stone you hold into your pockets, sets down anything else you hold · Z sits you by the fire too, this round (moving stands you up)",
                 $"WASD move · Shift run · Space jump · B back to {home} · R recover · drag to look around",
                 "Climb: keep walking into a steep face, W up, S down, A/D across, Space lets go · Swim: deep water floats you, Space leaps · Dive: hold Ctrl, Space rises, W swims the way you look, let go to drift up",
                 "F1 first person · F2 third person: wheel zooms out to look around, and zoomed out drag orbits and WASD follows the view",
-                "O observe (a very tight tilt-shift view, best zoomed out) · C settings · M the Gubble's magic · J journal (Esc closes any)",
+                "O observe (a very tight tilt-shift view, best zoomed out) · C settings · M the Gubble's magic · J journal (Esc closes any; with nothing open, Esc is the menu: save, load, settings, the main menu)",
+                // The hotbar (docs/game/HOTBAR.md): its ten keys, Tab, the wheel over it, what a pocket slot and a magic slot do.
+                "Bar: 1 to 0 choose a slot (or the wheel or a click over it) · Tab: pockets or magic · E or a click uses a pocket slot, F drops one unit of it, E or F sets a thing down",
                 "F11 full screen on or off (kept for your next launch)",
-                "Walk into a fractal to collect it · F pick up what you face · F again sets it down in front of you, or on top of what you face (the box, the book) · V push what you face 10 cm · E gather a log or stone you hold into your wallet · Z sit down by a lit campfire to rest (moving stands you up)",
+                "Walk into a fractal to collect it · F pick up what you face · F again sets it down in front of you, or on top of what you face (the box, the book) · F with a food or seed unit chosen on the bar and nothing to pick up drops one · V push what you face 10 cm",
                 "The Gubble, your companion:",
                 "right-click asks for what fits where you point (wait or follow, fetch or put down, light the dark, go and look; on a bubble, choose it, then a spot to lead it there, a higher one to lift it); hold it for the wheel · Q come, then follow · X stop · I look through its eyes",
                 $"1 Glow{PriceWords("glow")}, 2 Grow{PriceWords("grow")}, 3 Bubbles{PriceWords("bubbles")}, 4 Fireworks{PriceWords("fireworks")}, 6 Fire" +
-                (fireLearned ? $"{PriceWords("fire")} where you point (it comes closer first if it must; at the sky, on itself) · 6 previews Fire where you point and holding right-click lights it"
+                (fireLearned ? $"{PriceWords("fire")} where you point (it comes closer first if it must; at the sky, on itself) · 6 lights Fire where you point, at once (it burns until it burns out, or Snuff puts it out)"
                     : " (locked: rest by the starting campfire first) where you point (it comes closer first if it must; at the sky, on itself)") +
                 " · 5 magic still to come · it floats after you, over water and up cliffs",
                 "Testing",
@@ -388,7 +411,7 @@ public partial class PlayHudTest : Node
             var lines = HelpLines();
             Check(lines.SequenceEqual(expected), "with the default keys the help says drag where it said click, groups the Gubble's keys (its ask, Q, X, 1 to 5) under its name, and puts the testing toggles (G, T, Shift+T, L) under a \"Testing\" heading:\n" + string.Join("\n", lines.Except(expected)));
             Check(ButtonTexts("CompanionActions").SequenceEqual(new[] { "Follow", "Wait", "Q Come", "X Stop", "1 Glow", "Settings", "Magic" }) &&
-                ButtonTexts("HandActions").SequenceEqual(new[] { "F Pick up / put down", "V Push", "E Gather" }), "and so do the buttons in the help");
+                ButtonTexts("HandActions").SequenceEqual(new[] { "E Use", "F Pick up / put down", "V Push" }), "and so do the buttons in the help");
             Check(((Label)_hud.FindChild("CompanionName", true, false)!).Text == "The Gubble:", "and the Gubble's buttons stand under its name");
             var state = ((Label)_hud.FindChild("State", true, false)!).Text;
             Check(state.Contains(" (G)", StringComparison.Ordinal) && _hud.ClockText().Contains("real clock (T)", StringComparison.Ordinal) && _hud.ClockText().Contains("real date (Shift+T)", StringComparison.Ordinal),
@@ -401,6 +424,7 @@ public partial class PlayHudTest : Node
                 Key.Kp0, Key.Kp1, Key.Kp2, Key.Kp3, Key.Kp4, Key.Kp5, Key.Kp6, Key.Kp7, Key.Kp8, Key.Kp9,
                 Key.KpAdd, Key.KpSubtract, Key.KpMultiply, Key.KpDivide, Key.KpPeriod, Key.KpEnter, Key.Insert, Key.Delete, Key.Pause, Key.Pageup, Key.Pagedown,
                 Key.Home, Key.End, Key.Numlock, Key.Scrolllock, Key.Sysreq, Key.F25, Key.F26, Key.F27, Key.F28, Key.F29, Key.F30, Key.F31, Key.F32,
+                Key.F33, Key.F34, Key.F35, Key.Launch0, Key.Launch1,
             };
             var actions = PlayerControls.Specs.Select(spec => spec.Action).ToArray();
             Check(pool.Length >= actions.Length, "enough spare keys to give every control its own");
@@ -531,7 +555,7 @@ public partial class PlayHudTest : Node
         var state = (Label)_hud.FindChild("State", true, false)!;
         var help = string.Join("\n", _world.FindChildren("*", "Label", true, false).OfType<Label>().Select(l => l.Text));
         Check(help.Contains("F pick up", StringComparison.Ordinal) && help.Contains("V push", StringComparison.Ordinal), "the help names the hand keys F and V");
-        Check(_hud.FindChild("HandActions", true, false) is HBoxContainer { } buttons && buttons.GetChildCount() == 3, "and the help has their buttons (pick up, push and gather)");
+        Check(_hud.FindChild("HandActions", true, false) is HBoxContainer { } buttons && buttons.GetChildCount() == 3, "and the help has their buttons (E use, pick up, push)");
         // The founder's name for the companion (8 October): the Gubble, in its name tag, the HUD's state line and the help.
         await Frames(1);
         var tag = _world.Companion.GetNode<Label3D>("CompanionLabel").Text;
@@ -558,7 +582,7 @@ public partial class PlayHudTest : Node
         var viewport = _hud.GetViewport().GetVisibleRect().Size;
         var inCorner = tagRect.End.X > viewport.X - SandboxControls.FocusWords.MinimapWidthPx && tagRect.Position.Y < SandboxControls.FocusWords.MinimapHeightPx;
         Check(_hud.FocusTarget?.GetMeta("entity_id", "").AsString() == "obj:doorstop" && (look == null || look.Highlight.Target == _hud.FocusTarget) &&
-              _hud.FocusTag.Visible && _hud.FocusTag.Text == SandboxControls.FocusWords.PickUpOrPush && !inCorner,
+              _hud.FocusTag.Visible && _hud.FocusTag.Text == "E: pick up Doorstop · V push" && _hud.Interaction.Kind == RoomHud.InteractKind.PickUp && !inCorner,
             $"facing the doorstop it is lit ({(look == null ? "no look in this run" : "the look's highlight on it")}), its tag \"{_hud.FocusTag.Text}\" at {tagRect.Position}, clear of the minimap's corner");
         var queries = _hud.FocusQueries;
         await Frames(60);
@@ -573,8 +597,10 @@ public partial class PlayHudTest : Node
         await Face(player, Vector3.Right);
         Check(Entity(host, "obj:doorstop")["held_by"]?.GetValue<string>() == CommandHost.PlayerAvatar, "still holding it on arrival");
         await Frames(40);
-        Check(_hud.FocusTarget?.GetMeta("entity_id", "").AsString() == "obj:box" && _hud.FocusTag.Text == "F set Doorstop on Cardboard box",
-            $"carrying it, facing the box, the box is lit, where F would set it: \"{_hud.FocusTag.Text}\" on {_hud.FocusTarget?.GetMeta("entity_id", "")}");
+        // The doorstop (0.3 kg) fits the pockets, so E would put it away (the inventory first, decision 113); F still sets it on the box,
+        // and the tag, no longer E's, says so in the hands' own words.
+        Check(_hud.FocusTarget?.GetMeta("entity_id", "").AsString() == "obj:box" && _hud.FocusTag.Text == "F set Doorstop on Cardboard box" && _hud.Interaction.Kind == RoomHud.InteractKind.Pocket,
+            $"carrying it, facing the box, the box is lit, where F would set it: \"{_hud.FocusTag.Text}\" on {_hud.FocusTarget?.GetMeta("entity_id", "")} (E: {_hud.Interaction.Words})");
         _hud._UnhandledInput(Press(Key.F));
         await Frames(2);
         var onBox = Entity(host, "obj:doorstop");
@@ -928,6 +954,7 @@ public partial class PlayHudTest : Node
             "Glow is up (the pack's light ability, its display_name), then clockwise Stay, Fetch lower left, Come left: " + string.Join(" | ", labels).Replace("\n", " "));
         Check(labels[1] == "✸\n4 Fireworks" && labels[8] == "○\n3 Bubbles" && _hud.Wheel.WedgeLabels[1].Modulate.A == 1f && _hud.Wheel.WedgeLabels[8].Modulate.A == 1f,
             "Fireworks (upper right) and Bubbles (upper left) are the island's now, bright in their fixed places: " + labels[1].Replace("\n", " ") + " | " + labels[8].Replace("\n", " "));
+        // (Grow works from the start, so its wedge is bright and plain; with unlocks still to find it carries a padlock and a hover note, PlayHudTest.GrowDrag.cs.)
         Check(labels[2].StartsWith("♨\n6 Fire", StringComparison.Ordinal) && labels[4] == "✿\n2 Grow" && _hud.Wheel.WedgeLabels[4].Modulate.A == 1f,
             "Fire is the ninth wedge just after Fireworks (decision 77), and Grow is in its fixed growth wedge: " + labels[2].Replace("\n", " "));
         Check(new[] { 5 }.All(i => labels[i] == $"{GubbleMagic.Wedges[i].Icon}\n{GubbleMagic.Wedges[i].Slot + 1} {GubbleMagic.Wedges[i].Name}\n{GubbleWheel.LackingWords}" &&
@@ -1454,17 +1481,16 @@ public partial class PlayHudTest : Node
         var footer = _hud.GetNode<PanelContainer>("HelpFooter");
         var column = footer.GetChild<VBoxContainer>(0);
         var help = column.GetNode<VBoxContainer>("KeyHelp");
-        var notice = column.GetNode<Label>("Notice");
         var hint = column.GetChild<Label>(0);
         var foldedHeight = footer.Size.Y;
-        var noticeText = notice.Text;
         Check(!help.Visible && hint.Text == "H keys", "key help starts folded with one short H hint");
-        Check(notice.IsVisibleInTree() && noticeText.Length > 0, "the notice is visible with the help folded");
+        // The second recorded play: the line at the bottom edge was never seen. The footer keeps the key hints only (PlayHudTest.Notice.cs).
+        Check(footer.FindChild("Notice", true, false) == null && column.GetChildCount() == 2 && _hud.FindChild("Notice", true, false) is Label { } moved && moved.GetParent() == _hud.NoticeCard,
+            "the bottom line keeps the key hints only: the notice is no longer in it but in its own card");
         _hud._UnhandledInput(Press(Key.H));
         await Frames(3);
-        Check(help.IsVisibleInTree() && help.GetChildren().OfType<Label>().All(l => l.IsVisibleInTree()), "H unfolds every key-help line");
+        Check(help.IsVisibleInTree() && HelpLabels(help).All(l => l.IsVisibleInTree()), "H unfolds every key-help line");
         Check(footer.Size.Y > foldedHeight, "the footer grows to fit the unfolded help");
-        Check(notice.IsVisibleInTree() && notice.Text == noticeText, "unfolding the help keeps the same notice visible");
         var repeat = Press(Key.H); repeat.Echo = true;
         _hud._UnhandledInput(repeat);
         Check(help.Visible, "holding H does not repeatedly toggle the help");
@@ -1472,7 +1498,6 @@ public partial class PlayHudTest : Node
         await Frames(3);
         Check(!help.Visible && hint.Text == "H keys", "H refolds the key help");
         Check(Mathf.Abs(footer.Size.Y - foldedHeight) < 1, "the folded footer releases the space used by the full help");
-        Check(notice.IsVisibleInTree() && notice.Text == noticeText, "refolding the help keeps the notice visible");
     }
 
     private void TestWorkshopGone()

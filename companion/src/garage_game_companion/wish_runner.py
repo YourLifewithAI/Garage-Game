@@ -19,12 +19,13 @@ import sys
 import tempfile
 from dataclasses import dataclass
 
-from . import canonical
+from . import canonical, ids
 from .contract import Contracts, DEFAULT_REPO_ROOT
 from .link import LinkClient, LinkError, default_session_path
 from .server import Adapter
 
-PROTOCOL = "enfractal.wish_adapter"
+# The protocol id the runner names; an adapter's ready may name it in either spelling (ids.is_schema).
+PROTOCOL = ids.id_of("wish_adapter")
 MAX_LINE_BYTES = 65_536
 MAX_TOOL_CALLS = 32
 # Only implemented game verbs are relayed. Creations remain data for the host's bounded compiler;
@@ -239,7 +240,7 @@ class WishRunner:
                     "tools": self.tool_inventory()})
                 ready = await self._read(child)
                 advertised = ready.get("tools")
-                if set(ready) != {"type", "protocol", "version", "exclusive", "tools"} or ready.get("type") != "ready" or ready.get("protocol") != PROTOCOL or ready.get("version") != 1 or ready.get("exclusive") is not True or not isinstance(advertised, list) or not advertised or any(not isinstance(name, str) or name not in self.tools for name in advertised) or len(set(advertised)) != len(advertised):
+                if set(ready) != {"type", "protocol", "version", "exclusive", "tools"} or ready.get("type") != "ready" or not ids.is_schema(ready.get("protocol"), "wish_adapter") or ready.get("version") != 1 or ready.get("exclusive") is not True or not isinstance(advertised, list) or not advertised or any(not isinstance(name, str) or name not in self.tools for name in advertised) or len(set(advertised)) != len(advertised):
                     raise RunnerError("The adapter did not verify an exclusive game-only tool inventory.")
                 # No player intent is sent before the adapter's tool inventory has passed inspection.
                 await self._send(child, {"type": "wish", "wish": {key: value for key, value in wish.items() if key in {"text", "aim_id"}}})
@@ -285,7 +286,7 @@ class WishRunner:
         transcript = [{"type": "wish", "wish": {key: value for key, value in wish.items() if key in {"text", "aim_id"}}}]
         tools = self.tool_inventory()
         calls = set()
-        with tempfile.TemporaryDirectory(prefix="enfractal-claude-") as folder:
+        with tempfile.TemporaryDirectory(prefix="garage-game-claude-") as folder:
             for index in range(self.config.max_tool_calls + 1):
                 payload = json.dumps({"tools": tools, "conversation": transcript}, ensure_ascii=True)
                 if len(payload.encode("utf-8")) > 262_144:

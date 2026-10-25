@@ -1,0 +1,28 @@
+{
+  "schema": "garage_game.result",
+  "version": 1,
+  "ok": true,
+  "op": "nature.cast",
+  "action_id": "grow-0010",
+  "principal": "companion:local",
+  "room_id": "garage_example",
+  "revision": 15,
+  "replayed": false,
+  "preview": true,
+  "at_utc": "2026-10-06T00:05:00Z",
+  "data": {
+    "center_m": [
+      0.9,
+      0.0,
+      1.1
+    ],
+    "radius_m": 0.6,
+    "duration_s": 1,
+    "cell_count": 0,
+    "cells": [],
+    "cells_truncated": false,
+    "grown_plants": 0,
+    "ripened_plants": 3,
+    "requires_approval": false
+  }
+}

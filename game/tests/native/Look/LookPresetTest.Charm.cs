@@ -126,7 +126,7 @@ public partial class LookPresetTest
         if (extra != null) things.AddRange(extra);
         var files = assets.Select(a => ($"objects/{a.Id}/asset.json", new UTF8Encoding(false).GetBytes(new JsonObject
         {
-            ["schema"] = "enfractal.asset", ["version"] = 1, ["asset_id"] = a.Id, ["display_name"] = a.Display, ["category"] = a.Category, ["category_group"] = a.Group,
+            ["schema"] = "garage_game.asset", ["version"] = 1, ["asset_id"] = a.Id, ["display_name"] = a.Display, ["category"] = a.Category, ["category_group"] = a.Group,
             ["tier"] = "proxy",
             ["provenance"] = new JsonObject { ["kind"] = "placeholder", ["license"] = "Original EnFractal placeholder; CC0-1.0", ["created_utc"] = "2026-10-15T00:00:00Z", ["notes"] = "L11's synthetic hamlet: a box at a kit thing's size." },
             ["pivot"] = "bottom_center", ["dimensions_m"] = new JsonArray(a.Size.X, a.Size.Y, a.Size.Z),

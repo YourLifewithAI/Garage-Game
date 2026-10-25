@@ -13,8 +13,9 @@ namespace GarageGame.Native.Kernel;
 /// held for the player's sake; it is kept in bounds by guardrails, and what it does comes back to the AI:
 /// - guardrails: the player's own setting "Let the Gubble use fire" (the profile's gubble_fire, on unless the player turns
 ///   it off; only the player's control changes it, no command reaches it), one fire of its own at a time, and
-///   NatureLaws.CompanionFireCooldownS after its last one went out. The player is never slowed by them: the player's own
-///   Fire puts the Gubble's out. The player's Stop (X) puts the Gubble's fire out at once, whatever any budget says.
+///   NatureLaws.CompanionFireCooldownS after its last one went out. Since decision 82 (the second recorded play) nothing but
+///   burning out or Snuff ends a fire: the player's Stop (X) stops the Gubble and puts no fire out, and the player's own Fire
+///   waits for the Gubble's as for any fire (one fire on the island at a time), unless it is Snuff aimed at it.
 /// - feedback: when the Gubble's fire hurts the player, a fixed-format notice (what happened, which fire, health before and
 ///   after, whether the player had to recover; no prose from anyone) rides on the Gubble's next result, of any kind, once.
 ///   Until then any query returns it (player.status is the cheapest).
@@ -27,6 +28,15 @@ namespace GarageGame.Native.Kernel;
 ///   lit it (one fact per lead, NoteLeadHarm). Decision 69: a fire is traced to its cast by its revision (PaidFire), a carry to its
 ///   lead's Lift or the Gubble's cast of the bubble (PaidCarry); a fact from a free action is written all the same, as the AI's
 ///   lesson, and moves no Trust.
+/// - The fall after the Gubble's own pop (decision 96, the second playtest round): the Gubble popped the bubble holding the player by
+///   its own action and the fall hurt them: one fact per pop, which costs Trust (NotePopFall). A pop at the time limit or by the
+///   player's own cancel never writes one; nor does a fall that ends on a face the player grabbed.
+/// - The Gubble hears its consequences (decision 134, P-Round3): each consequence fact written here about the Gubble's own action (its
+///   fire burned the player, its fire burned a build, its lead carried the player into fire, its pop's fall hurt the player) is also a
+///   notice of kind "consequence" on the Gubble's next result, through the same path as every notice (DeliverNotices): the fact's line in
+///   the game's words and the Trust it moved, nothing else (no id, no file, no instruction; a name in the line is untrusted world text
+///   the team already knows, quoted as the journal quotes it). A fact updated in place updates its notice while unread. No request
+///   writes, asks for or carries one: only these host paths add it.
 /// </summary>
 public partial class CommandHost
 {
@@ -77,6 +87,54 @@ public partial class CommandHost
     /// <summary>The notices the Gubble has not read yet (tests and the HUD).</summary>
     public IReadOnlyList<JsonObject> UnreadNotices => _notices;
 
+    /// <summary>The kind of the notice that tells the Gubble a consequence fact about its own action (decision 134).</summary>
+    public const string ConsequenceNoticeKind = "consequence";
+    /// <summary>The unread consequence notice of each fact written about the Gubble's action, by the fact (an update in place updates it).</summary>
+    private readonly Dictionary<JsonObject, JsonObject> _factNotices = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>
+    /// Decision 134: a consequence fact just written about the Gubble's own action, also told to the Gubble on its next result (DeliverNotices):
+    /// the fact's line as the journal keeps it (the game's template, names quoted as world text) and the Trust it moved (trust_change, 0 or
+    /// less: 0 for a free action's, or where Trust does not count), when it was written. Only the host's consequence paths call this.
+    /// </summary>
+    private void TellGubble(JsonObject fact, int trustChange)
+    {
+        var notice = new JsonObject
+        {
+            ["kind"] = ConsequenceNoticeKind, ["line"] = fact["line"]?.GetValue<string>() ?? "", ["trust_change"] = Math.Min(0, trustChange),
+            ["at_utc"] = fact["at_utc"]?.GetValue<string>() ?? Now(),
+        };
+        _notices.Add(notice);
+        while (_notices.Count > MaxNotices) _notices.RemoveAt(0);
+        foreach (var gone in _factNotices.Where(p => !_notices.Contains(p.Value)).Select(p => p.Key).ToList()) _factNotices.Remove(gone);
+        _factNotices[fact] = notice;
+    }
+
+    /// <summary>A fact updated in place (the same fire burned more builds, or put the player down): its notice says so too while the Gubble has not read it.</summary>
+    private void RetellGubble(JsonObject fact)
+    {
+        if (!_factNotices.TryGetValue(fact, out var notice)) return;
+        if (!_notices.Contains(notice))
+        {
+            _factNotices.Remove(fact);
+            return;
+        }
+        notice["line"] = fact["line"]?.GetValue<string>() ?? "";
+        notice["at_utc"] = fact["at_utc"]?.GetValue<string>() ?? Now();
+    }
+
+    /// <summary>
+    /// A new consequence fact's Trust (NoteTrustConsequence, decision 69), and how much it moved Trust: the windows settled first, so the change
+    /// measured is the fact's own.
+    /// </summary>
+    private int MoveTrustFor(bool paid)
+    {
+        SettleTrust();
+        var before = TrustCount;
+        NoteTrustConsequence(paid);
+        return TrustCount - before;
+    }
+
     // ---- the guardrails ----
 
     /// <summary>The Gubble's Fire, preview or cast: the player's setting, one fire of its own at a time, and the wait after its last.</summary>
@@ -95,24 +153,6 @@ public partial class CommandHost
     private void SeeCompanionFire()
     {
         if (Nature.Fire?.Principal == CompanionPrincipal) _companionFireSeenS = Nature.WeatherS;
-    }
-
-    /// <summary>
-    /// The player's Stop of the Gubble (and the Gubble's own stop): its fire goes out at once, every cell of it. Like a fire
-    /// burning out, this is the simulation's change, not a room revision, so no ledger, budget or rate limit can refuse it;
-    /// it is saved at once when the save is there. Returns whether a fire went out.
-    /// </summary>
-    internal bool PutOutCompanionFire()
-    {
-        // The same X removes the oldest Will-o'-wisp (decision 80; CommandHostFireKinds), whoever cast it: it is no fire, and counts none.
-        RemoveOldestWisp();
-        if (!NatureConfigured || Nature.Fire is not { Principal: CompanionPrincipal }) return false;
-        _companionFireSeenS = Nature.WeatherS;
-        Nature.PutOutFire();
-        _natureDirty = true;
-        NatureChanged?.Invoke();
-        SaveNature();
-        return true;
     }
 
     // ---- the feedback ----
@@ -177,6 +217,7 @@ public partial class CommandHost
         }
         _notices.Clear();
         _openNotice = null;
+        _factNotices.Clear();
     }
 
     /// <summary>
@@ -191,6 +232,7 @@ public partial class CommandHost
             if (!harm.Recovered || _factRecovered) return;
             _factRecovered = true;
             _factEntry["line"] = KernelJson.DisplayText(ConsequenceLine(NearestKnownPlace(at), recovered: true), 200);
+            RetellGubble(_factEntry);
             SaveTeam();
             return;
         }
@@ -198,8 +240,9 @@ public partial class CommandHost
         _factRecovered = harm.Recovered;
         _factEntry = Fact("consequence", ConsequenceLine(NearestKnownPlace(at), harm.Recovered), CompanionPrincipal, fire.DirectedBy, null, null, at);
         AddHistory(_factEntry);
-        // M8: a new consequence fact costs Trust and spoils the open windows of clean initiative, when the fire was paid (decision 69).
-        NoteTrustConsequence(PaidFire(fire));
+        // M8: a new consequence fact costs Trust and spoils the open windows of clean initiative, when the fire was paid (decision 69);
+        // decision 134: and the Gubble hears it.
+        TellGubble(_factEntry, MoveTrustFor(PaidFire(fire)));
         SaveTeam();
     }
 
@@ -219,6 +262,7 @@ public partial class CommandHost
             _buildEntry["line"] = KernelJson.DisplayText(BuildBurntLine(_buildsBurnt[0]), 200);
             _buildEntry["at_utc"] = EntryTime();
             if (_buildEntry["subject"]?["entities"] is JsonArray named && named.Count < 8 && KnownToTeam(creation)) named.Add(creation);
+            RetellGubble(_buildEntry);
             SaveTeam();
             return;
         }
@@ -228,7 +272,7 @@ public partial class CommandHost
         var view = TeamView(creation);
         _buildEntry = Fact("consequence", BuildBurntLine(creation), CompanionPrincipal, fire.DirectedBy, view != null ? creation : null, view?.Name, view?.Pin ?? at);
         AddHistory(_buildEntry);
-        NoteTrustConsequence(PaidFire(fire));
+        TellGubble(_buildEntry, MoveTrustFor(PaidFire(fire)));
         SaveTeam();
     }
 
@@ -257,13 +301,48 @@ public partial class CommandHost
         lead.HarmNoted = true;
         var place = NearestKnownPlace(at);
         var directedBy = _trustLedger.Find(lead.ActionId)?.ApprovedBy ?? CompanionPrincipal;
-        AddHistory(Fact("consequence", LeadHarmPrefix + (place == null ? "" : " near " + Quoted(place)) + ".", CompanionPrincipal, directedBy, null, null, at));
-        NoteTrustConsequence(PaidCarry(lead));
+        var fact = Fact("consequence", LeadHarmPrefix + (place == null ? "" : " near " + Quoted(place)) + ".", CompanionPrincipal, directedBy, null, null, at);
+        AddHistory(fact);
+        TellGubble(fact, MoveTrustFor(PaidCarry(lead)));
         SaveTeam();
     }
 
     /// <summary>The start of a lead's consequence fact (the mock simulates no fire, so writes none).</summary>
     public const string LeadHarmPrefix = "The Gubble's bubble carried you into fire";
+
+    /// <summary>The start of the consequence fact for a fall that hurt the player after the Gubble popped their bubble (decision 96).</summary>
+    public const string PopFallPrefix = "The Gubble popped your bubble and you fell";
+
+    /// <summary>
+    /// The Gubble popped the carry holding the player by its own action (its stop, its effect.stop, a new goal of its own ending its lead,
+    /// its recast, its runner ending the wish whose lead it was; BubbleEnd.PoppedByGubble, decision 110), and the fall from there has not
+    /// ended yet (decision 96). No pop from the world sets it, and every other pop of a carry holding the player clears it (EndBubble).
+    /// </summary>
+    private bool _popFallPending;
+
+    private void NotePopFallPending() => _popFallPending = true;
+
+    /// <summary>The fall after the Gubble's pop ended some other way: a face grabbed (the climb's from then on), a bubble holding them again, a recovery.</summary>
+    private void ForgetPopFall() => _popFallPending = false;
+
+    /// <summary>
+    /// Decision 96 ("yes, but only for a pop the Gubble causes by its own action, never the time limit or the player's own cancel"): the
+    /// landing that ends the fall after the Gubble's own pop (ObservePlayerFall, the body's first grounded or water-caught tick), when it
+    /// hurt the player, is one consequence fact in the game's own words ("The Gubble popped your bubble and you fell near ..."), saved
+    /// with the journal at once, that costs Trust and spoils the windows open over it, as the Gubble's fire's harm does (decision 96 names
+    /// the pop itself as the action, whoever cast or lifted the bubble). A landing that did not hurt ends it with nothing written. In
+    /// Creative nothing hurts, so nothing is written.
+    /// </summary>
+    private void NotePopFall(PlayerHarm? harm, Vector3 at)
+    {
+        if (harm is not { } hurt) return;
+        var place = NearestKnownPlace(at);
+        var line = PopFallPrefix + (place == null ? "" : " near " + Quoted(place)) + (hurt.Recovered || hurt.After <= 0 ? " until you had to recover." : ".");
+        var fact = Fact("consequence", line, CompanionPrincipal, CompanionPrincipal, null, null, at);
+        AddHistory(fact);
+        TellGubble(fact, MoveTrustFor(paid: true));
+        SaveTeam();
+    }
 
     /// <summary>The name of the thing the team knows nearest a place, within ConsequencePlaceM; null when it knows none there.</summary>
     private string? NearestKnownPlace(Vector3 at)

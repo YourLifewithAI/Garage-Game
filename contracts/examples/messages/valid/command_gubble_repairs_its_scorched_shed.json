@@ -1,0 +1,10 @@
+{
+  "schema": "garage_game.command",
+  "version": 1,
+  "action_id": "repair-0010",
+  "room_id": "garage_example",
+  "op": "nature.repair",
+  "args": {
+    "target": "creation:00000003"
+  }
+}

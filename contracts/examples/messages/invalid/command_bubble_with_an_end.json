@@ -1,0 +1,22 @@
+{
+  "schema": "garage_game.command",
+  "version": 1,
+  "action_id": "boat-0009",
+  "room_id": "garage_example",
+  "op": "nature.cast",
+  "args": {
+    "capability": "bubble_boat",
+    "center_m": [
+      0.4,
+      0.0,
+      0.6
+    ],
+    "radius_m": 0.5,
+    "duration_s": 1,
+    "end_m": [
+      0.5,
+      0.0,
+      0.5
+    ]
+  }
+}

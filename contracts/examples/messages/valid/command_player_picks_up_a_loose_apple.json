@@ -1,0 +1,13 @@
+{
+  "schema": "garage_game.command",
+  "version": 1,
+  "action_id": "take-0006",
+  "room_id": "garage_example",
+  "op": "inventory.take",
+  "args": {
+    "from": "ground",
+    "item": "apple",
+    "to": "pockets"
+  },
+  "note": "The loose apple the player faces within reach: a windfall at its tree's trunk, or one set down."
+}

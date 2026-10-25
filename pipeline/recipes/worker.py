@@ -231,7 +231,7 @@ def main():
         'decoded_glb_comparison', 'blender_reimport_comparison', 'embedded_resources', 'cpu_preview')}
     checks['contract_check_glb'] = {'passed': True, 'problems': problems}
     raw = glb.read_bytes()
-    result = {'schema': 'enfractal.recipe_receipt', 'version': 1, 'inputs_used': used,
+    result = {'schema': 'garage_game.recipe_receipt', 'version': 1, 'inputs_used': used,
               'blender': {'version': bpy.app.version_string,
                           'build_hash': bpy.app.build_hash.decode('ascii')},
               'triangle_count': triangles, 'bounds': box,

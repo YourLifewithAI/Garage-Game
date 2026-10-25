@@ -3,10 +3,11 @@ extends Node3D
 ## It renders creations from the authority's snapshot, runs their effects on the real C# bodies
 ## (player:local and companion:local, SmallPlayerController and CompanionAvatar), and answers the
 ## authority's physics surface queries. In the game, Kernel/CommandHost.cs sets command_sink so
-## manual commits travel the same enfractal.command path as the companion's.
+## manual commits travel the same garage_game.command path as the companion's.
 const AUTHORITY = preload("res://scripts/creation_authority.gd")
 const VISUALS = preload("res://scripts/creation_visuals.gd")
 const EXECUTION = preload("res://scripts/creation_execution.gd")
+const SCHEMA_IDS = preload("res://scripts/schema_ids.gd")
 const PLAYER := "player:local"
 const COMPANION := "companion:local"
 const MAX_FIELDS := 16
@@ -23,7 +24,7 @@ var save_path := "user://saves/rooms/inventions.json"
 ## The invention workshop (the part-by-part editor, the INVENTIONS panel and the keys B, F, E, V, Q and K) is gone:
 ## the founder retired it on 6 October 2026, and its code went with the geography-era templates on 9 October. This
 ## runtime binds no key and builds no interface; it renders creations and runs their effects and trigger graphs.
-## Optional: Callable(command: Dictionary) -> Dictionary returning an enfractal.result.
+## Optional: Callable(command: Dictionary) -> Dictionary returning a garage_game.result.
 var command_sink := Callable()
 ## Optional: Callable(poses: Dictionary), the command host's scene seam for objects play has moved (the
 ## authority's pose_sink). Set before this node enters the tree: a save's poses reach the scene while it loads.
@@ -196,10 +197,10 @@ func remove_creation(instance_id: String, expected_revision: int, expected_permi
 	return result
 
 
-## Sends a manual command through the contract command host and adapts its enfractal.result
+## Sends a manual command through the contract command host and adapts its garage_game.result
 ## to the {ok, instance_id, code, path, message} shape this runtime's callers read.
 func _send(op: String, args: Dictionary, expected_revision: int) -> Dictionary:
-	var command := {"schema": "enfractal.command", "version": 1, "action_id": _action(), "room_id": room.room_id, "op": op, "args": args, "expected_revision": expected_revision}
+	var command := {"schema": SCHEMA_IDS.id_of("command"), "version": 1, "action_id": _action(), "room_id": room.room_id, "op": op, "args": args, "expected_revision": expected_revision}
 	var result: Variant = command_sink.call(command)
 	if not result is Dictionary:
 		return {"ok": false, "code": "internal_error", "path": "", "message": "The command host did not answer."}
@@ -314,7 +315,7 @@ func equipped_creation(owner := PLAYER) -> String:
 	return ""
 
 
-## Manual Use. With a command host attached this is creation.activate through enfractal.command.
+## Manual Use. With a command host attached this is creation.activate through garage_game.command.
 func activate_creation(id: String, principal := PLAYER) -> Dictionary:
 	_refresh()
 	if command_sink.is_valid() and principal == PLAYER:

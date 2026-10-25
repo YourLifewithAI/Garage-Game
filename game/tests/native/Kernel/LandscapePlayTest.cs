@@ -16,7 +16,7 @@ namespace GarageGame.Tests.Kernel;
 /// Play on the land (Run 2, Lane P): a generated landscape room booted as the game boots it, with the real bodies, Jolt
 /// and the command host. The edge of the world holds both bodies inside the room's bounds; the companion walks to the
 /// carryable thing with go_to and fetches it; the player walks to it, picks it up, carries it back to the spawn and sets
-/// it down through enfractal.command; every named destination is reachable; the slopes, steps, sticks and falls met
+/// it down through garage_game.command; every named destination is reachable; the slopes, steps, sticks and falls met
 /// on the way are measured; the land's water is found and measured; and the player climbs its cliffs and a tree. The room
 /// is derived data and never committed: the runner generates and exports it and passes
 /// "-- --landscape=DIR" (the exported room directory, its last component the room id). Saves go to a test folder.
@@ -117,6 +117,8 @@ public partial class LandscapePlayTest : Node3D
             await TestClimbATree();
             await TestClimbATreeWithKeys();
             await MeasureASwim();
+            // The generator's firepits (LandscapePlayTest.Firepits): last, since a lit campfire becomes the player's camp.
+            await TestFirepitsFromTheGenerator(directory);
             Finish();
         }
         catch (Exception error)
@@ -851,7 +853,7 @@ public partial class LandscapePlayTest : Node3D
             arrivedAt = companion.GlobalPosition;
             inViewAtArrival = companion.BodyInPlayerView(arrivedAt);
         }
-        var notice = Send(new JsonObject { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "q-" + (++_ids), ["room_id"] = _roomId, ["op"] = "player.status", ["args"] = new JsonObject() },
+        var notice = Send(new JsonObject { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "q-" + (++_ids), ["room_id"] = _roomId, ["op"] = "player.status", ["args"] = new JsonObject() },
             CommandHost.CompanionPrincipal)["notices"]?.AsArray().OfType<JsonObject>().FirstOrDefault(n => n["kind"]?.GetValue<string>() == "caught_up");
         var besideGap = PlanarDistance(arrivedAt, player.GlobalPosition);
         var besideLevel = arrivedAt.Y - player.GlobalPosition.Y;
@@ -1726,10 +1728,10 @@ public partial class LandscapePlayTest : Node3D
     private string NextId(string prefix) => $"{prefix}-{++_ids}";
 
     private JsonObject Command(string actionId, string op, JsonObject args) =>
-        new() { ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = actionId, ["room_id"] = _roomId, ["op"] = op, ["args"] = args };
+        new() { ["schema"] = "garage_game.command", ["version"] = 1, ["action_id"] = actionId, ["room_id"] = _roomId, ["op"] = op, ["args"] = args };
 
     private JsonObject Query(string op, JsonObject args) =>
-        Send(new JsonObject { ["schema"] = "enfractal.query", ["version"] = 1, ["query_id"] = "q-" + (++_ids), ["room_id"] = _roomId, ["op"] = op, ["args"] = args }, Player);
+        Send(new JsonObject { ["schema"] = "garage_game.query", ["version"] = 1, ["query_id"] = "q-" + (++_ids), ["room_id"] = _roomId, ["op"] = op, ["args"] = args }, Player);
 
     private JsonObject Send(JsonObject message, string principal) => JsonNode.Parse(_host.Handle(message.ToJsonString(), principal))!.AsObject();
 
@@ -1752,7 +1754,7 @@ public partial class LandscapePlayTest : Node3D
 
     private void Finish()
     {
-        GD.Print($"NATIVE_KERNEL_LANDSCAPE: {_checks - _failures}/{_checks} checks passed; both bodies held inside the bounds, the companion's go_to and fetch and the player's carry on the land, every promised destination reached, cliffs and a tree climbed");
+        GD.Print($"NATIVE_KERNEL_LANDSCAPE: {_checks - _failures}/{_checks} checks passed; both bodies held inside the bounds, the companion's go_to and fetch and the player's carry on the land, every promised destination reached, cliffs and a tree climbed, the generator's firepits");
         RemoveSaves();
         CommandHost.SaveRoot = CommandHost.DefaultSaveRoot;
         // Let the wrappers this long run left to the finalizer go before the engine tears down: in the Linux container's

@@ -1,0 +1,107 @@
+{
+  "schema": "garage_game.team",
+  "version": 1,
+  "team_id": "example_team",
+  "created_utc": "2026-10-14T18:00:00Z",
+  "profile": {
+    "display_name": "Mira",
+    "costume": "stickbear"
+  },
+  "knacks": {
+    "slots_open": 1,
+    "chosen": [
+      {
+        "slot": 1,
+        "knack": "quick_feet",
+        "rank": 1
+      }
+    ],
+    "earned": {
+      "high_hop": 2
+    }
+  },
+  "gubble": {
+    "name": "Wisp",
+    "colour": "#65b9b0"
+  },
+  "trust": {
+    "count": 0
+  },
+  "settings": {
+    "gubble_chest": true
+  },
+  "pockets": {
+    "creative": {
+      "stacks": {
+        "kind_00": 1,
+        "kind_01": 1,
+        "kind_02": 1,
+        "kind_03": 1,
+        "kind_04": 1,
+        "kind_05": 1,
+        "kind_06": 1,
+        "kind_07": 1,
+        "kind_08": 1,
+        "kind_09": 1
+      },
+      "things": [
+        {
+          "id": "obj:cup_0",
+          "room_id": "garage_example",
+          "manifest_prefix": "0123456789abcdef",
+          "name": "Cup",
+          "mass_kg": 0.01
+        },
+        {
+          "id": "obj:cup_1",
+          "room_id": "garage_example",
+          "manifest_prefix": "0123456789abcdef",
+          "name": "Cup",
+          "mass_kg": 0.01
+        },
+        {
+          "id": "obj:cup_2",
+          "room_id": "garage_example",
+          "manifest_prefix": "0123456789abcdef",
+          "name": "Cup",
+          "mass_kg": 0.01
+        },
+        {
+          "id": "obj:cup_3",
+          "room_id": "garage_example",
+          "manifest_prefix": "0123456789abcdef",
+          "name": "Cup",
+          "mass_kg": 0.01
+        },
+        {
+          "id": "obj:cup_4",
+          "room_id": "garage_example",
+          "manifest_prefix": "0123456789abcdef",
+          "name": "Cup",
+          "mass_kg": 0.01
+        },
+        {
+          "id": "obj:cup_5",
+          "room_id": "garage_example",
+          "manifest_prefix": "0123456789abcdef",
+          "name": "Cup",
+          "mass_kg": 0.01
+        },
+        {
+          "id": "obj:cup_6",
+          "room_id": "garage_example",
+          "manifest_prefix": "0123456789abcdef",
+          "name": "Cup",
+          "mass_kg": 0.01
+        }
+      ]
+    }
+  },
+  "hand": {
+    "challenge": {
+      "layer": "pockets",
+      "pockets": 1,
+      "abilities": 3
+    }
+  }
+}

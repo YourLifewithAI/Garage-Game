@@ -541,7 +541,7 @@ def main():
             slope=math.degrees(math.acos(max(-1,min(1,face.normal.z))))
             face.material_index=0 if slope<=35 else 1 if slope<=55 else 2
     diagnostic=retained['slope'] if 'slope' in retained else render_view(plan[0],camera,True)
-    receipt=dict(format='enfractal.landscape.render-receipt',version=1,
+    receipt=dict(format='garage_game.landscape.render-receipt',version=1,
                  blender='.'.join(map(str,bpy.app.version)),blender_display=bpy.app.version_string,
                  harness_revision=config['harness_revision'],expected_setup=config['expected_setup'],
                  settings=SET,package_sha256=sha((Path(config['package'])/'package.json').read_bytes()),

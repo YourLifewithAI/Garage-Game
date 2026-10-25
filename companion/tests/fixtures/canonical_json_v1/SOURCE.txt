@@ -10,6 +10,13 @@ Canonical JSON v1 golden fixture, copied byte for byte from Lane P (read only, n
           -> PASS canonical JSON v1 golden fixture reproduced by Python:
              sha256 a08519e8874d0895f7d9fded02fccb92ebf508101829de3db7c6ad9df2c85589
 
+Regenerated on 24 October 2026 (the rename's phase 4, decision C) from the kernel's fixture, copied byte for byte again: its
+"about" names the Garage Game canonical JSON v1 and its command and creation say garage_game.command and
+garage_game.creation; everything else, the number spellings included, is unchanged.
+  checked python tools/kernel/canonical_json.py --check game/tests/fixtures/kernel
+          -> PASS canonical JSON v1 golden fixture reproduced by Python:
+             sha256 ad3d1a8594e808790c035c49f00fc39fd49d49325d3237bb03bba6166fbccc94
+
 companion/tests/test_canonical_json.py uses the shared fixture in game/tests/fixtures/kernel/ whenever
 the checkout has it (or the folder GARAGE_GAME_KERNEL_FIXTURE_DIR names), so on run1/integration this copy
 is unused and can be deleted. Checked on 6 October 2026 against C:\dev\EnFractal (run1/integration):

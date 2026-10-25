@@ -77,8 +77,12 @@ public partial class RoomHud
         if (action == Act.ViewShoulder) return "shoulder";
         // Reported before the key is handled: where the window is going.
         if (action == Act.ViewFullscreen) return Fullscreen ? "to a window" : "to full screen";
-        for (var i = 0; i < Act.GubbleSlots.Length; i++)
-            if (action == Act.GubbleSlots[i]) return SlotName(i);
+        // The bar's keys: a pocket slot, or on the magic side the slot's ability (RoomHud.Hotbar.cs).
+        for (var i = 0; i < Act.BarSlots.Length; i++)
+            if (action == Act.BarSlots[i]) return BarLayerNow == Kernel.HandSelection.PocketsLayer ? $"pocket slot {i + 1}" : i < GubbleMagic.SlotNames.Length ? SlotName(i) : "magic still to come";
+        if (action == Act.BarLayer) return BarLayerNow == Kernel.HandSelection.PocketsLayer ? "to the magic" : "to the pockets";
+        // E: what its prompt said it would do (RoomHud.Interact.cs).
+        if (action == Act.Interact) return InteractDetail();
         if (_wheel.Held) return "while the wheel is open";
         if (GubbleViewOpen) return "through the Gubble's eyes";
         if (JournalOpen) return "with the journal open";

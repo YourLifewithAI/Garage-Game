@@ -8,7 +8,7 @@ This packet implements E11–E14's local manual creation loop in the existing Go
 
 ```json
 {
-  "schema": "enfractal.creation", "version": 1, "name": "My invention", "seed": 1,
+  "schema": "garage_game.creation", "version": 1, "name": "My invention", "seed": 1,
   "mount": "ground",
   "parts": [
     {"id": "base", "shape": "box", "position_m": [0,0.5,0],

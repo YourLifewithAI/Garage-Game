@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.enfractal.invalid/v1/team.schema.json",
+  "$id": "https://contracts.garage-game.invalid/v1/team.schema.json",
   "title": "EnFractal team: the team file, the vitals store and the expertise store",
-  "description": "A team is one person and their Gubble (docs/game/MECHANICS.md section 2): one folder on disk, user://teams/<team_id>/, that the companion surface never sees (no tool, field or resource reaches it). Three documents live there, each named by its schema: the team file (enfractal.team, team.json), one vitals store per mode (enfractal.player_modes version 2, modes/<mode>/vitals.json) and one expertise store for the team (enfractal.glow_progress version 3, expertise.json); the island saves sit beside them under the mode (contracts/README.md, \"Teams and the save layout\"). The host writes them atomically (docs/engine/persistence-notes.md); nothing a request carries sets them, and the machine's switches (\"Let my AI see\", \"Let the Gubble use fire\", \"Play the intro\", the numbers option) stay in the machine's settings file. The Gubble is bound to the team for life, never to a drawing; the drawing is a costume. Written by the teams packet (M3) and the menu (M7); the vitals by the energy packet (M1); Trust by M8.",
+  "description": "A team is one person and their Gubble (docs/game/MECHANICS.md section 2): one folder on disk, user://teams/<team_id>/, that the companion surface never sees (no tool, field or resource reaches it). Three documents live there, each named by its schema: the team file (garage_game.team, team.json), one vitals store per mode (garage_game.player_modes version 2, modes/<mode>/vitals.json) and one expertise store for the team (garage_game.glow_progress version 3, expertise.json); the island saves sit beside them under the mode (contracts/README.md, \"Teams and the save layout\"). The host writes them atomically (docs/engine/persistence-notes.md); nothing a request carries sets them, and the machine's switches (\"Let my AI see\", \"Let the Gubble use fire\", \"Play the intro\", the numbers option) stay in the machine's settings file. The Gubble is bound to the team for life, never to a drawing; the drawing is a costume. Written by the teams packet (M3) and the menu (M7); the vitals by the energy packet (M1); Trust by M8.",
   "type": "object",
   "required": [
     "schema"
@@ -10,6 +10,9 @@
   "properties": {
     "schema": {
       "enum": [
+        "garage_game.team",
+        "garage_game.player_modes",
+        "garage_game.glow_progress",
         "enfractal.team",
         "enfractal.player_modes",
         "enfractal.glow_progress"
@@ -21,7 +24,10 @@
       "if": {
         "properties": {
           "schema": {
-            "const": "enfractal.team"
+            "enum": [
+              "garage_game.team",
+              "enfractal.team"
+            ]
           }
         },
         "required": [
@@ -36,7 +42,10 @@
       "if": {
         "properties": {
           "schema": {
-            "const": "enfractal.player_modes"
+            "enum": [
+              "garage_game.player_modes",
+              "enfractal.player_modes"
+            ]
           }
         },
         "required": [
@@ -51,7 +60,10 @@
       "if": {
         "properties": {
           "schema": {
-            "const": "enfractal.glow_progress"
+            "enum": [
+              "garage_game.glow_progress",
+              "enfractal.glow_progress"
+            ]
           }
         },
         "required": [
@@ -80,7 +92,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.team"
+          "enum": [
+            "garage_game.team",
+            "enfractal.team"
+          ]
         },
         "version": {
           "type": "integer",
@@ -217,11 +232,56 @@
               "maximum": 1000000
             }
           }
+        },
+        "settings": {
+          "description": "The team's own switches, written only by the player's own control, never a request (P-Inventory): gubble_chest, \"Let the Gubble use the chest\" (decision 100: off unless present). Absent: every switch off, so a team file without it reads as before.",
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "gubble_chest": {
+              "const": true
+            }
+          }
+        },
+        "pockets": {
+          "description": "The pockets, carried everywhere, one set per mode (P-Inventory; decisions 98, 99 and 101): only a mode whose pockets hold something is written, and no key when none does, so a team file from before reads and writes as it was.",
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "creative": {
+              "$ref": "#/$defs/pockets"
+            },
+            "challenge": {
+              "$ref": "#/$defs/pockets"
+            },
+            "live": {
+              "$ref": "#/$defs/pockets"
+            }
+          }
+        },
+        "hand": {
+          "description": "The hand's selection by mode (P-Inventory-2): only a mode with one is written, so a team file from before reads and writes as it was.",
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "creative": {
+              "$ref": "#/$defs/hand"
+            },
+            "challenge": {
+              "$ref": "#/$defs/hand"
+            },
+            "live": {
+              "$ref": "#/$defs/hand"
+            }
+          }
         }
       }
     },
     "vitals_store": {
-      "description": "The vitals store (modes/<mode>/vitals.json): one per team and mode, with the pool. Version 2 of the kernel's enfractal.player_modes, whose version 1 kept the three modes in one file (user://single_player/progression/player_modes_v1.json, read for migration only). written_utc lets the host catch up time away (hearts heal, the pool wakes half full).",
+      "description": "The vitals store (modes/<mode>/vitals.json): one per team and mode, with the pool. Version 2 of the kernel's garage_game.player_modes, whose version 1 kept the three modes in one file (user://single_player/progression/player_modes_v1.json, read for migration only). written_utc lets the host catch up time away (hearts heal, the pool wakes half full).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -234,7 +294,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.player_modes"
+          "enum": [
+            "garage_game.player_modes",
+            "enfractal.player_modes"
+          ]
         },
         "version": {
           "type": "integer",
@@ -371,7 +434,7 @@
       }
     },
     "expertise_store": {
-      "description": "The expertise store (expertise.json): one per team, across modes (expertise travels; it cannot be farmed, each a one-time condition the host verifies). Version 3 of the kernel's enfractal.glow_progress, whose version 2 kept one record per mode (user://single_player/progression/glow_trial_v1.json and its .challenge and .live siblings, merged as their union). Keyed by ability, so Bubbles', Fire's and Grow's lists join Glow's without a new version (a store holding Bloom's record, from before decision 52, is read as Grow's and written as grow). Only the host writes it.",
+      "description": "The expertise store (expertise.json): one per team, across modes (expertise travels; it cannot be farmed, each a one-time condition the host verifies). Version 3 of the kernel's garage_game.glow_progress, whose version 2 kept one record per mode (user://single_player/progression/glow_trial_v1.json and its .challenge and .live siblings, merged as their union). Keyed by ability, so Bubbles', Fire's and Grow's lists join Glow's without a new version (a store holding Bloom's record, from before decision 52, is read as Grow's and written as grow). Only the host writes it.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -385,7 +448,10 @@
       ],
       "properties": {
         "schema": {
-          "const": "enfractal.glow_progress"
+          "enum": [
+            "garage_game.glow_progress",
+            "enfractal.glow_progress"
+          ]
         },
         "version": {
           "type": "integer",
@@ -455,6 +521,120 @@
           "items": {
             "$ref": "common.schema.json#/$defs/token"
           }
+        }
+      }
+    },
+    "inventory_stacks": {
+      "description": "Stacks by kind (the rules pack's inventory.kinds id): the units held, at least one.",
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 16,
+      "propertyNames": {
+        "$ref": "common.schema.json#/$defs/token"
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      }
+    },
+    "pockets": {
+      "description": "One mode's pockets: stacks by kind, and unique things, each a room object of one island (its room and manifest prefix) away from it until it comes out there, with its name (untrusted display text) and mass. At most 16 entries in all. Since P-Inventory-2 each entry's slot (the hotbar's: decision 119): stack_slots by kind, and a thing's slot, 1 to 16, each slot once (validate.py); a file from before has none, and the host gives each entry the lowest free slot in order.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "stacks": {
+          "$ref": "#/$defs/inventory_stacks"
+        },
+        "things": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "room_id",
+              "manifest_prefix",
+              "name",
+              "mass_kg"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^obj:[A-Za-z0-9_-]{1,64}$"
+              },
+              "room_id": {
+                "$ref": "common.schema.json#/$defs/token"
+              },
+              "manifest_prefix": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{16}$"
+              },
+              "name": {
+                "allOf": [
+                  {
+                    "$ref": "common.schema.json#/$defs/display_text"
+                  },
+                  {
+                    "maxLength": 80
+                  }
+                ],
+                "minLength": 1
+              },
+              "mass_kg": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 10
+              },
+              "slot": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16
+              }
+            }
+          }
+        },
+        "stack_slots": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 16,
+          "propertyNames": {
+            "$ref": "common.schema.json#/$defs/token"
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16
+          }
+        }
+      }
+    },
+    "hand": {
+      "description": "One mode's hand (P-Inventory-2, decision 119: inventory.select's state, kept so a reload keeps the hand): the hotbar's layer in the hand and each layer's chosen slot, 1 to 10 (absent: none). A mode with no slot chosen on the pockets' layer writes no key. The player's alone.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer"
+      ],
+      "properties": {
+        "layer": {
+          "enum": [
+            "pockets",
+            "abilities"
+          ]
+        },
+        "pockets": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "abilities": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
         }
       }
     }

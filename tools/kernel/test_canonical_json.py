@@ -11,6 +11,8 @@ from pathlib import Path
 import canonical_json as cj
 
 FIXTURE = Path(__file__).resolve().parents[2] / "game" / "tests" / "fixtures" / "kernel"
+# The golden digest, pinned here as in the C# and GDScript checks (the Garage Game fixture, since the rename's phase 4).
+GOLDEN_SHA256 = "ad3d1a8594e808790c035c49f00fc39fd49d49325d3237bb03bba6166fbccc94"
 
 
 class GoldenFixture(unittest.TestCase):
@@ -23,6 +25,12 @@ class GoldenFixture(unittest.TestCase):
         self.assertNotIn(b"\n", expected)
         self.assertNotIn(b"\r", expected)
         self.assertEqual(hashlib.sha256(expected).hexdigest(), (FIXTURE / cj.DIGEST_NAME).read_bytes().decode("ascii"))
+        self.assertEqual(hashlib.sha256(expected).hexdigest(), GOLDEN_SHA256)
+
+    def test_the_fixture_names_the_garage_game(self):
+        text = (FIXTURE / cj.INPUT_NAME).read_text(encoding="utf-8")
+        self.assertIn('"about": "Garage Game canonical JSON v1 golden fixture.', text)
+        self.assertNotIn("enfractal", text.lower())
 
     def test_input_whitespace_does_not_matter(self):
         text = (FIXTURE / cj.INPUT_NAME).read_bytes().decode("utf-8")

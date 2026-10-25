@@ -74,6 +74,11 @@ $landscape = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $too
     -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native_kernel_landscape.tscn', '--', "--landscape=$landscapeRoom") -TimeoutSeconds 300
 if ($landscape.Stderr -or $landscape.Stdout -notmatch 'NATIVE_KERNEL_LANDSCAPE: \d+/\d+ checks passed') { throw "$($landscape.Stdout)`n$($landscape.Stderr)" }
 Write-Output (($landscape.Stdout.Trim().Split("`n") | Where-Object { $_ -match '^(LANDSCAPE_|NATIVE_KERNEL_LANDSCAPE)' }) -join "`n")
+# P-Food: the food's layout on the same garage (its garage checks are skipped without --landscape, which counts as a failure here).
+$food = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
+    -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native/Kernel/native_kernel_food.tscn', '--', "--landscape=$landscapeRoom") -TimeoutSeconds 180
+if ($food.Stderr -or $food.Stdout -match 'FOOD_GARAGE skipped' -or $food.Stdout -notmatch 'NATIVE_KERNEL_FOOD: \d+/\d+ checks passed') { throw "$($food.Stdout)`n$($food.Stderr)" }
+Write-Output (($food.Stdout.Trim().Split("`n") | Where-Object { $_ -match '^(FOOD_|NATIVE_KERNEL_FOOD)' }) -join "`n")
 $roomData = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
     -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native_room_data.tscn') -TimeoutSeconds 90
 if ($roomData.Stderr -or $roomData.Stdout -notmatch 'checks passed') { throw "$($roomData.Stdout)`n$($roomData.Stderr)" }

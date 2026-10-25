@@ -259,13 +259,37 @@ class GlowMatchesTheKernel(unittest.TestCase):
 
 
 NATURE = KERNEL / "Kernel" / "CommandHostNature.cs"
+GROW_KINDS = [KERNEL / "Kernel" / name for name in ("CommandHostGrowKinds.cs", "CommandHostGrowSprouts.cs", "CommandHostGrowReplant.cs",
+                                                     "CommandHostGrowBridge.cs", "CommandHostGrowIvy.cs")]
+NATURE_SOURCES = [KERNEL / "Kernel" / name for name in ("CommandHostNature.cs", "CommandHostGrow.cs", "CommandHostFireKinds.cs",
+                                                         "CommandHostCamps.cs", "CommandHostConsequences.cs", "CommandHostEnergy.cs",
+                                                         # P-Inventory-2: a repair's spend and the Gubble's ask for one (RepairSpend, RepairAsk).
+                                                         "CommandHostInventory.cs")] + GROW_KINDS
+
+
+def _nature_text() -> str:
+    """The kernel's nature sources as one text, its long strings joined where C# splits them over two lines."""
+    return re.sub(r'"\s*\+\s*\n\s*"', "", "".join(_text(path) for path in NATURE_SOURCES))
+
+
+def _codes(source: str, pattern: str = r'new Refusal\("(\w+)"') -> list[str]:
+    return re.findall(pattern, source)
+
+
+def _with_preview_check(source: str) -> str:
+    """A handler's source with its call to the shared preview check standing for that check's refusal (revision_conflict), so
+    the codes read in their order whichever host keeps the check in a helper."""
+    for call in ("UseFirePreview(root", "self._use_preview("):
+        source = source.replace(call, 'new Refusal("revision_conflict" HostError("revision_conflict"')
+    return source
 
 
 @unittest.skipUnless(NATURE.is_file(), "the kernel host's nature is not in this checkout")
 class NatureMatchesTheKernel(unittest.TestCase):
-    """Nature (contracts/README.md "Nature"). The mock does not simulate it yet: it checks the nature commands as the kernel
-    does before its nature runs, then answers unavailable (the one exception test_host_alignment.py allows). What it does
-    check must be the kernel's: the args (CheckNatureArgs), and room.undo of any change that is not nature's (NatureUndo)."""
+    """Nature (contracts/README.md "Nature"), hosted by the mock since the nature packet (mock_nature.py): its args checked as the
+    kernel's CheckNatureArgs checks them, its refusals in the kernel's order and words, its numbers the kernel's laws, the fire rule
+    the kernel's table, and its prices and their guard the kernel's. A kernel change that moves a word, a number or a check's order
+    fails here, wherever the game can or cannot run."""
 
     def test_the_mock_checks_the_nature_commands_the_kernel_has(self):
         from garage_game_companion.mock_host import NATURE_OPS
@@ -291,17 +315,261 @@ class NatureMatchesTheKernel(unittest.TestCase):
                 allowed = re.search(rf'"{re.escape(op)}" => new\[\] \{{([^}}]*)\}}', check).group(1)
                 self.assertEqual(set(re.findall(r'"([a-z_]+)"', allowed)), set(defs["args"][op]["properties"]))
 
-    def test_room_undo_of_any_other_change_answers_the_kernels_codes_and_words(self):
+    def test_room_undo_answers_the_kernels_codes_and_words_in_its_order(self):
         import inspect
-        from garage_game_companion import mock_host
+        from garage_game_companion import mock_host, mock_nature
         undo = _method(_text(NATURE), "private JsonObject NatureUndo(")
-        for words in (mock_host.UNDO_NOT_EARLIER, mock_host.UNDO_ONLY_NATURE):
+        for words in (mock_host.UNDO_NOT_EARLIER, mock_host.UNDO_ONLY_NATURE, mock_nature.UNDO_SEALED, mock_nature.UNDO_NOT_REACHABLE,
+                      mock_nature.UNDO_LOCKED, mock_nature.UNDO_HOLD):
             self.assertIn(f'"{words}"', undo)
-        # After the kernel's nature and role checks (not_ready, permission_denied), the refusals the mock gives, in order.
-        in_kernel = re.findall(r'new Refusal\("(\w+)"', undo)
-        self.assertEqual(in_kernel[:2], ["invalid_args", "unsupported_capability"])
-        self.assertEqual(re.findall(r'HostError\("(\w+)"', inspect.getsource(mock_host.MockHost._op_room_undo)), in_kernel[:2])
+        # After the kernel's nature and role checks (RequireNature and RequireChange: the mock's room is always loaded and both of
+        # its principals build), every refusal the kernel's NatureUndo gives, in its order.
+        in_kernel = _codes(undo)
+        self.assertEqual(in_kernel, ["invalid_args", "unsupported_capability", "unsupported_capability", "invalid_args", "target_protected"])
+        self.assertEqual(_codes(inspect.getsource(mock_nature.NatureMixin._op_room_undo), r'HostError\("(\w+)"'), in_kernel)
         self.assertIn('"room.undo" when !NatureConfigured', _text(COMMAND_HOST))
+        # The undo chain: a step's base is the revision it started from, a change of another kind between breaks the chain, and
+        # at most the kernel's MaxUndoSteps are kept.
+        state = _text(KERNEL / "Kernel" / "NatureState.cs")
+        self.assertIn("if (Undo.Count > 0 && Undo[^1].Revision != step.Base) Undo.Clear();", state)
+        self.assertIn("if (Undo[i].Revision != expected || !Undo[i].Undoable) return null;", state)
+
+    def test_the_nature_words_are_the_kernels_word_for_word(self):
+        """Every refusal, hold and rest word the mock's nature gives is a string of the kernel's nature (its templates' fixed
+        parts where the kernel fills a number in), so a word the kernel moves fails here."""
+        import inspect
+        from garage_game_companion import mock_nature
+        source = _nature_text()
+        words = {name: value for name, value in vars(mock_nature).items() if name.isupper() and isinstance(value, str) and " " in value}
+        self.assertGreater(len(words), 50)
+        missing = []
+        for name, value in sorted(words.items()):
+            escaped = value.replace('"', '\\"')  # the kernel's C# escapes a quote inside its words
+            pieces = [piece for piece in re.split(r"\{[a-z_]+\}", escaped) if piece]
+            if not all(piece in source for piece in pieces) or ("{" not in value and f'"{escaped}"' not in source and f'"{escaped}' not in source):
+                missing.append(name)
+        self.assertEqual(missing, [])
+        # The templates are the kernel's own: the number goes where the kernel puts it.
+        self.assertIn('$"Wait about {Math.Ceiling(wait):0} seconds after your last fire before lighting another."', source)
+        self.assertIn('$"The island already keeps {NatureState.MaxGrownPlants} grown plants, the most it can: none more can grow."', source)
+        self.assertIn('$"A Fireline is at most {FireKindLaws.FirelineMaxM:0.#} m long."', source)
+        self.assertIn('$"The Gubble asks to repair {id}, which you made."', source)
+        self.assertIn('$"This repair needs {words}, more than your pockets and the chest hold."', source)
+        self.assertIn('$"{whose} would reach your builds.', source)
+        # And every word the mock's handlers raise is one of these constants (none typed in place).
+        for function in (mock_nature.NatureMixin._op_nature_cast, mock_nature.NatureMixin._check_cast, mock_nature.NatureMixin._cast_grow,
+                         mock_nature.NatureMixin._cast_fire, mock_nature.NatureMixin._check_fireline, mock_nature.NatureMixin._cast_snuff,
+                         mock_nature.NatureMixin._light_firepit, mock_nature.NatureMixin._op_nature_repair, mock_nature.NatureMixin._op_room_undo,
+                         mock_nature.NatureMixin._check_companion_fire, mock_nature.NatureMixin._check_nature_remains,
+                         mock_nature.NatureMixin._cast_sprouts, mock_nature.NatureMixin._cast_replant, mock_nature.NatureMixin._check_bridge,
+                         mock_nature.NatureMixin._void_span):
+            with self.subTest(function=function.__name__):
+                self.assertIsNone(re.search(r'HostError\("\w+", "', inspect.getsource(function)), "a word typed in place")
+        self.assertEqual((mock_nature.FIRE_NOT_LEARNED, mock_nature.FIRELINE_NOT_LEARNED, mock_nature.FIRE_OFF, mock_nature.GUBBLE_FIRE_BURNING,
+                          mock_nature.GUBBLE_FIRE_BURNING_SNUFF, mock_nature.POP_FALL_PREFIX),
+                         (_cs_string(KERNEL / "Kernel" / "CommandHostCamps.cs", "FireNotLearned"),
+                          _cs_string(KERNEL / "Kernel" / "CommandHostFireKinds.cs", "FirelineNotLearned"),
+                          _cs_string(KERNEL / "Kernel" / "CommandHostConsequences.cs", "FireOffMessage"),
+                          _cs_string(NATURE, "GubbleFireBurningWords"), _cs_string(NATURE, "GubbleFireBurningSnuffWords"),
+                          _cs_string(KERNEL / "Kernel" / "CommandHostConsequences.cs", "PopFallPrefix")))
+        for mock, kernel in (("REST_NEAR_FIRE", "RestNearFire"), ("REST_UNLIT", "RestUnlit"), ("REST_OUT", "RestOut"), ("REST_IN_FLAMES", "RestInFlames")):
+            with self.subTest(words=mock):
+                self.assertEqual(getattr(mock_nature, mock), _cs_string(KERNEL / "Kernel" / "CommandHostCamps.cs", kernel))
+
+    def test_the_nature_numbers_are_the_kernels(self):
+        from garage_game_companion import mock_nature as m
+        state = KERNEL / "Kernel" / "NatureState.cs"
+        grow = KERNEL / "Kernel" / "CommandHostGrow.cs"
+        kinds = KERNEL / "Kernel" / "CommandHostFireKinds.cs"
+        camps = KERNEL / "Kernel" / "CommandHostCamps.cs"
+        unlocks = KERNEL / "Kernel" / "CommandHostGrowKinds.cs"
+
+        def number(path, name: str) -> float:
+            raw = _match(path, rf"\bconst (?:float|double|int) (?:\w+ = [^,;]+, )*{name} = ([^,;]+)[,;]")
+            raw = raw.replace("f", "").strip()
+            if "/" in raw:
+                a, b = raw.split("/")
+                return float(a) / float(b)
+            if raw == "2 * RestRadiusM":
+                return 2 * number(camps, "RestRadiusM")
+            return float(raw)
+
+        laws = {
+            "STEP_S": (state, "StepS"), "WEATHER_CYCLE_S": (state, "WeatherCycleS"), "WEATHER_DRY_S": (state, "WeatherDryS"),
+            "WEATHER_RAMP_S": (state, "WeatherRampS"), "WEATHER_WET_UNTIL_S": (state, "WeatherWetUntilS"), "WIND_TURN_S": (state, "WindTurnS"),
+            "WIND_CALM_MPS": (state, "WindCalmMps"), "WIND_RAIN_MPS": (state, "WindRainMps"), "WEATHER_RAIN01": (state, "WeatherRain01"),
+            "WEATHER_SHOWERS01": (state, "WeatherShowers01"), "FRESH_MOISTURE": (state, "FreshMoisture"), "RAIN_MOISTURE": (state, "RainMoisture"),
+            "GROUND_GRASS_FUEL": (state, "GrassFuel"), "GROUND_WOOD_FUEL": (state, "WoodFuel"), "GROUND_LIGHT_FUEL": (state, "LightFuel"),
+            "FLOWER_FUEL": (state, "FlowerFuel"), "IGNITION_RADIUS_M": (state, "IgnitionRadiusM"), "IGNITION_MAX_MOISTURE": (state, "IgnitionMaxMoisture"),
+            "OBJECT_BURN_PER_INTENSITY_S": (state, "ObjectBurnPerIntensityS"), "OBJECT_CATCH_M": (state, "ObjectCatchM"),
+            "SHELTER_MARGIN_M": (state, "ShelterMarginM"), "PLAYER_BURN_M": (state, "PlayerBurnM"),
+            "COMPANION_FIRE_COOLDOWN_S": (state, "CompanionFireCooldownS"), "CELL_M": (state, "CellM"), "MAX_BURNING": (state, "MaxBurning"),
+            "MAX_GROWN_PLANTS": (state, "MaxGrownPlants"), "MAX_BURNT_PLANTS": (state, "MaxBurntPlants"), "MAX_UNDO_STEPS": (state, "MaxUndoSteps"),
+            "MAX_FIRE_TARGETS": (NATURE, "MaxFireTargets"), "MAX_PREVIEW_CELLS": (NATURE, "MaxPreviewCells"),
+            "MAX_FIRE_RADIUS_M": (KERNEL / "Kernel" / "NatureStore.cs", "MaxFireRadiusM"),
+            "CAP_FACTOR": (grow, "CapFactor"), "CAP_EXTRA_M": (grow, "CapExtraM"), "LEGACY_GROW_SHARE": (grow, "LegacyGrowShare"),
+            "ROOT_HEIGHT_TOLERANCE_M": (grow, "RootHeightToleranceM"), "FIRE_REACH_MARGIN_M": (grow, "FireReachMarginM"),
+            "GROWN_FUEL_FACTOR": (grow, "GrownFuelFactor"), "ASH_LEFT": (grow, "AshLeft"), "RAIN_GARDEN_FACTOR": (grow, "RainGardenFactor"),
+            "THICKET_SPAN_M": (grow, "ThicketSpanM"), "THICKET_LOOKS_AT": (grow, "ThicketLooksAt"),
+            "FIRELINE_LEARN_WINDOW_S": (kinds, "FirelineLearnWindowS"), "FIRELINE_LEARN_APART_M": (kinds, "FirelineLearnApartM"),
+            "FIRELINE_LEARN_OFF_LINE_M": (kinds, "FirelineLearnOffLineM"), "FIRELINE_MAX_M": (kinds, "FirelineMaxM"),
+            "FIRELINE_MIN_M": (kinds, "FirelineMinM"), "FIRELINE_HALF_WIDTH_M": (kinds, "FirelineHalfWidthM"),
+            "FIRELINE_SPREAD_M": (kinds, "FirelineSpreadM"), "SNUFF_RADIUS_M": (kinds, "SnuffRadiusM"), "SNUFF_DAMP_S": (kinds, "SnuffDampS"),
+            "SNUFF_AIM_M": (kinds, "SnuffAimM"), "SNUFF_AIM_RISE_M": (kinds, "SnuffAimRiseM"), "SNUFF_RISE_M": (kinds, "SnuffRiseM"),
+            "STARTING_FIRE_AHEAD_M": (camps, "StartingFireAheadM"), "REST_RADIUS_M": (camps, "RestRadiusM"), "REST_RISE_M": (camps, "RestRiseM"),
+            "FLAMES_M": (camps, "FlamesM"), "FLAMES_RISE_M": (camps, "FlamesRiseM"), "SAME_CAMP_M": (camps, "SameCampM"),
+            "FIREPIT_GROUND_M": (camps, "FirepitGroundM"), "FIREPIT_PROBE_M": (camps, "FirepitProbeM"), "RAIN_OUT_S": (camps, "RainOutS"),
+            "FIREPIT_CATCH_M": (camps, "FirepitCatchM"), "FIREPIT_CATCH_RISE_M": (camps, "FirepitCatchRiseM"), "MAX_FIREPITS": (camps, "MaxFirepits"),
+            # Grow's unlocks (decisions 76 and 104 to 107).
+            "SEEDLESS_AT": (unlocks, "SeedlessAt"), "BRIDGE_AT": (unlocks, "BridgeAt"), "IVY_AT": (unlocks, "IvyAt"),
+            "SEEDLING_START": (unlocks, "SeedlingStart"), "SEEDLING_PHASES": (unlocks, "SeedlingPhases"), "SEEDLING_PHASE_H": (unlocks, "SeedlingPhaseH"),
+            "DAYLIGHT_FROM": (unlocks, "DaylightFrom"), "DAYLIGHT_UNTIL": (unlocks, "DaylightUntil"),
+            "SPROUTS_PER_CAST": (unlocks, "SproutsPerCast"), "SPROUT_APART_M": (unlocks, "SproutApartM"), "SPROUT_LATTICE_M": (unlocks, "SproutLatticeM"),
+            "SPROUT_JITTER_M": (unlocks, "SproutJitterM"), "SPROUT_SETS_MIXED": (unlocks, "SproutSetsMixed"), "SPROUT_SET_SEARCH_M": (unlocks, "SproutSetSearchM"),
+            "MAX_SPROUTS": (state, "MaxSprouts"), "MAX_BRIDGES": (state, "MaxBridges"),
+            "BRIDGE_MIN_M": (unlocks, "BridgeMinM"), "BRIDGE_MAX_M": (unlocks, "BridgeMaxM"), "BRIDGE_WIDTH_M": (unlocks, "BridgeWidthM"),
+            "BRIDGE_LEVEL_M": (unlocks, "BridgeLevelM"), "BRIDGE_LIP_M": (unlocks, "BridgeLipM"), "BRIDGE_VOID_DROP_M": (unlocks, "BridgeVoidDropM"),
+            "BRIDGE_SAMPLE_M": (unlocks, "BridgeSampleM"), "BRIDGE_EDGE_M": (unlocks, "BridgeEdgeM"), "BRIDGE_CLEAR_M": (unlocks, "BridgeClearM"),
+        }
+        for name, (path, kernel) in laws.items():
+            with self.subTest(number=name):
+                self.assertAlmostEqual(getattr(m, name), number(path, kernel), places=6)
+        self.assertEqual({k: v for k, v in m.PLANT_FUEL.items()}, {"grass": number(grow, "GrassFuel"), "herb": number(grow, "HerbFuel"),
+                         "shrub": number(grow, "ShrubFuel"), "broadleaf": number(grow, "TreeFuel"), "conifer": number(grow, "TreeFuel")})
+        self.assertIn('"grass" => GrassFuel, "herb" => HerbFuel, "shrub" => ShrubFuel, "broadleaf" or "conifer" => TreeFuel, _ => 0,', _text(grow))
+        self.assertEqual((m.STARTING_ID, m.FIREPIT_PREFIX), (_match(camps, r'StartingId = "([^"]+)"'), _match(camps, r'FirepitPrefix = "([^"]+)"')))
+        self.assertEqual(sorted(m.FLAMMABLE_MATERIALS), sorted(re.findall(r'"([a-z]+)"', _match(NATURE, r"FlammableMaterials = new\(StringComparer\.Ordinal\) \{([^}]*)\}"))))
+        # The materials wallet is retired (P-Inventory-2): a new island's is empty on both hosts.
+        self.assertEqual(m.FRESH_WALLET, {})
+        self.assertIn("public static Dictionary<string, int> FreshWallet() => new(StringComparer.Ordinal);", _text(state))
+        # The preview handles and their life: 32 kept at most, each for the approval lifetime, 128 random bits.
+        self.assertIn("while (_naturePreviews.Count >= 32)", _text(NATURE))
+        self.assertEqual(m.MAX_NATURE_PREVIEWS, 32)
+        self.assertEqual(m.PREVIEW_LIFETIME_S, 60 * _constant(COMMAND_HOST, r"ApprovalLifetime = TimeSpan\.FromMinutes\((\d+)\)"))
+        # The weather is one formula: the same rain and pattern at every point of the cycle.
+        self.assertIn('var pattern = rain > NatureLaws.WeatherRain01 ? "rain" : rain > NatureLaws.WeatherShowers01 ? "showers" : "fair";', _text(state))
+        self.assertEqual([m.weather_at(t)[2] for t in (0, 119, 130, 160, 230, 260, 300)], ["fair", "fair", "showers", "rain", "rain", "showers", "fair"])
+
+    def test_the_fire_rule_and_the_expertise_are_the_kernels(self):
+        from garage_game_companion import mock_nature as m
+        table = _match(NATURE, r"FireRule = new Dictionary<\(string, string\), FireRuling>\s*\{([\s\S]*?)\n    \};")
+        words = {"Fireproof": "fireproof", "Scorches": "scorches", "BurnsDown": "burns_down"}
+        in_kernel = {(kind, mode): (words[outcome], ask == "true")
+                     for kind, mode, outcome, ask in re.findall(r'\[\("([a-z]+)", "([a-z]+)"\)\] = new\(FireOutcome\.(\w+), AskFirst: (true|false)\)', table)}
+        self.assertEqual(len(in_kernel), 12)
+        self.assertEqual(m.FIRE_RULE, in_kernel)
+        record = KERNEL / "Kernel" / "ExpertiseRecord.cs"
+        consts = dict(re.findall(r'public const string (\w+) = "([a-z_]+)";', _text(record)))
+        self.assertEqual(list(m.FIRE_EXPERTISE), [consts[n] for n in re.findall(r"\w+", _match(record, r"FireOrder = \{ ([^}]*) \};"))])
+        self.assertEqual(list(m.GROW_EXPERTISE), [consts[n] for n in re.findall(r"\w+", _match(record, r"GrowOrder = \{ ([^}]*) \};"))])
+        kinds = dict(re.findall(r'public const string (\w+) = "([a-z_]+)";', _match(KERNEL / "Kernel" / "CommandHostFireKinds.cs",
+                                                                                   r"class FireKindWords\s*\{([^}]*)\}")))
+        self.assertEqual((m.KIND_FIRE, m.KIND_FIREPIT, m.KIND_FIRELINE, m.KIND_SNUFF), (kinds["Fire"], kinds["Firepit"], kinds["Fireline"], kinds["Snuff"]))
+        grows = dict(re.findall(r'public const string (\w+) = "([a-z_]+)";', _match(GROW_KINDS[0], r"class GrowKindWords\s*\{([^}]*)\}")))
+        self.assertEqual((m.KIND_SPROUTS, m.KIND_REPLANT, m.KIND_BRIDGE, m.KIND_IVY), (grows["Sprouts"], grows["Replant"], grows["Bridge"], grows["Ivy"]))
+
+    def test_nature_checks_in_the_kernels_order(self):
+        """The refusals each nature handler gives, in the kernel's order, and the kernel's routing: the Bubbles first, the island's
+        ability, no Fire before the first rest (before any other check of Fire), the place deciding Fire's kind, the Gubble's fire
+        guardrails for Fire and a Fireline only (Snuff lights nothing), then the cast's checks."""
+        import inspect
+        from garage_game_companion import mock_nature as m
+        kinds, camps, grow = (_text(KERNEL / "Kernel" / name) for name in ("CommandHostFireKinds.cs", "CommandHostCamps.cs", "CommandHostGrow.cs"))
+        sprouts, replant, bridge = (_text(path) for path in GROW_KINDS[1:4])
+        consequences = _text(KERNEL / "Kernel" / "CommandHostConsequences.cs")
+        nature = _text(NATURE)
+        mixin = m.NatureMixin
+        pairs = {
+            "_check_cast": _method(nature, "private Cast CheckCast("),
+            "_cast_grow": _method(grow, "private JsonObject CastGrow("),
+            # Grow's unlocks (decisions 104 to 107): the box world has no faces, so the mock has no ivy (CastIvy needs the room's physics).
+            "_cast_sprouts": _method(sprouts, "private JsonObject CastSprouts("),
+            "_cast_replant": _method(replant, "private JsonObject CastReplant("),
+            "_check_bridge": _method(bridge, "private BridgePlan CheckBridge("),
+            "_void_span": _method(bridge, "private (float From, float To) VoidSpan("),
+            "_check_fireline": _method(kinds, "private Vector3 CheckFireline("),
+            "_cast_snuff": _method(kinds, "private JsonObject CastSnuff("),
+            "_light_firepit": _method(camps, "private JsonObject LightFirepit("),
+            "_cast_fire": _method(nature, "private JsonObject CastFire("),
+            "_check_companion_fire": _method(consequences, "private void CheckCompanionFire("),
+        }
+        self.assertEqual(_codes(inspect.getsource(mixin._use_preview), r'HostError\("(\w+)"'), ["revision_conflict"])
+        for name, kernel in pairs.items():
+            with self.subTest(handler=name):
+                mock = _with_preview_check(inspect.getsource(getattr(mixin, name)))
+                self.assertEqual(_codes(mock, r'HostError\("(\w+)"'), _codes(_with_preview_check(kernel)))
+        fire = pairs["_cast_fire"]
+        self.assertLess(fire.index("UnlitFirepitUnder(cast.Center, cast.Radius)"), fire.index("FireTargets("))
+        self.assertLess(inspect.getsource(mixin._cast_fire).index("self._unlit_firepit_under("), inspect.getsource(mixin._cast_fire).index("self._fire_targets("))
+        # The repair: the kernel's own refusals after its look-up (the mock's CheckPerceived for the companion comes first, as the
+        # kernel's Execute runs CheckPerceived before the op), but its design check: a scorched build can be neither revised nor
+        # locked (target_busy, _check_nature_remains), so on the mock its design cannot change before it is repaired.
+        # Since P-Inventory-2 its spend (too few logs and stones) is RepairSpend's, called where the wallet's check was.
+        repair = _codes(_method(nature, "private JsonObject Repair(")) + _codes(_method(_text(KERNEL / "Kernel" / "CommandHostInventory.cs"), "private RepairBill RepairSpend("))
+        self.assertIn("var bill = free || item.RepairCost.Count == 0 ? null : RepairSpend(item.RepairCost);", _method(nature, "private JsonObject Repair("))
+        self.assertIn('"This creation\'s design changed; its old repair quote no longer applies."', _method(nature, "private JsonObject Repair("))
+        self.assertEqual(_codes(inspect.getsource(mixin._op_nature_repair), r'HostError\("(\w+)"'), [c for c in repair if c != "revision_conflict"])
+        command = _method(nature, "private JsonObject NatureCommand(")
+        order = ["IsBubbleCapability(Str(args, \"capability\"))", 'Rules?.Ability(capability)', "RequireFireLearned();", "RequireGrowDrag(args);",
+                 "FireKindOf(args)", "CheckCompanionFire();", "CheckCast(ability, args, principal"]
+        self.assertEqual([command.index(step) for step in order], sorted(command.index(step) for step in order))
+        self.assertIn('if (capability == "fire" && principal != PlayerPrincipal && kind is FireKind.Fire or FireKind.Fireline) CheckCompanionFire();', command)
+        self.assertIn("oneFire: kind is FireKind.Fire or FireKind.Fireline", command)
+        mock = inspect.getsource(mixin._op_nature_cast)
+        steps = ['"bubble_carry", "bubble_boat", "bubble_lift"', "self.rules.ability(capability)", "FIRE_NOT_LEARNED", "BRIDGE_LOCKED",
+                 "self._fire_kind_of(args)", "self._check_companion_fire()", "self._check_cast("]
+        self.assertEqual([mock.index(step) for step in steps], sorted(mock.index(step) for step in steps))
+        self.assertIn("kind in (KIND_FIRE, KIND_FIRELINE)", mock)
+        self.assertIn("one_fire=kind in (KIND_FIRE, KIND_FIRELINE)", mock)
+        # The place decides: a drag a Fireline (refused until learned), water a wisp (the box world has none), something burning
+        # Snuff once learned, else Fire.
+        kind_of = _method(kinds, "private FireKind FireKindOf(")
+        self.assertLess(kind_of.index('TryGetProperty("end_m"'), kind_of.index("SnuffLearned && BurningAt(center)"))
+        self.assertEqual(_codes(kind_of), _codes(inspect.getsource(mixin._fire_kind_of), r'HostError\("(\w+)"'))
+
+    def test_nature_is_priced_by_principal_where_the_kernel_guards(self):
+        """Every nature cast passes the guard after its checks and any hold, by its kind's price key, and is charged once committed
+        (the kernel's GuardEnergy and ChargeEnergy); the pool's rule and words are the kernel's."""
+        import inspect
+        from garage_game_companion import mock_energy, mock_nature
+        kinds, camps, grow = (_text(KERNEL / "Kernel" / name) for name in ("CommandHostFireKinds.cs", "CommandHostCamps.cs", "CommandHostGrow.cs"))
+        nature = _text(NATURE)
+        keys = {
+            "_cast_grow": ("GuardEnergy(ability.Capability, principal)", "self._guard_energy(ability.capability, principal)", _method(grow, "private JsonObject CastGrow(")),
+            "_cast_fire": ("GuardEnergy(lineCells != null ? FireKindWords.Fireline : ability.Capability, principal)",
+                           "self._guard_energy(KIND_FIRELINE if line_end is not None else ability.capability, principal)", _method(nature, "private JsonObject CastFire(")),
+            "_cast_snuff": ("GuardEnergy(FireKindWords.Snuff, principal)", "self._guard_energy(KIND_SNUFF, principal)", _method(kinds, "private JsonObject CastSnuff(")),
+            "_light_firepit": ("GuardEnergy(ability.Capability, principal)", "self._guard_energy(ability.capability, principal)", _method(camps, "private JsonObject LightFirepit(")),
+            # Grow's unlocks share one commit, priced as any Grow (decision 107).
+            "_commit_grow_kind": ("GuardEnergy(ability.Capability, principal)", "self._guard_energy(ability.capability, principal)",
+                                  _method(_text(GROW_KINDS[0]), "private JsonObject CommitGrowKind(")),
+        }
+        for name, (kernel_guard, mock_guard, kernel) in keys.items():
+            with self.subTest(handler=name):
+                mock = inspect.getsource(getattr(mock_nature.NatureMixin, name))
+                self.assertIn(kernel_guard, kernel)
+                self.assertIn(mock_guard, mock)
+                self.assertIn("ChargeEnergy(price);", kernel)
+                self.assertIn("self._charge_energy(price)", mock)
+                # The hold comes before the guard: a held cast is guarded when the player's click commits it.
+                held = "return Hold(" if "return Hold(" in kernel else None
+                if held is not None:
+                    self.assertLess(kernel.index(held), kernel.index(kernel_guard))
+                    self.assertLess(mock.index('"_ask"'), mock.index(mock_guard))
+        energy = _text(ENERGY)
+        self.assertEqual(mock_energy.ENERGY_EXHAUSTED_MESSAGE, _cs_string(ENERGY, "EnergyExhaustedMessage"))
+        guard = _method(energy, "internal int GuardEnergy(")
+        self.assertIn("if (price <= 0 || _vitalsRules.ShadowPool) return price;", guard)
+        self.assertIn('throw new Refusal("energy_exhausted", EnergyExhaustedMessage, "$.args.capability", retryable: true) { Balance = balance, Price = price };', guard)
+        mock_guard = inspect.getsource(mock_energy.EnergyMixin._guard_energy)
+        self.assertIn('if price <= 0 or self.mode == "creative":', mock_guard)
+        self.assertIn("var pips = Math.Max(0, Math.Max(0, Vitals.Pips) - price);", _method(energy, "private void ChargeEnergy("))
+        # The refill's rule: near within refill_near_within_m, else apart, one pip at a time up to the maximum.
+        self.assertIn("(distanceM <= Pips.RefillNearWithinM ? Pips.RefillNearEveryS : Pips.RefillFarEveryS) / RefillMultiplier",
+                      _text(KERNEL / "Kernel" / "VitalsRules.cs"))
+        self.assertIn("MaxPips = Pips == null ? 0 : Math.Min(Pips.Ceiling, Pips.Start + Math.Max(0, expertise) / Pips.ExpertisePerPip);",
+                      _text(KERNEL / "Kernel" / "VitalsRules.cs"))
+
 
     def test_outside_creative_undo_is_refused_first_in_the_kernels_words(self):
         """CommandHost.Unsupported refuses room.undo outside Creative before CheckExpectations; the mock's _check_unsupported
@@ -355,7 +623,8 @@ class MechanicsMatchTheKernel(unittest.TestCase):
                              (mock_host.BUBBLE_BOAT_RADIUS_M, ("BoatRadiusMinM", "BoatRadiusMaxM"))):
             with self.subTest(numbers=kernel):
                 self.assertEqual(mock, tuple(law(name) for name in kernel))
-        for mock, kernel in (("BUBBLE_GHOST_LEAD_S", "GhostLeadS"), ("BUBBLE_GHOST_LIFETIME_S", "GhostLifetimeS"),
+        for mock, kernel in (("BUBBLE_CARRY_DURATION_DEFAULT_S", "CarryDurationDefaultS"), ("BUBBLE_BOAT_DURATION_DEFAULT_S", "BoatDurationDefaultS"),
+                             ("BUBBLE_GHOST_LEAD_S", "GhostLeadS"), ("BUBBLE_GHOST_LIFETIME_S", "GhostLifetimeS"),
                              ("BUBBLE_ENVELOP_REACH_M", "EnvelopReachM"), ("BUBBLE_CARRY_RADIUS_DEFAULT_M", "CarryRadiusDefaultM"),
                              ("BUBBLE_STEP_IN_CLEARANCE_M", "StepInClearanceM"), ("BUBBLE_MAX", "MaxBubbles"),
                              ("BUBBLE_MAX_GHOSTS", "MaxGhosts"), ("BUBBLE_LIFT_ABOVE_DRIFT_M", "LiftAboveDriftM")):
@@ -399,7 +668,7 @@ class MechanicsMatchTheKernel(unittest.TestCase):
                 self.assertEqual(v5.price(name, "player:local"), price["ordered"])
                 self.assertEqual(v5.price(name, "companion:local"), round(price["ordered"] * price["own_idea_factor"]))
         self.assertEqual({n: (v5.price(n, "player:local"), v5.price(n, "companion:local")) for n in pack["cost"]["prices"]},
-                         {"glow": (2, 1), "bubbles": (2, 1), "fireworks": (2, 1), "grow": (4, 2), "fire": (6, 3),
+                         {"glow": (2, 1), "bubbles": (2, 1), "fireworks": (2, 1), "grow": (4, 2), "fire": (2, 1),
                           "bubble_carry": (4, 2), "bubble_boat": (4, 2), "bubble_lift": (6, 3),
                           "fireline": (8, 4), "snuff": (2, 1), "will_o_wisp": (4, 2)})
         self.assertEqual(v5.price("teleport", "companion:local"), 0, "a price the pack does not set costs nothing")
@@ -492,13 +761,15 @@ class TrustMatchesTheKernel(unittest.TestCase):
         self.assertLess(observe.index("var charged = TakeTrustCharge();"), observe.index("if (principal != CompanionPrincipal"))
         self.assertIn("Paid = Trust.Paid(charged)", _method(host, "private void RememberGubbleCommand("))
         self.assertRegex(_method(_text(BUBBLE_LEAD), "private bool StartLift("), r"ChargeEnergy\(price\);\s*TrustLiftCharged\(lead\);")
-        # The mock notes the same charge wherever the kernel's guard charges a command the mock hosts (Grow and Fire it does not).
+        # The mock guards and charges wherever the kernel's guard charges a command the mock hosts (nature's: NatureMatchesTheKernel).
         self.assertEqual(_text(BUBBLE_HOST).count("ChargeEnergy(price);"), 2, "the kernel charges a bubble at effect.start and nature.cast")
         self.assertIn("ChargeEnergy(price);", _method(_text(EFFECTS), "private JsonObject EffectStart("))
         for method in (MockHost._op_effect_start, MockHost._bubble_effect_start, MockHost._bubble_cast):
             with self.subTest(method=method.__name__):
-                self.assertIn("self._trust_charge(", inspect.getsource(method))
+                self.assertIn("self._guard_energy(", inspect.getsource(method))
+                self.assertIn("self._charge_energy(price)", inspect.getsource(method))
         self.assertIn("self._trust_lift_charged(", inspect.getsource(MockHost._lead_arrived))
+        self.assertIn('self._guard_energy("bubble_lift", bubble.lead["principal"])', inspect.getsource(MockHost._lead_arrived))
         observed = inspect.getsource(mock_trust.TrustMixin._observe_trust)
         self.assertLess(observed.index("charged = self._take_trust_charge()"), observed.index("if principal.startswith"))
         self.assertIn("paid(charged)", observed)

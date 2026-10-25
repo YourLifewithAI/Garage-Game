@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.room_state",
+  "schema": "garage_game.room_state",
   "version": 1,
   "room_id": "garage_example",
   "room_pin": {
@@ -309,7 +309,7 @@
     "companion:local|note-0001": {
       "fingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
       "result": {
-        "schema": "enfractal.result",
+        "schema": "garage_game.result",
         "version": 1,
         "ok": true,
         "op": "journal.note",

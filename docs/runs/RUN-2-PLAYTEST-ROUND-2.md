@@ -43,6 +43,15 @@ Six pieces. **P0** is the integrator's and lands first. **P1** (Opus) and **L1**
 
 The amounts and the places are decided (decision 92: an apple half a heart, berries a quarter, eaten on the spot, on certain trees and bushes). Left for the integrator to settle and show the founder in a line or two: which generator kinds carry them and how many, whether and when they grow back, the prompt's words, and the look. Then its code joins P1 or a packet of its own.
 
+**The integrator's proposal (24 October, a cloud session; every number provisional, for the founder's yes or no):**
+
+- **Where:** apples under one broadleaf tree in three, as windfalls at the trunk's foot (the canopy is out of a 10 cm player's reach), two to four each; berries on one shrub in four and on one heather clump in four, a cluster at the player's height. On the stand-in garage that is about 12 apple trees and 55 berry plants. The kernel picks them from the plant's id, deterministic and the same on every load, so no generator or manifest change is needed for the first cut; a generator field (`x_food`) can replace that later for the founder's real rooms.
+- **Picking:** E facing one within reach, "E: eat an apple" or "E: eat berries", eaten on the spot (decision 92): an apple half a heart, berries a quarter. Nothing is carried until there is an inventory. Picking never costs pips and the Gubble cannot pick for the player (nothing targets the player's avatar).
+- **Growing back:** an apple a day per tree and a cluster a day per bush, by the island's clock (`x_clock`), so a day away restocks everything; Grow's cast on the plant ripens its food at once. Fire burns the food with the plant. Saved with the island as the plant's picked count and the time of the last pick.
+- **The look:** an apple a red sphere 1 cm across with a stalk; berries a cluster of six 0.3 cm dark blue beads on the shrub, read from a band away; a picked spot shows nothing until it grows back. Look's budget as for the Fractal's star: unshaded, no shadow, at most 64 drawn.
+- **The founder's answers (25 October, decisions 108 and 111):** windfalls at the trunk and fruit in the canopy with a hop; Creative's food heals nothing but eating keeps its sound; the Gubble does not point food out; eating heals at once, with no wait. Picked food goes to the pockets (decision 98). The packet P-Food builds it after the inventory.
+- **Then:** its code is a packet of its own after P2 (the kernel's pick and heal with E, the look, the saved counts), Opus for the kernel and Sonnet for the look.
+
 ### P1: the kernel and the body (Opus)
 
 1. **Fire lights on the click** (decision 83): the player's Fire, from the wheel or the Magic panel, is previewed and committed in one action, so the outline flashes as it lights; no hold. The Gubble's own-idea fire and Creative's one ask about builds are unchanged.

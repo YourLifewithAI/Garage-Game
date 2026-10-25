@@ -533,7 +533,27 @@ public partial class CommandHost
             return Outcome(released, support != null ? $"Set {name} on {support["display_name"]!.GetValue<string>()}." : $"Set {name} down.");
         }
         var target = SandboxControls.ThingAhead(Player, entities, SandboxRules.CarryLimitKg(PlayerAvatar), MassOf, PlayerReaches);
+        // P-Inventory-2 (decision 118): a loose unit faced (a windfall, an apple or a log set down) is picked up into its stack, before a
+        // thing behind it.
+        if (InventoryRules != null && LooseInReach().FirstOrDefault() is { Kind.Length: > 0 } unit &&
+            (target == null || unit.Gap <= Player.GlobalPosition.DistanceSquaredTo(BoundsOf(target).GetCenter())))
+        {
+            var unitKind = InventoryRules.Kind(unit.Kind);
+            var taken = PlayerTakeFromGround(unit.Kind);
+            var units = PocketContents.Units(unit.Kind);
+            var unitWords = unitKind == null ? unit.Kind : KernelJson.DisplayText(unitKind.Words(units), 40).ToLowerInvariant();
+            return Outcome(taken, $"Picked up. In your pockets: {units} {unitWords}.");
+        }
         if (target == null) return new(false, "Nothing to pick up within reach. Walk up to something and face it.");
+        // P-Inventory-2 (decision 116, the founder's refinement): a log or stone is not carried: F (and E) gathers it into its stack.
+        if (InventoryRules is { } rules && Room.Objects.FirstOrDefault(o => o.Id == target["id"]!.GetValue<string>()) is { } loose &&
+            GatherMaterial(loose) != null && KindOfObject(rules, loose) is { } kind)
+        {
+            var name = KernelJson.DisplayText(loose.DisplayName ?? loose.Asset.DisplayName, 40);
+            var gathered = PlayerGatherFrom(loose.Id);
+            var count = PocketContents.Units(kind.Id);
+            return Outcome(gathered, $"{name} is in your pockets: {count} {KernelJson.DisplayText(kind.Words(count), 40).ToLowerInvariant()}.");
+        }
         var grabbed = PlayerSandbox("entity.grab", new JsonObject { ["target"] = target["id"]!.GetValue<string>() });
         return Outcome(grabbed, $"Holding {HeldName(PlayerAvatar)}. {PlayerControls.Label(Act.Hands)} sets it down in front of you, or on top of what you face.");
     }

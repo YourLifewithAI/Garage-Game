@@ -1,0 +1,19 @@
+{
+  "schema": "garage_game.result",
+  "version": 1,
+  "ok": false,
+  "op": "item.pickup",
+  "action_id": "pick-0004",
+  "principal": "player:local",
+  "room_id": "garage_example",
+  "revision": 14,
+  "replayed": false,
+  "preview": false,
+  "at_utc": "2026-10-06T00:05:00Z",
+  "error": {
+    "code": "not_ready",
+    "message": "Everything on it has been picked: it grows back within a day.",
+    "field_path": "$.args.target",
+    "retryable": true
+  }
+}

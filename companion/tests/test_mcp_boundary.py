@@ -65,7 +65,7 @@ class Refusals(unittest.IsolatedAsyncioTestCase):
 
     @harness_test()
     async def test_refuses_room_and_schema_overrides(self, h):
-        for key, value in (("room_id", "garage_example"), ("schema", "enfractal.result"), ("op", "protect.unlock"),
+        for key, value in (("room_id", "garage_example"), ("schema", "garage_game.result"), ("op", "protect.unlock"),
                            ("version", 2), ("query_id", "q-x")):
             with self.subTest(key=key):
                 result = await h.call("goal_set", {"action_id": f"g-{key}", "goal": "follow", key: value})

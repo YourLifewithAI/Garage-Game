@@ -8,7 +8,9 @@ extends RefCounted
 const COMPILER = preload("res://scripts/creation_compiler.gd")
 const JSON_KERNEL = preload("res://scripts/creation_json.gd")
 const TEXT = preload("res://scripts/creation_text.gd")
-const SCHEMA := "enfractal.creation-world"
+const SCHEMA_IDS = preload("res://scripts/schema_ids.gd")
+## The island save's id as written; a save written before the rename says it the old way and is read too.
+const SCHEMA := "garage_game.creation-world"
 ## Version 2 pins a room manifest instead of a map, uses contract principals and adds locks. Version 3 adds
 ## the compacted receipt index and the checkpoints. Version 4 adds object_poses: where play has moved the
 ## room's objects (the sandbox verbs, Run 2 P3). Version 5 adds team: the team's journal and discovered map, a block
@@ -51,7 +53,7 @@ const WORLD_LIMITS := {"instances": 16, "parts": 192, "nodes": 128, "edges": 256
 const DEFAULT_ROLES := {PLAYER: "owner", COMPANION: "editor"}
 ## The contract ops whose durable receipts carry result data the trusted host wrote (nature changes and their undo), and
 ## the mechanics round's player ops the host commits through the nature block: a Fractal picked up and a log or stone gathered.
-const NATURE_OPS := ["nature.cast", "nature.trail", "nature.repair", "room.undo", "item.pickup", "item.gather"]
+const NATURE_OPS := ["nature.cast", "nature.trail", "nature.repair", "room.undo", "item.pickup", "item.gather", "inventory.store", "inventory.take", "inventory.drop"]
 
 var revision := 0
 var permission_revision := 0
@@ -207,8 +209,9 @@ func submit(principal: String, request: Dictionary, receipt_meta: Dictionary = {
 	# A removal may clear what fire did to the creation, in the same write.
 	if op == "remove":
 		allowed.append("nature")
+	# A nature change may carry the team block it changes with it (the inventory's chest, P-Inventory), in the same write.
 	if op == "nature":
-		allowed.append_array(["nature", "affected", "data", "undo"])
+		allowed.append_array(["nature", "affected", "data", "undo", "team"])
 	for field in request:
 		if field not in allowed:
 			return _failure("field_unknown", String(field), "Identity, ownership, height, approval and compiled costs are assigned by the host.")
@@ -407,9 +410,10 @@ func _submit_note(principal: String, request: Dictionary, key: String, fingerpri
 	return receipt
 
 
-## A durable nature change (nature.cast, nature.trail, nature.repair, or room.undo of nature changes): the trusted host
-## worked out the next nature block from the room's physics and the island's rules; this records it with the receipt
-## (its affected entities and result data) in one atomic save and moves the revision. An undo never fails for a full
+## A durable nature change (nature.cast, nature.trail, nature.repair, or room.undo of nature changes; a Fractal's pickup, a
+## gather, and the inventory's store, take and drop): the trusted host worked out the next nature block from the room's physics
+## and the island's rules; this records it with the receipt (its affected entities and result data), and the team block when the
+## change carries one (the inventory's chest), in one atomic save and moves the revision. An undo never fails for a full
 ## ledger: the oldest receipts are compacted first, as a checkpoint compacts them, so they still replay and still refuse
 ## a conflicting reuse.
 func _submit_nature(principal: String, request: Dictionary, key: String, fingerprint: String, meta: Dictionary) -> Dictionary:
@@ -429,6 +433,8 @@ func _submit_nature(principal: String, request: Dictionary, key: String, fingerp
 			return _receipt_limit()
 		_make_receipt_room(principal, next)
 	next.nature = nature.duplicate(true)
+	if request.has("team"):
+		next.team = request.team.duplicate(true)
 	var receipt := {"ok": true, "instance_id": "", "revision": revision + 1, "permission_revision": permission_revision, "replayed": false, "affected": affected.duplicate(), "created": [], "data": data.duplicate(true)}
 	next.receipts[key] = {"principal": principal, "action_id": key.get_slice("|", 1), "fingerprint": fingerprint, "receipt": receipt.duplicate(true), "meta": meta}
 	next.revision = revision + 1
@@ -1179,7 +1185,7 @@ func _validate_saved(data: Dictionary) -> Dictionary:
 		expected.append("team")
 	if _whole(data.get("version")) and int(data.version) >= 6:
 		expected.append("nature")
-	if not _exact_keys(data, expected) or data.get("schema") != SCHEMA or not _whole(data.get("version")) or int(data.version) not in LOADABLE_VERSIONS or not _whole(data.get("compiler_version")) or int(data.compiler_version) != 1 or data.get("style_version") != STYLE_VERSION or data.get("room_pin") != _room_pin():
+	if not _exact_keys(data, expected) or not SCHEMA_IDS.is_schema(data.get("schema"), "creation-world") or not _whole(data.get("version")) or int(data.version) not in LOADABLE_VERSIONS or not _whole(data.get("compiler_version")) or int(data.compiler_version) != 1 or data.get("style_version") != STYLE_VERSION or data.get("room_pin") != _room_pin():
 		return _failure("save_incompatible", "save", "The save's room, compiler or style version does not match this room.")
 	var bounded := _envelope_bounds_problem(data)
 	if not bounded.is_empty():

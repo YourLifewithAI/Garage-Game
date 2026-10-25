@@ -61,6 +61,16 @@ class OnTheMock(unittest.TestCase):
         reset = self.send(PLAYER, "trust.reset", {})
         self.assertTrue(reset["ok"] and reset["transient"] and "data" not in reset, reset)
 
+    def test_the_companion_never_picks_food_and_the_mock_places_none(self):
+        """P-Food (decisions 98, 108 and 113): item.pickup naming a plant is the player's alone, refused before anything is looked up, the
+        same answer for a tree that bears, a tuft that does not or no plant at all; the mock places no food, so the player's pick answers
+        not available yet, in the kernel's words."""
+        answers = {refusal(self.send(COMPANION, "item.pickup", {"target": plant})) for plant in ("plant:broadleaf-3", "plant:grass-0", "plant:broadleaf-99999")}
+        self.assertEqual(answers, {("permission_denied", "$.op", "Only the player can do that, directly in the game.")})
+        self.assertEqual(refusal(self.send(PLAYER, "item.pickup", {"target": "plant:broadleaf-3"})), ("unsupported_capability", "$.op", mock_host.MECHANICS_NOT_YET))
+        # A pick names a Fractal or a plant, never a thing: the contract refuses it before either host looks.
+        self.assertEqual(refusal(self.send(PLAYER, "item.pickup", {"target": "obj:book"}))[1], "$.args.target")
+
     def test_a_difficulty_is_chosen_at_the_menu_and_the_mode_alone_still_changes_today(self):
         self.assertEqual(refusal(self.send(PLAYER, "world.set_mode", {"mode": "challenge", "difficulty": "brave"})),
                          ("unsupported_capability", "$.op", mock_host.DIFFICULTY_NOT_YET))
@@ -111,7 +121,7 @@ class OnTheMock(unittest.TestCase):
         """The price is a function of the ability and the principal alone (the mock reads it; M1 charges it)."""
         rules = load_rules(contracts(), rules_path(rules_version=5))
         self.assertEqual(list(inspect.signature(rules.price).parameters), ["capability", "principal"])
-        self.assertEqual((rules.price("fire", PLAYER), rules.price("fire", COMPANION)), (6, 3))
+        self.assertEqual((rules.price("fire", PLAYER), rules.price("fire", COMPANION)), (2, 1))
         for smuggled in ("price", "cost", "ordered", "own_idea_factor", "directed_by", "ordered_by"):
             with self.subTest(field=smuggled):
                 result = self.send(COMPANION, "nature.cast", {"capability": "grow", "center_m": IN_THE_OPEN, "radius_m": 0.25,
@@ -127,19 +137,22 @@ class OnTheMock(unittest.TestCase):
         self.assertEqual(status, {"mode": "creative", "health": 100.0, "max_health": 100.0, "stamina": 0.4, "max_stamina": 0.4,
                                   "completed_climbs": 0, "recoveries": 0, "consequences": False,
                                   "energy": {"pips": 8, "max_pips": 8, "shadow": True},
-                                  "hearts": {"quarters": 20, "max_quarters": 20}, "bar": {"bands": 1, "slowed": False}})
+                                  "hearts": {"quarters": 20, "max_quarters": 20}, "bar": {"bands": 1, "slowed": False},
+                                  # P-Inventory: v5's pockets and chest, empty, with the pack's slots (decision 120: counts, not weights).
+                                  "pockets": {"entries": [], "max_entries": 10},
+                                  "chest": {"entries": [], "max_entries": 20}})
         self.assertTrue(host.handle(PLAYER, command("world.set_mode", {"mode": "challenge"}, "m1-mode"))["ok"])
         self.assertEqual(host.handle(COMPANION, query("player.status", {}))["data"]["energy"], {"pips": 8, "max_pips": 8, "shadow": False})
         for result in host.emitted:
             self.assertEqual(contract_problems(result), [], result)
         today = new_host(rules_file=rules_path(rules_version=4)).handle(COMPANION, query("player.status", {}))["data"]
-        self.assertFalse({"energy", "hearts", "bar"} & set(today))
+        self.assertFalse({"energy", "hearts", "bar", "pockets", "chest"} & set(today))
         self.assertEqual((today["max_health"], today["max_stamina"]), (100.0, 0.45))
 
 
 class TheBubbleOnTheMock(unittest.TestCase):
     """The Bubble on the mock (M9 and its follow-up, decisions 55 to 60; no physics: a bubble neither drifts nor deflates, and
-    the kernel suite native_kernel_bubble holds the body's side, the deflate and the lift's rise among it): the place deciding,
+    the kernel suite native_kernel_bubble holds the body's side, the fall out of a bubble and the lift's rise among it): the place deciding,
     one bubble at a time, the room's cap, the Gubble's lead, the security notes' row by name (extended to the lead), and the
     receipt the player marks."""
 

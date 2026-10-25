@@ -121,10 +121,14 @@ public partial class CommandHostTest
             ("an extension key without x_", Variant("\"extensions\": {}", "\"extensions\": { \"look\": 1 }")),
             ("a duplicate key", Variant("\"reach_m\": 2.0,", "\"reach_m\": 2.0, \"reach_m\": 4.0,")),
             ("a trailing comma", Variant("\"extensions\": {}", "\"extensions\": {},")),
-            ("a wrong schema id", Variant("\"schema\": \"enfractal.island_rules\"", "\"schema\": \"enfractal.style_preset\"")),
+            // The shipped pack is pinned, so it names its kind as written before the rename (SchemaIds).
+            ("another kind's schema id", Variant("\"schema\": \"enfractal.island_rules\"", "\"schema\": \"garage_game.style\"")),
+            ("a misspelt schema id", Variant("\"schema\": \"enfractal.island_rules\"", "\"schema\": \"garagegame.island_rules\"")),
             ("a reach over the schema's 10 m", Variant("\"reach_m\": 2.0", "\"reach_m\": 12.0")),
         };
         foreach (var (label, pack) in schemaCases) Check(Refused(pack), "the rules loader refuses " + label);
+        Check(!Refused(Encoding.UTF8.GetBytes(PackText())) && !Refused(Variant("\"schema\": \"enfractal.island_rules\"", "\"schema\": \"garage_game.island_rules\"")),
+            "the rules loader reads a pack in either spelling of its id: the pinned pack as written, and a new one");
         // light.emit's outer limits (the schema's if/then) and the validator's extras.
         var limitCases = new (string Label, byte[] Pack)[]
         {
@@ -339,6 +343,9 @@ public partial class CommandHostTest
               look.KindOf(bubble) == LookDirector.EffectKind.None && !look.HasGlow(bubble) && look.KindOf(burst) == LookDirector.EffectKind.Fireworks && !look.HasGlow(burst) &&
               look.EffectCount == 3,
             "PlayerEffect of bubbles is one bubble at a spot (none on the Gubble, no stream of small bubbles); fireworks at a spot start the look's fireworks, not a glow");
+        Check(BubbleLaws.CarryDurationDefaultS == 8f && blown["data"]?["duration_s"]?.GetValue<double>() == 8 &&
+              blown["data"]?["expires_utc"]?.GetValue<string>() == KernelJson.Utc(_now + TimeSpan.FromSeconds(8)),
+            "the Bubbles key's bubble lasts 8 seconds (decision 95; it was 20), not the pack's duration_default_s: " + Canonical(blown["data"]));
         // goal.stop of the Gubble ends its effects too, of every kind (the contract: an actor's goals and its effects), and pops its bubble.
         var goalStop = _host.PlayerGoal("stop");
         Check(Ok(goalStop) && goalStop["data"]!["effects_stopped"]!.GetValue<int>() == 4 && look.EffectCount == 0 && _host.ActiveEffectIds.Count == 0 && _host.ActiveBubbles.Count == 0,

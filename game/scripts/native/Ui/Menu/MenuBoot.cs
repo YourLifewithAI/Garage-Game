@@ -170,6 +170,34 @@ public partial class MenuBoot : NativeGameBoot
         return true;
     }
 
+    /// <summary>
+    /// The command line that opens this game again straight into another of the team's saves (the Esc menu's Load, decision 81): the engine's
+    /// own arguments as BackToMenu gives them, then the user arguments but for the room, team, mode, difficulty, the menu and a boot check,
+    /// then the save's room folder and the launch's team, mode and difficulty, as the menu's Play passes them.
+    /// </summary>
+    public static IReadOnlyList<string> LoadArguments(IEnumerable<string> engineArguments, IEnumerable<string> userArguments, MenuLaunch launch, string? projectPath = null)
+    {
+        var relaunch = RelaunchArguments(engineArguments, userArguments, projectPath).Where(a => a != MenuArgument).ToList();
+        relaunch.Add("--room=" + launch.Island.Directory);
+        relaunch.AddRange(launch.Arguments);
+        return relaunch;
+    }
+
+    /// <summary>
+    /// Starts this game again in another save and ends this one (the Esc menu's Load), as BackToMenu does: the island is saved as the game
+    /// goes and the room saves what waits as it leaves the tree. Returns false, leaving the room as it is, when the new game could not start.
+    /// </summary>
+    public static bool OpenSave(SceneTree tree, MenuLaunch launch)
+    {
+        var project = ProjectSettings.GlobalizePath("res://").TrimEnd('/', (char)92);
+        var arguments = LoadArguments(OS.GetCmdlineArgs(), OS.GetCmdlineUserArgs(), launch, System.IO.File.Exists(System.IO.Path.Combine(project, "project.godot")) ? project : null);
+        var started = OS.CreateProcess(OS.GetExecutablePath(), arguments.ToArray());
+        if (started <= 0) return false;
+        GD.Print($"MENU_LOAD team={launch.TeamId} room={launch.Island.RoomId} mode={launch.Mode} relaunched as pid {started}");
+        tree.Quit();
+        return true;
+    }
+
     /// <summary>The command line the room's boot reads: what the game was launched with (the recorder's, full screen, a test's knack) but for the team, mode and difficulty, which are the menu's.</summary>
     public static IReadOnlyList<string> ArgumentsFor(IEnumerable<string> commandLine, MenuLaunch launch) =>
         commandLine.Where(a => !a.StartsWith("--team=", StringComparison.Ordinal) && !a.StartsWith("--mode=", StringComparison.Ordinal) &&

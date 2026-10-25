@@ -9,15 +9,16 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from . import textsafety
+from . import ids, textsafety
 
-RESULT_SCHEMA = "enfractal.result"
+RESULT_SCHEMA = ids.id_of("result")
 _ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
 
 
 class HostError(Exception):
     def __init__(self, code: str, message: str, *, field_path: str | None = None, retryable: bool = False,
-                 allowed: Any = None, actual: Any = None, has_allowed: bool = False):
+                 allowed: Any = None, actual: Any = None, has_allowed: bool = False, balance: int | None = None,
+                 price: int | None = None):
         super().__init__(code)
         self.code = code
         self.message = message
@@ -26,6 +27,9 @@ class HostError(Exception):
         self.allowed = allowed
         self.actual = actual
         self.has_allowed = has_allowed or allowed is not None
+        # energy_exhausted only (the contract: no other error carries them): the pips in the pool now and the price.
+        self.balance = balance
+        self.price = price
 
 
 _KEYWORD_MESSAGES = {
@@ -167,7 +171,7 @@ def base_result(*, principal: str, room_id: str, revision: int, at_utc: str, mes
         "replayed": False, "preview": False, "at_utc": at_utc,
     }
     if isinstance(message, dict):
-        key = {"enfractal.command": "action_id", "enfractal.query": "query_id"}.get(message.get("schema"))
+        key = {"command": "action_id", "query": "query_id"}.get(ids.kind_of(message.get("schema")))
         value = message.get(key) if key else None
         if isinstance(value, str) and _ID.fullmatch(value):
             result[key] = value
@@ -188,6 +192,8 @@ def failure(result: dict, error: HostError) -> dict:
         body["allowed"] = error.allowed
     if error.actual is not None and _echoable(error.actual):
         body["actual"] = error.actual
+    if error.code == "energy_exhausted" and error.balance is not None and error.price is not None:
+        body["balance"], body["price"] = int(error.balance), int(error.price)
     result["error"] = body
     return result
 

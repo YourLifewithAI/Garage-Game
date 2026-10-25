@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.result",
+  "schema": "garage_game.result",
   "version": 1,
   "ok": true,
   "op": "jobs.status",
@@ -13,7 +13,7 @@
     "job_id": "job-45k3jjkv2q75gxvoqd4zmtxz6y",
     "state": "failed",
     "result": {
-      "schema": "enfractal.result",
+      "schema": "garage_game.result",
       "version": 1,
       "ok": false,
       "op": "goal.set",

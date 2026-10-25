@@ -41,7 +41,7 @@ public partial class RoomHud
         _magicTargetText = WrapMagicLabel("Choose a spot, or cast a light on the Gubble."); column.AddChild(_magicTargetText);
         var aim = new HBoxContainer(); column.AddChild(aim);
         AddButton(aim, "Choose spot", () => PickMagicSpot(), 26);
-        AddButton(aim, "On the Gubble", () => { _magicAim = default; CancelFirePreview(); RefreshMagicPanel(); }, 26);
+        AddButton(aim, "On the Gubble", () => { _magicAim = default; RefreshMagicPanel(); }, 26);
         _magicTabs = new TabContainer { Name = "MagicTabs", SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         column.AddChild(_magicTabs);
         BuildNaturePage(MagicPage("Island"));
@@ -80,7 +80,6 @@ public partial class RoomHud
             if (SettingsOpen) ToggleSettings();
             _pickingMagicSpot = false;
         }
-        else CancelFirePreview();
         _magicPanel.Visible = open;
         Player.SetInputEnabled(!ReadingPanelOpen);
         Input.MouseMode = Input.MouseModeEnum.Visible;
@@ -133,10 +132,12 @@ public partial class RoomHud
                 "approval_required" => "This needs your confirmation. Review the approval card to finish.",
                 "out_of_bounds" => "That spot is out of reach. Bring the Gubble closer and try again.",
                 "target_not_found" => "The Gubble cannot see or find that spot now. Choose another spot.",
+                // Grow's unlocks not yet found are refused permission_denied in the host's own words (decision 76): those words are the answer.
+                "permission_denied" when GrowLocks.IsLockWords(result["error"]?["message"]?.GetValue<string>()) => result["error"]!["message"]!.GetValue<string>(),
                 "target_protected" or "permission_denied" => "That place is protected, or this action is not allowed.",
                 "budget_exceeded" => "There is no room for another effect yet. Stop one and try again.",
                 "revision_conflict" or "approval_mismatch" => "Something changed. Choose the spot and preview it again.",
-                // The host's own words (they say what is busy, and how the Gubble's fire can be put out).
+                // The host's own words (they say what is busy: one fire at a time, which burns out or is Snuffed).
                 "target_busy" => result["error"]?["message"]?.GetValue<string>() ?? "Let the current action finish first.",
                 "not_ready" => "The journal or connection is not ready. Your earlier progress is safe.",
                 "unsupported_capability" => "That magic is not available here yet.",
@@ -152,7 +153,6 @@ public partial class RoomHud
 
     private void TickMagicPanel(double delta)
     {
-        TickFireConfirmation(delta);
         _magicRefreshAge += delta;
         if (_magicRefreshAge < .15) return;
         _magicRefreshAge = 0;
@@ -163,7 +163,8 @@ public partial class RoomHud
     {
         if (_magicPanel == null) return;
         var viewport = GetViewport().GetVisibleRect().Size;
-        _magicPanel.Size = new Vector2(Mathf.Clamp(viewport.X - 36, 320, 480), Mathf.Clamp(viewport.Y - 200, 300, 620));
+        // It ends above the hotbar and its caption (RoomHud.Hotbar.cs).
+        _magicPanel.Size = new Vector2(Mathf.Clamp(viewport.X - 36, 320, 480), Mathf.Clamp(Mathf.Min(viewport.Y - 200, BarClearTop(viewport) - 150), 260, 620));
         _magicTargetText.Text = !_magicAim.Hit || _magicAim.AtGubble ? "Aim: on the Gubble" : _magicAim.Entity is { } id && id.StartsWith("creation:", StringComparison.Ordinal) ? "Aim: your selected creation" : "Aim: your selected spot";
         if (_magicMessage != null) _magicMessage.Text = _magicMessageText;
         if (Host is not { } host) return;

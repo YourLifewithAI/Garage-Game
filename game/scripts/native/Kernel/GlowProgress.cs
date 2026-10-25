@@ -213,7 +213,7 @@ public interface IGlowProgressStore
 }
 
 /// <summary>
-/// The team's expertise store (contracts/team.schema.json $defs/expertise_store: enfractal.glow_progress version 3, the team
+/// The team's expertise store (contracts/team.schema.json $defs/expertise_store: garage_game.glow_progress version 3, the team
 /// folder's expertise.json), strict and bounded. Version 3 keys the expertise by ability (abilities.glow, bubbles and fire,
 /// each against its own fixed list of ids: ExpertiseLists; a key the code does not know is a newer save's and locks the store
 /// read-only whole, never dropped) and names its team. A Glow-only store is the founder's original, byte for byte, and is
@@ -233,7 +233,7 @@ public sealed class LocalGlowProgressStore : IGlowProgressStore
     /// <summary>Version 2's Creative record (the original trial path); Challenge's and Live's add .challenge and .live before .json.</summary>
     public const string LegacyUserPath = "user://single_player/progression/glow_trial_v1.json";
     public const string FileName = "expertise.json";
-    public const string SchemaId = "enfractal.glow_progress";
+    public const string SchemaId = SchemaIds.GlowProgress;
     public const int Version = 3;
     public const string LocalTeamId = "local";
     /// <summary>Glow's key in version 3's abilities (the other abilities' keys and lists are ExpertiseLists').</summary>
@@ -382,7 +382,7 @@ public sealed class LocalGlowProgressStore : IGlowProgressStore
                 throw new GlowProgressException("Glow progress has an unsupported save version.");
             var allowedFields = versionNumber switch { 1 => Fields, 2 => VersionTwoFields, _ => VersionThreeFields };
             ExactFields(root, allowedFields);
-            if (root.GetProperty("schema").ValueKind != JsonValueKind.String || root.GetProperty("schema").GetString() != SchemaId)
+            if (root.GetProperty("schema").ValueKind != JsonValueKind.String || !SchemaIds.IsSchema(root.GetProperty("schema").GetString(), "glow_progress"))
                 throw new GlowProgressException("Glow progress has an unsupported save format.");
             string? team = null;
             var record = root;

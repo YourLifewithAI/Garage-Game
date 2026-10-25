@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.enfractal.invalid/v1/island-rules.schema.json",
+  "$id": "https://contracts.garage-game.invalid/v1/island-rules.schema.json",
   "title": "EnFractal island rules",
-  "description": "An island's own laws as data: the abilities the island grants, each carried out by one engine primitive, with its bounds, who may cast it, what it may target and its safety tier. Written by the integrator and by theme packs through contract rounds; read by the host's rules loader, the mock host and later the HUD. Stored as game/rules/<rules_id>/v<rules_version>.json (loaded as res://rules/<rules_id>/v<rules_version>.json). A seed or draft version may be edited in place; once a version is candidate or approved, or anything pins it, its file never changes and a change means a new version file. A pack can only narrow the engine's limits: each primitive's outer limits are the if/then rules under $defs/ability, and an ability's bounds must sit inside them. A command must then sit inside the ability's bounds. contracts/validate.py checks what a schema cannot: unique capabilities and categories, each default inside its range, and each default radius and duration at most its maximum. Since the mechanics round (M0, 14 October 2026) a pack may also carry six optional blocks, the design's numbers as data (docs/game/MECHANICS.md): traits (hearts, harm, the stamina bar, connection energy, the wallet), cost (each ability's price in pips), modes (one row per mode and difficulty), names (what the screen calls things), knacks and fractals. Each is optional and so is each part of it: an absent block or part keeps today's behaviour, so a pack without them plays exactly as before. contracts/validate.py also checks the blocks against each other: prices name the pack's abilities, the most health and stamina a pack allows fit the command contract's bounds, knacks stay within a fifth and upside, and the mode rows are unique.",
+  "description": "An island's own laws as data: the abilities the island grants, each carried out by one engine primitive, with its bounds, who may cast it, what it may target and its safety tier. Written by the integrator and by theme packs through contract rounds; read by the host's rules loader, the mock host and later the HUD. Stored as game/rules/<rules_id>/v<rules_version>.json (loaded as res://rules/<rules_id>/v<rules_version>.json). A seed or draft version may be edited in place; once a version is candidate or approved, or anything pins it, its file never changes and a change means a new version file. A pack can only narrow the engine's limits: each primitive's outer limits are the if/then rules under $defs/ability, and an ability's bounds must sit inside them. A command must then sit inside the ability's bounds. contracts/validate.py checks what a schema cannot: unique capabilities and categories, each default inside its range, and each default radius and duration at most its maximum. Since the mechanics round (M0, 14 October 2026) a pack may also carry six optional blocks, the design's numbers as data (docs/game/MECHANICS.md): traits (hearts, harm, the stamina bar, connection energy, the wallet), cost (each ability's price in pips), modes (one row per mode and difficulty), names (what the screen calls things), knacks and fractals. Each is optional and so is each part of it: an absent block or part keeps today's behaviour, so a pack without them plays exactly as before. contracts/validate.py also checks the blocks against each other: prices name the pack's abilities, the most health and stamina a pack allows fit the command contract's bounds, knacks stay within a fifth and upside, and the mode rows are unique. Since P-Inventory (25 October) a seventh optional block, inventory: the kinds that stack and the caps of the pockets and the chest; validate.py checks each kind's id once and each asset in one kind at most. Since P-Food (25 October) an eighth, food, beside the inventory it picks into: which species bear which kind and where (windfalls, canopy, clusters), one copy in its one_in, and the island hours everything picked takes to grow back.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -17,7 +17,10 @@
   ],
   "properties": {
     "schema": {
-      "const": "enfractal.island_rules"
+      "enum": [
+        "garage_game.island_rules",
+        "enfractal.island_rules"
+      ]
     },
     "version": {
       "type": "integer",
@@ -101,6 +104,12 @@
     },
     "extensions": {
       "$ref": "common.schema.json#/$defs/extensions"
+    },
+    "inventory": {
+      "$ref": "#/$defs/inventory"
+    },
+    "food": {
+      "$ref": "#/$defs/food"
     }
   },
   "$defs": {
@@ -667,6 +676,32 @@
         },
         "wallet": {
           "$ref": "#/$defs/wallet"
+        },
+        "growth": {
+          "$ref": "#/$defs/growth"
+        }
+      }
+    },
+    "growth": {
+      "description": "Grow's seedlings (docs/game/MECHANICS.md decision 104): a sprout on bare soil and a replanted plant start at half their natural size and reach it through seedling_phases phases of seedling_phase_h game hours of daylight each, on the island's clock (x_clock's day scale and hour; the machine's own clock without one): only its hours from 06:00 to 18:00 count (decision 122), so a night cast grows from sunrise, and a reload continues them, the hours the game was closed counted as any (decision 121). Absent: the host's own provisional numbers (3 phases of one game hour).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seedling_phase_h",
+        "seedling_phases"
+      ],
+      "properties": {
+        "seedling_phase_h": {
+          "description": "Game hours of daylight a phase lasts (1, provisional).",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 24
+        },
+        "seedling_phases": {
+          "description": "Phases from half size to natural (3, provisional).",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
         }
       }
     },
@@ -707,10 +742,30 @@
           "maximum": 600
         },
         "heal_after_unharmed_s": {
-          "description": "... once this many seconds have passed without harm (10), and only on safe ground: today's rule.",
+          "description": "... once this many seconds have passed without harm (10), and only on safe ground: today's rule. Every heal waits for it, a camp's included, unless camp_heal_after_unharmed_s names the camp's own wait.",
           "type": "number",
           "minimum": 0,
           "maximum": 600
+        },
+        "heal_outside_camp": {
+          "description": "Whether hearts heal away from a camp, at heal_quarter_every_s on safe ground. Absent: true, today's rule (anywhere). False under decision 84 (storybook_wild v5): hearts heal only by resting at a camp (the starting campfire while it burns, or any lit campfire), and later by food.",
+          "type": "boolean"
+        },
+        "camp_heal_quarter_every_s": {
+          "description": "At a camp, healing lands one quarter every this many seconds (after the unharmed wait): 1 under decision 91 (storybook_wild v5: a quarter a second, five hearts in 20 s). Absent: half of heal_quarter_every_s, decision 62's camp twice as fast (today's).",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 600
+        },
+        "camp_heal_after_unharmed_s": {
+          "description": "Resting at a camp (sat by a lit campfire), healing starts once this many seconds have passed without harm, in place of heal_after_unharmed_s: 2 under decision 111 (storybook_wild v5, provisional: camp healing starts sooner than 10 s after harm). Only the camp's resting heal reads it: away from a camp, standing at one and the time the game was closed keep heal_after_unharmed_s. Absent: heal_after_unharmed_s, today's rule.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 600
+        },
+        "heal_while_closed": {
+          "description": "Whether the time the game was closed heals hearts at heal_quarter_every_s, after the unharmed wait (docs/game/MECHANICS.md, \"While the player is away\"). Absent: true, today's. False under decision 93 (storybook_wild v5): the player comes back with the hearts they had; the bar and the pool still catch up.",
+          "type": "boolean"
         }
       }
     },
@@ -810,6 +865,12 @@
           "minimum": 0,
           "maximum": 1
         },
+        "ivy_climb_factor": {
+          "description": "Optional: the share of a bare face's bar a climb on Grow's wall ivy pays (0.25, decision 107: something nominal, a quarter, provisional), the full price again once the ivy has burnt. Absent: the host's own 0.25.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
         "empty_no_run_until_fraction": {
           "description": "Once the bar runs empty the body cannot run (Shift is ignored; the walk keeps its whole pace) until the first bar, the top row of bands_per_bar bands with Big bar (the whole bar while it has one row), refills to this fraction of itself (1, completely: the founder, 15 October). It replaced 'half speed until a quarter', which still let an empty body run faster than a full one walked.",
           "type": "number",
@@ -877,7 +938,7 @@
       }
     },
     "wallet": {
-      "description": "The team's wallet when a save is made, in the creation compiler's materials. Absent: today's (wood 20, stone 10, copper 10, leaf 20). Empty once gathering works (decision M, packet M1).",
+      "description": "Retired since P-Inventory-2 (decision 116: logs and stones are stacks in the pockets and the chest): read and ignored, so an older pack still loads. A new island has no wallet; an older save's wallet counts become the chest's stacks on load.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1419,6 +1480,208 @@
           "type": "boolean"
         }
       }
+    },
+    "inventory": {
+      "description": "The pockets and the chest (P-Inventory; docs/game/MECHANICS.md decisions 98 to 103 and 120): the kinds that stack, the pockets' slots (carried everywhere, per team and mode; the hotbar's ten, decision 119) and the chest's (one per island save, shared by every campsite). Caps are counts, never weights (decision 120): a stack holds up to its kind's stack (99 in storybook_wild v5), a unique thing (a loose room object of no kind) takes a slot of its own, and masses stay data. Every number is provisional. Absent: no pockets and no chest, today's behaviour.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kinds",
+        "pockets",
+        "chest"
+      ],
+      "properties": {
+        "kinds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/inventory_kind"
+          }
+        },
+        "pockets": {
+          "description": "The pockets: at most this many slots, each a stack or a unique thing (decision 120: ten, the hotbar's).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entries"
+          ],
+          "properties": {
+            "entries": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16
+            }
+          }
+        },
+        "chest": {
+          "description": "The chest: at most this many slots (decision 120: twenty).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entries"
+          ],
+          "properties": {
+            "entries": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            }
+          }
+        }
+      }
+    },
+    "inventory_kind": {
+      "description": "One kind that stacks: its id, the words for one and for many (untrusted text, shown only), one unit's mass, the most units in one entry, and what a unit does when used (heal_quarters: quarters of a heart at once, decisions 92 and 111; absent: no use yet, as a seed). assets names the room assets that are a loose unit of this kind (a windfall), so a held one stores as a unit; absent, nothing in the world is one by its asset. material (P-Inventory-2, decision 116) names the creation compiler's material a unit is: a loose room object made of it (a log of bark or wood, a stone of stone) gathers as a unit of this kind, and a repair (building, later) spends a unit of it per unit of its cost, from the pockets first, then the chest; absent, the kind is no material. The kernel and validate.py refuse a material named by two kinds.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "mass_kg",
+        "stack"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/token"
+        },
+        "name": {
+          "allOf": [
+            {
+              "$ref": "common.schema.json#/$defs/display_text"
+            },
+            {
+              "maxLength": 40
+            }
+          ],
+          "minLength": 1
+        },
+        "plural": {
+          "allOf": [
+            {
+              "$ref": "common.schema.json#/$defs/display_text"
+            },
+            {
+              "maxLength": 40
+            }
+          ],
+          "minLength": 1
+        },
+        "mass_kg": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 0.5
+        },
+        "stack": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "description": "The most units in one stack (decision 120: 99; 999 later if needed)."
+        },
+        "use": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "heal_quarters"
+          ],
+          "properties": {
+            "heal_quarters": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
+            }
+          }
+        },
+        "assets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "common.schema.json#/$defs/token"
+          }
+        },
+        "material": {
+          "enum": [
+            "wood",
+            "stone",
+            "copper",
+            "leaf"
+          ]
+        }
+      }
+    },
+    "food": {
+      "description": "Food on the island's plants (P-Food; docs/game/MECHANICS.md decisions 92, 98 and 108, D1 in docs/runs/RUN-2-PLAYTEST-ROUND-2.md): the sources, one per species, each the inventory kind it bears; and regrow_h, the island hours (the clock's x_clock day scale) a picked unit takes to grow back: since P-Inventory-2 (decision 124) one unit a plant every regrow_h, the first regrow_h after a pick on a plant bearing everything, then one more each regrow_h until it bears everything again (24: one fruit a plant an island day). Which copies bear and where on them is the kernel's, from each copy's plant: id alone, the same on every load, with no manifest field (a later x_food can replace it). Needs the inventory block: food is picked into the pockets. The kernel also refuses a source whose kind is not an inventory kind, a species named twice, a range whose least is above its most, and a source that can bear nothing or more than 8. Every number is provisional. Absent: no plant bears food.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sources",
+        "regrow_h"
+      ],
+      "properties": {
+        "regrow_h": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 720
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/food_source"
+          }
+        }
+      }
+    },
+    "food_source": {
+      "description": "One species' food: the inventory kind it bears, one copy of the species in one_in bearing (chosen from the copy's id), and how many units in each place, each a range [least, most] (absent: none). windfalls lie on the ground round the stem's foot; canopy apples hang under a tree's lowest crown caps, reached with a hop (a tree only); clusters sit on the plant's side at the player's height. storybook_wild v5: apples on one broadleaf in three (2 to 4 windfalls, 1 to 3 in the canopy since P-Inventory-2, decision 126), a cluster of berries on one shrub in four and one heather clump in four.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "species",
+        "one_in"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "common.schema.json#/$defs/token"
+        },
+        "species": {
+          "$ref": "common.schema.json#/$defs/token"
+        },
+        "one_in": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "windfalls": {
+          "$ref": "#/$defs/food_count"
+        },
+        "canopy": {
+          "$ref": "#/$defs/food_count"
+        },
+        "clusters": {
+          "$ref": "#/$defs/food_count"
+        }
+      }
+    },
+    "food_count": {
+      "description": "[least, most] units, each 0 to 8 (the kernel refuses a least above its most).",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 8
+      }
     }
+  },
+  "dependentRequired": {
+    "food": [
+      "inventory"
+    ]
   }
 }

@@ -1,7 +1,7 @@
 """A mock game host that implements the command contract faithfully enough for P1's host to replace it.
 
 It loads a real room (`game/rooms/test_room` by default) through the room contract and answers
-`enfractal.command` and `enfractal.query` messages with `enfractal.result` messages:
+`garage_game.command` and `garage_game.query` messages (either spelling of each id: ids.py) with `garage_game.result` messages:
 
 - the principal comes from the caller (the trusted transport), never from the message;
 - every message is validated against the contract (with ECMA-262 patterns), plus the value rules
@@ -37,15 +37,18 @@ It loads a real room (`game/rooms/test_room` by default) through the room contra
 - protection is the player's: `protect.unlock` (every op in `$defs/player_only_ops`) is refused
   from companion principals, and no companion command changes a protected entity or any protection
   state except adding a lock;
-- nature (Grow, Fire, repair; contracts/README.md "Nature") is not simulated here yet:
-  `nature.cast` and `nature.repair` are checked as the kernel checks them before its
-  nature runs (the contract's args, refused request_invalid as CheckNatureArgs does; the revisions; a
-  companion's repair target in sight; a Fire cast before the team learned Fire, refused permission_denied in the kernel's words,
-  decision 72), then answered `unavailable`, and so is `nature.describe`. `nature.trail`
-  went with Bloom (decision 52): checked the same way, then refused unsupported_capability in the kernel's words. With no
-  nature change to take back, `room.undo` answers as the kernel's does for any other change: an earlier
-  revision is unsupported_capability, a revision that is not earlier is invalid_args; outside Creative it is
-  refused before anything else (there is no undo in Challenge or Live);
+- nature (Grow, Fire and its kinds, the campfires, repair, undo; contracts/README.md "Nature") is hosted by mock_nature.py as
+  the kernel's nature answers it, minus physics: the nature ops' args checked as CheckNatureArgs checks them (request_invalid,
+  field_unknown), then Grow growing the island's plant copies the game side gives it (`add_plant`), Fire previewed and cast as
+  exactly that preview, burning its circle by the fire rule (Creative's one ask before a build burns, the player's no sparing it),
+  a Fireline once learned, Snuff (transient: no revision), the starting campfire and the manifest's `x_firepits` that Fire lights
+  and 30 s of rain puts out, `player_rests` (the rest key: the first rest by the starting campfire teaches Fire, decision 72),
+  `nature.repair`, `room.undo` of the latest nature steps (in Creative only: outside it, refused before anything else) and
+  `nature.describe`. The box world has no water, so never a Will-o'-wisp or a waterpad. `nature.trail` went with Bloom
+  (decision 52): checked the same way, then refused unsupported_capability in the kernel's words;
+- the price follows the principal (mock_energy.py, the kernel's CommandHostEnergy): one pool per mode, the player's commands paying
+  the pack's ordered price and the Gubble's its own-idea price, once, at commit; an empty pool refuses with energy_exhausted, its
+  balance and price; the shadow pool in Creative never refuses;
 - the Bubble as the founder redesigned it (decisions 55 to 60; the kernel's Kernel/Bubble) is hosted abstractly, with the
   kernel's refusals in its order and its receipts: effect.start of Bubbles casts one player-sized bubble at a spot and the
   place decides (on the player a carry, the companion's previewed first, its ghost shown and the same cast committed a moment
@@ -59,14 +62,17 @@ It loads a real room (`game/rooms/test_room` by default) through the room contra
   (position_m inside the island: the kernel's InsideIsland, the room's bounds without a sea, the top and the bottom round an
   island), set by the player or the companion; the job ends on `goal_arrived` (the bubble at the spot), `goal_blocked`
   (target_unreachable), or the bubble popping first (target_not_found); the Gubble's own stop or a new goal pops the bubble it
-  leads; the goal.set receipt says how the lead ended. A spot higher than the bubble's is a lift (data.lift, lift_price); the
-  mock keeps no pool, so a lift is never refused for pips here. The mock has no physics: a bubble neither drifts nor deflates;
+  leads; the goal.set receipt says how the lead ended. A spot higher than the bubble's is a lift (data.lift, lift_price), refused
+  energy_exhausted at the lead when the setter's pool cannot pay it, and charged at the rise (here, the arrival: the lead ends
+  no_pips when it cannot be paid then). The mock has no physics: a bubble does not drift, and nothing falls out of one (the
+  kernel's fall out of a bubble, decision 88, needs the body); the game side says whether a landing hurt (`player_lands`), and
+  the fall after the Gubble's own pop that hurt is a consequence fact in the kernel's words that costs Trust (decision 96);
 - unknown, removed, foreign and unperceived entity ids all fail with the same `target_not_found`;
 - the island's abilities come from its rules pack, the one the kernel host loads (game/rules/storybook_wild/v5.json:
   Glow, Bubbles, Fireworks, Grow and Fire; checked fail-closed; a pinned pack's Bloom, growth.seed, is read as Grow): `capabilities.list` answers from it, and `effect.start` follows the
   kernel's rules, order of refusals, codes and result data (CommandHostEffects.cs), the same for every primitive
   (light.emit, particles.float, particles.burst). Grow and Fire are cast with nature.cast, never effect.start, and
-  what needs the game itself (terrain-aware Glow, nature, the wish queue) is answered `unavailable`. The Gubble
+  what needs the game itself (terrain-aware Glow, the wish queue) is answered `unavailable`. The Gubble
   carries every ability out: a companion may target only its own avatar (self) or name no targets (a point within
   reach and in the team's sight); effect ids are
   opaque; effects end at their duration, on `effect.stop` (the player any, a companion its own) and on a `goal.stop`
@@ -93,8 +99,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from . import eyes, perception, textsafety
+from . import eyes, ids, perception, textsafety
+from .mock_energy import ENERGY_EXHAUSTED_MESSAGE, EnergyMixin  # noqa: F401
 from .mock_journal import JournalMixin
+from .mock_nature import (FIRE_NOT_LEARNED, FRESH_WALLET, UNDO_NOT_EARLIER, UNDO_ONLY_NATURE,  # noqa: F401
+                          NatureMixin)
+from .mock_inventory import InventoryMixin
 from .mock_trust import TrustMixin
 from .glow_progress import GlowProgress
 from .canonical import CanonicalJsonError
@@ -111,24 +121,18 @@ from .contract import (
 from .refusals import (FRACTAL_REFUSAL, HostError, base_result, effect_args_error, failure, forbidden_key_error,  # noqa: F401
                        lead_args_error, map_schema_errors, names_a_fractal, nature_args_error, value_error)
 
-log = logging.getLogger("enfractal.mock_host")
+log = logging.getLogger("garage_game.mock_host")
 
 PLAYER = "player:local"
 COMPANION = "companion:local"
 OWN_AVATAR = {PLAYER: "avatar:player", COMPANION: "avatar:companion"}
 STOP_OPS = frozenset({"goal.stop", "effect.stop"})
-# The nature commands (contracts/README.md "Nature"): the mock checks them as the kernel does before its nature runs, then
-# answers unavailable. A follow-up models nature here (test_host_alignment.py NATURE_NOT_IN_THE_MOCK).
+# The nature commands (contracts/README.md "Nature"): their args checked as the kernel's CheckNatureArgs checks them, then
+# hosted by mock_nature.py as the kernel's nature answers them (its words in mock_nature.py, where test_kernel_alignment.py holds
+# them to the kernel's).
 NATURE_OPS = frozenset({"nature.cast", "nature.trail", "nature.repair"})
-# What room.undo answers when the latest change is not a nature change (CommandHostNature.NatureUndo, word for word).
-UNDO_NOT_EARLIER = "Undo names an earlier room revision."
-UNDO_ONLY_NATURE = ("The latest change is not one the island can undo yet: only nature changes (Grow, Fire, repairs) "
-                    "can be undone.")
 # The flower trail went with Bloom (decision 52): nature.trail is refused in the kernel's words (CommandHost.TrailRetired).
 TRAIL_RETIRED = "The flower trail went with Bloom: Grow grows the island's own plants and leaves no trail."
-# Decision 72: no Fire until the first rest at the starting campfire, whoever asks (the kernel's CommandHost.FireNotLearned,
-# refused permission_denied before any other check of a Fire cast, as the fifth light's lock on Constellation's controls).
-FIRE_NOT_LEARNED = "The Gubble has not learned Fire yet: rest by the starting campfire first."
 # An older pack's Bloom (growth.seed) is read as Grow, as the kernel reads it (IslandRules.LegacyBloomAs).
 LEGACY_BLOOM_AS = "grow"
 # Outside Creative there is no undo at all (the founder, 13 October): the kernel's Unsupported, before any revision check.
@@ -136,7 +140,10 @@ UNDO_NOT_IN_THIS_MODE = "There is no undo in Challenge or Live: what happens the
 # The mechanics round (M0, and M1's gather): its player-only ops, and the kernel's words for what is not built yet
 # (CommandHost.Unsupported: MechanicsNotYet, DifficultyNotYet) and for a Fractal the companion may not gather (FractalRefusal). The kernel hosts the player's item.pickup and item.gather since M1; the mock, which places no Fractals and
 # keeps no wallet, answers the player's not available yet.
-MECHANICS_PLAYER_OPS = frozenset({"item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset"})
+MECHANICS_PLAYER_OPS = frozenset({"item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset",
+                                  # P-Inventory: the player's use and drop need the body and the team file (the kernel hosts them);
+                                  # P-Inventory-2: so does the hand's selection.
+                                  "inventory.use", "inventory.drop", "inventory.select"})
 BUBBLES_EXPERTISE = frozenset({"bubble_carry", "bubble_boat", "bubble_lift"})
 MECHANICS_NOT_YET = "This operation is not available yet."
 DIFFICULTY_NOT_YET = "Difficulties are chosen at the opening menu, which is not built yet."
@@ -145,6 +152,10 @@ DIFFICULTY_NOT_YET = "Difficulties are chosen at the opening menu, which is not 
 BUBBLE_CARRY_RADIUS_M = (0.07, 0.2)
 BUBBLE_BOAT_RADIUS_M = (0.08, 0.3)
 BUBBLE_CARRY_RADIUS_DEFAULT_M = 0.08  # the Bubble's one size, round the 10 cm body (BubbleLaws.CarryRadiusDefaultM)
+# The time the player's Bubbles key names (decision 95: a bubble 8 s; decision 112: a boat 20 s; BubbleLaws.CarryDurationDefaultS and
+# BoatDurationDefaultS), never past the island's duration_max_s (player_bubble).
+BUBBLE_CARRY_DURATION_DEFAULT_S = 8.0
+BUBBLE_BOAT_DURATION_DEFAULT_S = 20.0
 BUBBLE_GHOST_LEAD_S = 1.0
 BUBBLE_GHOST_LIFETIME_S = 15.0
 BUBBLE_ENVELOP_REACH_M = 0.05
@@ -164,7 +175,10 @@ BUBBLE_NO_WATER = "A Bubble boat is cast on water."
 LEAD_POPPED = "The bubble popped before it got there."
 LEAD_BLOCKED = "The bubble cannot get there from here."
 TRANSIENT_OPS = frozenset({"entity.grab", "creation.activate", "goal.set", "goal.stop", "effect.start", "effect.stop",
-                           "world.set_physics", "world.set_mode", "glow.configure", "effect.adjust", "receipt.mark", "trust.reset"})
+                           "world.set_physics", "world.set_mode", "glow.configure", "effect.adjust", "receipt.mark", "trust.reset",
+                           # P-Inventory (mock_inventory.py): a use changes no room state; a store, a take and a drop are
+                           # durable room changes, as on the kernel (they are not listed here).
+                           "inventory.use", "inventory.select"})
 # The mechanics round's player-only ops the mock hosts (M8's Trust, mock_trust.py); the rest answer as not available yet.
 MECHANICS_HOSTED = frozenset({"receipt.mark", "trust.reset"})
 # Durable, but they change no world state, so they do not move the room revision.
@@ -336,6 +350,9 @@ class Entity:
     texts: list[str] = field(default_factory=list)
     explicit_bounds: dict | None = None
     created_by: str | None = None
+    # What it is made of, for nature (never emitted): a shell part's material, an asset's material roles, a creation's parts'
+    # materials in order (the fire rule's flammable test, the ground's fuel, a scorched build's repair quote).
+    materials: list[str] = field(default_factory=list)
 
     def bounds(self) -> dict:
         if self.explicit_bounds is not None:
@@ -373,7 +390,7 @@ class Entity:
             "category": self.category, "category_group": self.category_group, "protected": self.protected,
             "protected_by": self.protected_by, "mass_kg": self.mass_kg, "parts": dict(self.parts),
             "removed": self.removed, "texts": list(self.texts), "explicit_bounds": copy.deepcopy(self.explicit_bounds),
-            "created_by": self.created_by,
+            "created_by": self.created_by, "materials": list(self.materials),
         }
 
 
@@ -412,6 +429,10 @@ class Approval:
     pending_result: dict
     state: str = "pending"
     result: dict | None = None
+    # The kernel's Hold(bindRevision): a nature change judged on the room as it is lapses as soon as the room revision moves.
+    bind_revision: bool = False
+    # Creative's one ask before a fire burns a build (the kernel's SparesOnDeny): the player's no lights the fire with them spared.
+    spares_on_deny: bool = False
 
 
 @dataclass
@@ -469,6 +490,12 @@ class IslandRules:
     hearts: tuple[float, int] | None = None
     stamina_start_m: float | None = None
     pips: tuple[int, int, int] | None = None
+    # The pool's refill (traits.pips: refill_near_every_s, refill_near_within_m, refill_far_every_s) and a new island's wallet
+    # (traits.wallet.start), read as the kernel's VitalsRules and NatureState.FreshWallet read them. None when the pack has none.
+    refill: tuple[float, float, float] | None = None
+    wallet: dict[str, int] | None = None
+    # The pack's inventory block (P-Inventory): the kinds and the caps of the pockets and the chest, as the pack says; None without it.
+    inventory: dict | None = None
 
     def ability(self, capability: str | None) -> Ability | None:
         return next((a for a in self.abilities if a.capability == capability), None)
@@ -476,7 +503,7 @@ class IslandRules:
     def price(self, capability: str, principal: str) -> int:
         """What casting `capability` costs `principal` outside Creative, in whole pips. The price follows the principal
         alone: the player's order pays the ordered price, every command on the Gubble's connection the own-idea price.
-        An ability the pack does not price costs nothing. The mock reads prices; it charges nothing yet (M1, M8)."""
+        An ability the pack does not price costs nothing. The pool charges it (mock_energy.py), with Trust's discount (M8)."""
         for name, ordered, factor in self.prices:
             if name == capability:
                 return ordered if principal.startswith("player:") else round(ordered * factor)
@@ -500,7 +527,7 @@ def parse_rules(contracts: Contracts, pack: Any, raw: bytes | None = None, path:
     if not hasattr(validate, "check_rules"):
         raise RulesError("these contracts have no island rules")
     try:
-        problems = validate.schema_errors(pack, "enfractal.island_rules")
+        problems = validate.schema_errors(pack, "island_rules")
         if not problems:
             problems = validate.check_rules(pack, "rules", path)
     except Exception as error:  # a validator that cannot read it refuses it
@@ -522,7 +549,12 @@ def parse_rules(contracts: Contracts, pack: Any, raw: bytes | None = None, path:
     hearts = (float(traits["hearts"]["health_per_quarter"]), int(traits["hearts"]["start_hearts"])) if "hearts" in traits else None
     stamina = float(traits["stamina"]["start_m"]) if "stamina" in traits else None
     pips = (int(traits["pips"]["start"]), int(traits["pips"]["expertise_per_pip"]), int(traits["pips"]["ceiling"])) if "pips" in traits else None
-    return IslandRules(pack["rules_id"], int(pack["rules_version"]), abilities, hashlib.sha256(body).hexdigest(), prices, hearts, stamina, pips)
+    refill = (float(traits["pips"]["refill_near_every_s"]), float(traits["pips"]["refill_near_within_m"]),
+              float(traits["pips"]["refill_far_every_s"])) if "pips" in traits else None
+    wallet = {name: int(units) for name, units in sorted(traits["wallet"]["start"].items())} if "wallet" in traits else None
+    inventory = copy.deepcopy(pack["inventory"]) if "inventory" in pack else None
+    return IslandRules(pack["rules_id"], int(pack["rules_version"]), abilities, hashlib.sha256(body).hexdigest(), prices, hearts, stamina, pips,
+                       refill, wallet, inventory)
 
 
 def load_rules(contracts: Contracts, path: Path) -> IslandRules:
@@ -562,7 +594,7 @@ class ActiveEffect:
 
 @dataclass
 class MockBubble:
-    """One bubble, abstractly (the kernel's Kernel/Bubble/Bubble.cs, with no physics): it neither drifts nor deflates here."""
+    """One bubble, abstractly (the kernel's Kernel/Bubble/Bubble.cs, with no physics): it does not drift here, and no one falls out of it."""
 
     id: str
     capability: str
@@ -584,7 +616,7 @@ def _is_bubble(message: Any) -> bool:
 
 
 def _is_stop(message: Any) -> bool:
-    return isinstance(message, dict) and message.get("schema") == COMMAND_SCHEMA and message.get("op") in STOP_OPS
+    return isinstance(message, dict) and ids.is_schema(message.get("schema"), "command") and message.get("op") in STOP_OPS
 
 
 def _might_be_stop(raw: bytes) -> bool:
@@ -593,7 +625,7 @@ def _might_be_stop(raw: bytes) -> bool:
     return b"goal.stop" in raw or b"effect.stop" in raw or b"\\u" in raw
 
 
-class MockHost(JournalMixin, TrustMixin):
+class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin, InventoryMixin):
     """The game side of the companion boundary, minus physics."""
 
     def __init__(self, contracts: Contracts, room_dir: Path | None = None, styles_dir: Path | None = None,
@@ -630,9 +662,12 @@ class MockHost(JournalMixin, TrustMixin):
         # Trust (M8, mock_trust.py): the team's, so a room reload keeps it; only the host's own observation and the player's
         # marks and reset move it, never a request field.
         self.trust_count = 0
-        # Decision 72: whether the team has learned Fire (the kernel's first rest at the starting campfire). The box mock has no
-        # campfire to sit by, so only the host's own learn_fire (a test's stand-in for that rest, never a request) sets it.
-        self.fire_learned = False
+        # The team's nature expertise (Fire's and Grow's; decision 72's first_fire among them: no Fire until the first rest by the
+        # starting campfire, player_rests) and the player's "Let the Gubble use fire" (mock_nature.py), and the pool (mock_energy.py).
+        self._init_nature_team()
+        # The team's "Let the Gubble use the chest" (mock_inventory.py), off by default; only the player's control changes it.
+        self._init_inventory_team()
+        self._reset_energy()
         self._reset_room()
         # As RoomWorld hands the kernel host its rules (LoadRules), read before the server locks itself down.
         self.load_rules(rules_file or rules_path())
@@ -667,6 +702,7 @@ class MockHost(JournalMixin, TrustMixin):
         self._last_sweep = self.clock.now()
         self._reset_journal()
         self._reset_trust_session()
+        self._reset_inventory()
         self._creation_counter = 0
         # The running effects, oldest first. Effects are not entities: no query lists them (as on the kernel host).
         self.effects: OrderedDict[str, ActiveEffect] = OrderedDict()
@@ -676,6 +712,8 @@ class MockHost(JournalMixin, TrustMixin):
         self._approving = False
         self._checkpoint_counter = 0
         self._load_room()
+        # The island's nature (mock_nature.py): its plants, the fire, the campfires, the weather and the undo steps.
+        self._reset_nature()
         self.history[0] = self._snapshot()
 
     # ------------------------------------------------------------------ room loading
@@ -716,7 +754,8 @@ class MockHost(JournalMixin, TrustMixin):
                 id=part["id"], kind="shell", display_name=part["role"].replace("_", " ").capitalize(),
                 position=centre, half_extents=[0, 0, 0], affordances=["walkable_top"] if part["role"] in ("floor", "platform") else [],
                 movable=False, provenance_kind=provenance, explicit_bounds=bounds,
-                category=part["role"], category_group="structure")
+                category=part["role"], category_group="structure",
+                materials=[part["material_role"]] if part.get("material_role") else [])
         assets: dict[str, dict] = {}
         for instance in room["objects"]:
             if instance["asset"] not in assets:
@@ -733,6 +772,7 @@ class MockHost(JournalMixin, TrustMixin):
                 provenance_kind=asset["provenance"]["kind"], category=asset.get("category"),
                 category_group=asset.get("category_group"), mass_kg=asset["physics"].get("mass_kg"),
                 parts={p["id"]: float(p.get("default", 0.0)) for p in asset.get("parts", [])},
+                materials=[m["role"] for m in asset.get("materials", []) if isinstance(m, dict) and m.get("role")],
             )
         spawns = {s["role"]: s for s in room["spawns"]}
         player_spawn = spawns.get("player", {"position_m": [0.0, 0.0, 0.0]})
@@ -809,6 +849,7 @@ class MockHost(JournalMixin, TrustMixin):
             for bubble in list(self.bubbles.values()):
                 self._end_bubble(bubble, "popped")
             fresh = self._fresh_vitals()
+            # The materials wallet is retired (P-Inventory-2): new rules bring none (the kernel's UseRules).
             self.rules = rules
             self.rules_notice = "" if rules is not None else (notice or "This island has no rules, so the Gubble has no abilities.")
             for mode, profile in self._vitals_profiles.items():
@@ -825,19 +866,19 @@ class MockHost(JournalMixin, TrustMixin):
 
     def _player_status(self) -> dict:
         """player.status as the kernel answers it: the body and, with the pack's traits, the pool (the shadow pool in
-        Creative), the hearts in quarters and the bar's bands. The mock has no body tick and charges nothing yet: the pool
-        reads full."""
+        Creative), the hearts in quarters and the bar's bands. The mock has no body tick: health and the bar stay as they are."""
         data = dict(self._vitals_profiles[self.mode], mode=self.mode, consequences=self.mode != "creative")
         rules = self.rules
         if rules and rules.pips:
-            start, per_pip, ceiling = rules.pips
-            most = min(ceiling, start + len(self.glow_progress.discoveries) // per_pip)
-            data["energy"] = {"pips": most, "max_pips": most, "shadow": self.mode == "creative"}
+            # The pool (mock_energy.py): this mode's, the shadow pool in Creative.
+            data["energy"] = {"pips": self._pool_pips(), "max_pips": self._max_pips(), "shadow": self.mode == "creative"}
         if rules and rules.hearts:
             quarter = rules.hearts[0]
             data["hearts"] = {"quarters": round(data["health"] / quarter), "max_quarters": round(data["max_health"] / quarter)}
         if rules and rules.stamina_start_m is not None:
             data["bar"] = {"bands": 1, "slowed": False}
+        # P-Inventory: the pockets and the chest, with the pack's block (mock_inventory.py).
+        data.update(self._inventory_status() or {})
         return data
 
     def active_effect_ids(self) -> list[str]:
@@ -1073,6 +1114,9 @@ class MockHost(JournalMixin, TrustMixin):
             # The rate limit comes before every other check, so a flood of invalid messages is limited too.
             if not _is_stop(message) and not self._take_token(principal):
                 return self._rate_limited(principal)
+            # The host's own clock first, as the kernel's frames run it between requests: the pool's refill and nature's steps.
+            self._refill_pips()
+            self._advance_nature()
             self._expire()
             # Trust's clock (the kernel's SettleTrust, which the companion bridge runs each frame): windows closed by now settle.
             self._settle_trust()
@@ -1090,6 +1134,8 @@ class MockHost(JournalMixin, TrustMixin):
                     "internal_error", "The game could not handle that request.", retryable=True))
             finally:
                 self._view = None
+            # What the Gubble's actions did rides on its next result, whatever it asked (the kernel's DeliverNotices, decision 134).
+            result = self._deliver_notices(principal, result)
             problems = self.contracts.schema_errors(result)
             if problems:
                 log.error("mock host built an invalid result: %s", problems[:3])
@@ -1143,9 +1189,9 @@ class MockHost(JournalMixin, TrustMixin):
     # ------------------------------------------------------------------ dispatch
 
     def _handle(self, principal: str, message: Any) -> dict:
-        if not isinstance(message, dict) or message.get("schema") not in (COMMAND_SCHEMA, QUERY_SCHEMA):
-            raise HostError("request_invalid", "Send an enfractal.command or enfractal.query.")
-        is_command = message["schema"] == COMMAND_SCHEMA
+        if not isinstance(message, dict) or ids.kind_of(message.get("schema")) not in ("command", "query"):
+            raise HostError("request_invalid", f"Send a {COMMAND_SCHEMA} or a {QUERY_SCHEMA}.", field_path="$.schema")
+        is_command = ids.is_schema(message["schema"], "command")
         op = message.get("op") if isinstance(message.get("op"), str) else None
         self._check_schema(message)
         if message["room_id"] != self.room_id:
@@ -1167,7 +1213,7 @@ class MockHost(JournalMixin, TrustMixin):
 
     def _check_schema(self, message: dict) -> None:
         problems = value_problems(message)
-        if message.get("schema") == COMMAND_SCHEMA and message.get("op") in STOP_OPS:
+        if ids.is_schema(message.get("schema"), "command") and message.get("op") in STOP_OPS:
             # A stop ignores revisions, so a revision outside int64 is no reason to refuse it.
             problems = [(path, kind) for path, kind in problems
                         if not (kind == "integer_range" and path[:1] in (["expected_revision"], ["expected_entities"]))]
@@ -1184,11 +1230,11 @@ class MockHost(JournalMixin, TrustMixin):
         errors = list(self.contracts.iter_errors(message))
         if errors:
             error = map_schema_errors(errors)
-            if message.get("schema") == COMMAND_SCHEMA and message.get("op") == "effect.start":
+            if ids.is_schema(message.get("schema"), "command") and message.get("op") == "effect.start":
                 error = effect_args_error(error)
-            if message.get("schema") == COMMAND_SCHEMA and message.get("op") in NATURE_OPS:
+            if ids.is_schema(message.get("schema"), "command") and message.get("op") in NATURE_OPS:
                 error = nature_args_error(error)
-            if message.get("schema") == COMMAND_SCHEMA:
+            if ids.is_schema(message.get("schema"), "command"):
                 error = lead_args_error(error, message)
             raise error
         for path, source in creation_sources(message):
@@ -1241,16 +1287,20 @@ class MockHost(JournalMixin, TrustMixin):
                 return earlier
             self._check_unsupported(message)
             self._check_revisions(principal, message)
+            self._check_nature_remains(principal, message)
         prediction = handler(principal, message, False, None)
+        # The host's own ask (the kernel's Hold from inside a handler: Creative's one ask before a fire burns a build, the Gubble's
+        # undo of another's change or repair of the player's build, a keyed_yes nature cast): whoever sent it, never on a preview.
+        ask = prediction.pop("_ask", None)
         if preview:
             result = self._base(principal, message)
             result["preview"] = True
             result.update(prediction)
             result.pop("transient", None)
             return result
-        if principal != PLAYER and (op in self.policy.companion_approval_ops or self._keyed_yes(message)):
-            return self._hold(principal, message, fingerprint, prediction)
-        if op not in TRANSIENT_OPS and op != "room.checkpoint" and not _is_bubble(message):
+        if ask is not None or self._policy_holds(principal, message):
+            return self._hold(principal, message, fingerprint, prediction, ask)
+        if not self._transient(message) and op != "room.checkpoint":
             self._check_receipt_room(principal)
         result = self._commit(principal, message, handler)
         self._store_receipt(key, fingerprint, result)
@@ -1287,6 +1337,19 @@ class MockHost(JournalMixin, TrustMixin):
             return replay
         return None
 
+    def _policy_holds(self, principal: str, message: dict) -> bool:
+        """Whether the policy's held set, or an ability of tier keyed_yes, holds a companion's command for the player's click."""
+        return principal != PLAYER and not self._approving and (message["op"] in self.policy.companion_approval_ops or self._keyed_yes(message))
+
+    def _transient(self, message: dict) -> bool:
+        """A command with a transient receipt that moves no room revision: the transient ops, a bubble, and Snuff (the kernel's
+        FireTransient: a simulation change, as X's)."""
+        return message["op"] in TRANSIENT_OPS or _is_bubble(message) or self._is_snuff(message)
+
+    def _commits_now(self, principal: str, message: dict) -> bool:
+        """Whether this command goes on to commit now (no preview, no hold for the player's click): where the guard runs."""
+        return message.get("preview") is not True and not self._policy_holds(principal, message)
+
     def _keyed_yes(self, message: dict) -> bool:
         """An ability of tier keyed_yes (T3) waits for the player's yes when a companion asks, whatever the policy's
         held set: the island's rules say so (the kernel's NeedsApproval)."""
@@ -1302,7 +1365,7 @@ class MockHost(JournalMixin, TrustMixin):
 
     def _commit(self, principal: str, message: dict, handler, approved_by: str | None = None) -> dict:
         op = message["op"]
-        durable = op not in TRANSIENT_OPS and not _is_bubble(message)
+        durable = not self._transient(message)
         moves_revision = durable and op not in NO_REVISION_OPS
         new_revision = self.revision + 1 if moves_revision else None
         # The journal's facts about creations (built, changed, removed), from the team's knowledge, dated at the revision
@@ -1396,28 +1459,33 @@ class MockHost(JournalMixin, TrustMixin):
                                     "A destructive command must name every target in expected_entities, or name expected_revision.",
                                     field_path="$.expected_entities")
 
-    def _hold(self, principal: str, message: dict, fingerprint: str, prediction: dict) -> dict:
+    def _hold(self, principal: str, message: dict, fingerprint: str, prediction: dict, ask: dict | None = None) -> dict:
+        """Holds a command for the player's click: the policy's (its reason stated as its concrete effect, lapsing when what it
+        touches changes) or the host's own ask (its reason and what it touches its handler's, as the kernel's Hold)."""
         pending = [a for a in self.approvals.values() if a.principal == principal and a.state == "pending"]
         if len(pending) >= self.policy.max_pending_approvals:
             raise HostError("rate_limited", "Several changes are already waiting for the player.", retryable=True)
         request_id = secrets.token_hex(16)
         expires_at = self.clock.now() + self.policy.approval_ttl_s
         touched = {}
+        if ask is not None:
+            touched = dict(ask.get("touched", {}))
         for entity_id in _targets(message["args"]) + list(prediction.get("affected", [])):
             entity = self._entity(entity_id)
-            if entity is not None:
+            if entity is not None and ask is None:
                 touched[entity_id] = entity.revision
         result = self._base(principal, message)
         result["ok"] = False
         result["approval_needed"] = {
             "request_id": request_id,
-            "reason": self._approval_reason(message),
+            "reason": ask["reason"] if ask is not None else self._approval_reason(message),
             "expires_utc": utc(expires_at),
         }
         result["error"] = {"code": "approval_required", "message": "Waiting for the player to approve this change in the game.",
                            "retryable": True}
         approval = Approval(request_id, principal, message["action_id"], fingerprint, copy.deepcopy(message),
-                            expires_at, touched, self.revision, copy.deepcopy(result))
+                            expires_at, touched, self.revision, copy.deepcopy(result),
+                            bind_revision=bool(ask and ask.get("bind_revision")), spares_on_deny=bool(ask and ask.get("spares_on_deny")))
         self.approvals[request_id] = approval
         self.approval_by_action[(principal, message["action_id"])] = request_id
         self._emit("approval_requested", {"request_id": request_id, "op": message["op"], "principal": principal,
@@ -1471,6 +1539,7 @@ class MockHost(JournalMixin, TrustMixin):
     def player_decide(self, request_id: str, approve: bool) -> dict:
         """The player's click in the game UI. Never reachable from the companion's connection."""
         with self._lock:
+            self._advance_nature()
             self._expire()
             approval = self.approvals.get(request_id)
             if approval is None:
@@ -1481,34 +1550,55 @@ class MockHost(JournalMixin, TrustMixin):
             key = (approval.principal, approval.action_id)
             self._view = None
             try:
-                if not approve:
+                if not approve and not approval.spares_on_deny:
                     self._finish(approval, "denied", HostError(
                         "permission_denied", "The player declined this change. To ask again, use a new action_id."))
                 elif self._lapsed(approval):
                     self._finish(approval, "expired", HostError(
                         "approval_mismatch", "The room changed before the player approved. To ask again, use a new action_id."))
-                else:
+                elif approve:
                     try:
-                        self._check_revisions(approval.principal, message)
-                        handler = getattr(self, "_op_" + message["op"].replace(".", "_"))
-                        self._approving = True
-                        try:
-                            handler(approval.principal, message, False, None)
-                            if not _is_bubble(message):
-                                self._check_receipt_room(approval.principal)
-                            result = self._commit(approval.principal, message, handler, approved_by=PLAYER)
-                        finally:
-                            self._approving = False
-                        self._store_receipt(key, approval.fingerprint, result)
+                        # The player's own held change (a fire near a build) needed the player's click: no one else's approval.
+                        result = self._commit_held(approval, approved_by=PLAYER if approval.principal != PLAYER else None)
                         approval.state, approval.result = "approved", result
                     except HostError as error:
-                        self._finish(approval, "expired", error if error.code == "receipt_limit" else HostError(
+                        self._finish(approval, "expired", error if error.code in ("receipt_limit", "energy_exhausted") else HostError(
                             "approval_mismatch", "The change can no longer be made as approved. To ask again, use a new action_id."))
+                else:
+                    # The player's no to Creative's one ask (the kernel's Deny with SparesOnDeny): the fire is lit and stops at the
+                    # builds, under its own principal, with no approval recorded; if it can no longer be made, it is declined.
+                    try:
+                        self._sparing = True
+                        result = self._commit_held(approval, approved_by=None)
+                        approval.state, approval.result = "denied", result
+                    except HostError:
+                        self._finish(approval, "denied", HostError(
+                            "permission_denied", "The player declined this change. To ask again, use a new action_id."))
+                    finally:
+                        self._sparing = False
             finally:
                 self._view = None
             del self.approval_by_action[key]
             self._emit("approval_decided", {"request_id": request_id, "state": approval.state})
             return {"state": approval.state, "result": approval.result}
+
+    def _commit_held(self, approval: Approval, approved_by: str | None) -> dict:
+        """A held command made at the player's word: every check again on the room as it is (the kernel re-executes it), then the
+        commit under its own principal and action id."""
+        message = approval.message
+        self._check_revisions(approval.principal, message)
+        self._check_nature_remains(approval.principal, message)
+        handler = getattr(self, "_op_" + message["op"].replace(".", "_"))
+        self._approving = approved_by is not None or approval.principal == PLAYER and not self._sparing
+        try:
+            handler(approval.principal, message, False, None)
+            if not self._transient(message):
+                self._check_receipt_room(approval.principal)
+            result = self._commit(approval.principal, message, handler, approved_by=approved_by)
+        finally:
+            self._approving = False
+        self._store_receipt((approval.principal, approval.action_id), approval.fingerprint, result)
+        return result
 
     def player_command(self, message: dict) -> dict:
         """A manual control in the game: the same command path, under the player's principal."""
@@ -1521,7 +1611,7 @@ class MockHost(JournalMixin, TrustMixin):
         self.terminal[key] = Receipt(approval.fingerprint, copy.deepcopy(result), durable=False)
 
     def _lapsed(self, approval: Approval) -> bool:
-        if "expected_revision" in approval.message and self.revision != approval.room_revision:
+        if (approval.bind_revision or "expected_revision" in approval.message) and self.revision != approval.room_revision:
             return True
         for entity_id, revision in approval.touched.items():
             entity = self._entity(entity_id)
@@ -1737,6 +1827,7 @@ class MockHost(JournalMixin, TrustMixin):
         if not apply:
             return {"affected": [target.id]}
         target.removed = True
+        self.burn_records.pop(target.id, None)  # a removed build's scorch record goes with it (the kernel's NatureWithout)
         if target.held_by:
             self.holding.pop(target.held_by, None)
             target.held_by = None
@@ -1776,7 +1867,8 @@ class MockHost(JournalMixin, TrustMixin):
             id=entity_id, kind="creation", display_name=source["name"], position=list(args["placement"]["position_m"]),
             half_extents=half, affordances=[], movable=True,
             provenance_kind="ai_created" if principal.startswith("companion:") else "player_created",
-            revision=new_revision, mass_kg=0.5, created_by=principal)
+            revision=new_revision, mass_kg=0.5, created_by=principal,
+            materials=[p["material"] for p in source["parts"] if isinstance(p, dict) and isinstance(p.get("material"), str)])
         return {"created": [entity_id], "affected": [entity_id]}
 
     def _op_creation_revise(self, principal, message, apply, new_revision):
@@ -1877,7 +1969,7 @@ class MockHost(JournalMixin, TrustMixin):
                     raise HostError("out_of_bounds", "That area is outside the room.", field_path=f"$.args.area.{corner}")
         outcome = {"affected": [actor], "data": data}
         if apply:
-            self._cancel_job(actor)
+            self._cancel_job(actor, by=principal)
             goal = {k: copy.deepcopy(v) for k, v in args.items() if k != "actor"}
             goal["started_utc"] = utc(self.clock.now())
             goal["set_by"] = principal
@@ -1908,19 +2000,20 @@ class MockHost(JournalMixin, TrustMixin):
             del self.jobs[old]
         return job_id
 
-    def _cancel_job(self, actor: str) -> None:
+    def _cancel_job(self, actor: str, by: str | None = None) -> None:
         goal = self.goals.get(actor)
         job = self.jobs.get(goal.get("job_id", "")) if goal else None
         if job is not None and job["state"] == "running":
             job["state"] = "cancelled"
             self._task_ended(goal["job_id"], "cancelled")
             self._trust_job_ended(goal["job_id"], "cancelled")
-            # A lead's end pops the bubble it led (decision 60; the kernel's LeadCancelled).
+            # A lead's end pops the bubble it led (decision 60; the kernel's LeadCancelled), by the Gubble's own action when its own
+            # new goal ended it (decision 96).
             led = self._led_bubble(goal["job_id"])
             if led is not None:
                 self._update_lead_receipt(led.lead, "ended", "stopped")
                 led.lead = None
-                self._end_bubble(led, "popped")
+                self._end_bubble(led, "popped", by_gubble=by is not None and not by.startswith("player:"))
 
     def goal_arrived(self, actor_id: str) -> str:
         """The game's goal runner: the avatar has reached its goal (walked there, or turned to look or
@@ -2273,6 +2366,8 @@ class MockHost(JournalMixin, TrustMixin):
         plan = self._plan_effect(principal, message["args"])
         if plan["ability"].primitive == "particles.float":
             return self._bubble_effect_start(principal, message, apply, plan)
+        # The guard at commit (mock_energy.py, the kernel's GuardEnergy): after every other check, never on a preview or a hold.
+        price = self._guard_energy(plan["ability"].capability, principal) if self._commits_now(principal, message) else 0
         if not apply:
             return {"data": self._effect_data(plan)}  # a preview says what would start
         effect_id = "effect:" + "".join(secrets.choice(EFFECT_ID_ALPHABET) for _ in range(EFFECT_ID_LENGTH))
@@ -2296,7 +2391,7 @@ class MockHost(JournalMixin, TrustMixin):
             group = nearby + [self.effects[effect_id]]
             for effect in group:
                 effect.connections.update(other.id for other in group if effect is not other)
-        self._trust_charge(plan["ability"].capability, principal)  # decision 69: where the kernel's ChargeEnergy charges (mock_trust.py)
+        self._charge_energy(price)  # the kernel's ChargeEnergy, which Trust reads (decision 69)
         return {"created": [effect_id], "affected": [effect_id], "data": self._effect_data(plan, effect_id, expires_at)}
 
     def _op_effect_stop(self, principal, message, apply, new_revision):
@@ -2364,24 +2459,6 @@ class MockHost(JournalMixin, TrustMixin):
             for linked_id in links:
                 self.effects[linked_id].connections.add(effect.id)
         return {"affected": [effect.id], "data": data} if apply else {"data": data}
-
-    def _op_nature_cast(self, principal, message, apply, new_revision):
-        # The contract checked the args (as the kernel's CheckNatureArgs) and _check_revisions the expectations; the kernel's
-        # nature begins here, which this mock does not simulate. The Bubbles expertise are no ground change: hosted here.
-        if _is_bubble(message):
-            return self._bubble_cast(principal, message, apply)
-        # Decision 72, as the kernel's RequireFireLearned: no Fire, preview or cast, until the team has learned it.
-        if message["args"].get("capability") == "fire" and not self.fire_learned:
-            if self.rules is None or not any(a.capability == "fire" for a in self.rules.abilities):
-                raise HostError("unsupported_capability", "This island does not grant that nature ability.", field_path="$.args.capability")
-            raise HostError("permission_denied", FIRE_NOT_LEARNED, field_path="$.args.capability")
-        # Grow on water grows a waterpad in the kernel (decision 75): nature again, which this mock does not simulate.
-        self._runtime_required("Grow and Fire on the island's ground")
-
-    def learn_fire(self) -> None:
-        """The team learns Fire, as the kernel's first rest at the starting campfire teaches it: the host's own, never a request."""
-        with self._lock:
-            self.fire_learned = True
 
     # ------------------------------------------------------------------ the Bubble (M9; the kernel's Kernel/Bubble)
 
@@ -2506,13 +2583,15 @@ class MockHost(JournalMixin, TrustMixin):
                 raise HostError("revision_conflict", BUBBLE_PREVIEW_AGAIN, field_path="$.args.preview_id", retryable=True)
             if not player and now - ghost[2] < BUBBLE_GHOST_LEAD_S:
                 raise HostError("not_ready", BUBBLE_GHOST_LEAD, field_path="$.args.preview_id", retryable=True)
+        # The kernel's guard charges by what the place made (BubblePriceKey): a carry on the player its own, a bubble at a point Bubbles'.
+        price_key = capability if capability == "bubble_boat" or target is not None else ability.capability
+        price = self._guard_energy(price_key, principal) if self._commits_now(principal, message) else 0
         if not apply:
             return {"data": data}
         if preview_id is not None:
             self.bubble_ghosts.pop(preview_id, None)
         bubble = self._form_bubble(capability, principal, message["action_id"], target, centre, radius, now + duration)
-        # Decision 69: the kernel's guard charges by what the place made (BubblePriceKey); the mock notes it for Trust (mock_trust.py).
-        self._trust_charge(capability if capability == "bubble_boat" or target is not None else ability.capability, principal)
+        self._charge_energy(price)  # decision 69: Trust reads the charge (mock_trust.py)
         bubble_id = bubble.id
         receipt = {"capability": capability, "bubble": bubble_id, "center_m": centre, "radius_m": radius, "duration_s": duration,
                    "expires_utc": utc(bubble.expires_at), "requires_approval": keyed, "carried": bubble.carried}
@@ -2522,13 +2601,18 @@ class MockHost(JournalMixin, TrustMixin):
 
     def _form_bubble(self, capability: str, principal: str, action_id: str, target: str | None, centre: list[float], radius: float,
                      expires_at: float) -> MockBubble:
-        """A new bubble; one at a time, so whatever bubble was there pops first (the kernel's FormBubble)."""
+        """A new bubble; one at a time, so whatever bubble was there pops first (the kernel's FormBubble and RecastEnd: the Gubble's
+        own recast is its own pop, one the player said yes to the player's, decision 115). A bubble cast on a fire teaches Snuff
+        (decision 79; mock_nature.py)."""
+        gubble = not principal.startswith("player:")
+        approved = gubble and self._approving
         for old in list(self.bubbles.values()):
-            self._end_bubble(old, "popped")
+            self._end_bubble(old, "popped_by_player" if approved else "popped", by_gubble=gubble and not approved)
         bubble_id = "effect:" + "".join(secrets.choice(EFFECT_ID_ALPHABET) for _ in range(EFFECT_ID_LENGTH))
         bubble = MockBubble(bubble_id, capability, principal, action_id, target, centre, radius, expires_at,
                             holding=target is not None, carried=target is not None)
         self.bubbles[bubble_id] = bubble
+        self._bubble_on_fire(centre, radius)
         return bubble
 
     def _bubble_effect_start(self, principal: str, message: dict, apply: bool, plan: dict) -> dict:
@@ -2564,13 +2648,14 @@ class MockHost(JournalMixin, TrustMixin):
                     raise HostError("revision_conflict", BUBBLE_GHOST_FIRST, field_path="$.args.area.center_m", retryable=True)
                 if now - self.bubble_ghosts[ghost][2] < BUBBLE_GHOST_LEAD_S:
                     raise HostError("not_ready", BUBBLE_GHOST_LEAD, field_path="$.args.area.center_m", retryable=True)
+        price_key = "bubble_carry" if target is not None else plan["ability"].capability
+        price = self._guard_energy(price_key, principal) if self._commits_now(principal, message) else 0
         if not apply:
             return {"data": data}
         if ghost is not None:
             self.bubble_ghosts.pop(ghost, None)
         bubble = self._form_bubble("bubble_carry", principal, message["action_id"], target, spot, radius, now + duration)
-        # Decision 69: the kernel's guard charges by what the place made (BubblePriceKey); the mock notes it for Trust (mock_trust.py).
-        self._trust_charge("bubble_carry" if target is not None else plan["ability"].capability, principal)
+        self._charge_energy(price)  # the kernel's guard charges by what the place made (BubblePriceKey); Trust reads it
         data.update(effect=bubble.id, bubble=bubble.id, expires_utc=utc(bubble.expires_at), carried=bubble.carried)
         return {"created": [bubble.id], "affected": [bubble.id] + ([target] if target is not None else []), "data": data}
 
@@ -2578,7 +2663,8 @@ class MockHost(JournalMixin, TrustMixin):
 
     def _lead(self, principal: str, message: dict, actor: str, apply: bool) -> dict:
         """goal.set lead: the bubble by its id (the companion names only one the team sees now), the spot inside the island; then the
-        Gubble's goal is replaced and the lead starts as a job. A spot higher than the bubble is a lift (the mock has no pool)."""
+        Gubble's goal is replaced and the lead starts as a job. A spot higher than the bubble is a lift, which the setter's pool must
+        be able to pay (the kernel's LeadRefusal before anything moves)."""
         args = message["args"]
         player = principal.startswith("player:")
         bubble = self.bubbles.get(args["target"])
@@ -2592,6 +2678,11 @@ class MockHost(JournalMixin, TrustMixin):
         if not player:
             data["target_seen"] = "now"
         if lift:
+            # No pips, no rise: a lift the setter's pool cannot pay now is refused before anything moves (the kernel's LeadRefusal).
+            try:
+                self._guard_energy("bubble_lift", principal)
+            except HostError as refusal:
+                raise _lead_refusal(refusal) from None
             data["lift_price"] = self._trust_price("bubble_lift", principal)
         outcome = {"affected": [actor, bubble.id], "data": data}
         if not apply:
@@ -2600,7 +2691,7 @@ class MockHost(JournalMixin, TrustMixin):
             # A new lead of the same bubble re-aims it: the old lead ends (stopped), and the bubble stays.
             self._update_lead_receipt(bubble.lead, "ended", "stopped")
             bubble.lead = None
-        self._cancel_job(actor)
+        self._cancel_job(actor, by=principal)
         job_id = self._start_job(principal, actor, message["action_id"], "lead", bubble.id)
         self.goals[actor] = {"goal": "lead", "target": bubble.id, "position_m": spot, "job_id": job_id, "set_by": principal,
                              "started_utc": utc(self.clock.now())}
@@ -2633,9 +2724,17 @@ class MockHost(JournalMixin, TrustMixin):
         bubble = self._led_bubble(goal["job_id"])
         if bubble is None:
             return self._finish_job(actor_id, goal, job, HostError("target_not_found", LEAD_POPPED, field_path="$.args.target"))
-        bubble.centre = list(goal["position_m"])
         if bubble.lead is not None and bubble.lead["lift"]:
-            self._trust_lift_charged(bubble.lead)  # decision 69: the Lift's charge at the rise (here, the arrival) pays the lead
+            # The lift's charge at its rise (here, the arrival: no drift), to whoever set the lead; no pips, no rise: the lead ends
+            # (no_pips) and the bubble stays where it is (the kernel's StartLift).
+            try:
+                price = self._guard_energy("bubble_lift", bubble.lead["principal"])
+            except HostError as refusal:
+                self._end_lead(bubble, "no_pips", _lead_refusal(refusal))
+                return job["state"]
+            self._charge_energy(price)
+            self._trust_lift_charged(bubble.lead)  # decision 69: the Lift's charge at the rise pays the lead
+        bubble.centre = list(goal["position_m"])
         self._end_lead(bubble, "arrived", None)
         return job["state"]
 
@@ -2661,7 +2760,7 @@ class MockHost(JournalMixin, TrustMixin):
             return []
         self._update_lead_receipt(bubble.lead, "ended", "stopped")
         bubble.lead = None
-        self._end_bubble(bubble, "popped_by_player" if by_player else "popped")
+        self._end_bubble(bubble, "popped_by_player" if by_player else "popped", by_gubble=not by_player)
         return [bubble.id]
 
     def _show_ghost(self, principal: str, signature: tuple, now: float) -> str:
@@ -2677,9 +2776,13 @@ class MockHost(JournalMixin, TrustMixin):
         if receipt is not None and receipt.result.get("data", {}).get("bubble") == bubble.id:
             receipt.result["data"][field_name] = value
 
-    def _end_bubble(self, bubble: MockBubble, ended: str) -> None:
+    def _end_bubble(self, bubble: MockBubble, ended: str, by_gubble: bool = False) -> None:
+        """A bubble ends: its receipt says how. One the Gubble popped by its own action (its stop or effect.stop, a new goal of its
+        own ending its lead, its recast) while it held the player leaves that fall pending: if its landing hurts (player_lands),
+        that is the Gubble's consequence (decision 96; the kernel's NotePopFallPending)."""
         if self.bubbles.pop(bubble.id, None) is None:
             return
+        self._note_pop(bubble.holding, by_gubble)
         bubble.holding = False
         self._update_bubble_receipt(bubble, "ended", ended)
         if bubble.lead is not None:
@@ -2699,7 +2802,7 @@ class MockHost(JournalMixin, TrustMixin):
                     del self.bubble_ghosts[token]
         popped = [b for b in self.bubbles.values() if (player or b.principal == principal) and (which == "all" or b.id == which)]
         for bubble in popped:
-            self._end_bubble(bubble, "popped_by_player" if player else "popped")
+            self._end_bubble(bubble, "popped_by_player" if player else "popped", by_gubble=not player)
         return [b.id for b in popped]
 
     def _expire_bubbles(self) -> None:
@@ -2722,6 +2825,20 @@ class MockHost(JournalMixin, TrustMixin):
             self._end_bubble(holding, "popped_by_player")
             return True
 
+    def player_bubble(self, spot: list[float]) -> dict:
+        """The player's Bubbles key at a spot (the kernel's PlayerEffect): effect.start of the island's Bubbles, the pack's radius, and
+        the Bubble's own time, 8 s (decision 95; the box world has no water, so never the boat's 20 s), within duration_max_s."""
+        with self._lock:
+            ability = self._bubbles_ability()
+            capability = ability.capability if ability is not None else "bubbles"
+            radius = ability.area_radius_default_m if ability is not None else 0.5
+            duration = min(BUBBLE_CARRY_DURATION_DEFAULT_S, ability.duration_max_s) if ability is not None else 1.0
+            self._player_controls = getattr(self, "_player_controls", 0) + 1
+            message = {"schema": COMMAND_SCHEMA, "version": 1, "action_id": f"hud-mock-{self._player_controls}", "room_id": self.room_id,
+                       "op": "effect.start", "args": {"capability": capability, "params": {},
+                                                      "area": {"center_m": [float(v) for v in spot], "radius_m": radius}, "duration_s": duration}}
+        return self.handle(PLAYER, message)
+
     def player_steps_into(self, bubble_id: str) -> bool:
         """The player's own step into a bubble waiting at a point (the game's body; the mock has no physics): the step-in is the
         consent, so it holds them and its receipt says carried."""
@@ -2736,12 +2853,6 @@ class MockHost(JournalMixin, TrustMixin):
 
     def _op_nature_trail(self, principal, message, apply, new_revision):
         raise HostError("unsupported_capability", TRAIL_RETIRED, field_path="$.op")
-
-    def _op_nature_repair(self, principal, message, apply, new_revision):
-        # The kernel's CheckPerceived first: a companion names only what the team has in sight now.
-        if not principal.startswith("player:"):
-            self._require(message["args"]["target"], "$.args.target")
-        self._runtime_required("Repairing a scorched creation")
 
     def _op_wish_submit(self, principal, message, apply, new_revision):
         if principal != PLAYER:
@@ -2816,15 +2927,6 @@ class MockHost(JournalMixin, TrustMixin):
             self.mode = mode
         return {}
 
-    def _op_room_undo(self, principal, message, apply, new_revision):
-        """room.undo takes nature changes back by room revision (the kernel's NatureUndo), in Creative only (outside it,
-        _check_unsupported has refused it already). The mock has none to take back, so it answers as the kernel does when
-        the latest change is of another kind; nothing is undone, and building, moving and protecting cannot be undone at
-        all, by anyone."""
-        if message["args"]["to_revision"] >= self.revision:
-            raise HostError("invalid_args", UNDO_NOT_EARLIER, field_path="$.args.to_revision", actual=self.revision)
-        raise HostError("unsupported_capability", UNDO_ONLY_NATURE, field_path="$.args.to_revision")
-
     # ------------------------------------------------------------------ queries
 
     def _query(self, principal: str, message: dict) -> dict:
@@ -2879,10 +2981,12 @@ class MockHost(JournalMixin, TrustMixin):
             result["data"] = data
         elif op == "player.status":
             result["data"] = self._player_status()
-        elif op in {"nature.describe", "wishes.read"}:
-            if op == "wishes.read" and principal != PLAYER:
+        elif op == "nature.describe":
+            result["data"] = self._nature_describe(principal)
+        elif op == "wishes.read":
+            if principal != PLAYER:
                 raise HostError("permission_denied", "Only the player can read wishes.")
-            self._runtime_required("The island's nature" if op == "nature.describe" else "The wish queue")
+            self._runtime_required("The wish queue")
         elif op == "capabilities.list":
             # From the island's rules: capability_summary items by capability, filtered by category, paged by a
             # plain decimal offset (the kernel's Capabilities). A cursor it did not give is invalid_args.
@@ -2906,9 +3010,14 @@ class MockHost(JournalMixin, TrustMixin):
                                   BUBBLE_MAX if a.primitive == "particles.float" else a.max_active),
                 "command_op": "nature.cast" if a.primitive in {"growth.seed", "growth.grow", "element.ignite"} else "effect.start",
                 # Decision 72: Fire listed, locked, until the team learns it (the kernel's Capabilities).
-                **({"locked": True} if a.primitive == "element.ignite" and not self.fire_learned else {})} for a in page]}
+                **({"locked": True} if a.primitive == "element.ignite" and not self.fire_learned else {}),
+                # Decision 76: Grow is listed with the unlocks the team has not opened yet (the kernel's GrowLockedKinds).
+                **({"locked_kinds": self.grow_locked_kinds()} if a.primitive == "growth.grow" and self.grow_locked_kinds() else {})} for a in page]}
             if start + len(page) < len(abilities):
                 result["data"]["next_cursor"] = str(start + len(page))
+            # P-Inventory: the four inventory ops on the whole list's first answer (mock_inventory.py).
+            if (inventory := self._inventory_ops(args)) is not None:
+                result["data"]["inventory"] = inventory
         elif op == "observe":
             actor = self._actor(principal, args)
             radius = min(float(args.get("radius_m", self.policy.observe_max_radius_m)), self.policy.observe_max_radius_m)
@@ -2974,6 +3083,12 @@ class MockHost(JournalMixin, TrustMixin):
         else:  # pragma: no cover - the schema already restricts ops
             raise HostError("request_invalid", "Unknown operation.", field_path="$.op")
         return result
+
+
+def _lead_refusal(refusal: HostError) -> HostError:
+    """A lift's refusal at the lead's spot (the kernel's LeadRefusal): the same code and words at $.args.position_m."""
+    return HostError(refusal.code, refusal.message, field_path="$.args.position_m", retryable=True if refusal.code == "energy_exhausted"
+                     else refusal.retryable, balance=refusal.balance, price=refusal.price)
 
 
 def _targets(args: dict) -> list[str]:

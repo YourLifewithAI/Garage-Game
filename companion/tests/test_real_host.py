@@ -301,7 +301,7 @@ class LinkSessionFile(RealHostCase):
         document = json.loads(raw)
         self.assertEqual(set(document), {"schema", "version", "host", "port", "token", "room_id", "pid", "created_utc"})
         self.assertEqual((document["schema"], document["version"], document["host"], document["room_id"]),
-                         ("enfractal.companion_session", 1, "127.0.0.1", "test_room"))
+                         ("garage_game.companion_session", 1, "127.0.0.1", "test_room"))
         self.assertEqual(parse_session(raw).port, self.info.port)
         runner_raw = GAME.session_path.with_name("wish-runner.json").read_bytes()
         self.assertNotIn(b"\r", runner_raw)
@@ -384,7 +384,7 @@ class LinkFrames(RealHostCase):
         for _ in range(100):
             cursor["a"] = {}
             cursor = cursor["a"]
-        for message in ({"schema": "enfractal.command"}, [], "text", {"schema": "enfractal.query", "version": 1, "deep": deep}):
+        for message in ({"schema": "garage_game.command"}, [], "text", {"schema": "garage_game.query", "version": 1, "deep": deep}):
             with self.subTest(message=str(message)[:40]):
                 result = await self.ask(client, message)
                 self.assertEqual(result["error"]["code"], "request_invalid")
@@ -662,8 +662,6 @@ class AlignmentOnTheRealHost(AlignmentScenarios, RealHostCase):
 
     # The suite's game runs headless: no renderer, so the Gubble's eyes answer unavailable (a real picture is the windowed check).
     renders = False
-    # The kernel host runs the island's nature (RoomWorld.ConfigureNature); the mock does not yet.
-    simulates_nature = True
 
     async def asyncSetUp(self):
         await super().asyncSetUp()
@@ -752,7 +750,8 @@ class McpClientOnTheRealHost(RealHostCase):
             tools = {tool.name for tool in (await client.list_tools()).tools}
             current = contracts()
             player_only = {"protect.unlock", "world.set_physics", "world.set_mode", "glow.configure",
-                           "wish.submit", "wish.stop", "wishes.read", "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset"}
+                           "wish.submit", "wish.stop", "wishes.read", "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset",
+                           "inventory.use", "inventory.drop", "inventory.select"}
             self.assertEqual(current.player_only_ops, player_only)
             expected = {op.replace(".", "_") for op in current.command_ops + current.query_ops if op not in player_only}
             self.assertEqual(tools, expected)

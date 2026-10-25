@@ -16,8 +16,9 @@ namespace GarageGame.Native.Kernel;
 ///   charged when it starts to rise, through the guard, to the principal who set the lead; no pips, no rise: goal.set refuses a
 ///   lift the pool cannot pay, and a pool that emptied since ends the lead with energy_exhausted. The first lift that floats the
 ///   player up to its spot teaches Lift.
-/// - The Gubble's own stop pops the bubble it leads (goal.stop, or a new goal), and the player drifts down gently where it popped
-///   (decision 60). Goals stay free (no pips for a lead itself, nothing saved); the goal.set receipt says how each lead ended:
+/// - The Gubble's own stop pops the bubble it leads (goal.stop, or a new goal), and the player falls from where it popped (decision
+///   88, replacing 60's drift down); a fall that hurts them then is the Gubble's consequence, costing Trust (decision 96). Goals stay
+///   free (no pips for a lead itself, nothing saved); the goal.set receipt says how each lead ended:
 ///   arrived, popped, popped_by_player, timed_out, blocked, no_pips or stopped, and lifted once it rose.
 /// - Moving the player: a bubble that holds the player moves only under its lead, the carry exception (consent given by the ghost,
 ///   the walk-in or the step aboard; the exit always works). No goal moves the player's body directly.
@@ -115,7 +116,7 @@ public partial class CommandHost
             bubble.Lead = null;
             UpdateTransient(old.Principal, old.ActionId, old.Fingerprint, "ended", "stopped");
         }
-        CancelGoal(actor);
+        CancelGoal(actor, principal);
         Companion.GoTo(new Aabb(spot, Vector3.Zero), BubbleLaws.LeadGubbleStopM);
         var job = StartJob(principal, actor, actionId, "lead", id, new Aabb(spot, Vector3.Zero), Companion.IntentSerial);
         bubble.Lead = new BubbleLead { JobId = job.Id, Principal = principal, ActionId = actionId, Fingerprint = fingerprint, Spot = spot, SpotGroundY = ground, Lift = lift };
@@ -240,22 +241,23 @@ public partial class CommandHost
     }
 
     /// <summary>
-    /// CancelGoal's hook (a new goal, a stop, a wish that ended): a lead's job cancelled pops the bubble it led, and the player drifts
-    /// down gently where it popped (decision 60). Its receipt says stopped.
+    /// CancelGoal's hook (a new goal, a stop, a wish that ended): a lead's job cancelled pops the bubble it led, and the player falls
+    /// from where it popped (decision 88, replacing 60's drift). Its receipt says stopped. A new goal the Gubble set itself (by: the
+    /// companion's principal) is its own pop (decision 96); the player's new order for it, or anything else, is not.
     /// </summary>
-    private void LeadCancelled(GoalJob job)
+    private void LeadCancelled(GoalJob job, string? by)
     {
         if (job.Goal != "lead") return;
         var bubble = _bubbles.Find(b => b.Lead?.JobId == job.Id);
         if (bubble?.Lead is not { } lead) return;
         bubble.Lead = null;
         UpdateTransient(lead.Principal, lead.ActionId, lead.Fingerprint, "ended", "stopped");
-        EndBubble(bubble, BubbleEnd.Popped);
+        EndBubble(bubble, by == CompanionPrincipal ? BubbleEnd.PoppedByGubble : BubbleEnd.Popped);
     }
 
     /// <summary>
     /// goal.stop of the Gubble: the bubble it leads pops, before its goal is cancelled, as the player's own pop when it is the player's
-    /// X (whoever cast it). Returns its id, or null when it leads none.
+    /// X (whoever cast it), and as the Gubble's own (decision 96) when it is the Gubble's own stop. Returns its id, or null when it leads none.
     /// </summary>
     private string? PopLedBubble(bool byPlayer)
     {
@@ -264,7 +266,7 @@ public partial class CommandHost
         if (bubble?.Lead is not { } lead) return null;
         bubble.Lead = null;
         UpdateTransient(lead.Principal, lead.ActionId, lead.Fingerprint, "ended", "stopped");
-        EndBubble(bubble, byPlayer ? BubbleEnd.PoppedByPlayer : BubbleEnd.Popped);
+        EndBubble(bubble, byPlayer ? BubbleEnd.PoppedByPlayer : BubbleEnd.PoppedByGubble);
         return bubble.Id;
     }
 }

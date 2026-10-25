@@ -1,0 +1,22 @@
+{
+  "schema": "garage_game.result",
+  "version": 1,
+  "ok": true,
+  "op": "inventory.take",
+  "action_id": "take-0001",
+  "principal": "player:local",
+  "room_id": "garage_example",
+  "revision": 9,
+  "replayed": false,
+  "preview": false,
+  "at_utc": "2026-10-06T00:05:00Z",
+  "transient": false,
+  "affected": [
+    "obj:paint_clutter"
+  ],
+  "data": {
+    "item": "obj:paint_clutter",
+    "count": 1,
+    "to": "hand"
+  }
+}

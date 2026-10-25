@@ -23,6 +23,11 @@ namespace GarageGame.Tests.Kernel;
 public partial class PlayHudTest
 {
     private VBoxContainer KeyHelpNode() => _hud.GetNode<PanelContainer>("HelpFooter").GetChild<VBoxContainer>(0).GetNode<VBoxContainer>("KeyHelp");
+    /// <summary>The scrolling column of the help's lines (the key help holds it, and the playtest line pinned below it).</summary>
+    private VBoxContainer HelpLinesNode() => KeyHelpNode().GetNode<ScrollContainer>("HelpScroll").GetNode<VBoxContainer>("HelpLines");
+    /// <summary>Every label of the key help, in order: the scrolling lines, then the pinned playtest line.</summary>
+    private static Label[] HelpLabels(VBoxContainer keyHelp) =>
+        keyHelp.GetNode<ScrollContainer>("HelpScroll").GetNode<VBoxContainer>("HelpLines").GetChildren().OfType<Label>().Concat(keyHelp.GetChildren().OfType<Label>()).ToArray();
 
     // ---- the card is in the help ----
 
@@ -31,6 +36,7 @@ public partial class PlayHudTest
         var host = CommandHost.Of(_world)!;
         var panel = _hud.MeterPanel;
         var help = KeyHelpNode();
+        var lines = HelpLinesNode();
         if (help.Visible) _hud._UnhandledInput(Press(Key.H));
         await Frames(4);
 
@@ -47,7 +53,7 @@ public partial class PlayHudTest
 
         // The help holds what the card held, under the status lines and the two rows of buttons.
         var status = _hud.StatusLines;
-        Check(status.GetParent() == help && help.GetNode("CompanionActions") is HBoxContainer && help.GetNode("HandActions") is HBoxContainer,
+        Check(status.GetParent() == lines && lines.GetNode("CompanionActions") is HBoxContainer && lines.GetNode("HandActions") is HBoxContainer,
             "the status lines and both rows of buttons are in the help, under its key lines' node");
         var names = status.GetChildren().Select(child => child.Name.ToString()).ToArray();
         Check(names.SequenceEqual(new[] { "RoomTitle", "State", "Clock", "IslandVitalsLine", "SettingsLine" }),
@@ -67,12 +73,12 @@ public partial class PlayHudTest
 
         // Folded, the footer is the small hint line alone; unfolded, all of it is there to read.
         var hint = _hud.GetNode<PanelContainer>("HelpFooter").GetChild<VBoxContainer>(0).GetChild<Label>(0);
-        Check(!help.Visible && !status.IsVisibleInTree() && !help.GetNode<HBoxContainer>("CompanionActions").IsVisibleInTree() && hint.IsVisibleInTree() && hint.Text == "H keys",
+        Check(!help.Visible && !status.IsVisibleInTree() && !lines.GetNode<HBoxContainer>("CompanionActions").IsVisibleInTree() && hint.IsVisibleInTree() && hint.Text == "H keys",
             "folded, none of it shows and the footer's hint line, \"H keys\", stays");
         _hud._UnhandledInput(Press(Key.H));
         await Frames(4);
         Check(help.Visible && status.IsVisibleInTree() && status.GetNode<Label>("State").IsVisibleInTree() && status.GetNode<Label>("Clock").IsVisibleInTree() &&
-              help.GetNode<HBoxContainer>("CompanionActions").IsVisibleInTree() && help.GetNode<HBoxContainer>("HandActions").IsVisibleInTree() && hint.Text == "H hide keys",
+              lines.GetNode<HBoxContainer>("CompanionActions").IsVisibleInTree() && lines.GetNode<HBoxContainer>("HandActions").IsVisibleInTree() && hint.Text == "H hide keys",
             "H opens it: the status lines and the buttons show with every key line");
         // All of it is on the screen: the footer grows up from the bottom edge, and the last line (the notice) is above it.
         var footerRect = _hud.GetNode<PanelContainer>("HelpFooter").GetGlobalRect();
@@ -81,7 +87,7 @@ public partial class PlayHudTest
             $"and all of it fits the screen, growing up from the bottom edge: the footer spans y {footerRect.Position.Y:0} to {footerRect.End.Y:0} of {visible.End.Y:0}, x {footerRect.Position.X:0} to {footerRect.End.X:0} of {visible.End.X:0}");
 
         // The buttons work there: the Gubble's orders, the panels' buttons, the hands.
-        var actions = help.GetNode<HBoxContainer>("CompanionActions");
+        var actions = lines.GetNode<HBoxContainer>("CompanionActions");
         Button ButtonOf(Node row, string text) => row.GetChildren().OfType<Button>().First(button => button.Text == text);
         void Click(Button button) => button.EmitSignal(BaseButton.SignalName.Pressed);
         var companion = _world.Companion;
@@ -96,10 +102,18 @@ public partial class PlayHudTest
         var magic = _hud.MagicPanelOpen;
         Click(actions.GetNode<Button>("MagicPanelButton"));
         Check(customizing && !_hud.SettingsOpen && magic && !_hud.MagicPanelOpen, "and Settings and Magic open and close their panels");
-        var hands = help.GetNode<HBoxContainer>("HandActions");
-        Click(ButtonOf(hands, "E Gather"));
+        var hands = lines.GetNode<HBoxContainer>("HandActions");
+        var before = _hud.Interaction;
+        Click(ButtonOf(hands, "E Use"));
         await Frames(2);
-        Check(NoticeText().Contains("Hold a loose log or stone", StringComparison.Ordinal), "and the hand buttons send the player's commands (E Gather with empty hands answers in the host's words): " + NoticeText());
+        var did = before.Kind switch
+        {
+            RoomHud.InteractKind.None => NoticeText() == _hud.InteractNothingWords(),
+            RoomHud.InteractKind.Sit => _hud.Sitting,
+            _ => NoticeText().Length > 0,
+        };
+        Check(did, $"and the hand buttons send the player's commands (E Use does what its prompt said, {before.Kind}): " + NoticeText());
+        if (_hud.Sitting) _hud.RestKey();
         _hud._UnhandledInput(Press(Key.H));
         await Frames(2);
         Check(!help.Visible, "H folds it again");
@@ -127,9 +141,9 @@ public partial class PlayHudTest
             Check(recorder is { Recording: true }, "a windowed launch's recorder on the fresh world");
             if (recorder == null) return;
             await Frames(6);
-            var noticeLabel = hud.GetNode<PanelContainer>("HelpFooter").GetChild<VBoxContainer>(0).GetNode<Label>("Notice");
+            var noticeLabel = (Label)hud.FindChild("Notice", true, false)!;
             var line = noticeLabel.Text;
-            Check(line == hud.LookNotice && !line.Contains("Placeholder", StringComparison.Ordinal) && noticeLabel.Visible == (line.Length > 0),
+            Check(line == hud.LookNotice && !line.Contains("Placeholder", StringComparison.Ordinal) && hud.NoticeCard.Visible == (line.Length > 0),
                 $"the notice line starts with the look's words or none (\"{hud.LookNotice}\"), never Run 0's sentence, and shows only when it has words: \"{line}\"");
             hud._UnhandledInput(Press(Key.F9));
             await Frames(2);

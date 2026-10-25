@@ -32,11 +32,13 @@ Create a local configuration containing an absolute executable path and literal 
 }
 ```
 
-The runner sends an `initialize` line containing protocol `enfractal.wish_adapter`, version `1`, and game tool names with input schemas. Before receiving player intent, the adapter must answer:
+The runner sends an `initialize` line containing protocol `garage_game.wish_adapter`, version `1`, and game tool names with input schemas. Before receiving player intent, the adapter must answer:
 
 ```json
-{"type":"ready","protocol":"enfractal.wish_adapter","version":1,"exclusive":true,"tools":["observe","effect_start"]}
+{"type":"ready","protocol":"garage_game.wish_adapter","version":1,"exclusive":true,"tools":["observe","effect_start"]}
 ```
+
+An adapter written before the rename answers `enfractal.wish_adapter`; the runner accepts either spelling and refuses any other.
 
 Every listed tool must be in the offered game inventory. `exclusive:true` states that the adapter has configured its model with only this inventory; an adapter is trusted local integration code, not an operating-system sandbox. The runner independently refuses every non-game call. Shell, files, browser actions, journal prose and approval tools are not offered. `creation_place`, `creation_revise` and `creation_activate` use the existing bounded data-only creation compiler and normal host authority. The runner always replaces a creation's displayed name with **Wish creation**; it never accepts scripts, file paths or external APIs as creation behavior.
 

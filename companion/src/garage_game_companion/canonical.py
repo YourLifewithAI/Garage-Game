@@ -1,4 +1,4 @@
-"""EnFractal canonical JSON, version 1, as Lane P defined it for the kernel host.
+"""Garage Game canonical JSON, version 1, as Lane P defined it for the kernel host.
 
 Receipt fingerprints are SHA-256 over these bytes, and the mock host must fingerprint exactly as
 the real C# command host will. This follows the Python reference `tools/kernel/canonical_json.py`

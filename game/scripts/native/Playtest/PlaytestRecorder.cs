@@ -358,7 +358,7 @@ public partial class PlaytestRecorder : Node
             using var document = CanonicalJson.Parse(message);
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("schema", out var schema) || schema.ValueKind != JsonValueKind.String ||
-                schema.GetString() != "enfractal.command" || !root.TryGetProperty("args", out var args)) return false;
+                !SchemaIds.IsSchema(schema.GetString(), "command") || !root.TryGetProperty("args", out var args)) return false;
             return PlaytestLines.WriteRequest(json, args);
         }
         catch (Exception error) when (error is CanonicalJsonException or JsonException) { return false; }
@@ -751,7 +751,7 @@ public partial class PlaytestRecorder : Node
         var facts = _launch;
         var bytes = PlaytestLines.Document(json =>
         {
-            json.WriteString("schema", "enfractal.playtest_manifest");
+            json.WriteString("schema", SchemaIds.PlaytestManifest);
             json.WriteNumber("version", 1);
             json.WriteString("record_id", Id);
             json.WriteString("build", _build);

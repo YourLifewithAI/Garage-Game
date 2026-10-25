@@ -87,10 +87,9 @@ public partial class CommandHost
     public void UseRules(IslandRules? rules, string notice = "")
     {
         EndEffects(_effects.ToList());
-        // An island nothing has happened to yet begins with the new rules' wallet (a save that holds play keeps its own).
-        var fresh = Nature.Untouched(trailAllowed: true, StartWallet);
         Rules = rules;
-        if (fresh) Nature.Wallet = NatureState.FreshWallet(rules?.Traits?.Wallet);
+        // P-Inventory-2: the materials wallet is retired; an older save's moves into the chest once a pack with the inventory arrives.
+        MigrateWallet();
         RulesNotice = rules == null ? (notice.Length > 0 ? notice : "This island has no rules, so the Gubble has no abilities.") : "";
         if (rules == null) GD.Print("COMMAND_HOST " + RulesNotice);
         // The body and the pool play by the pack's traits, cost and modes blocks (today's numbers without them).
@@ -100,7 +99,8 @@ public partial class CommandHost
     /// <summary>
     /// The HUD's ability keys: the player's effect.start, carried out by the Gubble, like PlayerGoal. No point is the
     /// Gubble's own glow (targets its avatar); a point is a light there. The area's radius and the duration are the
-    /// pack's defaults, and so are the params (left out). Returns the result for the HUD to show.
+    /// pack's defaults, and so are the params (left out), except a bubble's time at a spot: the Bubble's own (8 s, a boat
+    /// 20 s, decision 112; PlayerBubbleDurationS). Returns the result for the HUD to show.
     /// </summary>
     public JsonObject PlayerEffect(string capability, Vector3? point = null, string variant = "auto", string? touch = null)
     {
@@ -111,7 +111,7 @@ public partial class CommandHost
             // An ability the island lacks still goes through the host, which answers why (unsupported_capability).
             ["capability"] = capability, ["params"] = new JsonObject(),
             ["area"] = new JsonObject { ["center_m"] = KernelJson.Vector(centre), ["radius_m"] = ability?.AreaRadiusDefaultM ?? 0.5 },
-            ["duration_s"] = ability?.DurationDefaultS ?? 1.0,
+            ["duration_s"] = ability is { Primitive: "particles.float" } && point is { } spot ? PlayerBubbleDurationS(ability, spot) : ability?.DurationDefaultS ?? 1.0,
         };
         if (point == null) args["targets"] = new JsonArray(CompanionAvatarId);
         if (capability == "glow")
@@ -493,6 +493,8 @@ public partial class CommandHost
             };
             // Decision 72: Fire is listed, locked, until the first rest by the starting campfire teaches it (CommandHostCamps.RequireFireLearned).
             if (a.Primitive == "element.ignite" && !FireLearned) item["locked"] = true;
+            // Decision 76: Grow is listed with the unlocks the team has not opened yet, each refused permission_denied (CommandHostGrowKinds).
+            if (a.Primitive == "growth.grow" && GrowLockedKinds() is { Count: > 0 } kinds) item["locked_kinds"] = new JsonArray(kinds.Select(k => (JsonNode?)k).ToArray());
             return (JsonNode?)item;
         }).ToArray();
         var data = new JsonObject { ["items"] = new JsonArray(items) };

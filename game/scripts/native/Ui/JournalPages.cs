@@ -249,6 +249,12 @@ public static class JournalPages
             yield return Title(name);
             foreach (var (id, title) in entries)
                 if (record?.Has(id) == true) yield return Text(title);
+            // What Grow's expertise has opened (decision 76): the unlocks found, by name.
+            if (ability == ExpertiseLists.Grow && GrowLocks.FoundNames(host).ToList() is { Count: > 0 } found)
+            {
+                yield return Faint("What they opened");
+                foreach (var found1 in found) yield return Text(found1);
+            }
             if (!final) continue;
             foreach (var _ in entries.Where(e => record?.Has(e.Id) != true)) yield return new JournalLine(JournalInk.Smudge, Smudge);
             foreach (var (hint, discovery, words) in ability == ExpertiseLists.Fire ? FireHints : GrowHints)
@@ -277,24 +283,7 @@ public static class JournalPages
     private static JournalPage AbilitiesPage(CommandHost host)
     {
         var lines = new List<JournalLine> { Heading($"{CompanionName(host)}'s magic here") };
-        if (host.Rules is not { } rules) lines.Add(Text("This island's magic is not ready yet."));
-        else
-            foreach (var ability in rules.Abilities)
-            {
-                var slot = Array.IndexOf(GubbleMagic.SlotCategories, ability.Category);
-                var name = KernelJson.DisplayText(ability.DisplayName, 24);
-                lines.Add(Title(slot >= 0 && slot < Act.GubbleSlots.Length ? $"{K(Act.GubbleSlots[slot])} · {name}" : $"{name} · in the Magic panel"));
-                lines.Add(Text(AbilityWords(ability)));
-                // Decision 72: Fire is listed, locked, until the first rest by the starting campfire teaches it.
-                if (ability.Primitive == "element.ignite" && !host.FireLearned) lines.Add(Faint(FireLocked));
-                var limit = host.EffectiveEffectLimit(ability.Capability);
-                lines.Add(Faint($"Reaches {Distance(ability.ReachM)} from the Gubble · {(limit == 1 ? "one at a time" : $"up to {limit} at once")}"));
-                // What it costs you in pips (the ordered price: the player's order, never a field).
-                if (host.PriceFor(ability.Capability, CommandHost.PlayerPrincipal) is > 0 and var cost)
-                    lines.Add(Faint($"Costs {cost} {MeterWords.Counted(host, "pips", cost)}"));
-                if (ability.Category == "light" && host.GlowProgress.Discoveries.Count > 0)
-                    lines.Add(Faint("Learned together: " + string.Join(", ", GlowDiscoveries.Where(d => host.GlowProgress.HasDiscovery(d.Id)).Select(d => d.Title))));
-            }
+        lines.AddRange(AbilityLines(host));
         lines.Add(Heading("Asking the Gubble"));
         lines.Add(Text($"{K(Act.GubbleAsk)}: ask for what fits where you point · hold it for the magic wheel"));
         lines.Add(Text($"{K(Act.GubbleAsk)} on a bubble chooses it, then on a spot leads it there · a higher spot lifts it · {K(Act.MouseRelease)} lets it go"));
@@ -310,6 +299,35 @@ public static class JournalPages
         return new(lines, false, "Keys as your controls have them now.");
     }
 
+    /// <summary>
+    /// The island's abilities as the Abilities page lists them (the camp's Magic page reads the same): each by its key and name, what it
+    /// does, Fire's lock until the first rest, its reach and limit, and its price to the player. The island's rules pack and the host only.
+    /// </summary>
+    public static IEnumerable<JournalLine> AbilityLines(CommandHost host)
+    {
+        if (host.Rules is not { } rules)
+        {
+            yield return Text("This island's magic is not ready yet.");
+            yield break;
+        }
+        foreach (var ability in rules.Abilities)
+        {
+            var slot = Array.IndexOf(GubbleMagic.SlotCategories, ability.Category);
+            var name = KernelJson.DisplayText(ability.DisplayName, 24);
+            yield return Title(slot >= 0 && slot < Act.GubbleSlots.Length ? $"{K(Act.GubbleSlots[slot])} · {name}" : $"{name} · in the Magic panel");
+            yield return Text(AbilityWords(ability));
+            // Decision 72: Fire is listed, locked, until the first rest by the starting campfire teaches it.
+            if (ability.Primitive == "element.ignite" && !host.FireLearned) yield return Faint(FireLocked);
+            var limit = host.EffectiveEffectLimit(ability.Capability);
+            yield return Faint($"Reaches {Distance(ability.ReachM)} from the Gubble · {(limit == 1 ? "one at a time" : $"up to {limit} at once")}");
+            // What it costs you in pips (the ordered price: the player's order, never a field).
+            if (host.PriceFor(ability.Capability, CommandHost.PlayerPrincipal) is > 0 and var cost)
+                yield return Faint($"Costs {cost} {MeterWords.Counted(host, "pips", cost)}");
+            if (ability.Category == "light" && host.GlowProgress.Discoveries.Count > 0)
+                yield return Faint("Learned together: " + string.Join(", ", GlowDiscoveries.Where(d => host.GlowProgress.HasDiscovery(d.Id)).Select(d => d.Title)));
+        }
+    }
+
     /// <summary>What an ability does, from its engine primitive and where it may land (its targets): only what the game does.</summary>
     private static string AbilityWords(IslandAbility ability)
     {
@@ -321,7 +339,8 @@ public static class JournalPages
             "light.emit" => "A small light",
             "particles.burst" => "A burst of fireworks",
             "growth.seed" => "Flowers that take root",
-            "element.ignite" => "A fire that stays inside the area you preview, lit only when you hold to confirm",
+            // Decisions 82 and 83: lit at once on the click, and burning until it burns itself out or Snuff puts it out (X stops the Gubble, never a fire).
+            "element.ignite" => "A fire lit at once, inside its outlined circle, that burns until it burns itself out or Snuff puts it out",
             _ => "Magic",
         };
         var point = ability.Targets.Contains("point");
@@ -374,11 +393,11 @@ public static class JournalPages
         }
         if (status != null)
         {
-            // The pool and the wallet keep their numbers here, as the sheet always has.
+            // The pool keeps its numbers here, as the sheet always has; the logs and stones are the stacks (the wallet is retired, P-Inventory-2).
             if (status["energy"] is JsonObject energy)
                 lines.Add(Text($"{MeterWords.Name(host, "pips")} {Number(energy["pips"]):0}/{Number(energy["max_pips"]):0}" +
                     (energy["shadow"]?.GetValue<bool>() == true ? " · a shadow pool here: it drains and refills, and never says no" : "")));
-            if (status["wallet"] is JsonObject wallet) lines.Add(Text("In your wallet: " + WalletWords(wallet)));
+            if (status["pockets"] is JsonObject) lines.Add(Text("Logs and stones: " + MaterialWords(status)));
         }
         var carried = host.HeldName(CommandHost.PlayerAvatar) ?? "";
         lines.Add(Text("Carrying: " + (carried.Length == 0 ? "empty hands" : KernelJson.DisplayText(carried, 60))));
@@ -391,9 +410,19 @@ public static class JournalPages
         return new(lines, false, "");
     }
 
-    /// <summary>The wallet's counts as the sheet writes them, by material.</summary>
-    private static string WalletWords(JsonObject wallet) => string.Join(" · ", wallet.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p =>
-        (p.Key switch { "wood" => "Wood", "stone" => "Stone", "copper" => "Copper", "leaf" => "Leaves", _ => "Material" }) + " " + Number(p.Value).ToString("0", CultureInfo.InvariantCulture)));
+    /// <summary>
+    /// The logs and stones as the sheet writes them, from player.status: each stack of a kind with a material, in the pockets and the chest
+    /// ("3 logs in your pockets · 1 stone in the chest"), or "none yet". Names are the host's display text.
+    /// </summary>
+    private static string MaterialWords(JsonObject status)
+    {
+        var parts = new List<string>();
+        foreach (var (key, where) in new[] { ("pockets", "in your pockets"), ("chest", "in the chest") })
+            if (status[key]?["entries"] is JsonArray entries)
+                foreach (var entry in entries.OfType<JsonObject>().Where(e => e["material"] != null && e["kind"]?.GetValue<string>() == "stack"))
+                    parts.Add($"{Number(entry["count"]):0} {entry["name"]?.GetValue<string>().ToLowerInvariant()} {where}");
+        return parts.Count == 0 ? "none yet" : string.Join(" · ", parts);
+    }
 
     /// <summary>A JSON number, whatever type wrote it (the host writes floats and ints).</summary>
     private static double Number(JsonNode? node) => node == null ? 0 : double.Parse(node.ToJsonString(), CultureInfo.InvariantCulture);

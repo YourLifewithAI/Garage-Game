@@ -37,7 +37,7 @@ except GameNotAvailable as error:
 @unittest.skipIf(WHY_NOT, f"the real game cannot run here: {WHY_NOT}")
 class Ownership(unittest.TestCase):
     def setUp(self):
-        self.root = Path(tempfile.mkdtemp(prefix="enfractal-shared-user-"))
+        self.root = Path(tempfile.mkdtemp(prefix="garage-game-shared-user-"))
         self.games: list[RealGame] = []
         self.session_path = session_file_under(self.root)
 
@@ -102,7 +102,7 @@ class Ownership(unittest.TestCase):
         # Review finding 3: a file naming any running process (this test's own), with no creation time, used to
         # make the game run without the link.
         self.session_path.parent.mkdir(parents=True)
-        for document in ({"schema": "enfractal.companion_session", "version": 1, "pid": os.getpid()},
+        for document in ({"schema": "garage_game.companion_session", "version": 1, "pid": os.getpid()},
                          {"pid": os.getpid(), "created_utc": "2000-01-01T00:00:00Z", "token": "not a token"}):
             with self.subTest(document=document):
                 self.session_path.write_text(json.dumps(document), encoding="utf-8")

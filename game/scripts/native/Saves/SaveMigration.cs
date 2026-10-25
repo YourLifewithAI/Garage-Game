@@ -51,7 +51,7 @@ public sealed record MigrationReport
 /// </summary>
 public static class SaveMigration
 {
-    public const string LedgerSchema = "enfractal.legacy_migration";
+    public const string LedgerSchema = SchemaIds.LegacyMigration;
     public const int LedgerVersion = 1;
     private const int MaxIslandBytes = 64 * 1024 * 1024;
     private const int MaxLedgerBytes = 1024 * 1024;
@@ -384,7 +384,7 @@ public static class SaveMigration
         {
             using var document = CanonicalJson.Parse(bytes);
             var root = document.RootElement;
-            if (root.GetProperty("schema").GetString() != LedgerSchema || root.GetProperty("version").GetRawText() != "1") throw new FormatException();
+            if (!SchemaIds.IsSchema(root.GetProperty("schema").GetString(), "legacy_migration") || root.GetProperty("version").GetRawText() != "1") throw new FormatException();
             var team = root.GetProperty("team_id").GetString()!;
             if (!TeamLayout.ValidTeamId(team)) throw new FormatException();
             var files = root.GetProperty("files").EnumerateArray().Select(f => new Entry(f.GetProperty("kind").GetString()!, f.GetProperty("from").GetString()!,

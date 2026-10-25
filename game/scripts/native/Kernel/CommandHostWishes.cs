@@ -124,7 +124,7 @@ public partial class CommandHost
     /// <summary>These checks run before a wish-tagged companion command. Stops remain unconditional.</summary>
     private void CheckWishCommandBudget(JsonElement root, string principal)
     {
-        if (principal != CompanionPrincipal || Str(root, "schema") != "enfractal.command") return;
+        if (principal != CompanionPrincipal || !SchemaIds.IsSchema(Str(root, "schema"), "command")) return;
         var actionId = Str(root, "action_id") ?? "";
         if (!actionId.StartsWith("w-", StringComparison.Ordinal) || StopOps.Contains(Op(root))) return;
         var active = Wishes.Active;
@@ -144,7 +144,7 @@ public partial class CommandHost
     /// </summary>
     private void ObserveWishCommand(JsonElement root, JsonObject result, string principal)
     {
-        if (principal != CompanionPrincipal || Str(root, "schema") != "enfractal.command" || Wishes.Active is not { } active ||
+        if (principal != CompanionPrincipal || !SchemaIds.IsSchema(Str(root, "schema"), "command") || Wishes.Active is not { } active ||
             root.TryGetProperty("preview", out var preview) && preview.ValueKind == JsonValueKind.True ||
             result["preview"]?.GetValue<bool>() == true || result["replayed"]?.GetValue<bool>() == true) return;
         var actionId = Str(root, "action_id") ?? "";
@@ -188,11 +188,15 @@ public partial class CommandHost
         }
     }
 
-    /// <summary>A wish that ends without completing takes its still-running goal with it, recorded as cancelled.</summary>
-    private void StopWishGoal(WishEntry wish)
+    /// <summary>
+    /// A wish that ends without completing takes its still-running goal with it, recorded as cancelled. by: who ended it, as CancelGoal
+    /// takes it. The runner's own report (wish.update failed, cancelled or unsupported) is the Gubble ending its work, so a lead's pop is
+    /// then the Gubble's own (decision 110, as its stop); the wish's action cap is the kernel's bound, not its choice (null).
+    /// </summary>
+    private void StopWishGoal(WishEntry wish, string? by = null)
     {
         if (Companion == null || !_runningGoals.TryGetValue(CompanionAvatarId, out var job) || !wish.PendingActionIds.Contains(job.ActionId)) return;
-        CancelGoal(CompanionAvatarId);
+        CancelGoal(CompanionAvatarId, by);
         Companion.Stop();
     }
 
@@ -248,7 +252,8 @@ public partial class CommandHost
                 // so the host's normal approval result is included in its receipt evidence.
                 foreach (var approval in PendingApprovals.Where(approval => approval.ActionId.StartsWith(active.ActionPrefix, StringComparison.Ordinal)).ToArray())
                     Deny(approval.RequestId);
-                if (Wishes.Active is { } ending && ending.Id == id) StopWishGoal(ending);
+                // The runner ending its wish is the Gubble's own act: a bubble its lead carried pops as the Gubble's pop (decision 110).
+                if (Wishes.Active is { } ending && ending.Id == id) StopWishGoal(ending, CompanionPrincipal);
                 if (Wishes.Active?.Id == id) PublishWishes(Wishes.Complete(id, code));
             }
             return new JsonObject { ["ok"] = true, ["status"] = Wishes.Items.First(entry => entry.Id == id).Status };

@@ -47,7 +47,7 @@ public sealed record CommandHandled(string Message, string Principal, string Op,
 
 /// <summary>
 /// The room's single command path (contracts/game-command.schema.json). Manual controls, the companion
-/// adapter and tests send enfractal.command and enfractal.query; the host answers enfractal.result, and
+/// adapter and tests send garage_game.command and garage_game.query; the host answers garage_game.result, and
 /// always answers: an unexpected failure is internal_error, never an exception out of Handle.
 /// The principal comes from the trusted caller, never from the message. The host fingerprints the command
 /// as received (SHA-256 of canonical JSON), checks expected_revision and expected_entities itself, keeps
@@ -133,6 +133,10 @@ public partial class CommandHost : Node
         // are hosted (M1), knack.set too (M3, Saves/CommandHostTeams.cs), and fractal.spend (the second contract round, hosted in
         // M1's fix round: CommandHostFractals), and receipt.mark and trust.reset since M8 (CommandHostTrust).
         "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset",
+        // P-Inventory (CommandHostInventory): the pockets and the chest. use and drop are the player's; store and take keep the chest's companion path.
+        "inventory.store", "inventory.take", "inventory.use", "inventory.drop",
+        // P-Inventory-2 (CommandHostInventoryHand): the hand's selection, the player's alone and transient.
+        "inventory.select",
     };
     private static readonly HashSet<string> QueryOps = new()
     {
@@ -147,11 +151,13 @@ public partial class CommandHost : Node
     /// in the player's profile files, never in the room. Never entity.release: putting a thing down is saved state
     /// (kernel-host-gaps P8), and never a nature change, which is room state. Transient() refuses any other op.
     /// </summary>
-    private static readonly HashSet<string> TransientOps = new() { "goal.set", "goal.stop", "effect.start", "effect.stop", "effect.adjust", "glow.configure", "entity.grab", "creation.activate", "world.set_physics", "world.set_mode", "wish.stop", "knack.set", "fractal.spend", "receipt.mark", "trust.reset" };
+    private static readonly HashSet<string> TransientOps = new() { "goal.set", "goal.stop", "effect.start", "effect.stop", "effect.adjust", "glow.configure", "entity.grab", "creation.activate", "world.set_physics", "world.set_mode", "wish.stop", "knack.set", "fractal.spend", "receipt.mark", "trust.reset",
+        // P-Inventory: a use changes only the pockets (the team file) and the body; a store, a take and a drop are durable room changes, as item.gather is.
+        "inventory.use", "inventory.select" };
     /// <summary>contracts $defs/player_only_ops: refused from a companion with permission_denied, never held.</summary>
-    private static readonly HashSet<string> PlayerOnlyOps = new() { "protect.unlock", "world.set_physics", "world.set_mode", "glow.configure", "wish.submit", "wish.stop", "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset" };
+    private static readonly HashSet<string> PlayerOnlyOps = new() { "protect.unlock", "world.set_physics", "world.set_mode", "glow.configure", "wish.submit", "wish.stop", "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset", "inventory.use", "inventory.drop", "inventory.select" };
     /// <summary>The mechanics round's player-only ops (contracts/README.md "Player-only operations"): the player's own, with no tool.</summary>
-    private static readonly HashSet<string> MechanicsPlayerOps = new() { "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset" };
+    private static readonly HashSet<string> MechanicsPlayerOps = new() { "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset", "inventory.use", "inventory.drop", "inventory.select" };
     /// <summary>The Gubble may find a Fractal and go to it, never gather it: the same refusal whether or not the Fractal exists.</summary>
     public const string FractalRefusal = "Only the player can pick up a Fractal.";
     /// <summary>The mechanics round's stubs' words (unsupported_capability at $.op), the mock host's too.</summary>
@@ -389,7 +395,8 @@ public partial class CommandHost : Node
 
     // ---- entry points ----
 
-    /// <summary>Handle one enfractal.command or enfractal.query sent by a trusted adapter for principal; returns canonical enfractal.result text.</summary>
+    /// <summary>Handle one command or query (garage_game.command or .query, in either spelling of the id: SchemaIds) sent by a
+    /// trusted adapter for principal; returns canonical garage_game.result text.</summary>
     public string Handle(string message, string principal) => CanonicalJson.Text(HandleObject(message, principal));
 
     public JsonObject HandleObject(string message, string principal)
@@ -399,7 +406,9 @@ public partial class CommandHost : Node
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
         _perceived = null;
         JsonObject result;
-        try { result = HandleChecked(message, principal); }
+        // The command's own preview flag, as received (read where the host parses it): the tap's, since a refused result carries none.
+        var preview = false;
+        try { result = HandleChecked(message, principal, out preview); }
         catch (Exception error)
         {
             // The host always answers (Lane P review: a result that could not be serialised threw out of Handle).
@@ -410,18 +419,23 @@ public partial class CommandHost : Node
         // What the Gubble's actions did to the player rides on its next result, whatever it asked (CommandHostConsequences).
         if (principal == CompanionPrincipal) DeliverNotices(result);
         // The playtest record's tap, once the result is final: a copy of its envelope, so no listener can change the answer.
-        if (Handled != null) RaiseHandled(message, principal, result, started);
+        if (Handled != null) RaiseHandled(message, principal, result, preview, started);
         return result;
     }
 
-    private void RaiseHandled(string message, string principal, JsonObject result, long started)
+    /// <summary>
+    /// The tap's copy of an answer. Its preview flag is the command's as received, never the result's: a refused result carries no
+    /// preview (Fail), so a refused preview (a reticle's lead preview the pool cannot pay) would be recorded as a refused command, as
+    /// the second recorded play's reader found (17 October). A query, and a message that is no command object, is never a preview.
+    /// </summary>
+    private void RaiseHandled(string message, string principal, JsonObject result, bool preview, long started)
     {
         static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
         static bool Flag(JsonNode? node) => node is JsonValue value && value.TryGetValue<bool>(out var flag) && flag;
         var error = result["error"] as JsonObject;
         var handled = new CommandHandled(message, principal, Text(result["op"]) ?? "invalid", Flag(result["ok"]), Text(result["action_id"]),
             Text(error?["code"]), Text(error?["message"]), result["revision"] is JsonValue revision && revision.TryGetValue<int>(out var number) ? number : null,
-            Flag(result["replayed"]), Flag(result["preview"]), System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            Flag(result["replayed"]), preview, System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         foreach (var listener in Handled!.GetInvocationList())
         {
             try { ((Action<CommandHandled>)listener)(handled); }
@@ -429,8 +443,10 @@ public partial class CommandHost : Node
         }
     }
 
-    private JsonObject HandleChecked(string message, string principal)
+    /// <param name="preview">Whether the message, once parsed, is a command whose preview is true (false before it parses).</param>
+    private JsonObject HandleChecked(string message, string principal, out bool preview)
     {
+        preview = false;
         // The companion's rate limit comes before parsing and every other check, so a flood of invalid messages
         // is limited too. Stops are exempt: when no token is left, only text that may be a stop is parsed at all.
         var companion = principal == CompanionPrincipal;
@@ -447,16 +463,19 @@ public partial class CommandHost : Node
         using (document)
         {
             var root = document.RootElement;
-            var stop = root.ValueKind == JsonValueKind.Object && Str(root, "schema") == "enfractal.command" && StopOps.Contains(Op(root));
+            var command = root.ValueKind == JsonValueKind.Object && SchemaIds.IsSchema(Str(root, "schema"), "command");
+            preview = command && root.TryGetProperty("preview", out var asked) && asked.ValueKind == JsonValueKind.True;
+            var stop = command && StopOps.Contains(Op(root));
             if (companion && !stop && !TakeToken()) return RateLimited(principal);
             if (root.ValueKind != JsonValueKind.Object)
                 return Fail("invalid", principal, null, null, new Refusal("request_invalid", "A message is a JSON object."));
             var canonical = CanonicalJson.Bytes(root);
             var schema = Str(root, "schema");
             JsonObject result;
-            if (schema == "enfractal.command") result = HandleCommand(root, canonical, principal);
-            else if (schema == "enfractal.query") result = HandleQuery(root, canonical, principal);
-            else result = Fail("invalid", principal, null, null, new Refusal("request_invalid", "Send an enfractal.command or an enfractal.query.", "$.schema"));
+            // Either spelling of the id is read (contracts/README.md, "Schema ids"); the answer is always garage_game.result.
+            if (SchemaIds.IsSchema(schema, "command")) result = HandleCommand(root, canonical, principal);
+            else if (SchemaIds.IsSchema(schema, "query")) result = HandleQuery(root, canonical, principal);
+            else result = Fail("invalid", principal, null, null, new Refusal("request_invalid", $"Send a {SchemaIds.Command} or a {SchemaIds.Query}.", "$.schema"));
             BeforeAnswerForTests?.Invoke(result);
             byte[] bytes;
             try { bytes = CanonicalJson.Bytes(result); }
@@ -516,7 +535,7 @@ public partial class CommandHost : Node
     {
         var command = new JsonObject
         {
-            ["schema"] = "enfractal.command", ["version"] = 1, ["action_id"] = $"hud-{_session}-{++_counter}",
+            ["schema"] = SchemaIds.Command, ["version"] = 1, ["action_id"] = $"hud-{_session}-{++_counter}",
             ["room_id"] = Room.RoomId, ["op"] = op, ["args"] = args,
         };
         if (preview) command["preview"] = true;
@@ -686,13 +705,20 @@ public partial class CommandHost : Node
                 "entity.place" => PlaceObject(args, principal, actionId, meta, preview),
                 "entity.push" => PushObject(args, principal, actionId, meta, preview),
                 "journal.note" => Note(args, principal, actionId, meta, preview),
-                "item.pickup" => PickUpFractal(args, principal, actionId, fingerprint, preview),
+                // A Fractal, or since P-Food a plant's food into the pockets (CommandHostFood.PickUp).
+                "item.pickup" => PickUp(args, principal, actionId, fingerprint, preview),
                 "item.gather" => GatherHeld(args, principal, actionId, fingerprint, preview),
                 "knack.set" => SetKnack(args, principal, actionId, fingerprint, preview),
                 "fractal.spend" => SpendFractals(args, principal, actionId, fingerprint, preview),
                 // M8: the player's marks and reset (CommandHostTrust).
                 "receipt.mark" => MarkReceipt(args, principal, actionId, fingerprint, preview),
                 "trust.reset" => ResetTrust(principal, actionId, fingerprint, preview),
+                // P-Inventory: the pockets and the chest (CommandHostInventory).
+                "inventory.store" => InventoryStore(args, principal, actionId, fingerprint, preview),
+                "inventory.take" => InventoryTake(args, principal, actionId, fingerprint, preview),
+                "inventory.use" => InventoryUse(args, principal, actionId, fingerprint, preview),
+                "inventory.drop" => InventoryDrop(args, principal, actionId, fingerprint, preview),
+                "inventory.select" => InventorySelect(args, principal, actionId, fingerprint, preview),
                 _ => throw new Refusal("unsupported_capability", "This operation is not available yet.", "$.op"),
             };
             ObserveWishCommand(root, result, principal);
@@ -886,8 +912,8 @@ public partial class CommandHost : Node
         // Fetch: P3's pick-up checks, on the thing as the requester sees or remembers it (reach waits for arrival).
         var returning = goal == "fetch" && CheckFetch(principal, actor, known!);
         if (preview) return Previewed("goal.set", principal, actionId, actor);
-        // A new goal replaces the old one, and with it the old goal's job.
-        CancelGoal(actor);
+        // A new goal replaces the old one, and with it the old goal's job (the Gubble's own new goal pops a bubble it led as its own act).
+        CancelGoal(actor, principal);
         switch (goal)
         {
             case "follow": Companion.Follow(); break;
@@ -932,7 +958,8 @@ public partial class CommandHost : Node
         string? led = null;
         if (whose != PlayerPrincipal && Companion != null)
         {
-            // The bubble it leads pops with its stop (decision 60), as the player's own pop when it is the player's X (Kernel/Bubble).
+            // The bubble it leads pops with its stop (decision 60), as the player's own pop when it is the player's X, as the Gubble's own
+            // when it is its own stop (decision 96: a fall that hurts after it is its consequence; Kernel/Bubble).
             led = PopLedBubble(principal == PlayerPrincipal);
             CancelGoal(CompanionAvatarId);
             Companion.Stop();
@@ -946,7 +973,7 @@ public partial class CommandHost : Node
                 affected.Add(ended);
                 stopped++;
             }
-        // Its bubbles pop too, the player's X whoever cast them (Kernel/Bubble): a body in one deflates.
+        // Its bubbles pop too, the player's X whoever cast them (Kernel/Bubble): a body in one falls from there (decision 88).
         if (led != null)
         {
             affected.Add(led);
@@ -959,8 +986,8 @@ public partial class CommandHost : Node
                 stopped++;
             }
         var data = new JsonObject { ["effects_stopped"] = stopped };
-        // And every fire the Gubble lit goes out at once, whatever any budget says (the player's X; the Gubble's own stop too).
-        if (whose != PlayerPrincipal && PutOutCompanionFire()) data["fires_put_out"] = 1;
+        // Decision 82: nothing but burning out or Snuff ends a fire, so no stop puts one out (the player's X, the Gubble's own stop); and
+        // a Will-o'-wisp is not a fire either (decision 109): no stop removes one, which lasts its 5 minutes or gives way to a fourth.
         return Transient("goal.stop", principal, actionId, fingerprint, affected, data);
     }
 
@@ -1123,7 +1150,9 @@ public partial class CommandHost : Node
         // fractal: namespace), which the result carries in affected, with no data (contracts: item.pickup).
         if (meta["op"].AsString() == "item.pickup")
         {
-            if (receipt.ContainsKey("data") && receipt["data"].AsGodotDictionary() is { } kept && kept.TryGetValue("fractal", out var fractal) && fractal.AsString() is { Length: > 0 } id)
+            // P-Food: a pick of food names its plant the same way ("food").
+            if (receipt.ContainsKey("data") && receipt["data"].AsGodotDictionary() is { } kept && (kept.TryGetValue("fractal", out var fractal) || kept.TryGetValue("food", out fractal)) &&
+                fractal.AsString() is { Length: > 0 } id)
                 result["affected"] = new JsonArray(id);
         }
         // A gather is kept the same way, with nothing in its data: the object is in affected (contracts: item.gather).
@@ -1249,7 +1278,8 @@ public partial class CommandHost : Node
                 "room.describe" => Describe(principal),
                 "entities.list" => List(args, principal),
                 "entity.inspect" => Inspect(args, principal),
-                "capabilities.list" => Capabilities(args),
+                // P-Inventory: the four inventory ops and the Gubble's chest switch, when the pack has the block.
+                "capabilities.list" => WithInventoryOps(Capabilities(args), args),
                 "observe" => Observe(args, principal),
                 "receipt.lookup" => Lookup(args, principal),
                 "approval.status" => Status(args, principal),
@@ -2080,13 +2110,13 @@ public partial class CommandHost : Node
         return job;
     }
 
-    /// <summary>A new goal or a stop cancels the actor's running job.</summary>
-    private void CancelGoal(string actor)
+    /// <summary>A new goal or a stop cancels the actor's running job; by names who set the new goal, when one did (a lead's pop is theirs).</summary>
+    private void CancelGoal(string actor, string? by = null)
     {
         if (!_runningGoals.Remove(actor, out var job)) return;
         job.State = "cancelled";
-        // A lead's end pops the bubble it led (decision 60; Kernel/Bubble/CommandHostBubbleLead).
-        LeadCancelled(job);
+        // A lead's end pops the bubble it led, the player falling from there (decisions 60 and 88; Kernel/Bubble/CommandHostBubbleLead).
+        LeadCancelled(job, by);
         TaskEnded(job);
         WishGoalEnded(job);
         GoalFinished?.Invoke(actor, job.Id, job.State);
@@ -2455,6 +2485,7 @@ public partial class CommandHost : Node
         if (op.StartsWith("nature.", StringComparison.Ordinal)) { CheckNatureArgs(op, args); return; }
         if (op == "effect.adjust") { CheckEffectAdjustArgs(args); return; }
         if (op == "glow.configure") { CheckGlowConfigureArgs(args); return; }
+        if (op.StartsWith("inventory.", StringComparison.Ordinal)) { CheckInventoryArgs(op, args); return; }
         string[] allowed = op switch
         {
             "entity.grab" => new[] { "target", "actor" },
@@ -2520,8 +2551,8 @@ public partial class CommandHost : Node
         if (op == "world.set_mode" && args.TryGetProperty("difficulty", out _) &&
             (Str(args, "difficulty") is not ("gentle" or "standard" or "brave") || Str(args, "mode") != "challenge"))
             throw new Refusal("request_invalid", "A difficulty is gentle, standard or brave, and only for challenge.", "$.args.difficulty");
-        if (op == "item.pickup" && (Str(args, "target") is not { } fractal || !FractalId.IsMatch(fractal)))
-            throw new Refusal("request_invalid", "item.pickup names a Fractal.", "$.args.target");
+        if (op == "item.pickup" && (Str(args, "target") is not { } fractal || !(FractalId.IsMatch(fractal) || FoodSourceId.IsMatch(fractal))))
+            throw new Refusal("request_invalid", "item.pickup names a Fractal, or a plant to pick food from.", "$.args.target");
         if (op == "item.gather" && (Str(args, "target") is not { } gathered || !ObjectIdPattern.IsMatch(gathered)))
             throw new Refusal("request_invalid", "item.gather names the room object the player is holding.", "$.args.target");
         if (op == "knack.set" && (args.GetProperty("slot") is var slot && (slot.ValueKind != JsonValueKind.Number || !IsIntegerLiteral(slot) || slot.GetDouble() is < 1 or > 3)))
@@ -2821,7 +2852,7 @@ public partial class CommandHost : Node
     {
         var result = new JsonObject
         {
-            ["schema"] = "enfractal.result", ["version"] = 1, ["ok"] = ok, ["op"] = op, ["principal"] = principal,
+            ["schema"] = SchemaIds.Result, ["version"] = 1, ["ok"] = ok, ["op"] = op, ["principal"] = principal,
             ["room_id"] = Room.RoomId, ["revision"] = Authority == null ? 0 : Revision, ["replayed"] = false, ["preview"] = false, ["at_utc"] = Now(),
         };
         if (actionId != null) result["action_id"] = actionId;

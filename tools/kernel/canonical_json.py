@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""EnFractal canonical JSON, version 1: the reference implementation.
+"""Garage Game canonical JSON, version 1: the reference implementation.
 
 Every fingerprint and content hash in the kernel is the SHA-256 of these bytes. GDScript
 (game/scripts/creation_json.gd), C# (game/scripts/native/Kernel/CanonicalJson.cs) and this file

@@ -48,7 +48,7 @@ public partial class LookPresetTest
     private static byte[] SyntheticManifest(string boxes, string extraBox = "")
     {
         var json = """
-            {"schema":"enfractal.room","extensions":{"x_landscape_source":{"room_id":"synthetic","room_sha256":"0","inventory_sha256":"0",
+            {"schema":"garage_game.room","extensions":{"x_landscape_source":{"room_id":"synthetic","room_sha256":"0","inventory_sha256":"0",
             "bounds":{"min_m":[0,0,0],"max_m":[10,4,8]},
             "shell":{"parts":[
             {"id":"shell:ceiling","role":"ceiling","geometry":{"kind":"polygon","points_m":[[0,4,0],[10,4,0],[10,4,8],[0,4,8]],"thickness_m":0.1}},
@@ -74,8 +74,8 @@ public partial class LookPresetTest
         Check(b.Covers(7f, 5.8f) && !b.Covers(7.9f, 5f), "a turned box covers its turned footprint, not its unturned one");
         Check(source.Boxes.First(x => x.Id == "a").Colour.IsEqualApprox(new Color("ff0000")) && b.Colour.IsEqualApprox(new Color("00ff00")),
             "each box takes its main colour (the largest share)");
-        Check(IntroSource.FromManifest(Encoding.UTF8.GetBytes("""{"schema":"enfractal.room","extensions":{}}""")) == null
-            && IntroSource.FromManifest(Encoding.UTF8.GetBytes("""{"schema":"enfractal.room"}""")) == null, "a room without a source has no intro (null, not an error)");
+        Check(IntroSource.FromManifest(Encoding.UTF8.GetBytes("""{"schema":"garage_game.room","extensions":{}}""")) == null
+            && IntroSource.FromManifest(Encoding.UTF8.GetBytes("""{"schema":"garage_game.room"}""")) == null, "a room without a source has no intro (null, not an error)");
         // Fail closed: the manifest is untrusted data.
         void Refused(string boxes, string fragment, string label)
         {

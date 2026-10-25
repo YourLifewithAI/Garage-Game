@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.result",
+  "schema": "garage_game.result",
   "version": 1,
   "ok": true,
   "op": "approval.status",
@@ -13,7 +13,7 @@
     "request_id": "9c1f4e2ab7d84c03a6e5f10b2d7c8e94",
     "state": "approved",
     "result": {
-      "schema": "enfractal.result",
+      "schema": "garage_game.result",
       "version": 1,
       "ok": true,
       "op": "entity.transform",

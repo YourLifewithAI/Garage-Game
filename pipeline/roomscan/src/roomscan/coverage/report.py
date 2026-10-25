@@ -16,6 +16,7 @@ from typing import Any
 
 import numpy as np
 
+from .. import ids
 from ..jsonio import text_bytes
 from ..paths import OutputGuard
 from ..textutil import md_text
@@ -63,7 +64,7 @@ def coverage_record(context: dict[str, Any]) -> dict[str, Any]:
     if context.get("ceiling") is not None:
         surfaces["ceiling"] = context["ceiling"].stats()
     return {
-        "schema": "enfractal.coverage_report",
+        "schema": ids.id_of("coverage_report"),
         "version": 1,
         "room": context["manifest"]["room"],
         "session_id": context["manifest"]["session_id"],

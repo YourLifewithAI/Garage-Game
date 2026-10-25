@@ -16,6 +16,14 @@ import zlib
 import numpy as np
 from PIL import Image, ImageOps
 
+# The data-format ids (contracts/README.md, "Schema ids"): contracts/schema_ids.py, loaded by its path. The converter writes
+# the new ones; the game reads the committed characters' old ones too.
+import importlib.util as _importlib_util
+_IDS_SPEC = _importlib_util.spec_from_file_location("garage_game_schema_ids", Path(__file__).resolve().parents[3] / "contracts" / "schema_ids.py")
+IDS = _importlib_util.module_from_spec(_IDS_SPEC)
+_IDS_SPEC.loader.exec_module(IDS)
+PART_KEY, MATERIAL_KEY = IDS.GLB_PART_KEYS[0], IDS.GLB_MATERIAL_KEYS[0]
+
 DEFAULT_BLENDER = r"C:\Users\blues\AppData\Local\Programs\Blender\blender-5.2.2-windows-x64\blender.exe"
 
 
@@ -501,7 +509,7 @@ def make_shape(shape, surfaces):
 class Glb:
     def __init__(self, palette):
         self.binary = bytearray()
-        self.data = {"asset":{"version":"2.0","generator":"EnFractal drawing converter 1"},
+        self.data = {"asset":{"version":"2.0","generator":"Garage Game drawing converter 1"},
                      "scene":0,"scenes":[{"nodes":[0]}],
                      "nodes":[{"name":"character_root","children":[]}],
                      "meshes":[],"accessors":[],"bufferViews":[],"materials":[]}
@@ -522,7 +530,7 @@ class Glb:
             self.colours[name] = len(self.data["materials"])
             self.data["materials"].append({
                 "name": name, "pbrMetallicRoughness": base["pbrMetallicRoughness"],
-                "extras": {"enfractal_material": {
+                "extras": {MATERIAL_KEY: {
                     **part["material_hint"], "fallback_colour": palette[colour]}}})
         return self.colours[name]
 
@@ -597,7 +605,7 @@ def build(spec, provenance):
         for key in ("motion_hint", "material_hint"):
             if key in part:
                 hints[key] = part[key]
-        node["extras"] = {"enfractal_part": hints}
+        node["extras"] = {PART_KEY: hints}
         primitives = []
         for v,f,colour in items:
             # Drawing-to-game mapping reflects all three axes; reverse winding.
@@ -619,7 +627,7 @@ def build(spec, provenance):
         raise ValueError("triangle budget exceeded (150000)")
     bounds_min,bounds_max = world(hi),world(lo)
     width,depth = bounds_max[0]-bounds_min[0],bounds_max[2]-bounds_min[2]
-    meta = {"schema":"enfractal.character.draft","version":1,"name":spec["name"],
+    meta = {"schema":IDS.id_of("character.draft"),"version":1,"name":spec["name"],
             "units":"metres","up":"+Y","forward":"-Z","root_pivot_m":[0,0,0],
             "height_m":0.1,"width_m":float(width),"depth_m":float(depth),
             "bounds_m":{"min":bounds_min.tolist(),"max":bounds_max.tolist()},

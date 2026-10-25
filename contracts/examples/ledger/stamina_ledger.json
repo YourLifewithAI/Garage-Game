@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.stamina_ledger_fixture",
+  "schema": "garage_game.stamina_ledger_fixture",
   "version": 1,
   "description": "The stamina ledger's arithmetic, for the kernel (M1) and the body (M5) alike. Each step is one physics tick, long for reading: the body reports sprint_s, deep_water_s and dive_s (IStaminaLedger.Report), then the tick runs (VitalsTick with seconds and safely_grounded), then the body reads the gate (IStaminaLedger.Gate). The drain is each seconds times its rate, never below empty; the refill is refill_m_per_s for the seconds not spent running, on standable ground only; reaching empty takes the run away (no_run) until the first bar, first_bar_m, refills to empty_no_run_until_fraction of itself. Compare within tolerance_m.",
   "stamina": {
@@ -13,6 +13,7 @@
     "dive_m_per_s": 0.04,
     "climb_m_per_bar_m": 1.5,
     "holding_m_per_s": 0,
+    "ivy_climb_factor": 0.25,
     "empty_no_run_until_fraction": 1
   },
   "tolerance_m": 1e-06,

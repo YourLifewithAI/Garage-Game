@@ -51,7 +51,9 @@ def apply_material_hints(glb):
         raise ValueError('GLB must start with its JSON chunk')
     document = json.loads(raw[20:20 + length])
     for source in document.get('materials', []):
-        hint = source.get('extras', {}).get('enfractal_material', {})
+        # The converter's key (contracts/schema_ids.py GLB_MATERIAL_KEYS), and the one the committed characters keep.
+        extras = source.get('extras', {})
+        hint = extras.get('garage_game_material', extras.get('enfractal_material', {}))
         if hint.get('kind') != 'bubble' or hint.get('see_through') is not True:
             continue
         material = bpy.data.materials.get(source['name'])

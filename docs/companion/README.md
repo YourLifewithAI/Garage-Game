@@ -27,12 +27,14 @@ any MCP client or harness --stdio--> garage-game-companion --loopback link--> ga
 | `.../real_game.py` | Starts the real game host (the room with the kernel's command host and the companion link) headless, for an AI client or the suite: `python -m garage_game_companion.real_game` |
 | `.../link.py` | The loopback link: session file, mutual HMAC handshake, canonical frames |
 | `.../canonical.py` | Canonical JSON v1, byte for byte as Lane P defined it: fingerprints, size limits, frames |
+| `.../ids.py` | The data-format ids: `contracts/schema_ids.py` (the one Python table) loaded by its path; the companion writes `garage_game.<kind>` and reads either spelling (contracts/README.md, "Schema ids") |
 | `.../mock_host.py`, `.../mock_game.py` | The mock game host (with perception memory and goal jobs), and a console that runs it as a stand-in game |
+| `.../mock_nature.py`, `.../mock_energy.py` | The mock's nature (Grow, Fire and its kinds, the campfires, repair, undo, `nature.describe`, as the kernel's `CommandHostNature*`, `CommandHostGrow`, `CommandHostFireKinds` and `CommandHostCamps` answer them, minus physics) and its pool (the price by principal, the kernel's `CommandHostEnergy`) |
 | `.../perception.py` | Line of sight and the 10 cm body for the mock host |
 | `.../lockdown.py` | Environment scrub and audit-hook sandbox for the server process |
 | `.../refusals.py`, `.../textsafety.py` | One mapping from contract violations to error codes; untrusted-text rules, emoji markers in place |
 | `companion/schemas/companion-link.schema.json` | The link's session file and frames, proposed for `contracts/` |
-| `companion/tests/` | Boundary tests (host, link, MCP surface, perception, perception memory, text rules, no holds, sandbox, profile), the stdio acceptance test, `test_kernel_alignment.py` (it reads the kernel host's constants and fails when the mock's policy drifts from them), `test_fetch.py` (fetch on the mock), `test_glow.py` (Glow, Bubbles and Fireworks on the mock and through MCP; `test_host_alignment.py` runs their shared scenarios on both hosts), `test_real_host.py` (the link and boundary cases, a refused-connection flood, the goals and the visible state against the real game host) and `test_link_ownership.py` (two games sharing one user folder) |
+| `companion/tests/` | Boundary tests (host, link, MCP surface, perception, perception memory, text rules, no holds, sandbox, profile), the stdio acceptance test, `test_kernel_alignment.py` (it reads the kernel host's constants and fails when the mock's policy drifts from them), `test_fetch.py` (fetch on the mock), `test_glow.py` (Glow, Bubbles and Fireworks on the mock and through MCP; `test_host_alignment.py` runs their shared scenarios on both hosts), `test_nature.py` (nature and its price on the mock; its words and numbers held to the kernel's by `test_kernel_alignment.py`), `test_real_host.py` (the link and boundary cases, a refused-connection flood, the goals and the visible state against the real game host) and `test_link_ownership.py` (two games sharing one user folder) |
 | `game/scripts/native/Companion/` | The game's end (A2): `CompanionLinkServer.cs` (the link), `CompanionBridge.cs` (the link in front of the command host, the session file, the visible state), `CompanionStatusCue.cs` (the state on the avatar), `CompanionRoom.cs` with `companion_room.tscn` (the room with the link, until `RoomWorld` attaches the bridge itself) |
 | `companion/tests/fixtures/contract_memory_v1.json` | The perception-memory result fields as proposed; `contracts/` has carried them since `72e9015`, and a test checks the two still match |
 | `docs/companion/proposals/` | Changes for files this lane does not own, as patches, and the kernel host's change requests (below) |
@@ -60,11 +62,11 @@ sender owns: `action_id` (required, except for the two stops, where the adapter 
 requires one. Nothing else is accepted: no principal, no approval, no room. Numbers are sent as canonical
 JSON v1 writes them (`2.0` is sent as `2`).
 
-When the adapter refuses a call before sending it, it answers with a contract-valid `enfractal.result` of
+When the adapter refuses a call before sending it, it answers with a contract-valid `garage_game.result` of
 its own (same error codes as the host). Its `field_path` names the tool argument for unknown or
 forbidden fields (`$.principal`) and the contract message otherwise (`$.args.target`), as the host does.
 
-Each result is the game's `enfractal.result`, returned twice in the same call: as `structuredContent`,
+Each result is the game's `garage_game.result`, returned twice in the same call: as `structuredContent`,
 and as a text block holding a fixed preamble line and one line of ASCII-escaped JSON. `isError` is true
 when `ok` is false. Published input schemas inline every `$ref` and drop `if`/`then`/`not`, which older
 clients reject; `--schema-profile minimal` keeps only the most widely supported JSON Schema keywords. The
@@ -171,6 +173,12 @@ it on their own machine.
    `walk 0.45 0 0.2` and `arrive`: the fetch fails honestly, and `jobs_status` says why. A fetch that finds its
    thing arrives twice: `arrive` at the thing picks it up, `arrive` again brings it back to you.
 
+   To rehearse nature: type `rest` (you sit by the starting campfire, and the Gubble learns Fire, decision 72), then ask
+   the companion to preview Fire on the rug and cast it; `plant plant:daisies-0 0.6 0 1.0 0.1` puts a plant there for Grow
+   (the mock reads no plant tables); `gubble-fire off` is your "Let the Gubble use fire"; the weather follows the kernel's
+   six-minute sequence (two minutes dry, then rain), so half a minute of rain puts the campfire out until the Gubble's
+   Fire relights it; `land hurt` after the Gubble popped your bubble is a hurting fall, its lesson in the journal.
+
 Without `--mock` or `--session-file`, the server reads the real game's session file from
 `%APPDATA%\Godot\app_userdata\Garage-Game\companion\session.json` (Godot's `user://`). With no game running,
 every tool answers `not_ready`.
@@ -239,5 +247,9 @@ warnings and were run here with the patches applied.
   counted and summarised, so traffic without the token cannot load the game's main thread (A2 security review).
 - **Fetch is built to the merged contract on the mock first** (pick up on arrival, succeed beside the player still
   holding); the real host gets it with Lane P's verbs and the body's go-to ([EMBODIMENT.md](EMBODIMENT.md#fetch)).
+- **The mock hosts nature** (the nature packet, 24 October): Grow, Fire and its kinds, the campfires, repair, undo and
+  the pool, in the kernel's words and order, minus physics (a fire burns its whole circle at once; no water, so no
+  Will-o'-wisp or waterpad; no body, so no fire harm to the player). `test_host_alignment.py` checks nature's answers
+  on both hosts; `test_kernel_alignment.py` reads the kernel's words, numbers, check orders, fire rule and price keys.
 - **Per-client configurations are data, not code.** The client catalogue (`clients.json`) names the clients; the
   generator's formats are named by shape, so the package's code still names no vendor.

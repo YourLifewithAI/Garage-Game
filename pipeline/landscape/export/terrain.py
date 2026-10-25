@@ -23,6 +23,7 @@ import struct
 from array import array
 
 from pipeline.landscape.harness.common import canonical
+from .ids import GLB_GENERATOR
 from .materials import PALETTE, material
 
 TILE_M = 16
@@ -329,7 +330,7 @@ def build_levels(tiles, spacings):
 def encode_tiles(mat, nodes):
     """A tiled GLB: nodes [(name, Mesh)], each a root with its own mesh and no transform."""
     binary = bytearray()
-    doc = {'asset': {'version': '2.0', 'generator': 'EnFractal landscape room exporter v1'},
+    doc = {'asset': {'version': '2.0', 'generator': GLB_GENERATOR},
            'scene': 0, 'scenes': [{'nodes': list(range(len(nodes)))}], 'nodes': [], 'meshes': [],
            'materials': [mat], 'accessors': [], 'bufferViews': [], 'buffers': []}
 

@@ -100,9 +100,11 @@ may be an empty effect node. Motion hints describe intent; no animation is baked
 part. A bubble's shape colours are its **opaque fallback**, usually pale blue.
 Keep its face and held props in separate solid parts if they should stay opaque.
 
-Both hints and kind are in character.json and node extras.enfractal_part.
+Both hints and kind are in character.json and node extras.garage_game_part.
 Hinted GLB materials are named `bubble__<part>__<colour>` and carry
-extras.enfractal_material, including `fallback_colour` as sRGB hex. Base colours
+extras.garage_game_material, including `fallback_colour` as sRGB hex. Characters
+converted before the rename carry enfractal_part and enfractal_material; the game
+and the turntable read either key (contracts/README.md, "Schema ids"). Base colours
 remain opaque for readers without a bubble shader. The CPU turntable previews
 only explicitly hinted materials; the game's Look lane supplies the final shader.
 

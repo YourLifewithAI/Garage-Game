@@ -1,5 +1,5 @@
 {
-  "schema": "enfractal.look_review_cameras",
+  "schema": "garage_game.look_review_cameras",
   "version": 1,
   "room_id": "test_room",
   "description": "Fixed review cameras for the placeholder room. World metres, +Y up, -Z forward (north). Positions do not follow the avatars, so captures stay comparable while the avatar profile changes. The first five are the Run 1 baseline; the fix round of 7 October reframed the companion camera for the 10 cm body (the other four are unchanged) and moved the review clock to 17:00 on 15 April, when the low sun comes through the west window onto both avatars. diorama_high and iso_room were added for the founder's 6 October art direction (high-angle and isometric views with a tilt-shift miniature feel); window_view and observe_view for his 7 October direction (the window's golden light and creamy bokeh; the observe view's very tight tilt-shift band). Focus points sit on the player's spawn or on the two avatars, whose reach and figures must stay crisp.",
