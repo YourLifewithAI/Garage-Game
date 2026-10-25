@@ -172,6 +172,8 @@ class InventoryMixin:
         self._not_yet_for_the_player()
 
     _op_inventory_drop = _op_inventory_use
+    # P-Inventory-2: the hand's selection is the player's alone (refused to a companion before this runs); the kernel hosts it.
+    _op_inventory_select = _op_inventory_use
 
     # ---- the readers ----
 

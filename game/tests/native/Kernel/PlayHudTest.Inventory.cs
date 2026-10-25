@@ -442,7 +442,8 @@ public partial class PlayHudTest
         var page = hud.CampPageText;
         Check(page.Contains("The chest\n3 of 20 things", StringComparison.Ordinal) && page.Contains("Cup · 0.05 kg", StringComparison.Ordinal) &&
               page.Contains("Apple ×1 · 0.02 kg · heals half a heart each", StringComparison.Ordinal) && page.Contains("Doorstop · 0.3 kg", StringComparison.Ordinal) &&
-              page.Contains("Your pockets\n2 of 10 things\nApple ×1 · 0.02 kg · heals half a heart each", StringComparison.Ordinal) && page.Contains("Berries ×1 · 0.005 kg · heals a quarter of a heart each", StringComparison.Ordinal),
+              // The pockets in slot order (P-Inventory-2: the hotbar's): the berries were picked first.
+              page.Contains("Your pockets\n2 of 10 things\nBerries ×1 · 0.005 kg · heals a quarter of a heart each", StringComparison.Ordinal) && page.Contains("Apple ×1 · 0.02 kg · heals half a heart each", StringComparison.Ordinal),
             "the Inventory page lists the chest's entries with their masses and caps, and the pockets beside it: " + page.Replace("\n", " | "));
         Check(page.Contains("The Gubble may not use the chest. You can let it in the settings (C).", StringComparison.Ordinal) && !screen.FindChildren("*", "CheckButton", true, false).Any(),
             "the Gubble's chest switch is read-only words here, off by default, with the setting in the settings and no switch on the page");
@@ -471,7 +472,8 @@ public partial class PlayHudTest
         screen.FindChild("inv|take|apple|pockets|1", true, false)!.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(3);
         Check(InvUnits("apple") == 2 && host.ChestEntries.All(e => e.Item != "apple") && hud.CampFoot == "Took 1 Apple into your pockets.", "Take puts the chest's apple into the pockets' stack: " + hud.CampFoot);
-        Check(hud.CampPageText.Contains("Your pockets\n2 of 10 things\nApples ×2 · 0.04 kg", StringComparison.Ordinal), "and the pockets' lines follow: " + hud.CampPageText.Replace("\n", " | "));
+        Check(hud.CampPageText.Contains("Your pockets\n2 of 10 things\nBerries ×1", StringComparison.Ordinal) && hud.CampPageText.Contains("Apples ×2 · 0.04 kg", StringComparison.Ordinal),
+            "and the pockets' lines follow, in slot order: " + hud.CampPageText.Replace("\n", " | "));
         // Store from the pockets: all of a stack, or one.
         var storeAll = screen.FindChild("inv|store|apple|chest|all", true, false) as Button;
         Check(storeAll != null && screen.FindChild("inv|store|berries|chest|all", true, false) == null, "a stack of several has Store all, a single unit does not");

@@ -462,7 +462,7 @@ public partial class InventoryTest
         {
             ["pockets"] = new JsonObject
             {
-                ["entries"] = new JsonArray(new JsonObject { ["count"] = 1, ["heal_quarters"] = 2, ["item"] = "apple", ["kind"] = "stack", ["mass_kg"] = 0.02, ["name"] = "Apple" }),
+                ["entries"] = new JsonArray(new JsonObject { ["count"] = 1, ["heal_quarters"] = 2, ["item"] = "apple", ["kind"] = "stack", ["mass_kg"] = 0.02, ["name"] = "Apple", ["slot"] = 1 }),
                 ["max_entries"] = 10,
             },
             ["chest"] = new JsonObject

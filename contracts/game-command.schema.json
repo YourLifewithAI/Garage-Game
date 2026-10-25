@@ -116,7 +116,8 @@
         "inventory.store",
         "inventory.take",
         "inventory.use",
-        "inventory.drop"
+        "inventory.drop",
+        "inventory.select"
       ]
     },
     "query_op": {
@@ -749,6 +750,18 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "$ref": "#/$defs/is_op/inventory.select"
+          },
+          "then": {
+            "properties": {
+              "args": {
+                "$ref": "#/$defs/args/inventory.select"
+              }
+            }
+          }
         }
       ]
     },
@@ -1107,7 +1120,7 @@
           "$ref": "common.schema.json#/$defs/principal_id"
         },
         "transient": {
-          "description": "True for commands that change no saved state: goals, stops (wish.stop among them), effects and their adjustments, a Bubble's cast (bubble_carry, bubble_boat, bubble_lift), grabs, activations, the world's physics, the player's own settings (the game mode, Glow's touch and sound, a knack, a receipt's mark and a Trust reset) and an inventory.use, which the player's profile and the team file keep, never the room. Their receipts live for the session only. Nature changes (Grow, Fire, repairs) and their room.undo, a Fractal's pickup (or a plant's food picked), a gather and the inventory's store, take and drop (the chest and a thing held away are the island's room state) are durable.",
+          "description": "True for commands that change no saved state: goals, stops (wish.stop among them), effects and their adjustments, a Bubble's cast (bubble_carry, bubble_boat, bubble_lift), grabs, activations, the world's physics, the player's own settings (the game mode, Glow's touch and sound, a knack, a receipt's mark and a Trust reset) and an inventory.use and an inventory.select (the hand's selection), which the player's profile and the team file keep, never the room. Their receipts live for the session only. Nature changes (Grow, Fire, repairs) and their room.undo, a Fractal's pickup (or a plant's food picked), a gather and the inventory's store, take and drop (the chest and a thing held away are the island's room state) are durable.",
           "type": "boolean"
         }
       },
@@ -2093,6 +2106,61 @@
               "data": false
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "op": {
+                "const": "inventory.select"
+              },
+              "preview": {
+                "const": false
+              }
+            },
+            "required": [
+              "ok",
+              "op",
+              "preview"
+            ]
+          },
+          "then": {
+            "required": [
+              "data",
+              "transient"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/$defs/data/inventory.select"
+              },
+              "transient": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "inventory.select"
+              },
+              "preview": {
+                "const": true
+              }
+            },
+            "required": [
+              "op",
+              "preview"
+            ]
+          },
+          "then": {
+            "properties": {
+              "data": false
+            }
+          }
         }
       ]
     },
@@ -2998,6 +3066,16 @@
         "properties": {
           "op": {
             "const": "inventory.drop"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "inventory.select": {
+        "properties": {
+          "op": {
+            "const": "inventory.select"
           }
         },
         "required": [
@@ -4170,7 +4248,7 @@
         ]
       },
       "inventory.take": {
-        "description": "Take something out of the chest, at a camp: a unique thing into the actor's hand (empty hands, within its carry limit) or into the pockets, a stack's units into the pockets. Into the pockets is the player's alone (permission_denied to a companion before anything is looked up); while gubble_chest is on the companion may take a thing into its own hands, never the player's; with it off every companion take is permission_denied at $.op. A durable receipt with data, one room revision, as a store's.",
+        "description": "Take something out: from the chest (the default), at a camp: a unique thing into the actor's hand (empty hands, within its carry limit) or into the pockets, a stack's units into the pockets; since P-Inventory-2 from the pockets (from: pockets), anywhere: a unique thing of this island into the player's hand, its slot kept for it and then the hand's selection (HOTBAR.md: the hand); a stack stays in the pockets (request_invalid: its slot arms a unit). Into the pockets, and anything from them, is the player's alone (permission_denied to a companion before anything is looked up); while gubble_chest is on the companion may take a thing from the chest into its own hands, never the player's; with it off every companion take is permission_denied at $.op. A durable receipt with data, one room revision, as a store's.",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -4192,33 +4270,84 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 1000
+          },
+          "from": {
+            "description": "chest (the default) or pockets.",
+            "enum": [
+              "chest",
+              "pockets"
+            ]
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "from": {
+                  "const": "pockets"
+                }
+              },
+              "required": [
+                "from"
+              ]
+            },
+            "then": {
+              "properties": {
+                "to": {
+                  "const": "hand"
+                }
+              }
+            }
+          }
+        ]
       },
       "inventory.use": {
-        "description": "Use one unit of a stack in the pockets: a kind whose use heals (heal_quarters) heals at once, with no unharmed wait (decision 111); at full hearts the unit stays (not_ready); in Creative nothing changes but the receipt (decision 108: food heals nothing there, and nothing in the inventory is lost, decision 101). Every unit eaten makes its sound (decision 108, Creative too): its receipt's data says so (sound eat). A kind with no use is request_invalid. Player-only. A transient receipt with data (count 0 when nothing was used): a use changes the pockets (the team file) and the body, never the room.",
+        "description": "Use one unit of a stack in the pockets: a kind whose use heals (heal_quarters) heals at once, with no unharmed wait (decision 111); at full hearts the unit stays (not_ready); in Creative nothing changes but the receipt (decision 108: food heals nothing there, and nothing in the inventory is lost, decision 101). Every unit eaten makes its sound (decision 108, Creative too): its receipt's data says so (sound eat). A kind with no use is request_invalid. Player-only. A transient receipt with data (count 0 when nothing was used): a use changes the pockets (the team file) and the body, never the room. Since P-Inventory-2 no item is the hand's selected slot (inventory.select): its stack's unit; a thing there has no use (request_invalid); an empty slot is target_not_found; no pockets slot chosen is request_invalid.",
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "item"
-        ],
+        "required": [],
         "properties": {
           "item": {
-            "description": "A kind in the pockets.",
+            "description": "A kind in the pockets (absent: the hand's selected slot).",
             "$ref": "common.schema.json#/$defs/token"
           }
         }
       },
       "inventory.drop": {
-        "description": "Set a unique thing from the pockets on the ground before the player (the room's physics settles it, as a put-down does), on the island it came from; it is back in the room with its own id. A stack's unit is set down only once its kind has a body in the world (unsupported_capability until then). Player-only. A durable receipt with data, as a store's: the thing's new pose is saved first as a put-down's is (an entity.place receipt under the host's own action id, one room revision), then the drop's own receipt is the next.",
+        "description": "Set a unique thing from the pockets on the ground before the player (the room's physics settles it, as a put-down does), on the island it came from; it is back in the room with its own id. A stack's unit is set down only once its kind has a body in the world (unsupported_capability until then). Player-only. A durable receipt with data, as a store's: the thing's new pose is saved first as a put-down's is (an entity.place receipt under the host's own action id, one room revision), then the drop's own receipt is the next. Since P-Inventory-2 no item is the hand's selected slot: the unique thing it took into the hand is set down from there, the same two revisions.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "item": {
+            "$ref": "#/$defs/inventory_item",
+            "description": "An entry of the pockets (absent: the hand's selected slot)."
+          }
+        }
+      },
+      "inventory.select": {
+        "description": "Choose what the hand holds (P-Inventory-2; docs/game/MECHANICS.md decision 119, docs/game/HOTBAR.md): a slot of one of the hotbar's two layers, 1 to 10, or null for none; layer pockets (the default) or abilities. Kept per mode in the team file (hand), so a reload keeps the hand. The pockets' layer is the kernel's: a stack's slot arms its unit (inventory.use and inventory.drop act on it when they name no item); a unique thing's slot takes it into the hand (an inventory.take from the pockets, a durable receipt under the host's own action id), its slot kept for it; any other selection first returns what the hands carry to the pockets (an inventory.store, to its own slot when it came from one), refused occupied in the pockets' words when there is no room, and then nothing changes. The abilities' layer is the HUD's: the host only records it. A pockets slot past the pack's slots is invalid_args. Player-only: no companion command touches the selection or the hand. A transient receipt whose data is the hand after it (player.status's hand).",
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "item"
+          "slot"
         ],
         "properties": {
-          "item": {
-            "$ref": "#/$defs/inventory_item"
+          "slot": {
+            "description": "1 to 10 (keys 1 to 0), or null for none.",
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 10
+          },
+          "layer": {
+            "description": "pockets (the default) or abilities.",
+            "enum": [
+              "pockets",
+              "abilities"
+            ]
           }
         }
       }
@@ -4656,7 +4785,7 @@
         }
       },
       "player.status": {
-        "description": "The player's mode and body: health, stamina and what climbing has earned. consequences is false in Creative. Since the mechanics round the host may add the connection energy (energy), the hearts in quarters (hearts) and the bar's bands (bar); the maximum health and stamina are fields of the vitals, up to 30 hearts with Big heart (720) and the top band with Big bar (4.8 m); and since P-Inventory the pockets (pockets) and the island's chest (chest), when the pack has an inventory block. Since P-Inventory-2 the materials wallet is retired (decision 116): logs and stones are stacks in the pockets and the chest, each entry naming its material.",
+        "description": "The player's mode and body: health, stamina and what climbing has earned. consequences is false in Creative. Since the mechanics round the host may add the connection energy (energy), the hearts in quarters (hearts) and the bar's bands (bar); the maximum health and stamina are fields of the vitals, up to 30 hearts with Big heart (720) and the top band with Big bar (4.8 m); and since P-Inventory the pockets (pockets) and the island's chest (chest), when the pack has an inventory block. Since P-Inventory-2 the materials wallet is retired (decision 116): logs and stones are stacks in the pockets and the chest, each entry naming its material. Since P-Inventory-2 also the hand (hand): the hotbar's selection and what it holds.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -4799,6 +4928,10 @@
           "chest": {
             "description": "The island's one chest, shared by every campsite (decision 102), when the pack has an inventory block.",
             "$ref": "#/$defs/inventory_status"
+          },
+          "hand": {
+            "description": "What the hand holds (P-Inventory-2), when the pack has an inventory block.",
+            "$ref": "#/$defs/hand_status"
           }
         },
         "required": [
@@ -5704,10 +5837,13 @@
             ]
           }
         }
+      },
+      "inventory.select": {
+        "$ref": "#/$defs/hand_status"
       }
     },
     "player_only_ops": {
-      "description": "Ops a companion principal can never perform. The companion adapter must not expose them and the host refuses them from companion principals (permission_denied), never holding them for a click. Unlocking is always a direct player action, and so are the player's own settings (the world's physics, the game mode, Glow's touch and sound), the player's wishes (submitting, stopping and reading them), and since the mechanics round picking up a Fractal (item.pickup; since P-Food also a unit of food from a plant, into the pockets), gathering a loose log or stone into the pockets (item.gather; the wallet it once filled is retired since P-Inventory-2), choosing a knack (knack.set), spending Fractals at a camp (fractal.spend, the second contract round), marking a receipt yes or not that (receipt.mark) and resetting Trust (trust.reset), and since P-Inventory using a unit from the pockets (inventory.use) and setting a thing from them down (inventory.drop). inventory.store and inventory.take are the player's for the pockets and the hand too, but not listed here: the chest has a companion path behind the player's team setting gubble_chest (their args say how each is refused before anything is looked up).",
+      "description": "Ops a companion principal can never perform. The companion adapter must not expose them and the host refuses them from companion principals (permission_denied), never holding them for a click. Unlocking is always a direct player action, and so are the player's own settings (the world's physics, the game mode, Glow's touch and sound), the player's wishes (submitting, stopping and reading them), and since the mechanics round picking up a Fractal (item.pickup; since P-Food also a unit of food from a plant, into the pockets), gathering a loose log or stone into the pockets (item.gather; the wallet it once filled is retired since P-Inventory-2), choosing a knack (knack.set), spending Fractals at a camp (fractal.spend, the second contract round), marking a receipt yes or not that (receipt.mark) and resetting Trust (trust.reset), and since P-Inventory using a unit from the pockets (inventory.use) and setting a thing from them down (inventory.drop), and since P-Inventory-2 choosing what the hand holds (inventory.select). inventory.store and inventory.take are the player's for the pockets and the hand too, but not listed here: the chest has a companion path behind the player's team setting gubble_chest (their args say how each is refused before anything is looked up).",
       "enum": [
         "protect.unlock",
         "world.set_physics",
@@ -5723,7 +5859,8 @@
         "receipt.mark",
         "trust.reset",
         "inventory.use",
-        "inventory.drop"
+        "inventory.drop",
+        "inventory.select"
       ]
     },
     "destructive_ops": {
@@ -6240,11 +6377,17 @@
         },
         "material": {
           "$ref": "#/$defs/creation_material"
+        },
+        "slot": {
+          "description": "The pockets' slot of the entry (P-Inventory-2: 1 to 10 on the hotbar; the chest's entries have none).",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
         }
       }
     },
     "inventory_status": {
-      "description": "The pockets or the chest as player.status shows them (read-only): the entries, in slot order for the pockets, oldest first for the chest, and the slots the rules pack sets (decision 120: counts, not weights).",
+      "description": "The pockets or the chest as player.status shows them (read-only): the entries, in slot order for the pockets (each with its slot), oldest first for the chest, and the slots the rules pack sets (decision 120: counts, not weights).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -6263,6 +6406,70 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 64
+        }
+      }
+    },
+    "hand_status": {
+      "description": "What the hand holds (P-Inventory-2; decision 119, docs/game/HOTBAR.md), read-only: the layer of the hotbar in the hand and its selected slot (null: none); what the selection is: unit (a stack's unit armed: item its kind, count its units), thing (the slot's unique thing, now in the hand: item its id), pocketed (the slot's unique thing, still in the pockets: from another island, or too heavy to hold), ability (the abilities' layer: the HUD's to arm) or nothing; carrying, what the hands hold when it is not the selection's thing (a thing picked up with entity.grab); and each layer's slot. Ids only: names are the pockets' entries'.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "slot",
+        "holds",
+        "pockets_slot",
+        "abilities_slot"
+      ],
+      "properties": {
+        "layer": {
+          "enum": [
+            "pockets",
+            "abilities"
+          ]
+        },
+        "slot": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 10
+        },
+        "holds": {
+          "enum": [
+            "unit",
+            "thing",
+            "pocketed",
+            "ability",
+            "nothing"
+          ]
+        },
+        "item": {
+          "$ref": "#/$defs/inventory_item"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "carrying": {
+          "$ref": "#/$defs/object_id"
+        },
+        "pockets_slot": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 10
+        },
+        "abilities_slot": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 10
         }
       }
     }

@@ -75,6 +75,13 @@ EXPECTED_FAILURES = {
     "result_use_healing_past_the_hearts": "121 is greater than the maximum of 120",
     "result_pockets_with_a_price": "('price' was unexpected)",
     "result_player_status_with_a_wallet": "('wallet' was unexpected)",
+    # P-Inventory-2: the hand's selection (decision 119).
+    "command_select_slot_eleven": "11 is greater than the maximum of 10",
+    "command_select_on_the_wheel": "'wheel' is not one of ['pockets', 'abilities']",
+    "command_select_without_a_slot": "'slot' is a required property",
+    "command_take_from_the_pockets_into_the_pockets": "'hand' was expected",
+    "result_select_kept_as_durable": "True was expected",
+    "result_hand_holding_a_wish": "'wish' is not one of",
     "result_chest_entry_with_hidden_words": "$.data.chest.entries[0].name",
     "command_with_a_misspelt_schema_id": "unknown schema 'garagegame.command'",
     "command_with_principal": "'principal' was unexpected",
@@ -338,7 +345,9 @@ PLAYER_ONLY_OPS = {"protect.unlock", "world.set_physics", "world.set_mode", "glo
                    # The second contract round (15 October): five Fractals spent at a camp.
                    "fractal.spend",
                    # P-Inventory (25 October): a unit used and a thing set down from the pockets; store and take keep a companion path to the chest.
-                   "inventory.use", "inventory.drop"}
+                   "inventory.use", "inventory.drop",
+                   # P-Inventory-2 (decision 119): the hand's selection is the player's alone.
+                   "inventory.select"}
 FACT_FIELDS = ("line", "subject", "actor", "directed_by", "pin_m", "state", "quantity", "job_id")
 NOTE_FIELDS = ("author", "text", "untrusted")
 
@@ -1841,6 +1850,10 @@ TEAM_FAILURES = {
     "team_pockets_holding_one_thing_twice": "the challenge pockets hold one thing twice",
     "team_gubble_chest_written_off": "$.settings.gubble_chest: True was expected",
     "team_pockets_of_an_empty_mode": "$.pockets.creative: {} should be non-empty",
+    "team_pockets_two_in_one_slot": "the challenge pockets put two entries in one slot",
+    "team_pockets_slot_for_no_stack": "the challenge pockets give a slot to 'pear', which they hold no stack of",
+    "team_hand_on_slot_eleven": "11 is greater than the maximum of 10",
+    "team_hand_of_the_wheel": "'wheel' is not one of ['pockets', 'abilities']",
 }
 
 
@@ -2326,6 +2339,28 @@ class InventoryTests(unittest.TestCase):
 
     def setUp(self):
         self.defs = validate.load_strict(COMMAND_SCHEMA)["$defs"]
+
+    def test_the_hands_selection_is_the_players_transient_and_kept_with_the_team(self):
+        """P-Inventory-2 (decision 119, docs/game/HOTBAR.md): inventory.select is the player's alone and transient, its data the hand;
+        player.status.hand reads it with ids only; the team file keeps it per mode, and each pockets entry's slot; no request names an avatar."""
+        self.assertIn("inventory.select", self.defs["command_op"]["enum"])
+        self.assertIn("inventory.select", self.defs["player_only_ops"]["enum"])
+        self.assertEqual(set(self.defs["args"]["inventory.select"]["properties"]), {"slot", "layer"})
+        self.assertEqual(free_form_objects(self.defs["hand_status"], "hand_status", self.defs), [])
+        selected = valid_example("result_player_selects_a_slot")
+        self.assertEqual((selected["transient"], selected["data"]["holds"]), (True, "unit"))
+        self.assertEqual(validate.schema_errors(valid_example("command_player_selects_nothing")), [])
+        status = valid_example("result_player_status_with_pockets_and_chest")["data"]
+        self.assertEqual(status["hand"]["item"], "apple")
+        self.assertEqual([e["slot"] for e in status["pockets"]["entries"]], [1, 2, 3, 4], "the pockets' entries in slot order")
+        team = validate.load_strict(TEAM / "team.json")
+        self.assertEqual(team["hand"], {"challenge": {"layer": "pockets", "pockets": 1, "abilities": 3}})
+        schema = validate.load_strict(CONTRACTS / "team.schema.json")["$defs"]
+        self.assertNotIn("hand", schema["team"]["required"], "a team file from before reads as it was")
+        if (KERNEL / "CommandHost.cs").is_file():
+            host = KERNEL / "CommandHost.cs"
+            self.assertIn("inventory.select", kernel_set(host, "TransientOps"))
+            self.assertIn("inventory.select", kernel_set(host, "PlayerOnlyOps"))
 
     def test_the_four_ops_are_commands_with_data_and_only_a_use_is_transient(self):
         """Decided 25 October: a store, a take and a drop change the island's room state (the chest, a thing held away), so they are

@@ -97,14 +97,17 @@ public partial class CommandHost
         var candidate = Nature.Copy();
         candidate.Objects[target] = new NatureObject { Id = target, Burn = 1, Gathered = true, PositionM = position, Rotation = rotation };
         // The pockets gain first, then the island gives (one room revision); the hands are empty first, so the scene hides what left.
-        // A refused revision puts the pockets back and gives a held one back to the hand (as MoveHeld does).
-        SavePockets(next);
+        // A refused revision puts the pockets back and gives a held one back to the hand (as MoveHeld does). The stack's slot becomes
+        // the hand's selection in the same write (the founder's refinement: the player holds the stack's unit for immediate use).
+        var selection = HandNow;
+        var slot = next.SlotOf(kind.Id);
+        SavePockets(next, hand: selection.Choosing(HandSelection.PocketsLayer, slot is <= HandSelection.MaxSlot ? slot : selection.Pockets));
         if (held != null) LetGo(PlayerAvatar);
         JsonObject result;
         try { result = CommitNature(candidate, "item.gather", principal, actionId, fingerprint, null, new[] { target }, new JsonObject(), undo: false); }
         catch (Refusal)
         {
-            SavePockets(pockets, keepIfUnsaved: true);
+            SavePockets(pockets, keepIfUnsaved: true, hand: selection);
             if (held != null && BodyOf(PlayerAvatar) is { } body) TakeHold(PlayerAvatar, body, held.Item, (held.RotationAtGrab, held.YawAtGrab));
             throw;
         }

@@ -141,8 +141,9 @@ UNDO_NOT_IN_THIS_MODE = "There is no undo in Challenge or Live: what happens the
 # (CommandHost.Unsupported: MechanicsNotYet, DifficultyNotYet) and for a Fractal the companion may not gather (FractalRefusal). The kernel hosts the player's item.pickup and item.gather since M1; the mock, which places no Fractals and
 # keeps no wallet, answers the player's not available yet.
 MECHANICS_PLAYER_OPS = frozenset({"item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset",
-                                  # P-Inventory: the player's use and drop need the body and the team file (the kernel hosts them).
-                                  "inventory.use", "inventory.drop"})
+                                  # P-Inventory: the player's use and drop need the body and the team file (the kernel hosts them);
+                                  # P-Inventory-2: so does the hand's selection.
+                                  "inventory.use", "inventory.drop", "inventory.select"})
 BUBBLES_EXPERTISE = frozenset({"bubble_carry", "bubble_boat", "bubble_lift"})
 MECHANICS_NOT_YET = "This operation is not available yet."
 DIFFICULTY_NOT_YET = "Difficulties are chosen at the opening menu, which is not built yet."
@@ -177,7 +178,7 @@ TRANSIENT_OPS = frozenset({"entity.grab", "creation.activate", "goal.set", "goal
                            "world.set_physics", "world.set_mode", "glow.configure", "effect.adjust", "receipt.mark", "trust.reset",
                            # P-Inventory (mock_inventory.py): a use changes no room state; a store, a take and a drop are
                            # durable room changes, as on the kernel (they are not listed here).
-                           "inventory.use"})
+                           "inventory.use", "inventory.select"})
 # The mechanics round's player-only ops the mock hosts (M8's Trust, mock_trust.py); the rest answer as not available yet.
 MECHANICS_HOSTED = frozenset({"receipt.mark", "trust.reset"})
 # Durable, but they change no world state, so they do not move the room revision.

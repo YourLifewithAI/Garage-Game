@@ -106,7 +106,9 @@ public partial class CommandHost
         get
         {
             var chest = ChestContents;
-            return Reconciling ? PocketsAsKept.Keeping(t => !OfThisIsland(t) || (HeldAway(t.Id) && chest.Thing(t.Id) == null)) : PocketsAsKept;
+            // A slot reserved for a thing taken into the hand lasts while the hand still holds it (P-Inventory-2: the hotbar's hand).
+            var kept = PocketsAsKept.KeepingReservations(id => HeldBy(PlayerAvatar) == id);
+            return Reconciling ? kept.Keeping(t => !OfThisIsland(t) || (HeldAway(t.Id) && chest.Thing(t.Id) == null)) : kept;
         }
     }
 
@@ -210,9 +212,12 @@ public partial class CommandHost
     private JsonObject InventoryTake(JsonElement args, string principal, string actionId, string fingerprint, bool preview)
     {
         var to = Str(args, "to")!;
-        if (principal != PlayerPrincipal) CompanionChestOnly(to == "pockets" ? "$.args.to" : null);
+        var from = Str(args, "from") ?? "chest";
+        if (principal != PlayerPrincipal) CompanionChestOnly(to == "pockets" ? "$.args.to" : from == "pockets" ? "$.args.from" : null);
         var rules = RequireInventory(principal);
         Settle();
+        // P-Inventory-2: a unique thing from the pockets into the hand (the hotbar's hand, CommandHostInventoryHand).
+        if (from == "pockets") return TakeFromPockets(args, rules, principal, actionId, fingerprint, preview);
         var item = Str(args, "item")!;
         var actor = principal == PlayerPrincipal ? PlayerAvatar : CompanionAvatarId;
         var chest = ChestContents;
@@ -276,7 +281,8 @@ public partial class CommandHost
         if (principal != PlayerPrincipal) throw new Refusal("permission_denied", "Only the player can do that, directly in the game.", "$.op");
         var rules = RequireInventory(principal);
         Settle();
-        var item = Str(args, "item")!;
+        // P-Inventory-2: no item named is the hand's selected slot (the hotbar's armed unit).
+        var item = Str(args, "item") ?? SelectedItem(forUse: true);
         var pockets = PocketContents;
         var have = pockets.Units(item);
         if (have == 0) throw new Refusal("target_not_found", NotInPockets, "$.args.item");
@@ -332,8 +338,11 @@ public partial class CommandHost
         if (principal != PlayerPrincipal) throw new Refusal("permission_denied", "Only the player can do that, directly in the game.", "$.op");
         var rules = RequireInventory(principal);
         Settle();
-        var item = Str(args, "item")!;
+        // P-Inventory-2: no item named is the hand's selected slot; the thing it took into the hand is set down from there.
+        var item = Str(args, "item") ?? SelectedItem(forUse: false);
         var pockets = PocketContents;
+        if (_held.TryGetValue(PlayerAvatar, out var inHand) && inHand.Target == item && pockets.ReservedFor(item) != null)
+            return DropFromHand(inHand, principal, actionId, fingerprint, preview);
         if (!item.StartsWith("obj:", StringComparison.Ordinal))
         {
             if (pockets.Units(item) == 0) throw new Refusal("target_not_found", NotInPockets, "$.args.item");
@@ -603,12 +612,13 @@ public partial class CommandHost
     /// This mode's pockets into the team file (a fixture without a team: this session). keepIfUnsaved: the change stands for the session
     /// even when the file cannot be written (a loss, a step back); otherwise nothing changes and the command is refused.
     /// </summary>
-    private void SavePockets(InventoryContents next, bool keepIfUnsaved = false)
+    private void SavePockets(InventoryContents next, bool keepIfUnsaved = false, HandSelection? hand = null)
     {
         if (Team is { } team)
         {
             TeamFile updated;
-            try { updated = team.WithPockets(Mode, next); }
+            // The hand's selection rides in the same write when it changes with the pockets (a gathered log's slot, P-Inventory-2).
+            try { updated = hand == null ? team.WithPockets(Mode, next) : team.WithPockets(Mode, next).WithHand(Mode, hand); }
             catch (TeamFileException) { if (keepIfUnsaved) return; throw new Refusal("not_ready", InventoryUnsaved, retryable: true); }
             if (ReferenceEquals(updated, team)) return;
             try { _teamStore?.Save(updated); }
@@ -622,29 +632,53 @@ public partial class CommandHost
         }
         if (_teamStore != null && !keepIfUnsaved) throw new Refusal("not_ready", PocketsWaitForTeam, retryable: true);
         _pocketsUnfiled[Mode] = next;
+        if (hand != null) _handUnfiled[Mode] = hand;
+    }
+
+    /// <summary>
+    /// inventory.drop of the unique thing the hand took from its slot (P-Inventory-2): set down before the player as a put-down settles it,
+    /// its pose saved first (an entity.place receipt under the host's own action id, as a drop from the pockets), then the drop's own
+    /// durable receipt; the slot is free again.
+    /// </summary>
+    private JsonObject DropFromHand(Held held, string principal, string actionId, string fingerprint, bool preview)
+    {
+        if (Player == null || !IsInstanceValid(Player) || !Player.IsInsideTree()) throw new Refusal("not_ready", "The player is not in the room.", retryable: true);
+        var (position, rotation) = Carried(PlayerAvatar, held);
+        var rest = Settled(Physics().Drop(ThingOf(held.Item, position, rotation), Player), "$.args.item");
+        if (!SandboxRules.WithinReach(Player, rest.Bounds)) throw OutOfReach("$.args.item");
+        if (preview) return Previewed("inventory.drop", principal, actionId, held.Target);
+        var (placed, placedFingerprint) = InnerAction("inventory.drop", fingerprint);
+        var meta = new Godot.Collections.Dictionary { ["fingerprint"] = placedFingerprint, ["op"] = "entity.place", ["at_utc"] = Now() };
+        MoveHeld(PlayerAvatar, held, rest, PlayerPrincipal, placed, meta);
+        var result = CommitInventory(Nature.Copy(), _chest, "inventory.drop", principal, actionId, fingerprint, new[] { held.Target }, Moved(held.Target, 1, "ground"));
+        SavePockets(PocketContents.Unreserving(held.Target), keepIfUnsaved: true);
+        return result;
     }
 
     // ---- the args (contracts: $defs/args/inventory.*) ----
 
     private static void CheckInventoryArgs(string op, JsonElement args)
     {
+        if (op == "inventory.select") { CheckSelectArgs(args); return; }
         string[] allowed = op switch
         {
             "inventory.store" => new[] { "to", "from", "item", "count" },
-            "inventory.take" => new[] { "item", "to", "count" },
+            "inventory.take" => new[] { "item", "to", "count", "from" },
             _ => new[] { "item" },
         };
         foreach (var property in args.EnumerateObject())
             if (!allowed.Contains(property.Name))
                 throw new Refusal("field_unknown", "This argument is not part of the operation.", "$.args." + KernelJson.DisplayText(property.Name, 64));
-        var required = op switch { "inventory.store" => new[] { "to" }, "inventory.take" => new[] { "item", "to" }, _ => new[] { "item" } };
+        // P-Inventory-2: a use or a drop with no item acts on the hand's selected slot.
+        var required = op switch { "inventory.store" => new[] { "to" }, "inventory.take" => new[] { "item", "to" }, _ => Array.Empty<string>() };
         foreach (var name in required)
             if (!args.TryGetProperty(name, out _)) throw new Refusal("request_invalid", $"This operation needs '{name}'.", "$.args." + name);
         var to = Str(args, "to");
         if (op == "inventory.store" && args.TryGetProperty("to", out _) && to is not ("chest" or "pockets"))
             throw new Refusal("request_invalid", "to is chest or pockets.", "$.args.to");
         if (op == "inventory.take" && to is not ("hand" or "pockets")) throw new Refusal("request_invalid", "to is hand or pockets.", "$.args.to");
-        if (args.TryGetProperty("from", out _) && Str(args, "from") is not ("hand" or "pockets")) throw new Refusal("request_invalid", "from is hand or pockets.", "$.args.from");
+        if (op == "inventory.store" && args.TryGetProperty("from", out _) && Str(args, "from") is not ("hand" or "pockets")) throw new Refusal("request_invalid", "from is hand or pockets.", "$.args.from");
+        if (op == "inventory.take" && args.TryGetProperty("from", out _) && Str(args, "from") is not ("chest" or "pockets")) throw new Refusal("request_invalid", "from is chest or pockets.", "$.args.from");
         if (args.TryGetProperty("item", out var item))
         {
             var text = item.ValueKind == JsonValueKind.String ? item.GetString()! : "";

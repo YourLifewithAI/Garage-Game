@@ -96,5 +96,12 @@
         }
       ]
     }
+  },
+  "hand": {
+    "challenge": {
+      "layer": "pockets",
+      "pockets": 1,
+      "abilities": 3
+    }
   }
 }

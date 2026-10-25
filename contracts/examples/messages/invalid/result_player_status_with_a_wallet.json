@@ -30,22 +30,16 @@
           "name": "Apples",
           "count": 3,
           "mass_kg": 0.06,
-          "heal_quarters": 2
+          "heal_quarters": 2,
+          "slot": 1
         },
         {
           "item": "seed",
           "kind": "stack",
           "name": "Seeds",
           "count": 4,
-          "mass_kg": 0.004
-        },
-        {
-          "item": "log",
-          "kind": "stack",
-          "name": "Logs",
-          "count": 2,
-          "mass_kg": 0.06,
-          "material": "wood"
+          "mass_kg": 0.004,
+          "slot": 2
         },
         {
           "item": "obj:cup",
@@ -53,7 +47,17 @@
           "name": "Cup",
           "count": 1,
           "mass_kg": 0.05,
-          "here": false
+          "here": false,
+          "slot": 3
+        },
+        {
+          "item": "log",
+          "kind": "stack",
+          "name": "Logs",
+          "count": 2,
+          "mass_kg": 0.06,
+          "material": "wood",
+          "slot": 4
         }
       ],
       "max_entries": 10
@@ -77,6 +81,15 @@
         }
       ],
       "max_entries": 20
+    },
+    "hand": {
+      "layer": "pockets",
+      "slot": 1,
+      "holds": "unit",
+      "item": "apple",
+      "count": 3,
+      "pockets_slot": 1,
+      "abilities_slot": null
     },
     "wallet": {
       "wood": 3

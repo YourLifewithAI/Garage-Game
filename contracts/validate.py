@@ -1336,6 +1336,13 @@ def check_team_document(document: dict, label: str) -> list[str]:
                 problems.append(f"{label}: the {mode} pockets hold more than 16 entries")
             if len(things) != len(set(things)):
                 problems.append(f"{label}: the {mode} pockets hold one thing twice")
+            # P-Inventory-2 (decision 119): each entry's slot once, and a stack's slot names a stack the pockets hold.
+            stack_slots = pockets.get("stack_slots", {})
+            for kind in sorted(set(stack_slots) - set(pockets.get("stacks", {}))):
+                problems.append(f"{label}: the {mode} pockets give a slot to {kind!r}, which they hold no stack of")
+            slots = list(stack_slots.values()) + [thing["slot"] for thing in pockets.get("things", []) if "slot" in thing]
+            if len(slots) != len(set(slots)):
+                problems.append(f"{label}: the {mode} pockets put two entries in one slot")
     elif is_schema(document["schema"], "player_modes"):
         vitals = document["vitals"]
         if vitals["health"] > vitals["max_health"]:

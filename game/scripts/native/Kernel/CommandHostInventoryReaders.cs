@@ -16,7 +16,7 @@ public sealed record InventoryOutcome(bool Ok, string Words, string? To = null);
 /// a thing in the pockets from another island, which comes out there alone), and the kind's material (a log wood, a stone stone: what a
 /// repair spends, decision 116; null for food, seeds and things).
 /// </summary>
-public sealed record InventoryEntryView(string Item, string Kind, string Name, int Count, double MassKg, int? HealQuarters, bool Here, string? Material = null);
+public sealed record InventoryEntryView(string Item, string Kind, string Name, int Count, double MassKg, int? HealQuarters, bool Here, string? Material = null, int Slot = 0);
 
 /// <summary>
 /// The inventory's readers and the player's keys (P-Inventory): what the pockets and the chest hold for the HUD and player.status, the
@@ -25,7 +25,7 @@ public sealed record InventoryEntryView(string Item, string Kind, string Name, i
 /// </summary>
 public partial class CommandHost
 {
-    /// <summary>The pockets' entries now: stacks in the pack's kinds' order, then the things, oldest first.</summary>
+    /// <summary>The pockets' entries now, in slot order (P-Inventory-2: the hotbar's), each with its slot (1 to 10).</summary>
     public IReadOnlyList<InventoryEntryView> PocketEntries => Views(PocketContents, pockets: true);
 
     /// <summary>The chest's entries now (the island's one chest, whichever campfire is near).</summary>
@@ -42,17 +42,20 @@ public partial class CommandHost
     {
         var rules = InventoryRules;
         var order = rules?.Kinds.Select(k => k.Id).ToList() ?? new List<string>();
+        var slotted = contents.Slotted;
         var list = new List<InventoryEntryView>();
         foreach (var (kind, count) in contents.Stacks.OrderBy(p => order.IndexOf(p.Key) is var i && i >= 0 ? i : int.MaxValue).ThenBy(p => p.Key, StringComparer.Ordinal))
         {
             var known = rules?.Kind(kind);
             var name = KernelJson.DisplayText(known?.Words(count) ?? kind, InventoryContents.MaxNameLength);
-            list.Add(new InventoryEntryView(kind, "stack", name, count, Math.Round(count * (known?.MassKg ?? 0), 4), known?.HealQuarters, true, known?.Material));
+            list.Add(new InventoryEntryView(kind, "stack", name, count, Math.Round(count * (known?.MassKg ?? 0), 4), known?.HealQuarters, true, known?.Material,
+                pockets ? slotted.Slots.GetValueOrDefault(kind) : 0));
         }
         foreach (var thing in contents.Things)
             list.Add(new InventoryEntryView(thing.Id, "thing", KernelJson.DisplayText(thing.Name, InventoryContents.MaxNameLength), 1, Math.Round(thing.MassKg, 4), null,
-                !pockets || OfThisIsland(thing)));
-        return list;
+                !pockets || OfThisIsland(thing), Slot: pockets ? slotted.Slots.GetValueOrDefault(thing.Id) : 0));
+        // The pockets in slot order (the hotbar's); the chest as it was, stacks in the pack's order, then things oldest first.
+        return pockets ? list.OrderBy(e => e.Slot).ToList() : list;
     }
 
     // ---- E's choice (decision 113) and the player's commands ----
@@ -152,6 +155,8 @@ public partial class CommandHost
         if (InventoryRules is not { } rules) return;
         data["pockets"] = InventoryStatus(PocketEntries, rules.Pockets, pockets: true);
         data["chest"] = InventoryStatus(ChestEntries, rules.Chest, pockets: false);
+        // P-Inventory-2: what the hand holds (the hotbar's selection), ids only.
+        data["hand"] = HandStatus();
     }
 
     private static JsonObject InventoryStatus(IReadOnlyList<InventoryEntryView> entries, InventoryCaps caps, bool pockets) => new()
@@ -161,6 +166,7 @@ public partial class CommandHost
             var entry = new JsonObject { ["item"] = e.Item, ["kind"] = e.Kind, ["name"] = e.Name, ["count"] = Math.Clamp(e.Count, 1, InventoryContents.MaxUnits), ["mass_kg"] = Math.Clamp(e.MassKg, 0, 50) };
             if (e.HealQuarters is { } heal) entry["heal_quarters"] = heal;
             if (e.Material is { } material) entry["material"] = material;
+            if (pockets && e.Slot > 0) entry["slot"] = e.Slot;
             if (pockets && e.Kind == "thing") entry["here"] = e.Here;
             return (JsonNode?)entry;
         }).ToArray()),

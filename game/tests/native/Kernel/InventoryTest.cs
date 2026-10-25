@@ -69,6 +69,8 @@ public partial class InventoryTest : Node3D
             await TestLogsAndStones();
             await TestRepairFromTheStacks();
             await TestWalletMigrates();
+            await TestHandSelection();
+            await TestHandReturnsAndRefusals();
             await FreeWorld();
             OS.RemoveLogger(_errors);
             Check(_errors.Count == 0, $"no script or engine error while the suite ran ({_errors.Count}; first: {_errors.First})");
