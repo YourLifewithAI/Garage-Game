@@ -4384,7 +4384,7 @@
             "maxLength": 128
           },
           "inventory": {
-            "description": "The inventory's four commands (P-Inventory), when the island's pack has an inventory block: which are the player's alone, and whether the player's team setting \"Let the Gubble use the chest\" is on now (the companion's one path: its own hands and the chest).",
+            "description": "The inventory's four commands (P-Inventory), on the whole list's first answer (no category, no cursor) when the island's pack has an inventory block: which are the player's alone, and whether the player's team setting \"Let the Gubble use the chest\" is on now (the companion's one path: its own hands and the chest).",
             "type": "object",
             "additionalProperties": false,
             "required": [

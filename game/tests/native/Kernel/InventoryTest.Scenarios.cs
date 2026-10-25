@@ -383,6 +383,10 @@ public partial class InventoryTest
                 new JsonObject { ["op"] = "inventory.store", ["player_only"] = false }, new JsonObject { ["op"] = "inventory.take", ["player_only"] = false },
                 new JsonObject { ["op"] = "inventory.use", ["player_only"] = true }, new JsonObject { ["op"] = "inventory.drop", ["player_only"] = true }),
         }), "capabilities.list names the four ops with the player-only mark: " + Canonical(listed));
+        Check(Send(Query("capabilities.list", new JsonObject { ["category"] = "light" }), Companion)["data"]?["inventory"] == null &&
+              Send(Query("capabilities.list", new JsonObject { ["cursor"] = "1" }), Companion)["data"]?["inventory"] == null &&
+              Send(Query("capabilities.list", new JsonObject { ["limit"] = 1 }), Companion)["data"]?["inventory"] != null,
+            "only the whole list's first answer names them: a category's page or a later one repeats nothing");
         Check(_host.PlayerCanTake() is { Ok: true, To: "chest", Words: "Open the chest" } && _host.PlayerCanTake("obj:cup") is { Ok: true, To: "hand", Words: "Take Cup" } &&
               _host.PlayerCanTake("apple") is { Ok: false } && _host.ChestReachable,
             "at the camp the chest opens, and the cup can come out into the hand");

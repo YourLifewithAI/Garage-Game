@@ -167,10 +167,13 @@ public partial class CommandHost
         ["max_entries"] = caps.Entries, ["mass_kg"] = Math.Clamp(mass, 0, 50), ["max_mass_kg"] = caps.MassKg,
     };
 
-    /// <summary>capabilities.list's inventory: the four ops, which are the player's alone, and whether the Gubble may use the chest now.</summary>
-    private JsonObject WithInventoryOps(JsonObject data)
+    /// <summary>
+    /// capabilities.list's inventory: the four ops, which are the player's alone, and whether the Gubble may use the chest now. On the
+    /// whole list's first answer only (no category, no cursor): the ops are no ability of a category, and a page after the first repeats nothing.
+    /// </summary>
+    private JsonObject WithInventoryOps(JsonObject data, System.Text.Json.JsonElement args)
     {
-        if (InventoryRules == null) return data;
+        if (InventoryRules == null || args.TryGetProperty("category", out _) || args.TryGetProperty("cursor", out _)) return data;
         data["inventory"] = new JsonObject
         {
             ["gubble_chest"] = GubbleChestAllowed,

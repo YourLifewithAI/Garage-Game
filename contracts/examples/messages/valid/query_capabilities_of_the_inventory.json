@@ -5,6 +5,6 @@
   "room_id": "garage_example",
   "op": "capabilities.list",
   "args": {
-    "category": "fire"
+    "limit": 1
   }
 }

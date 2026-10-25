@@ -1273,7 +1273,7 @@ public partial class CommandHost : Node
                 "entities.list" => List(args, principal),
                 "entity.inspect" => Inspect(args, principal),
                 // P-Inventory: the four inventory ops and the Gubble's chest switch, when the pack has the block.
-                "capabilities.list" => WithInventoryOps(Capabilities(args)),
+                "capabilities.list" => WithInventoryOps(Capabilities(args), args),
                 "observe" => Observe(args, principal),
                 "receipt.lookup" => Lookup(args, principal),
                 "approval.status" => Status(args, principal),

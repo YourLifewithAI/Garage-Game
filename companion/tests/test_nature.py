@@ -568,7 +568,8 @@ class TheBoundary(NatureCase):
         examples = {"protect.unlock": {"targets": ["obj:book"]}, "world.set_physics": {"preset": "room_real"}, "world.set_mode": {"mode": "challenge"},
                     "glow.configure": {"touch": "chime"}, "wish.submit": {"text": "Light a fire"}, "wish.stop": {},
                     "item.pickup": {"target": "fractal:k3x9q2"}, "item.gather": {"target": "obj:book"}, "knack.set": {"slot": 1, "knack": "quick_feet"},
-                    "fractal.spend": {"grow": "heart"}, "receipt.mark": {"action_id": "n-1", "mark": "yes"}, "trust.reset": {}}
+                    "fractal.spend": {"grow": "heart"}, "receipt.mark": {"action_id": "n-1", "mark": "yes"}, "trust.reset": {},
+                    "inventory.use": {"item": "apple"}, "inventory.drop": {"item": "obj:book"}}
         for op in sorted(contracts().player_only_ops):
             with self.subTest(op=op):
                 if op in contracts().query_ops:

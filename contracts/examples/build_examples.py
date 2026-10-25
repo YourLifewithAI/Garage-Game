@@ -1342,9 +1342,12 @@ def inventory_round(at: str) -> dict:
         "result_companion_use_refused": refused("inventory.use", "use-0004", "companion:local", "permission_denied",
                                                 "Only the player can do that, directly in the game.", "$.op"),
         "result_player_status_with_pockets_and_chest": answer("player.status", "q-0050", "companion:local", 5, at, status),
-        "query_capabilities_of_the_inventory": query("capabilities.list", "q-0051", {"category": "fire"}),
+        # The whole list's first answer (no category, no cursor) carries the inventory's ops; a filtered or later page does not.
+        "query_capabilities_of_the_inventory": query("capabilities.list", "q-0051", {"limit": 1}),
         "result_capabilities_of_the_inventory": answer("capabilities.list", "q-0051", "companion:local", 5, at, {
-            "items": [], "inventory": {"gubble_chest": True, "ops": [
+            "items": [{"capability": "bubbles", "category": "float", "params": {"intensity": {"min": 0.2, "max": 1.0}}, "area_radius_max_m": 1.0,
+                       "duration_max_s": 60, "command_op": "effect.start", "max_active": 1, "reach_m": 2.0}],
+            "next_cursor": "1", "inventory": {"gubble_chest": True, "ops": [
                 {"op": "inventory.store", "player_only": False}, {"op": "inventory.take", "player_only": False},
                 {"op": "inventory.use", "player_only": True}, {"op": "inventory.drop", "player_only": True}]}}),
     }
