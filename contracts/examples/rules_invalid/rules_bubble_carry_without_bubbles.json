@@ -128,6 +128,7 @@
       "heal_after_unharmed_s": 10,
       "heal_outside_camp": false,
       "camp_heal_quarter_every_s": 1,
+      "camp_heal_after_unharmed_s": 2,
       "heal_while_closed": false
     },
     "harm": {

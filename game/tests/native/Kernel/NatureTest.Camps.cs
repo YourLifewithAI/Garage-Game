@@ -33,6 +33,66 @@ public partial class NatureTest
         await TestManifestFirepits();
         await TestCampfireHurts();
         await TestRestingHeals();
+        await TestCampHealsSooner();
+    }
+
+    /// <summary>
+    /// Decision 111: resting at a camp heals sooner than 10 s after harm, after the pack's camp_heal_after_unharmed_s (2 s in v5,
+    /// provisional; NatureTest.Energy's rest shows the quarter a second from there). A pack that names no camp wait keeps today's 10 s at
+    /// the camp too; and a pack that heals away from a camp keeps 10 s there, and for a player standing at the camp, whatever its camp wait.
+    /// </summary>
+    private async Task TestCampHealsSooner()
+    {
+        var camp = _room.SpawnFor("player").PositionM;
+        var away = camp + new Vector3(0.8f, 0, 0);
+        // A quarter healed at a camp's resting pace (1 s, v5) from a hurt at the given seconds: the health after each tick.
+        async Task<float[]> RestHurt(params float[] ticks)
+        {
+            Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp(), "(the player stands at the camp)");
+            await Frames(3);
+            var sat = _host.PlayerRest();
+            Check(sat.Ok && _host.PlayerResting, "(and sits down by the fire) " + sat.Words);
+            _host.ApplyPlayerDamage(_host.Vitals.Health - 5, PlayerDamageSource.Fall);
+            var seen = new float[ticks.Length];
+            for (var i = 0; i < ticks.Length; i++)
+            {
+                _player.VitalsTick!(ticks[i], true);
+                seen[i] = _host.Vitals.Health;
+            }
+            return seen;
+        }
+        await EnergyWorld("camp-heal-sooner");
+        var v5 = await RestHurt(1.9f, 0.2f, 1f);
+        Check(_host.BodyRules is { CampHealAfterUnharmedS: 2, HealAfterUnharmedS: 10 } && _host.HealAfterUnharmedHereS() == 2 && v5.SequenceEqual(new[] { 5f, 5f, 10f }),
+            $"v5: resting at a camp, healing starts 2 s after harm (decision 111), not 10: nothing at 1.9 s, then a quarter a second ({string.Join(", ", v5)})");
+        await EnergyWorld("camp-heal-unsaid", editPack: pack => pack["traits"]!["hearts"]!.AsObject().Remove("camp_heal_after_unharmed_s"));
+        var unsaid = await RestHurt(1.9f, 0.2f, 7.8f, 0.2f, 1f);
+        Check(_host.HealAfterUnharmedHereS() == 10 && unsaid.SequenceEqual(new[] { 5f, 5f, 5f, 5f, 10f }),
+            $"a pack that names no camp wait keeps today's: resting at a camp heals nothing for 10 s after harm ({string.Join(", ", unsaid)})");
+        // A pack that heals anywhere (as before decision 84) and names the camp's 2 s: only the rest at a camp waits less.
+        await EnergyWorld("camp-heal-anywhere", editPack: pack =>
+        {
+            var hearts = pack["traits"]!["hearts"]!.AsObject();
+            foreach (var name in new[] { "heal_outside_camp", "camp_heal_quarter_every_s", "heal_while_closed" }) hearts.Remove(name);
+        });
+        Check(_player.TryTeleportTo(away) && !_host.PlayerAtCamp(), "(the player stands away from the camp)");
+        _host.ApplyPlayerDamage(14, PlayerDamageSource.Fall);
+        _player.VitalsTick!(9.9f, true);
+        var awayWaiting = _host.Vitals.Health;
+        _player.VitalsTick!(0.2f, true);
+        _player.VitalsTick!(2.4f, true);
+        var awayHealed = _host.Vitals.Health;
+        Check(_player.TryTeleportTo(camp) && _host.PlayerAtCamp() && !_host.PlayerResting, "(back at the camp, standing)");
+        await Frames(3);
+        _host.ApplyPlayerDamage(14, PlayerDamageSource.Fall);
+        var standingHurt = _host.Vitals.Health;
+        _player.VitalsTick!(9.9f, true);
+        var standingWaiting = _host.Vitals.Health;
+        Check(awayWaiting == 85 && awayHealed == 90 && standingHurt == 75 && standingWaiting == 75 && _host.HealAfterUnharmedHereS() == 10,
+            $"away from a camp nothing changes: 10 s without harm before a quarter heals, and standing at the camp the same ({awayWaiting}, {awayHealed}; {standingHurt}, {standingWaiting})");
+        var resting = await RestHurt(1.9f, 0.2f, 1.25f);
+        Check(_host.HealAfterUnharmedHereS() == 2 && resting.SequenceEqual(new[] { 5f, 5f, 10f }),
+            $"and sitting down there it waits the camp's 2 s, then heals at the camp's pace ({string.Join(", ", resting)})");
     }
 
     /// <summary>

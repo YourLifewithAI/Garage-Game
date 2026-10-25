@@ -491,6 +491,19 @@ public partial class CommandHost
     }
 
     /// <summary>
+    /// The seconds without harm a heal waits where the player is now (decision 111): resting at a camp (sat by a lit campfire), the
+    /// pack's camp_heal_after_unharmed_s (2 s in v5, provisional); anywhere else, standing at the camp included, heal_after_unharmed_s
+    /// (10 s). A pack that names no camp wait looks nothing up. Food's instant heal (decision 111, the food packet) waits for nothing: it
+    /// lands where the eating does, with VitalsRules.HealedQuarter, never through this wait or VitalsTick's.
+    /// </summary>
+    internal double HealAfterUnharmedHereS()
+    {
+        var camp = _vitalsRules.CampHealAfterUnharmedS;
+        if (camp == _vitalsRules.HealAfterUnharmedS) return camp;
+        return PlayerResting && PlayerAtCamp() ? camp : _vitalsRules.HealAfterUnharmedS;
+    }
+
+    /// <summary>
     /// The lit campfire whose flames these feet stand in (decision 85; CampLaws.FlamesM, FlamesRiseM), or null. Allocates nothing once the
     /// camps are known (the nature step asks it every step).
     /// </summary>
