@@ -33,6 +33,8 @@ public partial class PlayHudTest
     private static readonly Vector3 InvByDoorstop = new(-0.3f, 0, 0.62f);
     private static readonly Vector3 InvByBrick = new(0.0f, 0, 0.86f);
     private static readonly Vector3 InvAway = new(0.9f, 0, -0.6f);
+    /// <summary>A spot with nothing within the hands' reach (the brick is dropped at InvAway by then): F has nothing to pick up there.</summary>
+    private static readonly Vector3 InvClear = new(0.3f, 0, -0.9f);
 
     private RoomWorld _iw = null!;
     private CommandHost _ih = null!;
@@ -283,11 +285,9 @@ public partial class PlayHudTest
 
         // The armed units, used from the bar (PlayHudTest.Hotbar.cs): a click and E, food eaten, a seed refused, a stone set down and picked up.
         await InvBarUnits();
-        // A unit of food set down lies loose before the player (decision 118; the bar sets down logs and stones only, so the kernel's own drop of the
-        // selected slot here), and E picks it up again.
-        var berrySlot = host.PocketEntries.First(e => e.Item == "berries").Slot;
-        await InvKey(InvBarKey(berrySlot));
-        Check(host.PlayerDropSelected()["ok"]?.GetValue<bool>() == true && InvUnits("berries") == 0 && host.LooseUnits.Any(u => u.Kind == "berries"), "(the berries' unit set down loose, by the kernel's drop of the selected slot)");
+        // F drops a unit of food (decision 130; the bar's E sets down logs and stones only): it lies loose before the player (decision 118), and E picks it
+        // up again. F's other meanings are checked there too (PlayHudTest.Hotbar.cs).
+        await InvBarDropWithF();
         await Frames(40);
         Check(hud.Interaction.Kind == RoomHud.InteractKind.PickFood && hud.Interaction.Words == "E: pick up berries", $"E faces the loose berries: \"{hud.Interaction.Words}\"");
         await InvKey(Key.E);

@@ -14,13 +14,14 @@ namespace GarageGame.Native;
 /// on a slot chooses it. Nothing here stops the body, takes the mouse or answers Esc.
 /// <list type="bullet">
 /// <item>The pockets' layer is the hand (inventory.select, player.status.hand, the kernel's): a slot chosen arms its stack's unit, which E (when
-/// nothing in the world wants E) or a click uses (food eaten, a log or stone set down, a seed refused in the kernel's words), or takes its
-/// unique thing into the hand (E sets it down, or at a camp stores it; F drops it); choosing another slot returns it.</item>
+/// nothing in the world wants E) or a click uses (food eaten, a log or stone set down, a seed refused in the kernel's words) and F (when
+/// nothing in the world wants F) drops loose before the player (decision 130), or takes its unique thing into the hand (E sets it down, or at
+/// a camp stores it; F drops it); choosing another slot returns it.</item>
 /// <item>The magic layer: the six abilities in the wheel's order, then the slots to come. Each key does what it did before the bar (a tap
 /// casts at the aim; 2's sweep is the bridge, 6's tap lights Fire at once; 3, 4 and 5 cast on the press, as they and the wheel's wedges always
-/// did), and the slot it casts from becomes the layer's selection (recorded through inventory.select while the hands are empty, so a key
-/// never puts away what they carry). A locked slot shows its padlock and its lock words and casts nothing; the right button's hold still
-/// opens the wheel for this round (decision 128), and its tap is still the smart ask.</item>
+/// did), and the slot it casts from becomes the layer's selection (recorded through inventory.select whatever the hands carry: the kernel's
+/// select on this layer never puts it away, decision 129). A locked slot shows its padlock and its lock words and casts nothing; the right
+/// button's hold still opens the wheel for this round (decision 128), and its tap is still the smart ask.</item>
 /// </list>
 /// A hand never chosen in this mode (the host's HandSelection.None) shows the magic layer down with Glow chosen, so the keys 1 to 6 cast as
 /// they did; the host records it the first time the player touches the bar. Every number and name is the host's; the HUD decides nothing.
@@ -72,13 +73,15 @@ public partial class RoomHud
     }
 
     /// <summary>
-    /// Each frame: the bar shows unless the journal, the Gubble's eyes, the intro or the unfolded key help fill the screen; it is read from the
+    /// Each frame: the bar shows unless the journal, the Gubble's eyes or the intro fill the screen (the unfolded key help stands above it); it is read from the
     /// host at BarRefreshS (the pockets change under it: a pick, a gather, a knockout's loss), and its caption follows the pointer.
     /// </summary>
     private void TickHotbar(double delta)
     {
-        var shown = !IntroPlaying && !JournalOpen && !GubbleViewOpen && !_keyHelp.Visible;
+        var shown = !IntroPlaying && !JournalOpen && !GubbleViewOpen;
         if (_hotbar.Visible != shown) _hotbar.Visible = shown;
+        // The unfolded help stands above the bar, so it follows the screen's size too (PlaceFooter).
+        if (_keyHelp.Visible && GetViewport().GetVisibleRect().Size != _footerFor) PlaceFooter();
         if (!shown) return;
         _hotbar.Place(GetViewport().GetVisibleRect().Size);
         var host = Host;
@@ -215,7 +218,7 @@ public partial class RoomHud
 
     /// <summary>
     /// A slot of a layer chosen (1 to 10, or none) as the player's inventory.select, that layer brought down. The bar is read again at once;
-    /// a refusal (the pockets cannot take back what the hands carry, a held island, no inventory here) is the notice, in the host's words.
+    /// a refusal (the pockets cannot take back what the hands carry when another pocket slot is chosen, a held island, no inventory here) is the notice, in the host's words.
     /// Returns the refusal's words, or null when chosen.
     /// </summary>
     public string? SelectBarSlot(string layer, int? slot)
@@ -235,15 +238,14 @@ public partial class RoomHud
     }
 
     /// <summary>
-    /// An ability's slot becomes the magic layer's selection: recorded only when it changes and the hands are empty (a select would put what
-    /// they carry into the pockets, and an ability's key must never do that).
+    /// An ability's slot becomes the magic layer's selection, recorded only when it changes. Whatever the hands carry stays in them: the kernel's
+    /// select on the abilities layer never touches it (decision 129), so an ability key needs no guard of its own.
     /// </summary>
     private void ChooseAbility(int slot)
     {
         if (Host is not { } host) return;
         var hand = host.HandNow;
         if (!hand.IsNone && hand.Layer == HandSelection.AbilitiesLayer && hand.Abilities == slot) return;
-        if (host.HeldBy(CommandHost.PlayerAvatar) != null) return;
         host.PlayerSelect(slot, HandSelection.AbilitiesLayer);
         RefreshHotbar();
     }
@@ -288,7 +290,7 @@ public partial class RoomHud
             SelectBarSlot(HandSelection.AbilitiesLayer, hand.Abilities ?? 1);
             return;
         }
-        // (Refused, a held island or the hands' thing with no room in the pockets, the pockets' select below says why.)
+        // (Refused only by a held island: the pockets brought down at the slot they kept leave what the hands carry in them, decision 129.)
         if (hand.IsNone) host.PlayerSelect(1, HandSelection.AbilitiesLayer);
         SelectBarSlot(HandSelection.PocketsLayer, host.HandNow.Pockets);
     }
@@ -364,6 +366,31 @@ public partial class RoomHud
         return words;
     }
 
+    /// <summary>
+    /// Whether F would drop the armed unit now (decision 130: F drops a food unit as it drops a thing): a stack's unit is armed on the bar, the
+    /// hands carry nothing, and F has nothing of its own to do here (no thing in reach to pick up, no unit lying loose to gather). The world
+    /// first, as E asks it: F gathering the next log or picking the dropped apple up again is what F always did, and the armed unit's slot
+    /// is chosen after every gather, so the drop must never take its place.
+    /// </summary>
+    private static bool FDropsUnit(CommandHost host, HandView? hand, CommandHost.HandsFocus focus) =>
+        hand is { Holds: "unit", Item: not null } && host.HeldBy(CommandHost.PlayerAvatar) == null && string.IsNullOrEmpty(focus.Id) && host.LooseInReach().Count == 0;
+
+    /// <summary>
+    /// F with the armed unit and nothing else for F to do: the kernel's inventory.drop of the selected slot, one unit loose before the player.
+    /// Returns the words (the notice), or null when F is not a drop now (the hands keep their old meaning).
+    /// </summary>
+    private string? DropArmedUnit()
+    {
+        if (Host is not { } host || !host.HasInventory) return null;
+        var hand = host.Hand;
+        if (!FDropsUnit(host, hand, host.PlayerFocus())) return null;
+        var words = InventoryPages.DropSelectedWords(host, hand.Item!);
+        _focusAge = double.MaxValue;
+        RefreshHotbar();
+        ShowBarCaption((hand.PocketsSlot ?? 1) - 1, abilities: false);
+        return words;
+    }
+
     /// <summary>How far above the bar's caption a panel on the left ends, and a notice card stands.</summary>
     public const float BarClearPx = 8;
 
@@ -381,16 +408,50 @@ public partial class RoomHud
         if (GetViewport().GuiGetFocusOwner() != null) GetViewport().GuiReleaseFocus();
     }
 
+    /// <summary>The top margin of the unfolded help, the same as its left one.</summary>
+    public const float HelpTopPx = 18;
+    /// <summary>The smallest the unfolded help may be on a screen this small (its lines scroll; below this it would show too little to read).</summary>
+    public const float HelpLeastHeightPx = 200;
+
     /// <summary>
-    /// The help footer's place: unfolded, the width of the screen up to the journal's dock, growing up from the bottom edge (the bar hides
-    /// under it); folded, only as wide as its "H keys" line at the lower left, so the hotbar beside it is clear and a click on the bar reaches
-    /// the game (the footer is a panel, which would catch it).
+    /// Where the unfolded help stands on a screen of this size (decision 130: it opens above the hotbar and never covers it): from the top
+    /// margin down to the foot the notices keep clear of, which is the bar's caption less its gap. The bar, its strip, its caption and its
+    /// tags are all below it. The suite checks it by numbers at 1280x720 and at 1152x648.
+    /// </summary>
+    public static (float Top, float Bottom) HelpSpan(Vector2 screen)
+    {
+        var bottom = Mathf.Max(BarClearTop(screen), HelpTopPx + HelpLeastHeightPx);
+        return (HelpTopPx, Mathf.Min(bottom, screen.Y));
+    }
+
+    private Vector2 _footerFor = new(-1, -1);
+
+    /// <summary>
+    /// The help footer's place. Folded, only as wide as its "H keys" line at the lower left, so the hotbar beside it is clear and a click on
+    /// the bar reaches the game (the footer is a panel, which would catch it). Unfolded, the width of the screen up to the journal's dock and
+    /// from the top margin down to HelpSpan's foot: the help is taller than that, so its lines scroll (RoomHud.cs), and the hotbar stays
+    /// visible and clickable below it.
     /// </summary>
     private void PlaceFooter()
     {
         var open = _keyHelp.Visible;
+        var screen = GetViewport().GetVisibleRect().Size;
+        _footerFor = screen;
         _footer.AnchorRight = open ? 1 : 0;
         _footer.OffsetRight = open ? -JournalDockClearancePx : _footer.OffsetLeft;
+        if (open)
+        {
+            var span = HelpSpan(screen);
+            _footer.AnchorTop = 0;
+            _footer.AnchorBottom = 1;
+            _footer.OffsetTop = span.Top;
+            _footer.OffsetBottom = -(screen.Y - span.Bottom);
+        }
+        else
+        {
+            _footer.AnchorTop = _footer.AnchorBottom = 1;
+            _footer.OffsetTop = _footer.OffsetBottom = -18;
+        }
         _helpHint.AutowrapMode = open ? TextServer.AutowrapMode.WordSmart : TextServer.AutowrapMode.Off;
     }
 
@@ -405,5 +466,5 @@ public partial class RoomHud
     /// <summary>The H help's line for the bar (it names Tab and every key of the bar, from the input map).</summary>
     private string BarKeysLine() =>
         $"Bar: {BarKeysWords()} choose a slot (or the {PlayerControls.ZoomLabel()} or a {K(Act.LookDrag)} over it) · {K(Act.BarLayer)}: pockets or magic · " +
-        $"{K(Act.Interact)} or a {K(Act.LookDrag)} uses a pocket slot, {K(Act.Interact)} or {K(Act.Hands)} sets a thing down";
+        $"{K(Act.Interact)} or a {K(Act.LookDrag)} uses a pocket slot, {K(Act.Hands)} drops one unit of it, {K(Act.Interact)} or {K(Act.Hands)} sets a thing down";
 }

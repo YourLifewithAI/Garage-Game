@@ -143,13 +143,20 @@ public static class InventoryPages
     /// </summary>
     public static string UseSelectedWords(CommandHost host, string item)
     {
-        if (host.InventoryRules?.Kind(item) is { Material: not null })
-        {
-            var unit = UnitWords(host, item);
-            var dropped = host.PlayerDropSelected();
-            return Ok(dropped) ? $"You set {unit} down." : Failed(dropped, "That could not be set down.");
-        }
+        if (host.InventoryRules?.Kind(item) is { Material: not null }) return DropSelectedWords(host, item);
         return EatenWords(host, item, host.PlayerUseSelected(), "That has no use yet.");
+    }
+
+    /// <summary>
+    /// The hotbar's armed unit dropped (F, decision 130: F drops a food unit as it drops a thing; E on a log or stone sets it down the same way):
+    /// the kernel's inventory.drop naming no item, so one unit of the selected slot lies loose on the ground before the player. The words say
+    /// what was set down, or are the host's refusal (no ground ahead).
+    /// </summary>
+    public static string DropSelectedWords(CommandHost host, string item)
+    {
+        var unit = UnitWords(host, item);
+        var dropped = host.PlayerDropSelected();
+        return Ok(dropped) ? $"You set {unit} down." : Failed(dropped, "That could not be set down.");
     }
 
     /// <summary>What a unit of a stack does, in a word or two, for its slot on the bar: food is eaten, a log or stone set down, anything else kept.</summary>

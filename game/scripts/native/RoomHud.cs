@@ -112,6 +112,7 @@ public partial class RoomHud : CanvasLayer
     private readonly List<(System.Action<string> Set, System.Func<string> Words)> _keyTexts = new();
     private PanelContainer _footer = null!;
     private VBoxContainer _keyHelp = null!;
+    private ScrollContainer _helpScroll = null!;
     private Label _helpHint = null!;
     private SpringArm3D _arm = null!;
     private Camera3D _shoulder = null!;
@@ -304,36 +305,42 @@ public partial class RoomHud : CanvasLayer
         var help = new VBoxContainer(); _footer.AddChild(help);
         _helpHint = new Label(); help.AddChild(_helpHint);
         _keyTexts.Add((words => _helpHint.Text = words, () => $"{K(Act.HudHelp)} " + (_keyHelp.Visible ? "hide keys" : "keys")));
-        _keyHelp = new VBoxContainer { Name = "KeyHelp", Visible = false }; help.AddChild(_keyHelp);
+        // The unfolded help is bounded by the room above the hotbar (RoomHud.Hotbar.cs, PlaceFooter; decision 130: it never covers the bar), and it
+        // is longer than that, so its lines scroll: the wheel over it, or the scroll bar. The playtest line below them stays pinned.
+        _keyHelp = new VBoxContainer { Name = "KeyHelp", Visible = false, SizeFlagsVertical = Control.SizeFlags.ExpandFill }; help.AddChild(_keyHelp);
+        _helpScroll = new ScrollContainer { Name = "HelpScroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsVertical = Control.SizeFlags.ExpandFill, FollowFocus = true };
+        _keyHelp.AddChild(_helpScroll);
+        var lines = new VBoxContainer { Name = "HelpLines", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        _helpScroll.AddChild(lines);
         // First what the card said (the title, the state, the clock, the mode, the settings), then every key.
-        _keyHelp.AddChild(_statusLines);
+        lines.AddChild(_statusLines);
         // Every key named below comes from the input map (PlayerControls.Label), so a remapped key shows here. E first (decision 86).
-        AddKeyLine(_keyHelp, InteractKeysLine, "InteractKeys");
-        AddKeyLine(_keyHelp, () => MoveKeys, "MoveKeys");
-        AddKeyLine(_keyHelp, () => $"Climb: keep walking into a steep face, {K(Act.MoveForward)} up, {K(Act.MoveBack)} down, {K(Act.MoveLeft)}/{K(Act.MoveRight)} across, {K(Act.Jump)} lets go · Swim: deep water floats you, {K(Act.Jump)} leaps · Dive: hold {K(Act.MoveDive)}, {K(Act.Jump)} rises, {K(Act.MoveForward)} swims the way you look, let go to drift up");
-        AddKeyLine(_keyHelp, () => $"{K(Act.ViewEye)} first person · {K(Act.ViewShoulder)} third person: {PlayerControls.ZoomLabel()} zooms out to look around, and zoomed out {PlayerControls.DragLabel()} orbits and {PlayerControls.MoveLabel()} follows the view");
-        AddKeyLine(_keyHelp, () => $"{K(Act.ViewObserve)} observe (a very tight tilt-shift view, best zoomed out) · {K(Act.HudCustomize)} settings · {K(Act.HudMagic)} the Gubble's magic · {K(Act.Journal)} journal ({K(Act.MouseRelease)} closes any; with nothing open, {K(Act.MouseRelease)} is the menu: save, load, settings, the main menu)", "PanelKeys");
+        AddKeyLine(lines, InteractKeysLine, "InteractKeys");
+        AddKeyLine(lines, () => MoveKeys, "MoveKeys");
+        AddKeyLine(lines, () => $"Climb: keep walking into a steep face, {K(Act.MoveForward)} up, {K(Act.MoveBack)} down, {K(Act.MoveLeft)}/{K(Act.MoveRight)} across, {K(Act.Jump)} lets go · Swim: deep water floats you, {K(Act.Jump)} leaps · Dive: hold {K(Act.MoveDive)}, {K(Act.Jump)} rises, {K(Act.MoveForward)} swims the way you look, let go to drift up");
+        AddKeyLine(lines, () => $"{K(Act.ViewEye)} first person · {K(Act.ViewShoulder)} third person: {PlayerControls.ZoomLabel()} zooms out to look around, and zoomed out {PlayerControls.DragLabel()} orbits and {PlayerControls.MoveLabel()} follows the view");
+        AddKeyLine(lines, () => $"{K(Act.ViewObserve)} observe (a very tight tilt-shift view, best zoomed out) · {K(Act.HudCustomize)} settings · {K(Act.HudMagic)} the Gubble's magic · {K(Act.Journal)} journal ({K(Act.MouseRelease)} closes any; with nothing open, {K(Act.MouseRelease)} is the menu: save, load, settings, the main menu)", "PanelKeys");
         // The hotbar (RoomHud.Hotbar.cs): its ten keys, Tab, the wheel over it, what a pocket slot and a magic slot do.
-        AddKeyLine(_keyHelp, BarKeysLine, "BarKeys");
+        AddKeyLine(lines, BarKeysLine, "BarKeys");
         // The window (RoomHud.Screen.cs): the key, and what the game remembers for the next launch.
-        AddKeyLine(_keyHelp, ScreenKeysLine, "ScreenKeys");
-        AddKeyLine(_keyHelp, () => $"Walk into a {MeterWords.One(Host, "fractals")} to collect it · {K(Act.Hands)} pick up what you face · {K(Act.Hands)} again sets it down in front of you, or on top of what you face (the box, the book) · {K(Act.Push)} push what you face 10 cm");
+        AddKeyLine(lines, ScreenKeysLine, "ScreenKeys");
+        AddKeyLine(lines, () => $"Walk into a {MeterWords.One(Host, "fractals")} to collect it · {K(Act.Hands)} pick up what you face · {K(Act.Hands)} again sets it down in front of you, or on top of what you face (the box, the book) · {K(Act.Hands)} with a food or seed unit chosen on the bar and nothing to pick up drops one · {K(Act.Push)} push what you face 10 cm");
         // The hand buttons, under the hand keys.
-        _keyHelp.AddChild(hands);
+        lines.AddChild(hands);
         // The Gubble's keys, under its name (the Glow playtest: the player should see whose magic this is), the buttons first.
-        AddKeyLine(_keyHelp, () => $"{Companion.NameTag}, your companion:", "GubbleHeading");
-        _keyHelp.AddChild(actions);
-        AddKeyLine(_keyHelp, () => $"{K(Act.GubbleAsk)} asks for what fits where you point (wait or follow, fetch or put down, light the dark, go and look; on a bubble, choose it, then a spot to lead it there, a higher one to lift it); hold it for the wheel · {K(Act.GubbleRecall)} come, then follow · {K(Act.GubbleStop)} stop · {K(Act.GubbleEyes)} look through its eyes", "GubbleKeys");
-        AddKeyLine(_keyHelp, MagicKeysLine, "GubbleSlots");
+        AddKeyLine(lines, () => $"{Companion.NameTag}, your companion:", "GubbleHeading");
+        lines.AddChild(actions);
+        AddKeyLine(lines, () => $"{K(Act.GubbleAsk)} asks for what fits where you point (wait or follow, fetch or put down, light the dark, go and look; on a bubble, choose it, then a spot to lead it there, a higher one to lift it); hold it for the wheel · {K(Act.GubbleRecall)} come, then follow · {K(Act.GubbleStop)} stop · {K(Act.GubbleEyes)} look through its eyes", "GubbleKeys");
+        AddKeyLine(lines, MagicKeysLine, "GubbleSlots");
         // The toggles that bend the world for testing, apart from the keys the game is played with.
-        _keyHelp.AddChild(new Label { Name = "TestingHeading", Text = "Testing" });
-        AddKeyLine(_keyHelp, () => $"{K(Act.PhysicsNext)} gravity · {K(Act.TimeStep)} time of day · {K(Act.SeasonStep)} season (each steps round to the real clock) · {K(Act.Lamps)} lamps · {K(Act.BounceStep)} your character's bounce (x0.5, x1, x1.5) · {K(Act.BouncePrint)} print its motion profile", "TestingKeys");
+        lines.AddChild(new Label { Name = "TestingHeading", Text = "Testing" });
+        AddKeyLine(lines, () => $"{K(Act.PhysicsNext)} gravity · {K(Act.TimeStep)} time of day · {K(Act.SeasonStep)} season (each steps round to the real clock) · {K(Act.Lamps)} lamps · {K(Act.BounceStep)} your character's bounce (x0.5, x1, x1.5) · {K(Act.BouncePrint)} print its motion profile", "TestingKeys");
         // The playtest record's keys and its beat (RoomHud.Playtest.cs).
         AddKeyLine(_keyHelp, PlaytestKeysLine, "PlaytestKeys");
         // The footer keeps the key hints only (the second recorded play: the line at the bottom edge was never seen): notices show under
         // the reticle and fade (RoomHud.Notice.cs). Folded, the footer is the one small "H keys" line.
-        // The footer is a line of no height at the bottom edge that grows up to the size its content needs, and gives it back when the help folds.
-        // (It was told its size here once, which moved its top edge nowhere: the unfolded help ran off the bottom of the screen.)
+        // Folded, the footer is a line of no height at the lower left that grows up to the size its content needs (it was told its size here
+        // once, which moved its top edge nowhere); unfolded, it stands between the top margin and the hotbar's caption (PlaceFooter).
         // The settings (RoomHud.Settings.cs): the player's switches and "Your AI". The Customize panel's avatars moved to the opening menu.
         var settingsPanel = new PanelContainer { Name = "SettingsPanel", Position = new Vector2(18, 190), Theme = theme, Visible = false };
         AddChild(settingsPanel);
@@ -1045,8 +1052,11 @@ public partial class RoomHud : CanvasLayer
     }
     private Kernel.CommandHost? _host;
 
-    /// <summary>F: pick up what the player faces, or put down what it holds (on what it faces, if that has a top).</summary>
-    private void Hands() => _noticeText = HandsOnFractal() ?? Host?.PlayerHands().Message ?? "The command host is not attached; the hand keys are off.";
+    /// <summary>
+    /// F: pick up what the player faces, or put down what it holds (on what it faces, if that has a top); with a stack's unit armed on the bar
+    /// and nothing for F to pick up, it drops one unit loose before the player (RoomHud.Hotbar.cs, decision 130).
+    /// </summary>
+    private void Hands() => _noticeText = HandsOnFractal() ?? DropArmedUnit() ?? Host?.PlayerHands().Message ?? "The command host is not attached; the hand keys are off.";
 
     /// <summary>V: push what the player faces.</summary>
     private void Push() => _noticeText = Host?.PlayerPush().Message ?? "The command host is not attached; the hand keys are off.";

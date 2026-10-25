@@ -371,7 +371,7 @@ public partial class PlayHudTest : Node
     private string[] HelpLines()
     {
         var column = _hud.GetNode<PanelContainer>("HelpFooter").GetChild<VBoxContainer>(0);
-        return new[] { column.GetChild<Label>(0).Text }.Concat(column.GetNode<VBoxContainer>("KeyHelp").GetChildren().OfType<Label>().Select(l => l.Text)).ToArray();
+        return new[] { column.GetChild<Label>(0).Text }.Concat(HelpLabels(column.GetNode<VBoxContainer>("KeyHelp")).Select(l => l.Text)).ToArray();
     }
 
     private string[] ButtonTexts(string row) => _hud.FindChild(row, true, false)!.GetChildren().OfType<Button>().Select(b => b.Text).ToArray();
@@ -395,9 +395,9 @@ public partial class PlayHudTest : Node
                 "F1 first person · F2 third person: wheel zooms out to look around, and zoomed out drag orbits and WASD follows the view",
                 "O observe (a very tight tilt-shift view, best zoomed out) · C settings · M the Gubble's magic · J journal (Esc closes any; with nothing open, Esc is the menu: save, load, settings, the main menu)",
                 // The hotbar (docs/game/HOTBAR.md): its ten keys, Tab, the wheel over it, what a pocket slot and a magic slot do.
-                "Bar: 1 to 0 choose a slot (or the wheel or a click over it) · Tab: pockets or magic · E or a click uses a pocket slot, E or F sets a thing down",
+                "Bar: 1 to 0 choose a slot (or the wheel or a click over it) · Tab: pockets or magic · E or a click uses a pocket slot, F drops one unit of it, E or F sets a thing down",
                 "F11 full screen on or off (kept for your next launch)",
-                "Walk into a fractal to collect it · F pick up what you face · F again sets it down in front of you, or on top of what you face (the box, the book) · V push what you face 10 cm",
+                "Walk into a fractal to collect it · F pick up what you face · F again sets it down in front of you, or on top of what you face (the box, the book) · F with a food or seed unit chosen on the bar and nothing to pick up drops one · V push what you face 10 cm",
                 "The Gubble, your companion:",
                 "right-click asks for what fits where you point (wait or follow, fetch or put down, light the dark, go and look; on a bubble, choose it, then a spot to lead it there, a higher one to lift it); hold it for the wheel · Q come, then follow · X stop · I look through its eyes",
                 $"1 Glow{PriceWords("glow")}, 2 Grow{PriceWords("grow")}, 3 Bubbles{PriceWords("bubbles")}, 4 Fireworks{PriceWords("fireworks")}, 6 Fire" +
@@ -1489,7 +1489,7 @@ public partial class PlayHudTest : Node
             "the bottom line keeps the key hints only: the notice is no longer in it but in its own card");
         _hud._UnhandledInput(Press(Key.H));
         await Frames(3);
-        Check(help.IsVisibleInTree() && help.GetChildren().OfType<Label>().All(l => l.IsVisibleInTree()), "H unfolds every key-help line");
+        Check(help.IsVisibleInTree() && HelpLabels(help).All(l => l.IsVisibleInTree()), "H unfolds every key-help line");
         Check(footer.Size.Y > foldedHeight, "the footer grows to fit the unfolded help");
         var repeat = Press(Key.H); repeat.Echo = true;
         _hud._UnhandledInput(repeat);
