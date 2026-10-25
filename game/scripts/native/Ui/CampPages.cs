@@ -7,11 +7,12 @@ namespace GarageGame.Native.Ui;
 
 /// <summary>
 /// The camp's pages (MECHANICS.md decision 87: "the place to manage magic, see the expertise found, check stats and knacks, manage the
-/// inventory (not built yet) and spend Fractals"), written from what already exists and nothing else: the abilities as the journal lists
+/// inventory and spend Fractals"), written from what already exists and nothing else: the abilities as the journal lists
 /// them, the expertise found (the journal's own list), the player's hearts, bar, pips and knacks (the host's vitals and the team file, in
 /// the meters' own words), the Fractals and their two buttons (FractalSpend, decision 62's camp rules, as the journal's Character page has
-/// them) and an Inventory page that says it is coming. No new rules: every number is the host's, every button the player's own command
-/// through the host (fractal.spend, knack.set) or a panel that exists (the Magic panel). Lines are JournalLines, as the journal's pages.
+/// them) and the Inventory page, live (InventoryPages: the chest with a Take for each entry, the pockets with a Store). No new rules:
+/// every number is the host's, every button the player's own command through the host (fractal.spend, knack.set, inventory.take and
+/// store) or a panel that exists (the Magic panel). Lines are JournalLines, as the journal's pages.
 /// </summary>
 public static class CampPages
 {
@@ -22,7 +23,6 @@ public static class CampPages
     public const string MagicTarget = "camp:magic";
     /// <summary>A knack's button: "knack:&lt;slot&gt;:&lt;knack id&gt;" (the player's knack.set).</summary>
     public const string KnackPrefix = "knack:";
-    public const string InventoryComing = "Your inventory is coming. For now food is eaten where it is found, and your hands carry one thing at a time.";
 
     /// <summary>The pages in order, by their names on screen (the expertise and Fractals pages read the pack's own words).</summary>
     public static string[] Titles(CommandHost? host) => new[] { Magic, MeterWords.Name(host, "expertise"), You, MeterWords.Name(host, "fractals"), Inventory };
@@ -96,21 +96,10 @@ public static class CampPages
         return lines;
     }
 
-    /// <summary>The inventory, still to come: what the hands carry and what the wallet holds meanwhile.</summary>
-    public static List<JournalLine> InventoryLines(CommandHost host)
-    {
-        var carried = host.HeldName(CommandHost.PlayerAvatar);
-        var wallet = host.Nature.Wallet;
-        return new List<JournalLine>
-        {
-            Heading(Inventory),
-            Text(InventoryComing),
-            Text("Carrying: " + (string.IsNullOrEmpty(carried) ? "empty hands" : KernelJson.DisplayText(carried, 60))),
-            Text("In your wallet: " + (wallet.Count == 0 ? "nothing yet" : string.Join(" · ", wallet.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{Material(p.Key)} {p.Value}")))),
-        };
-    }
+    /// <summary>The inventory, live (decision 87): the chest with a Take for each entry, the pockets with a Store (InventoryPages.CampLines).</summary>
+    public static List<JournalLine> InventoryLines(CommandHost host) => InventoryPages.CampLines(host);
 
-    private static string Material(string key) => key switch
+    public static string Material(string key) => key switch
     {
         "wood" => "Wood", "stone" => "Stone", "copper" => "Copper", "leaf" => "Leaves", "metal" => "Metal", "glass" => "Glass", "cloth" => "Cloth", _ => "Material",
     };

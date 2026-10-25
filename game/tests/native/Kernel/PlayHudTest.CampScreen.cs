@@ -10,8 +10,8 @@ namespace GarageGame.Tests.Kernel;
 
 /// <summary>
 /// The camp's screen (the second playtest round's P2, item 3; decision 87; RoomHud.CampScreen.cs): sitting opens it on the left under the
-/// meters; its five pages gather what exists (the abilities and the Magic panel, the expertise found, you, the Fractals' spends, an
-/// Inventory still to come), every number the host's and every button the player's command; the Magic panel opens over it and gives it
+/// meters; its five pages gather what exists (the abilities and the Magic panel, the expertise found, you, the Fractals' spends, the
+/// Inventory: PlayHudTest.Inventory.cs), every number the host's and every button the player's command; the Magic panel opens over it and gives it
 /// back; standing up closes it (E, its button, a step away, the first Esc); it never takes the keyboard (the body still walks).
 /// </summary>
 public partial class PlayHudTest
@@ -59,8 +59,9 @@ public partial class PlayHudTest
               you.Contains(MeterMath.BarNumbers(MeterWords.Name(host, "stamina"), vitals.Stamina, vitals.MaxStamina), StringComparison.Ordinal) && you.Contains("Knacks", StringComparison.Ordinal),
             "You: the hearts and the bar in the meters' own words, and the knacks: " + you.Replace("\n", " | "));
         var inventory = Page(4);
-        Check(inventory.Contains(CampPages.InventoryComing, StringComparison.Ordinal) && inventory.Contains("Carrying: empty hands", StringComparison.Ordinal) && inventory.Contains("In your wallet", StringComparison.Ordinal),
-            "Inventory: it says it is coming, and what the hands and the wallet hold meanwhile");
+        Check(!inventory.Contains("coming", StringComparison.Ordinal) && inventory.Contains("Carrying: empty hands", StringComparison.Ordinal) && inventory.Contains("In your wallet", StringComparison.Ordinal) &&
+              inventory.Contains("The chest", StringComparison.Ordinal) && inventory.Contains("Your pockets", StringComparison.Ordinal),
+            "Inventory: live now (it no longer says it is coming): what the hands and the wallet hold, the chest and the pockets");
 
         // The Fractals: the camp's two spends, as the journal's Character page has them, through the player's fractal.spend.
         host.ConfigurePlayerVitals(BodyHolding(5));

@@ -8,12 +8,13 @@ namespace GarageGame.Native;
 
 /// <summary>
 /// The camp's screen (MECHANICS.md decision 87: sitting at a camp "opens the camp: the place to manage magic, see the expertise found,
-/// check stats and knacks, manage the inventory (not built yet) and spend Fractals"). Sitting down (E or Z by a lit campfire) opens it on
+/// check stats and knacks, manage the inventory and spend Fractals"). Sitting down (E or Z by a lit campfire) opens it on
 /// the left, where the Magic panel opens, under the meters (they stay in view, the hearts healing while you rest) and beside the fire's view
 /// (the look lane's resting scene); standing up closes it: E or its Stand up button, a step away (the host's rest ends when the body
 /// moves), or the first Esc. Its pages are CampPages': Magic (the island's abilities and the Magic panel itself, opened over the camp and
-/// back to it when it closes), the expertise found, You (hearts, bar, pips, knacks), the Fractals with the camp's two spends, and an
-/// Inventory page that says it is coming. Every number is the host's, every button the player's own command through the host.
+/// back to it when it closes), the expertise found, You (hearts, bar, pips, knacks), the Fractals with the camp's two spends, and the
+/// Inventory page, live (the chest's entries with a Take, the pockets' with a Store). Every number is the host's, every button the
+/// player's own command through the host.
 /// </summary>
 public partial class RoomHud
 {
@@ -166,7 +167,13 @@ public partial class RoomHud
             SetMagicPanelOpen(true);
             return "";
         }
-        if (target.StartsWith(CampPages.KnackPrefix, StringComparison.Ordinal) && target.Split(':') is [_, var slotText, var knack] && int.TryParse(slotText, out var slot))
+        if (target.StartsWith(InventoryPages.Prefix, StringComparison.Ordinal))
+        {
+            // The chest's Take and the pockets' Store (decision 87): the player's own inventory commands, answered in the host's words.
+            words = Host is { } inventoryHost ? InventoryPages.Run(inventoryHost, target) : "";
+            _noticeText = words;
+        }
+        else if (target.StartsWith(CampPages.KnackPrefix, StringComparison.Ordinal) && target.Split(':') is [_, var slotText, var knack] && int.TryParse(slotText, out var slot))
         {
             if (Host is not { } host) return "";
             var result = host.PlayerSetKnack(slot, knack);

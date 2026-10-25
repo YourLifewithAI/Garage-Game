@@ -124,6 +124,7 @@ public partial class RoomHud
         CloseJournalNow();
         if (SettingsOpen) ToggleSettings();
         if (MagicPanelOpen) SetMagicPanelOpen(false);
+        if (PocketsPanelOpen) SetPocketsPanelOpen(false);
         _pauseOpen = true;
         if (IsInsideTree() && !GetTree().Paused)
         {
@@ -291,7 +292,7 @@ public partial class RoomHud
 
     /// <summary>
     /// The first Esc (decision 97): lets go of whatever the player is in the middle of, as Esc always did: the settings and the Magic
-    /// panel, a look drag, key 6 held for a Fireline, the bubble the smart ask chose; then the sit by the fire with its camp (a panel over
+    /// panel, the pockets, a look drag, key 6 held for a Fireline, the bubble the smart ask chose; then the sit by the fire with its camp (a panel over
     /// the camp closes first, so the next Esc stands you up). True when something was let go; false when nothing
     /// was going on, and the Esc is the menu's. (The wheel, a spot being chosen, the Gubble's eyes and the journal take their Esc earlier.)
     /// </summary>
@@ -300,6 +301,7 @@ public partial class RoomHud
         var going = false;
         if (SettingsOpen) { ToggleSettings(); going = true; }
         if (MagicPanelOpen) { SetMagicPanelOpen(false); going = true; }
+        if (PocketsPanelOpen) { SetPocketsPanelOpen(false); going = true; }
         if (_drag.Pressed) { EndDrag(); going = true; }
         if (_fireKeyStart != null) { _fireKeyStart = null; going = true; }
         if (SelectedBubble != null) { ClearBubbleSelection(); going = true; }
