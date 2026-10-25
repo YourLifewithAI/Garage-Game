@@ -494,6 +494,8 @@ public partial class CommandHost
             };
             // Decision 72: Fire is listed, locked, until the first rest by the starting campfire teaches it (CommandHostCamps.RequireFireLearned).
             if (a.Primitive == "element.ignite" && !FireLearned) item["locked"] = true;
+            // Decision 76: Grow is listed with the unlocks the team has not opened yet, each refused permission_denied (CommandHostGrowKinds).
+            if (a.Primitive == "growth.grow" && GrowLockedKinds() is { Count: > 0 } kinds) item["locked_kinds"] = new JsonArray(kinds.Select(k => (JsonNode?)k).ToArray());
             return (JsonNode?)item;
         }).ToArray();
         var data = new JsonObject { ["items"] = new JsonArray(items) };

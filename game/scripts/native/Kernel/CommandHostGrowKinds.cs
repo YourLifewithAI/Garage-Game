@@ -43,15 +43,15 @@ public static class GrowKindLaws
     /// <summary>A saved sowing time is at most this (about the year 5138): anything later is no time.</summary>
     public const long MaxSownS = 100_000_000_000;
 
-    /// <summary>A seedling's factor in a phase: SeedlingStart, then a third of the way to natural a phase, natural after the last.</summary>
-    public static float SeedlingFactor(int phase) =>
-        phase >= SeedlingPhases ? 1f : SeedlingStart + (1 - SeedlingStart) * Math.Max(0, phase) / SeedlingPhases;
+    /// <summary>A seedling's factor in a phase of phases: SeedlingStart, then an equal step toward natural a phase, natural after the last.</summary>
+    public static float SeedlingFactor(int phase, int phases = SeedlingPhases) =>
+        phase >= phases ? 1f : SeedlingStart + (1 - SeedlingStart) * Math.Max(0, phase) / phases;
 
-    /// <summary>The phase a seedling sown at sownS is in at nowS on a clock of dayScale game days a real day (0 to SeedlingPhases).</summary>
-    public static int SeedlingPhase(long sownS, long nowS, int dayScale)
+    /// <summary>The phase a seedling sown at sownS is in at nowS on a clock of dayScale game days a real day (0 to phases), phaseH game hours each.</summary>
+    public static int SeedlingPhase(long sownS, long nowS, int dayScale, double phaseH = SeedlingPhaseH, int phases = SeedlingPhases)
     {
         var hours = Math.Max(0, nowS - sownS) / 3600.0 * Math.Max(1, dayScale);
-        return (int)Math.Min(SeedlingPhases, Math.Floor(hours / SeedlingPhaseH + 1e-9));
+        return (int)Math.Min(phases, Math.Floor(hours / phaseH + 1e-9));
     }
 
     // ---- sprouts (decision 104) ----
@@ -209,9 +209,6 @@ public partial class CommandHost
         data.Remove("cells");
         data.Remove("cells_truncated");
         data["started_cells"] = 0;
-        // The durable receipt keeps the plain Grow shape until the room-state reader knows Grow's kinds (CommandHostRoomState's
-        // NatureDataProblem; the P-Grow change request), as the Fireline's did: an island state carrying it must rebuild meanwhile.
-        data.Remove("kind");
         // The guard at commit (CommandHostEnergy): priced as any Grow (decision 107), charged once the revision is saved.
         var price = GuardEnergy(ability.Capability, principal);
         var result = CommitNature(candidate, "nature.cast", principal, action, fingerprint, approvedBy, Array.Empty<string>(), data, undo: false);
@@ -238,7 +235,15 @@ public partial class CommandHost
     private long SownNowS() => (long)Math.Floor((Clock().ToUniversalTime() - DateTime.UnixEpoch).TotalSeconds);
 
     /// <summary>The factor a seedling sown at sownS has now: its phase on the island clock, so a reload continues it.</summary>
-    private float SeedlingFactorNow(long sownS) => GrowKindLaws.SeedlingFactor(GrowKindLaws.SeedlingPhase(sownS, SownNowS(), GrowDayScale()));
+    private float SeedlingFactorNow(long sownS)
+    {
+        var growth = Rules?.Traits?.Growth;
+        var phases = growth?.SeedlingPhases ?? GrowKindLaws.SeedlingPhases;
+        return GrowKindLaws.SeedlingFactor(GrowKindLaws.SeedlingPhase(sownS, SownNowS(), GrowDayScale(), growth?.SeedlingPhaseH ?? GrowKindLaws.SeedlingPhaseH, phases), phases);
+    }
+
+    /// <summary>The share of the bar a climb on ivy pays: the pack's traits.stamina.ivy_climb_factor, else the local default (decision 107).</summary>
+    internal float IvyClimbFactorNow => (float)(Rules?.Traits?.Stamina?.IvyClimbFactor ?? GrowKindLaws.IvyClimbFactor);
 
     /// <summary>
     /// The seedlings' sizes follow the island clock: each replanted plant's and each sprout's factor is its phase now (derived, never

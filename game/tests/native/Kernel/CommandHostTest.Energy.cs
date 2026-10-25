@@ -49,7 +49,7 @@ public partial class CommandHostTest
         var v5 = IslandRules.Load("storybook_wild", 5);
         var traits = v5.Traits!;
         Check(traits.Hearts == new HeartsRules(5, 5, 30, 2.5, 10, HealOutsideCamp: false, CampHealQuarterEveryS: 1, HealWhileClosed: false, CampHealAfterUnharmedS: 2) && traits.Harm == new HarmRules(1, null) &&
-              traits.Stamina == new StaminaRules(0.4, 0.4, 10, 5, 0.02, 0.1, 0.02, 0.04, 1, 1.5, 0) &&
+              traits.Stamina == new StaminaRules(0.4, 0.4, 10, 5, 0.02, 0.1, 0.02, 0.04, 1, 1.5, 0, 0.25) && traits.Growth == new GrowthRules(1, 3) &&
               traits.Pips == new PipsRules(8, 5, 40, 5, 2, 15, 0.5) && traits.Wallet == new WalletRules(0, 0, 0, 0),
             "v5's traits: 5 hearts of 5 health a quarter to 30, healing only at a camp, a quarter a second there after 2 s unharmed (10 s elsewhere), and none while the game is closed (decisions 84, 91, 93 and 111; 2.5 s a quarter elsewhere only for a pack that heals there), fire a quarter a second and no fall cap, the bar 0.4 m in ten bands of 0.4 m, running and deep water 0.02 m/s, diving 0.04 m/s, the refill 0.1 m/s, no running from empty until the first bar is full, a metre of bar buying 1.5 m of climb and hanging still free (decisions 64 and 65), 8 pips to 40, an empty wallet (decision 26)");
         var prices = v5.Cost!.Prices;

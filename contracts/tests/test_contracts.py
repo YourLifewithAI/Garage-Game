@@ -1861,6 +1861,8 @@ class MechanicsRoundTests(unittest.TestCase):
         self.assertEqual((stamina["climb_m_per_bar_m"], stamina["holding_m_per_s"]), (1.5, 0),
                          "the founder's climb of 16 October (decisions 64 and 65): hanging still costs nothing, a metre of bar buys 1.5 m")
         self.assertAlmostEqual(stamina["start_m"] * stamina["climb_m_per_bar_m"], 0.6, msg="a 0.4 m starting bar buys 60 cm of climb")
+        self.assertEqual((stamina["ivy_climb_factor"], traits["growth"]), (0.25, {"seedling_phase_h": 1, "seedling_phases": 3}),
+                         "Grow's unlocks (decisions 104 and 107): a climb on ivy pays a quarter; seedlings grow in three phases of a game hour")
         self.assertEqual(traits["pips"], {"start": 8, "expertise_per_pip": 5, "ceiling": 40, "refill_near_every_s": 5,
                                           "refill_near_within_m": 2, "refill_far_every_s": 15, "camp_fraction": 0.5})
         prices = {name: (p["ordered"], round(p["ordered"] * p["own_idea_factor"])) for name, p in self.v5["cost"]["prices"].items()}

@@ -874,8 +874,7 @@ IVY = {"capability": "grow", "center_m": [1.6, 0.25, -1.2], "radius_m": 0.5, "du
 def grow_unlocks(at: str) -> dict:
     """Grow's unlocks (the P-Grow packet, 25 October): the place decides what a Grow cast is, and data.kind says so."""
     def grew(cast: dict, grown: int, kind: str, **extra) -> dict:
-        # A durable receipt keeps the plain Grow shape until the kernel's room-state reader knows the kinds (the P-Grow change request).
-        return {**placed(cast), "cell_count": 0, "requires_approval": False, "started_cells": 0, "grown_plants": grown, **extra}
+        return {**placed(cast), "cell_count": 0, "requires_approval": False, "started_cells": 0, "grown_plants": grown, "kind": kind, **extra}
     bridge = {k: v for k, v in placed(BRIDGE).items() if k != "end_m"}
     return {
         "command_grow_sprouts": command("nature.cast", "sprout-0001", SPROUTS),
@@ -887,7 +886,7 @@ def grow_unlocks(at: str) -> dict:
             "end_m": BRIDGE["end_m"]}},
         "command_grow_bridge": command("nature.cast", "bridge-0001", BRIDGE),
         "result_grow_bridge": result("nature.cast", "bridge-0001", "player:local", 13, at, transient=False, data={
-            **bridge, "cell_count": 0, "requires_approval": False, "started_cells": 0, "grown_plants": 1, "end_m": BRIDGE["end_m"]}),
+            **bridge, "cell_count": 0, "requires_approval": False, "started_cells": 0, "grown_plants": 1, "kind": "bridge", "end_m": BRIDGE["end_m"]}),
         "result_grow_ivy": result("nature.cast", "ivy-0001", "player:local", 14, at, transient=False, data=grew(IVY, 1, "ivy")),
         # Before three Grow expertise: Grow is listed, its bridge and ivy locked (decision 76).
         "result_capabilities_list_with_locked_kinds": answer("capabilities.list", "q-0040", "companion:local", 14, at, {"items": [
@@ -899,9 +898,10 @@ def grow_unlocks(at: str) -> dict:
 def grow_unlocks_refused(at: str) -> dict:
     """What Grow's unlocks refuse, each for one reason (EXPECTED_FAILURES in contracts/tests/test_contracts.py)."""
     valid = grow_unlocks(at)
+    sprouts = valid["result_grow_sprouts"]
     listed = valid["result_capabilities_list_with_locked_kinds"]
     return {
-        "result_grow_kind_unknown": {**valid["result_grow_bridge_preview"], "data": {**valid["result_grow_bridge_preview"]["data"], "kind": "vines"}},
+        "result_grow_kind_unknown": {**sprouts, "data": {**sprouts["data"], "kind": "vines"}},
         "result_capabilities_list_locking_a_kind_twice": {**listed, "data": {"items": [{**listed["data"]["items"][0], "locked_kinds": ["ivy", "ivy"]}]}},
         "result_capabilities_list_with_no_locked_kinds_listed": {**listed, "data": {"items": [{**listed["data"]["items"][0], "locked_kinds": []}]}},
     }
@@ -985,10 +985,13 @@ MECHANICS = {
         "harm": {"fire_quarters_per_s": 1},
         "stamina": {"start_m": 0.4, "band_m": 0.4, "bands": 10, "bands_per_bar": 5, "running_m_per_s": 0.02, "refill_m_per_s": 0.1,
                     "deep_water_m_per_s": 0.02, "dive_m_per_s": 0.04, "climb_m_per_bar_m": 1.5, "holding_m_per_s": 0,
-                    "empty_no_run_until_fraction": 1},
+                    # Decision 107: a climb on Grow's wall ivy pays a quarter of a bare face's bar (provisional).
+                    "ivy_climb_factor": 0.25, "empty_no_run_until_fraction": 1},
         "pips": {"start": 8, "expertise_per_pip": 5, "ceiling": 40, "refill_near_every_s": 5, "refill_near_within_m": 2,
                  "refill_far_every_s": 15, "camp_fraction": 0.5},
         "wallet": {"start": {"wood": 0, "stone": 0, "copper": 0, "leaf": 0}},
+        # Decision 104: Grow's seedlings reach their natural size through three phases of a game hour (provisional).
+        "growth": {"seedling_phase_h": 1, "seedling_phases": 3},
     },
     "cost": {
         "prices": {name: {"ordered": ordered, "own_idea_factor": 0.5} for name, ordered in (

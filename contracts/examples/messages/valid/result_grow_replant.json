@@ -22,6 +22,7 @@
     "cell_count": 0,
     "requires_approval": false,
     "started_cells": 0,
-    "grown_plants": 1
+    "grown_plants": 1,
+    "kind": "replant"
   }
 }

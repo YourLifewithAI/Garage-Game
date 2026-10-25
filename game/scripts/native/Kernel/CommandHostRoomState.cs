@@ -387,8 +387,10 @@ public partial class CommandHost
             var fine = name switch
             {
                 "center_m" or "end_m" => Vec3(value),
-                // Fire's kinds (decisions 77 to 80): a durable receipt names a Fireline; the others' receipts are transient or plain.
-                "kind" => value?.GetValueKind() == JsonValueKind.String && value.GetValue<string>() is "fire" or "firepit" or "fireline" or "snuff" or "will_o_wisp",
+                // Fire's kinds (decisions 77 to 80): a durable receipt names a Fireline; the others' receipts are transient or plain. Grow's
+                // unlocks (decisions 104 to 107): a durable receipt names sprouts, a replanting, a bridge or ivy (CommandHostGrowKinds).
+                "kind" => value?.GetValueKind() == JsonValueKind.String && value.GetValue<string>() is "fire" or "firepit" or "fireline" or "snuff" or "will_o_wisp" or
+                    "sprouts" or "replant" or "bridge" or "ivy",
                 "radius_m" => Number(value, NatureBlock.MaxFireRadiusM) && value!.GetValue<double>() > 0,
                 "duration_s" => Number(value, 600) && value!.GetValue<double>() > 0,
                 "cell_count" or "started_cells" or "max_burning_cells" => Whole(value, NatureState.MaxCells),

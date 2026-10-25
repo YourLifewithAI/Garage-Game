@@ -670,6 +670,32 @@
         },
         "wallet": {
           "$ref": "#/$defs/wallet"
+        },
+        "growth": {
+          "$ref": "#/$defs/growth"
+        }
+      }
+    },
+    "growth": {
+      "description": "Grow's seedlings (docs/game/MECHANICS.md decision 104): a sprout on bare soil and a replanted plant start at half their natural size and reach it through seedling_phases phases of seedling_phase_h game hours each, on the island's clock (x_clock's day scale; the machine's own clock without one), so a reload continues them. Absent: the host's own provisional numbers (3 phases of one game hour).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seedling_phase_h",
+        "seedling_phases"
+      ],
+      "properties": {
+        "seedling_phase_h": {
+          "description": "Game hours a phase lasts (1, provisional).",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 24
+        },
+        "seedling_phases": {
+          "description": "Phases from half size to natural (3, provisional).",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
         }
       }
     },
@@ -831,6 +857,12 @@
           "description": "Optional: what hanging still on a face costs, in metres of bar a second (0, the founder's number of 16 October, decision 64: standing still costs nothing). Absent: today's 0.01.",
           "type": "number",
           "minimum": 0,
+          "maximum": 1
+        },
+        "ivy_climb_factor": {
+          "description": "Optional: the share of a bare face's bar a climb on Grow's wall ivy pays (0.25, decision 107: something nominal, a quarter, provisional), the full price again once the ivy has burnt. Absent: the host's own 0.25.",
+          "type": "number",
+          "exclusiveMinimum": 0,
           "maximum": 1
         },
         "empty_no_run_until_fraction": {

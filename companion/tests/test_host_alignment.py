@@ -39,9 +39,10 @@ BUBBLES_SUMMARY = {"capability": "bubbles", "category": "float", "params": {"int
 FIREWORKS_SUMMARY = {"capability": "fireworks", "category": "burst", "params": {"intensity": {"min": 0.3, "max": 1.0}},
                      "area_radius_max_m": 2.0, "duration_max_s": 6, "reach_m": 4.0, "max_active": 3,
                      "command_op": "effect.start"}
+# Grow is listed with its unlocks locked until the team's Grow expertise opens them (decision 76): a fresh team on either host.
 GROW_SUMMARY = {"capability": "grow", "category": "growth", "params": {"intensity": {"min": 0.1, "max": 0.5}},
                 "area_radius_max_m": 1.0, "duration_max_s": 600, "reach_m": 2.0, "max_active": 1,
-                "command_op": "nature.cast"}
+                "command_op": "nature.cast", "locked_kinds": ["sprouts", "replant", "bridge", "ivy"]}
 # Fire is listed locked until the team's first rest by the starting campfire (decision 72): a fresh team on either host.
 FIRE_SUMMARY = {"capability": "fire", "category": "fire", "params": {"intensity": {"min": 0.2, "max": 1.0}},
                 "area_radius_max_m": 1.5, "duration_max_s": 60, "reach_m": 2.0, "max_active": 1,

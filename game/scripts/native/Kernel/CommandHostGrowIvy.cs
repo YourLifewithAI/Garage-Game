@@ -130,7 +130,7 @@ public partial class CommandHost
             view = IvyView.Create();
             room.AddChild(view);
         }
-        return view.SetIvy(Nature.Ivy.Select(i => new IvyView.Strip(i.Id, i.BaseM, i.NormalM, i.Burn)).ToList(), GrowKindLaws.IvyClimbFactor);
+        return view.SetIvy(Nature.Ivy.Select(i => new IvyView.Strip(i.Id, i.BaseM, i.NormalM, i.Burn)).ToList(), IvyClimbFactorNow);
     }
 
     /// <summary>A strip's bounds for catching fire: the strip on its face and the ground at its foot before it.</summary>

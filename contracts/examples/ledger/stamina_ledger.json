@@ -13,6 +13,7 @@
     "dive_m_per_s": 0.04,
     "climb_m_per_bar_m": 1.5,
     "holding_m_per_s": 0,
+    "ivy_climb_factor": 0.25,
     "empty_no_run_until_fraction": 1
   },
   "tolerance_m": 1e-06,

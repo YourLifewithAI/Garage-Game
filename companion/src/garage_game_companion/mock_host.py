@@ -2993,7 +2993,9 @@ class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin):
                                   BUBBLE_MAX if a.primitive == "particles.float" else a.max_active),
                 "command_op": "nature.cast" if a.primitive in {"growth.seed", "growth.grow", "element.ignite"} else "effect.start",
                 # Decision 72: Fire listed, locked, until the team learns it (the kernel's Capabilities).
-                **({"locked": True} if a.primitive == "element.ignite" and not self.fire_learned else {})} for a in page]}
+                **({"locked": True} if a.primitive == "element.ignite" and not self.fire_learned else {}),
+                # Decision 76: Grow is listed with the unlocks the team has not opened yet (the kernel's GrowLockedKinds).
+                **({"locked_kinds": self.grow_locked_kinds()} if a.primitive == "growth.grow" and self.grow_locked_kinds() else {})} for a in page]}
             if start + len(page) < len(abilities):
                 result["data"]["next_cursor"] = str(start + len(page))
         elif op == "observe":

@@ -173,6 +173,7 @@
       "dive_m_per_s": 0.04,
       "climb_m_per_bar_m": 1.5,
       "holding_m_per_s": -0.01,
+      "ivy_climb_factor": 0.25,
       "empty_no_run_until_fraction": 1
     },
     "pips": {
@@ -191,6 +192,10 @@
         "copper": 0,
         "leaf": 0
       }
+    },
+    "growth": {
+      "seedling_phase_h": 1,
+      "seedling_phases": 3
     }
   },
   "cost": {

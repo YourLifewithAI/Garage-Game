@@ -33,11 +33,8 @@ public partial class NatureTest
 
     private static string? Kind(JsonObject result) => result["data"]?["kind"]?.GetValue<string>();
 
-    /// <summary>
-    /// What a committed unlock's durable receipt says of its kind: nothing yet. It keeps the plain Grow shape until the kernel's
-    /// room-state reader knows Grow's kinds (CommandHostRoomState.NatureDataProblem, the P-Grow change request, which makes this the kind).
-    /// </summary>
-    private static bool ReceiptKind(JsonObject result, string kind) => Kind(result) == null;
+    /// <summary>What a committed unlock's durable receipt says of its kind: the kind, as its preview did (the room-state reader knows them).</summary>
+    private static bool ReceiptKind(JsonObject result, string kind) => Kind(result) == kind;
     private static int Grown(JsonObject result) => result["data"]?["grown_plants"]?.GetValue<int>() ?? -1;
     private SproutView? SproutsShown => _world!.GetNode("Room").GetNodeOrNull<SproutView>(SproutView.ViewName);
 
@@ -69,6 +66,8 @@ public partial class NatureTest
         await NewWorld(SavePath("unlocks-gate"));
         Block("Cliff", new Vector3(-1.9f, 0, 0.1f), new Vector3(-1.3f, 0.4f, 1.0f));
         await Frames(2);
+        JsonNode? GrowItem() => Send(Query("capabilities.list", new JsonObject()), Companion)["data"]?["items"]?.AsArray().FirstOrDefault(i => i?["capability"]?.GetValue<string>() == "grow");
+        var locked = GrowItem();
         var revision = _host.Revision;
         var pips = _host.Vitals.Pips;
         var bare = GrowCast(Player, BareAt, 0.3);
@@ -101,6 +100,10 @@ public partial class NatureTest
             string.Join(" | ", lists.Select(l => string.Join(",", l))));
         Check(_host.GrowLockedWords(GrowKindWords.Ivy) == null && Code(GrowCast(Player, new Vector3(-1.3f, 0.2f, 0.3f), 0.1)) != "permission_denied",
             "at five every kind is open, the lock words gone");
+        // capabilities.list marks the locked kinds as decision 72 marks Fire locked (CommandHostEffects.Capabilities, the change request).
+        var open = GrowItem();
+        Check(Canonical(locked?["locked_kinds"]) == "[\"sprouts\",\"replant\",\"bridge\",\"ivy\"]" && locked?["locked"] == null && open != null && open["locked_kinds"] == null,
+            "capabilities.list lists Grow castable, with the kinds still locked: all four before any expertise, none at five: " + Canonical(locked));
         await FreeWorld();
     }
 
