@@ -41,6 +41,22 @@ public static class InventoryPages
     public static string ChestCaps(CommandHost host) =>
         host.ChestCaps is { } caps ? CapsWords(host.ChestEntries.Count, caps) : "";
 
+    /// <summary>
+    /// The logs and stones (the stacks of kinds with a material: what repairs spend, decision 116), as "3 logs · 1 stone" in the pack's
+    /// words, or "none yet". The materials wallet is retired (P-Inventory-2): these are the stacks, the pockets' and the chest's together.
+    /// </summary>
+    public static string MaterialStacks(CommandHost host, bool chestToo = true)
+    {
+        var entries = chestToo ? host.PocketEntries.Concat(host.ChestEntries) : host.PocketEntries;
+        var parts = entries.Where(e => e.Kind == "stack" && e.Material != null).GroupBy(e => e.Item).Select(g =>
+        {
+            var count = g.Sum(e => e.Count);
+            var name = host.InventoryRules?.Kind(g.Key) is { } kind ? KernelJson.DisplayText(kind.Words(count), 60) : g.First().Name;
+            return $"{count} {name.ToLowerInvariant()}";
+        }).ToList();
+        return parts.Count == 0 ? "none yet" : string.Join(" · ", parts);
+    }
+
     /// <summary>What a heal of so many quarters of a heart is, in words ("half a heart"), in the island's word for hearts.</summary>
     public static string Heal(CommandHost host, int quarters)
     {
@@ -164,18 +180,16 @@ public static class InventoryPages
     // ---- the camp's Inventory page (decision 87) ----
 
     /// <summary>
-    /// The Inventory page at the camp: what the hands carry and the wallet holds (as before), then the chest with a Take for each entry,
+    /// The Inventory page at the camp: what the hands carry (the wallet is retired: logs and stones are stacks), then the chest with a Take for each entry,
     /// the Gubble's switch in words (the setting itself is in the settings), and the pockets beside it with a Store for each entry.
     /// </summary>
     public static List<JournalLine> CampLines(CommandHost host)
     {
         var carried = host.HeldName(CommandHost.PlayerAvatar);
-        var wallet = host.Nature.Wallet;
         var lines = new List<JournalLine>
         {
             new(JournalInk.Heading, CampPages.Inventory),
             new(JournalInk.Text, "Carrying: " + (string.IsNullOrEmpty(carried) ? "empty hands" : KernelJson.DisplayText(carried, 60))),
-            new(JournalInk.Text, "In your wallet: " + (wallet.Count == 0 ? "nothing yet" : string.Join(" · ", wallet.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{CampPages.Material(p.Key)} {p.Value}")))),
         };
         if (!host.HasInventory)
         {

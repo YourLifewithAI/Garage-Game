@@ -6,12 +6,13 @@ using System.Text.Json;
 namespace GarageGame.Native.Kernel;
 
 /// <summary>
-/// One kind that stacks (the rules pack's inventory.kinds; P-Inventory, docs/game/MECHANICS.md decisions 98, 99 and 92): its id, the
-/// words for one and for many (untrusted text, shown only), one unit's mass, the most units in one entry, the quarters of a heart a
-/// unit heals when used (null: no use yet, as a seed), and the room assets that are a loose unit of it (a windfall a held one stores
-/// as a unit; none yet, P-Food places them).
+/// One kind that stacks (the rules pack's inventory.kinds; P-Inventory, docs/game/MECHANICS.md decisions 98, 99, 92 and 116): its id, the
+/// words for one and for many (untrusted text, shown only), one unit's mass (data, never a cap: decision 120), the most units in one
+/// stack, the quarters of a heart a unit heals when used (null: no use yet, as a seed), the room assets that are a loose unit of it (a
+/// held one stores as a unit), and its material (P-Inventory-2, decision 116: a log is wood, a stone stone, in the creation compiler's
+/// materials): a loose room object of that material gathers as a unit of the kind, and a repair spends a unit of it per unit of its cost.
 /// </summary>
-public sealed record InventoryKind(string Id, string Name, string Plural, double MassKg, int Stack, int? HealQuarters, IReadOnlyList<string> Assets)
+public sealed record InventoryKind(string Id, string Name, string Plural, double MassKg, int Stack, int? HealQuarters, IReadOnlyList<string> Assets, string? Material = null)
 {
     /// <summary>The words for this many units: the one-word for one, the plural for more (the one-word when the pack names no plural).</summary>
     public string Words(int count) => count == 1 ? Name : Plural;
@@ -45,6 +46,9 @@ public sealed record InventoryRules(IReadOnlyList<InventoryKind> Kinds, Inventor
 
     /// <summary>The kind a room asset is a loose unit of, or null (a unique thing).</summary>
     public InventoryKind? KindOfAsset(string assetId) => Kinds.FirstOrDefault(k => k.Assets.Contains(assetId, StringComparer.Ordinal));
+
+    /// <summary>The kind whose units are a material (decision 116: wood the log, stone the stone), or null: nothing on this island is that material.</summary>
+    public InventoryKind? KindOfMaterial(string? material) => material == null ? null : Kinds.FirstOrDefault(k => k.Material == material);
 }
 
 /// <summary>
@@ -71,7 +75,7 @@ public sealed partial class IslandRules
         {
             var where = $"{at}.kinds[{index++}]";
             Expect(item.ValueKind == JsonValueKind.Object, where + " must be an object.");
-            Fields(item, where, new[] { "id", "name", "plural", "mass_kg", "stack", "use", "assets" }, new[] { "id", "name", "mass_kg", "stack" });
+            Fields(item, where, new[] { "id", "name", "plural", "mass_kg", "stack", "use", "assets", "material" }, new[] { "id", "name", "mass_kg", "stack" });
             var id = TokenAt(item, "id", where);
             var name = Display(item, "name", where, NamesRules.MaxLength, 1);
             var plural = item.TryGetProperty("plural", out _) ? Display(item, "plural", where, NamesRules.MaxLength, 1) : name;
@@ -97,12 +101,20 @@ public sealed partial class IslandRules
                 }
                 Expect(assets.Distinct(StringComparer.Ordinal).Count() == assets.Count, where + ".assets names an asset twice.");
             }
-            kinds.Add(new InventoryKind(id, name, plural, mass, stack, heal, assets));
+            string? material = null;
+            if (item.TryGetProperty("material", out var made))
+            {
+                Expect(made.ValueKind == JsonValueKind.String && made.GetString() is "wood" or "stone" or "copper" or "leaf", where + ".material is wood, stone, copper or leaf.");
+                material = made.GetString();
+            }
+            kinds.Add(new InventoryKind(id, name, plural, mass, stack, heal, assets, material));
         }
         // validate.py's checks a schema cannot express.
         Expect(kinds.Select(k => k.Id).Distinct(StringComparer.Ordinal).Count() == kinds.Count, at + ": an inventory kind appears more than once.");
         var units = kinds.SelectMany(k => k.Assets).ToList();
         Expect(units.Distinct(StringComparer.Ordinal).Count() == units.Count, at + ": an asset is a unit of more than one inventory kind.");
+        var materials = kinds.Where(k => k.Material != null).Select(k => k.Material!).ToList();
+        Expect(materials.Distinct(StringComparer.Ordinal).Count() == materials.Count, at + ": a material is the material of more than one inventory kind.");
         return new InventoryRules(kinds, Caps(block, "pockets", at, 16), Caps(block, "chest", at, 64));
     }
 

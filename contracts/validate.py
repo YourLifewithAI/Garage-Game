@@ -1126,6 +1126,10 @@ def _check_mechanics(pack: dict, label: str) -> list[str]:
         assets = [asset for kind in inventory["kinds"] for asset in kind.get("assets", [])]
         for name in sorted({a for a in assets if assets.count(a) > 1}):
             problems.append(f"{label}: asset {name!r} is a unit of more than one inventory kind")
+        # P-Inventory-2 (decision 116): a material (a log wood, a stone stone) is the material of one kind at most.
+        materials = [kind["material"] for kind in inventory["kinds"] if "material" in kind]
+        for name in sorted({m for m in materials if materials.count(m) > 1}):
+            problems.append(f"{label}: material {name!r} is the material of more than one inventory kind")
     # P-Food (25 October): each source's kind one of the inventory's, each species once, each range least to most, 1 to 8 units a plant.
     food = pack.get("food")
     if food is not None:

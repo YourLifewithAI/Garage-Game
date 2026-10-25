@@ -129,7 +129,8 @@ public partial class NatureTest
                 $"launch {launch} reads the top body as saved: {vitals.Health}/{vitals.MaxHealth}, {vitals.Stamina}/{vitals.MaxStamina} m");
             var text = _host.Handle(Query("player.status", new JsonObject()).ToJsonString(), Companion);
             var status = Send(Query("player.status", new JsonObject()), Companion)["data"];
-            Check(text.Contains("\"stamina\":4.8,", StringComparison.Ordinal) && text.Contains("\"max_stamina\":4.8,", StringComparison.Ordinal) &&
+            // "stamina" is the answer's last key since the wallet's retirement (P-Inventory-2), so it ends the object.
+            Check((text.Contains("\"stamina\":4.8,", StringComparison.Ordinal) || text.Contains("\"stamina\":4.8}", StringComparison.Ordinal)) && text.Contains("\"max_stamina\":4.8,", StringComparison.Ordinal) &&
                   text.Contains("\"health\":720,", StringComparison.Ordinal) && text.Contains("\"max_health\":720,", StringComparison.Ordinal) &&
                   status?["stamina"]?.GetValue<double>() <= 4.8 && status["max_stamina"]?.GetValue<double>() <= 4.8 &&
                   status["hearts"]?["quarters"]?.GetValue<int>() == 120 && status["bar"]?["bands"]?.GetValue<int>() == 10,
@@ -157,29 +158,23 @@ public partial class NatureTest
     }
 
     /// <summary>
-    /// Review finding 2 (decision 26): the pack's traits.wallet.start was read and never used, so v5 islands began with 20 wood, 10
-    /// stone, 10 copper and 20 leaf. A new island's wallet is the pack's start now (today's materials only for a pack without one).
+    /// Review finding 2 (decision 26) made the pack's traits.wallet.start a new island's wallet; P-Inventory-2 (decision 116) retires the
+    /// wallet: logs and stones are stacks in the pockets and the chest. A new island has no wallet under any pack (traits.wallet is read
+    /// and ignored), player.status carries none, and the island still counts as untouched, so a room import or a migration may land on it.
     /// </summary>
     private async Task TestStartingWallet()
     {
         await NewWorld(SavePath("wallet-start"));
         var start = _host.Rules?.Traits?.Wallet;
-        var wallet = Send(Query("player.status", new JsonObject()), Player)["data"]?["wallet"];
-        Check(start == new WalletRules(0, 0, 0, 0) && wallet?["wood"]?.GetValue<int>() == 0 && wallet["stone"]?.GetValue<int>() == 0 &&
-              wallet["copper"]?.GetValue<int>() == 0 && wallet["leaf"]?.GetValue<int>() == 0,
-            "a new v5 island's wallet starts empty, as its pack says: " + Canonical(wallet));
+        var status = Send(Query("player.status", new JsonObject()), Player)["data"];
+        Check(start == new WalletRules(0, 0, 0, 0) && status?["wallet"] == null && _host.Nature.Wallet.Count == 0,
+            "a new v5 island has no wallet, and player.status carries none (the pack's traits.wallet is read and ignored): " + Canonical(status));
         Check(_host.Nature.Untouched(trailAllowed: false, _host.StartWallet),
             "and the new island still counts as untouched, so a room import or a migration may still land on it");
         _host.UseRules(IslandRules.Load("storybook_wild", 4));
-        var today = Send(Query("player.status", new JsonObject()), Player)["data"]?["wallet"];
-        Check(today?["wood"]?.GetValue<int>() == 20 && today["stone"]?.GetValue<int>() == 10 && today["copper"]?.GetValue<int>() == 10 && today["leaf"]?.GetValue<int>() == 20 &&
+        Check(_host.Nature.Wallet.Count == 0 && Send(Query("player.status", new JsonObject()), Player)["data"]?["wallet"] == null &&
               _host.Nature.Untouched(trailAllowed: false, _host.StartWallet),
-            "a pack without a wallet block keeps today's materials, and an island nothing happened to follows its rules: " + Canonical(today));
-        _host.UseRules(IslandRules.Load("storybook_wild", 5));
-        var trail = Send(Command(NextId("trail"), "nature.cast", Cast("grow", NearGubble, 0.15, 1)), Player);
-        _host.UseRules(IslandRules.Load("storybook_wild", 4));
-        Check(Ok(trail) && _host.Nature.Wallet.Values.All(units => units == 0),
-            "an island with play of its own keeps its wallet when the rules change: " + Canonical(Send(Query("player.status", new JsonObject()), Player)["data"]?["wallet"]));
+            "nor under a pack without a wallet block (once today's 20 wood, 10 stone, 10 copper and 20 leaf)");
         await FreeWorld();
     }
 

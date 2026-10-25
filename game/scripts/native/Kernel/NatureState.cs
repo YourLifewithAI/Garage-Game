@@ -394,7 +394,11 @@ public sealed class NatureState
     public List<NatureSprout> Sprouts { get; set; } = new();
     public List<NatureBridge> Bridges { get; set; } = new();
     public List<NatureIvy> Ivy { get; set; } = new();
-    /// <summary>Prototype material accounting: one unit per original authored part; no prior economy exists.</summary>
+    /// <summary>
+    /// The retired materials wallet (P-Inventory-2, decision 116: logs and stones are stacks in the pockets and the chest now). Only an
+    /// older save's is read (NatureBlock.Unpack), and the host moves it into the chest's stacks on load (CommandHost.MigrateWallet); it is
+    /// never written again, so it is empty on every island once loaded.
+    /// </summary>
     public Dictionary<string, int> Wallet { get; set; } = FreshWallet();
     public NatureFire? Fire { get; set; }
     /// <summary>The undo steps room.undo can reach, oldest first.</summary>
@@ -410,12 +414,11 @@ public sealed class NatureState
     /// <summary>What was picked from the plants that bear food (P-Food), by plant id: only plants picked and not grown back yet.</summary>
     public Dictionary<string, NatureFood> Food { get; set; } = new(StringComparer.Ordinal);
 
-    /// <summary>Today's wallet, for a pack without traits.wallet (or none loaded): 20 wood, 10 stone, 10 copper and 20 leaf.</summary>
-    public static Dictionary<string, int> FreshWallet() => new(StringComparer.Ordinal) { ["wood"] = 20, ["stone"] = 10, ["copper"] = 10, ["leaf"] = 20 };
+    /// <summary>A new island's wallet: empty, whatever the pack says (the wallet is retired, P-Inventory-2; traits.wallet.start is read and ignored).</summary>
+    public static Dictionary<string, int> FreshWallet() => new(StringComparer.Ordinal);
 
-    /// <summary>A new island's wallet: the rules pack's traits.wallet.start (storybook_wild v5's is empty, decision 26), else today's.</summary>
-    public static Dictionary<string, int> FreshWallet(WalletRules? start) => start is not { } pack ? FreshWallet()
-        : new(StringComparer.Ordinal) { ["wood"] = pack.Wood, ["stone"] = pack.Stone, ["copper"] = pack.Copper, ["leaf"] = pack.Leaf };
+    /// <summary>A new island's wallet under a pack: empty, as FreshWallet() (a pack's traits.wallet.start no longer fills it).</summary>
+    public static Dictionary<string, int> FreshWallet(WalletRules? start) => FreshWallet();
     public static string Key(int x, int z) => $"{x}:{z}";
     public static (int X, int Z) Grid(Vector3 at) => ((int)Math.Floor(at.X / CellM), (int)Math.Floor(at.Z / CellM));
 
@@ -486,7 +489,7 @@ public sealed class NatureState
     {
         var step = new NatureUndoStep
         {
-            Principal = principal, Revision = revision, Base = Effective(revision - 1), Label = label, Mode = mode, Wallet = new(Wallet, StringComparer.Ordinal),
+            Principal = principal, Revision = revision, Base = Effective(revision - 1), Label = label, Mode = mode,
             TrailEnabled = TrailEnabled, TrailPrincipal = TrailPrincipal, TrailRulesSha256 = TrailRulesSha256,
         };
         if (Undo.Count > 0 && Undo[^1].Revision != step.Base) Undo.Clear();
@@ -643,7 +646,7 @@ public sealed class NatureState
             if (step.Sprouts != null) Sprouts = step.Sprouts.Select(s => s.Copy()).ToList();
             if (step.Bridges != null) Bridges = step.Bridges.Select(b => b.Copy()).ToList();
             if (step.Ivy != null) Ivy = step.Ivy.Select(i => i.Copy()).ToList();
-            Wallet = new(step.Wallet, StringComparer.Ordinal);
+            // The wallet is retired (P-Inventory-2): an older step's is not brought back; logs and stones are stacks, which no undo touches.
             TrailEnabled = step.TrailEnabled;
             TrailPrincipal = step.TrailPrincipal;
             TrailRulesSha256 = step.TrailRulesSha256;

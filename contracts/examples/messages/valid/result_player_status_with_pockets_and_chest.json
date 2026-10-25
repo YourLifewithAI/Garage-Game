@@ -40,6 +40,14 @@
           "mass_kg": 0.004
         },
         {
+          "item": "log",
+          "kind": "stack",
+          "name": "Logs",
+          "count": 2,
+          "mass_kg": 0.06,
+          "material": "wood"
+        },
+        {
           "item": "obj:cup",
           "kind": "thing",
           "name": "Cup",

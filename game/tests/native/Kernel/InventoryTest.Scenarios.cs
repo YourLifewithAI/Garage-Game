@@ -20,10 +20,10 @@ public partial class InventoryTest
         await NewWorld("rules");
         _host.LoadRules(RoomWorld.DefaultRulesId, ShippedRules.Version);
         var rules = _host.InventoryRules;
-        Check(rules != null && rules.Kinds.Select(k => k.Id).SequenceEqual(new[] { "apple", "berries", "seed" }) && rules.Kind("apple")!.HealQuarters == 2 &&
+        Check(rules != null && rules.Kinds.Select(k => k.Id).SequenceEqual(new[] { "apple", "berries", "seed", "log", "stone" }) && rules.Kind("apple")!.HealQuarters == 2 &&
               rules.Kind("berries")!.HealQuarters == 1 && rules.Kind("seed")!.HealQuarters == null && rules.Kinds.All(k => k.Stack == 99) && rules.Kind("apple")!.Words(2) == "Apples" &&
               rules.Kind("berries")!.Words(3) == "Berries" && rules.Pockets == new InventoryCaps(10) && rules.Chest == new InventoryCaps(20) && rules.Kinds.All(k => k.Assets.Count == 0),
-            "v5 carries apples (half a heart), berries (a quarter) and seeds (no use yet), every stack to 99, the pockets' ten slots and the chest's twenty, and no mass cap (decision 120)");
+            "v5 carries apples (half a heart), berries (a quarter), seeds (no use yet), logs and stones, every stack to 99, the pockets' ten slots and the chest's twenty, and no mass cap (decision 120)");
         _host.LoadRules(RoomWorld.DefaultRulesId, 4);
         var without = Store(Player, "chest");
         var status = Status();

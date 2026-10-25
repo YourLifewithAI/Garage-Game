@@ -66,6 +66,9 @@ public partial class InventoryTest : Node3D
             await TestGubbleChestSwitch();
             await TestCreativeCopyStrip();
             await TestReaders();
+            await TestLogsAndStones();
+            await TestRepairFromTheStacks();
+            await TestWalletMigrates();
             await FreeWorld();
             OS.RemoveLogger(_errors);
             Check(_errors.Count == 0, $"no script or engine error while the suite ran ({_errors.Count}; first: {_errors.First})");
@@ -187,6 +190,9 @@ public partial class InventoryTest : Node3D
             ("windfall_apple", "Apple", "fallen apple", 0.02, new[] { 0.025, 0.025, 0.025 }, "foliage"),
             ("seed_pod", "Seed pod", "seed pod", 0.001, new[] { 0.012, 0.012, 0.012 }, "foliage"),
             ("cup_proxy", "Cup", "cup", 0.05, new[] { 0.03, 0.04, 0.03 }, "ceramic"),
+            // P-Inventory-2 (decision 116): loose logs (bark) and a stone, on the floor in the far corner, units of their materials' kinds.
+            ("log_proxy", "Log", "woodpile", 0.03, new[] { 0.03, 0.03, 0.1 }, "bark"),
+            ("stone_proxy", "Stone", "rock", 0.03, new[] { 0.04, 0.035, 0.04 }, "stone"),
         };
         foreach (var (asset, name, category, mass, size, role) in assets)
         {
@@ -213,6 +219,14 @@ public partial class InventoryTest : Node3D
                 ["id"] = id, ["asset"] = $"objects/{asset}/asset.json",
                 ["transform"] = new JsonObject { ["position_m"] = new JsonArray(x, 0.006, z), ["rotation"] = new JsonArray(0.0, 0.0, 0.0, 1.0) },
                 ["support"] = new JsonObject { ["kind"] = "object", ["target_id"] = "obj:rug" },
+            });
+        foreach (var (id, asset, x, z) in new[] { ("obj:log_1", "log_proxy", 1.75, -1.35), ("obj:log_2", "log_proxy", 1.75, -0.95), ("obj:log_3", "log_proxy", 1.75, -0.4),
+                     ("obj:stone_1", "stone_proxy", 1.75, -0.8) })
+            objects.Add(new JsonObject
+            {
+                ["id"] = id, ["asset"] = $"objects/{asset}/asset.json",
+                ["transform"] = new JsonObject { ["position_m"] = new JsonArray(x, 0.0, z), ["rotation"] = new JsonArray(0.0, 0.0, 0.0, 1.0) },
+                ["support"] = new JsonObject { ["kind"] = "floor", ["target_id"] = "shell:floor" },
             });
         File.WriteAllText(Path.Combine(target, "room.json"), manifest.ToJsonString(), new UTF8Encoding(false));
         return RoomData.Load($"{TestRoot}/room/test_room");
@@ -243,6 +257,7 @@ public partial class InventoryTest : Node3D
     private static readonly Vector3 ByCup = new(-0.13f, 0, 0.75f);
     private static readonly Vector3 ByDoorstop = new(-0.3f, 0, 0.62f);
     private static readonly Vector3 AwayFromCamp = new(1.5f, 0, -0.5f);
+
 
     // ---- messages ----
 

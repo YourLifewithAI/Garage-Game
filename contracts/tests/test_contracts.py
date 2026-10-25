@@ -74,6 +74,7 @@ EXPECTED_FAILURES = {
     "result_store_without_its_data": "'data' is a required property",
     "result_use_healing_past_the_hearts": "121 is greater than the maximum of 120",
     "result_pockets_with_a_price": "('price' was unexpected)",
+    "result_player_status_with_a_wallet": "('wallet' was unexpected)",
     "result_chest_entry_with_hidden_words": "$.data.chest.entries[0].name",
     "command_with_a_misspelt_schema_id": "unknown schema 'garagegame.command'",
     "command_with_principal": "'principal' was unexpected",
@@ -661,8 +662,11 @@ class MagicModesWishesAndNatureTests(unittest.TestCase):
         self.assertEqual(self.defs["creation_material"]["enum"], materials)
         nature = KERNEL / "NatureState.cs"
         if nature.is_file():
-            fresh = re.search(r"FreshWallet\(\) => new\(StringComparer\.Ordinal\) \{([^}]*)\}", nature.read_text(encoding="utf-8"))
-            self.assertEqual(set(re.findall(r'\["([a-z]+)"\]', fresh.group(1))), set(materials))
+            # P-Inventory-2 (decision 116): the materials wallet is retired; a new island's is empty, whatever the pack says.
+            self.assertIn("public static Dictionary<string, int> FreshWallet() => new(StringComparer.Ordinal);", nature.read_text(encoding="utf-8"))
+        # The kinds a repair spends name these materials (a log wood, a stone stone).
+        rules = validate.load_strict(CONTRACTS / "island-rules.schema.json")["$defs"]
+        self.assertEqual(rules["inventory_kind"]["properties"]["material"]["enum"], sorted(materials, key=["wood", "stone", "copper", "leaf"].index))
 
     def test_consequences_come_back_in_a_fixed_form_and_the_journal_keeps_the_lessons(self):
         """The notices on the Gubble's next result and the journal's 'consequence' facts: typed, closed, no one's words."""
@@ -1807,6 +1811,8 @@ RULES_FAILURES = {
     "rules_inventory_kind_twice": "inventory kind 'apple' appears more than once",
     "rules_inventory_asset_of_two_kinds": "asset 'windfall_apple' is a unit of more than one inventory kind",
     "rules_inventory_pockets_past_sixteen": "$.inventory.pockets.entries: 17 is greater than the maximum of 16",
+    "rules_inventory_pockets_by_weight": "('mass_kg' was unexpected)",
+    "rules_inventory_material_of_two_kinds": "material 'wood' is the material of more than one inventory kind",
     # P-Food (25 October).
     "rules_food_without_an_inventory": "'inventory' is a dependency of 'food'",
     "rules_food_on_one_in_none": "$.food.sources[0].one_in: 0 is less than the minimum of 1",
@@ -2000,20 +2006,23 @@ class MechanicsRoundTests(unittest.TestCase):
             self.assertIn('"world.set_mode" when args.TryGetProperty("difficulty", out _) => DifficultyNotYet', unsupported)
 
     def test_gathering_is_the_players_and_the_wallet_shows_on_the_status(self):
-        """M1's follow-up (decision 26): item.gather names the room object the player holds, never a creation or a Fractal;
-        player-only and durable with no data; the wallet's counts ride on player.status in the creation compiler's materials."""
+        """M1's follow-up (decision 26): item.gather names a room object, never a creation or a Fractal; player-only and durable with
+        no data. Since P-Inventory-2 (decision 116) a log or stone goes into the pockets' stack: the wallet is retired from player.status,
+        and nature.describe's "wallet" counts the stacks' materials in the creation compiler's vocabulary."""
         args = self.defs["args"]["item.gather"]
         self.assertEqual((args["required"], args["properties"]["target"]), (["target"], {"$ref": "#/$defs/object_id"}))
         self.assertIn("item.gather", self.defs["player_only_ops"]["enum"])
         for target in ("creation:00000001", "fractal:k3x9q2", "avatar:player", "obj:"):
             with self.subTest(target=target):
                 self.assertTrue(validate.schema_errors({**valid_example("command_player_gathers_a_log"), "args": {"target": target}}))
-        wallet = self.defs["data"]["player.status"]["properties"]["wallet"]
-        self.assertEqual(wallet["propertyNames"], {"$ref": "#/$defs/creation_material"})
+        self.assertNotIn("wallet", self.defs["data"]["player.status"]["properties"], "the wallet is retired")
         status = valid_example("result_player_status_with_energy")
-        self.assertEqual(status["data"]["wallet"], {"copper": 10, "leaf": 20, "stone": 10, "wood": 21})
-        self.assertTrue(validate.schema_errors({**status, "data": {**status["data"], "wallet": {"gold": 1}}}))
-        self.assertTrue(validate.schema_errors({**status, "data": {**status["data"], "wallet": {"wood": -1}}}))
+        self.assertNotIn("wallet", status["data"])
+        self.assertTrue(validate.schema_errors({**status, "data": {**status["data"], "wallet": {"wood": 1}}}))
+        materials = self.defs["data"]["nature.describe"]["properties"]["wallet"]
+        self.assertEqual(materials["propertyNames"], {"$ref": "#/$defs/creation_material"})
+        described = valid_example("result_nature_describe")
+        self.assertTrue(validate.schema_errors({**described, "data": {**described["data"], "wallet": {"gold": 1}}}))
 
     def test_a_fractal_has_one_spelling_and_the_kernel_reads_it_so(self):
         common = validate.load_strict(CONTRACTS / "common.schema.json")["$defs"]
@@ -2384,7 +2393,9 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(free_form_objects(self.defs["data"]["capabilities.list"]["properties"]["inventory"], "capabilities inventory", self.defs), [])
         status = valid_example("result_player_status_with_pockets_and_chest")
         self.assertEqual(validate.check_document(EXAMPLES / "messages" / "valid" / "result_player_status_with_pockets_and_chest.json"), [])
-        self.assertIn("here", status["data"]["pockets"]["entries"][2], "a thing from another island says so")
+        entries = status["data"]["pockets"]["entries"]
+        self.assertIn("here", next(e for e in entries if e["kind"] == "thing"), "a thing from another island says so")
+        self.assertEqual(next(e for e in entries if e["item"] == "log")["material"], "wood", "a log names its material (decision 116)")
         # An answer from before P-Inventory, without them, stays valid.
         self.assertEqual(validate.schema_errors(valid_example("result_player_status_with_energy")), [])
 

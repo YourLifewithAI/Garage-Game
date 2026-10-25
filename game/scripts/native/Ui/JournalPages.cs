@@ -393,11 +393,11 @@ public static class JournalPages
         }
         if (status != null)
         {
-            // The pool and the wallet keep their numbers here, as the sheet always has.
+            // The pool keeps its numbers here, as the sheet always has; the logs and stones are the stacks (the wallet is retired, P-Inventory-2).
             if (status["energy"] is JsonObject energy)
                 lines.Add(Text($"{MeterWords.Name(host, "pips")} {Number(energy["pips"]):0}/{Number(energy["max_pips"]):0}" +
                     (energy["shadow"]?.GetValue<bool>() == true ? " · a shadow pool here: it drains and refills, and never says no" : "")));
-            if (status["wallet"] is JsonObject wallet) lines.Add(Text("In your wallet: " + WalletWords(wallet)));
+            if (status["pockets"] is JsonObject) lines.Add(Text("Logs and stones: " + MaterialWords(status)));
         }
         var carried = host.HeldName(CommandHost.PlayerAvatar) ?? "";
         lines.Add(Text("Carrying: " + (carried.Length == 0 ? "empty hands" : KernelJson.DisplayText(carried, 60))));
@@ -410,9 +410,19 @@ public static class JournalPages
         return new(lines, false, "");
     }
 
-    /// <summary>The wallet's counts as the sheet writes them, by material.</summary>
-    private static string WalletWords(JsonObject wallet) => string.Join(" · ", wallet.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p =>
-        (p.Key switch { "wood" => "Wood", "stone" => "Stone", "copper" => "Copper", "leaf" => "Leaves", _ => "Material" }) + " " + Number(p.Value).ToString("0", CultureInfo.InvariantCulture)));
+    /// <summary>
+    /// The logs and stones as the sheet writes them, from player.status: each stack of a kind with a material, in the pockets and the chest
+    /// ("3 logs in your pockets · 1 stone in the chest"), or "none yet". Names are the host's display text.
+    /// </summary>
+    private static string MaterialWords(JsonObject status)
+    {
+        var parts = new List<string>();
+        foreach (var (key, where) in new[] { ("pockets", "in your pockets"), ("chest", "in the chest") })
+            if (status[key]?["entries"] is JsonArray entries)
+                foreach (var entry in entries.OfType<JsonObject>().Where(e => e["material"] != null && e["kind"]?.GetValue<string>() == "stack"))
+                    parts.Add($"{Number(entry["count"]):0} {entry["name"]?.GetValue<string>().ToLowerInvariant()} {where}");
+        return parts.Count == 0 ? "none yet" : string.Join(" · ", parts);
+    }
 
     /// <summary>A JSON number, whatever type wrote it (the host writes floats and ints).</summary>
     private static double Number(JsonNode? node) => node == null ? 0 : double.Parse(node.ToJsonString(), CultureInfo.InvariantCulture);

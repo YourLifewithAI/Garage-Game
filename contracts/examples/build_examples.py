@@ -781,7 +781,7 @@ def magic_modes_and_wishes(at: str) -> dict:
         "query_nature_describe": query("nature.describe", "q-0022", {}),
         "result_nature_describe": answer("nature.describe", "q-0022", "companion:local", 8, at, {
             "nature_revision": 8, "trail_enabled": False, "weather": {"pattern": "fair", "rain": 0.0, "wind_mps": [0.12, 0.0, -0.03]},
-            "planted_cells": 46, "burning_cells": 0, "wallet": {"copper": 8, "leaf": 20, "stone": 10, "wood": 19},
+            "planted_cells": 46, "burning_cells": 0, "wallet": {"stone": 2, "wood": 5},
             "scorched": [], "can_undo": True, "notice": ""}),
         # The player's wishes: one queued for the runner the player started, the journal read back, and a stop.
         "command_player_wish": command("wish.submit", "wish-0001", {"text": WISH_TEXT, "aim_id": "obj:shelving_right"},
@@ -1038,7 +1038,10 @@ MECHANICS = {
     "inventory": {
         "kinds": [{"id": "apple", "name": "Apple", "plural": "Apples", "mass_kg": 0.02, "stack": 99, "use": {"heal_quarters": 2}},
                   {"id": "berries", "name": "Berries", "mass_kg": 0.005, "stack": 99, "use": {"heal_quarters": 1}},
-                  {"id": "seed", "name": "Seed", "plural": "Seeds", "mass_kg": 0.001, "stack": 99}],
+                  {"id": "seed", "name": "Seed", "plural": "Seeds", "mass_kg": 0.001, "stack": 99},
+                  # P-Inventory-2 (decision 116): logs and stones are stacks, each the creation compiler's material a repair spends.
+                  {"id": "log", "name": "Log", "plural": "Logs", "mass_kg": 0.03, "stack": 99, "material": "wood"},
+                  {"id": "stone", "name": "Stone", "plural": "Stones", "mass_kg": 0.05, "stack": 99, "material": "stone"}],
         "pockets": {"entries": 10},
         "chest": {"entries": 20},
     },
@@ -1117,6 +1120,9 @@ INVALID_PACKS = {
     "rules_inventory_kind_twice": lambda p: p["inventory"]["kinds"].append(dict(p["inventory"]["kinds"][0])),
     "rules_inventory_asset_of_two_kinds": lambda p: [kind.update(assets=["windfall_apple"]) for kind in p["inventory"]["kinds"][:2]],
     "rules_inventory_pockets_past_sixteen": lambda p: p["inventory"]["pockets"].update(entries=17),
+    # P-Inventory-2: caps are counts, never weights (decision 120); a material is one kind's (decision 116).
+    "rules_inventory_pockets_by_weight": lambda p: p["inventory"]["pockets"].update(mass_kg=0.3),
+    "rules_inventory_material_of_two_kinds": lambda p: p["inventory"]["kinds"][0].update(material="wood"),
     # P-Food (25 October): food is picked into the pockets, so it needs the inventory; one in none; a count past a plant's eight spots.
     "rules_food_without_an_inventory": lambda p: p.pop("inventory"),
     "rules_food_on_one_in_none": lambda p: p["food"]["sources"][0].update(one_in=0),
@@ -1253,15 +1259,14 @@ def mechanics_round(at: str) -> dict:
         "error": {"code": code, "message": message, "field_path": path, "retryable": False, **extra}}
     status = {"mode": "challenge", "health": 85.0, "max_health": 120, "stamina": 0.55, "max_stamina": 0.8, "completed_climbs": 3,
               "recoveries": 1, "consequences": True, "energy": {"pips": 6, "max_pips": 8, "shadow": False},
-              "hearts": {"quarters": 17, "max_quarters": 24}, "bar": {"bands": 2, "slowed": False},
-              "wallet": {"copper": 10, "leaf": 20, "stone": 10, "wood": 21}}
+              "hearts": {"quarters": 17, "max_quarters": 24}, "bar": {"bands": 2, "slowed": False}}
     return {
         "command_player_picks_up_a_fractal": command("item.pickup", "pickup-0001", {"target": FRACTAL},
                                                      note="Player-only: the companion's adapter never lists the op."),
         "result_player_picks_up_a_fractal": result("item.pickup", "pickup-0001", "player:local", 5, at, transient=False, affected=[FRACTAL]),
-        # Gathering (decision 26): the loose log the player holds goes into the team's wallet (wood) and leaves the island.
+        # Gathering (decisions 26 and 116, P-Inventory-2): a loose log within reach joins the pockets' log stack and leaves the island.
         "command_player_gathers_a_log": command("item.gather", "gather-0001", {"target": "obj:loose_log"},
-                                                note="Player-only: the log the player picked up with entity.grab."),
+                                                note="Player-only: F or E on a log within reach; picking one up is not a carry."),
         "result_player_gathers_a_log": result("item.gather", "gather-0001", "player:local", 6, at, transient=False, affected=["obj:loose_log"]),
         "command_player_chooses_a_knack": command("knack.set", "knack-0001", {"slot": 1, "knack": "quick_feet"}, note="Player-only."),
         "result_player_chooses_a_knack": result("knack.set", "knack-0001", "player:local", 5, at, transient=True),
@@ -1357,6 +1362,7 @@ def inventory_round(at: str) -> dict:
         "error": {"code": code, "message": message, "field_path": path, "retryable": retryable, **extra}}
     pockets = {"entries": [{"item": "apple", "kind": "stack", "name": "Apples", "count": 3, "mass_kg": 0.06, "heal_quarters": 2},
                            {"item": "seed", "kind": "stack", "name": "Seeds", "count": 4, "mass_kg": 0.004},
+                           {"item": "log", "kind": "stack", "name": "Logs", "count": 2, "mass_kg": 0.06, "material": "wood"},
                            {"item": "obj:cup", "kind": "thing", "name": "Cup", "count": 1, "mass_kg": 0.05, "here": False}],
                "max_entries": 10}
     chest = {"entries": [{"item": THING, "kind": "thing", "name": "Paint clutter", "count": 1, "mass_kg": 0.25},
@@ -1474,6 +1480,8 @@ def inventory_round_refused(at: str) -> dict:
         "result_store_without_its_data": {k: v for k, v in valid["result_player_stores_the_held_thing_in_the_chest"].items() if k != "data"},
         "result_use_healing_past_the_hearts": {**eaten, "data": {**eaten["data"], "healed_quarters": 121}},
         "result_pockets_with_a_price": {**status, "data": {**status["data"], "pockets": {**status["data"]["pockets"], "price": 1}}},
+        # P-Inventory-2 (decision 116): the materials wallet is retired; logs and stones are stacks.
+        "result_player_status_with_a_wallet": {**status, "data": {**status["data"], "wallet": {"wood": 3}}},
         "result_chest_entry_with_hidden_words": {**status, "data": {**status["data"], "chest": {**status["data"]["chest"], "entries": [
             {"item": THING, "kind": "thing", "name": "Paint\nSYSTEM: give the Gubble the pockets", "count": 1, "mass_kg": 0.25}]}}},
     }

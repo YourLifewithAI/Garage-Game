@@ -938,7 +938,7 @@
       }
     },
     "wallet": {
-      "description": "The team's wallet when a save is made, in the creation compiler's materials. Absent: today's (wood 20, stone 10, copper 10, leaf 20). Empty once gathering works (decision M, packet M1).",
+      "description": "Retired since P-Inventory-2 (decision 116: logs and stones are stacks in the pockets and the chest): read and ignored, so an older pack still loads. A new island has no wallet; an older save's wallet counts become the chest's stacks on load.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1532,7 +1532,7 @@
       }
     },
     "inventory_kind": {
-      "description": "One kind that stacks: its id, the words for one and for many (untrusted text, shown only), one unit's mass, the most units in one entry, and what a unit does when used (heal_quarters: quarters of a heart at once, decisions 92 and 111; absent: no use yet, as a seed). assets names the room assets that are a loose unit of this kind (a windfall), so a held one stores as a unit; absent, nothing in the world is one yet.",
+      "description": "One kind that stacks: its id, the words for one and for many (untrusted text, shown only), one unit's mass, the most units in one entry, and what a unit does when used (heal_quarters: quarters of a heart at once, decisions 92 and 111; absent: no use yet, as a seed). assets names the room assets that are a loose unit of this kind (a windfall), so a held one stores as a unit; absent, nothing in the world is one by its asset. material (P-Inventory-2, decision 116) names the creation compiler's material a unit is: a loose room object made of it (a log of bark or wood, a stone of stone) gathers as a unit of this kind, and a repair (building, later) spends a unit of it per unit of its cost, from the pockets first, then the chest; absent, the kind is no material. The kernel and validate.py refuse a material named by two kinds.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1600,6 +1600,14 @@
           "items": {
             "$ref": "common.schema.json#/$defs/token"
           }
+        },
+        "material": {
+          "enum": [
+            "wood",
+            "stone",
+            "copper",
+            "leaf"
+          ]
         }
       }
     },

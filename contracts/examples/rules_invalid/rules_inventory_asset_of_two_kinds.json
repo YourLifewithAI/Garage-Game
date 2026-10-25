@@ -517,6 +517,22 @@
         "plural": "Seeds",
         "mass_kg": 0.001,
         "stack": 99
+      },
+      {
+        "id": "log",
+        "name": "Log",
+        "plural": "Logs",
+        "mass_kg": 0.03,
+        "stack": 99,
+        "material": "wood"
+      },
+      {
+        "id": "stone",
+        "name": "Stone",
+        "plural": "Stones",
+        "mass_kg": 0.05,
+        "stack": 99,
+        "material": "stone"
       }
     ],
     "pockets": {

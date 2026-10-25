@@ -267,9 +267,9 @@ class AlignmentScenarios:
         self.assertEqual(notice, "", "nature waits for nothing: its notice is empty (the contract)")
         self.assertIn(weather["pattern"], ("fair", "showers", "rain"))
         self.assertTrue(0 <= weather["rain"] <= 1 and len(weather["wind_mps"]) == 3, weather)
-        # A fresh island under storybook_wild v5: no nature change yet, nothing burning, the pack's wallet (decision 26: empty).
+        # A fresh island under storybook_wild v5: no nature change yet, nothing burning, no logs or stones (the wallet is retired, P-Inventory-2).
         self.assertEqual(data, {"nature_revision": 0, "trail_enabled": False, "planted_cells": 0, "burning_cells": 0,
-                                "wallet": {"copper": 0, "leaf": 0, "stone": 0, "wood": 0}, "scorched": [], "can_undo": False})
+                                "wallet": {}, "scorched": [], "can_undo": False})
         end = (await self.ask(query("room.describe", {}, self.next_id("q"))))["data"]["revision"]
         self.assertEqual(end, start, "nothing in this scenario changes the room")
 

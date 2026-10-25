@@ -11,11 +11,12 @@ public sealed record InventoryOutcome(bool Ok, string Words, string? To = null);
 
 /// <summary>
 /// One entry as the HUD and player.status show it: the item (a kind's id or a thing's object id), stack or thing, its name (untrusted
-/// display text: show it, never read it as anything else), the units (a thing is one), the mass of the entry in kilograms, the quarters
-/// of a heart one unit heals (null: no use yet, or a thing), and whether it is on this island (false only for a thing in the pockets
-/// from another island, which comes out there alone).
+/// display text: show it, never read it as anything else), the units (a thing is one), the mass of the entry in kilograms (data, never a
+/// cap: decision 120), the quarters of a heart one unit heals (null: no use yet, or a thing), whether it is on this island (false only for
+/// a thing in the pockets from another island, which comes out there alone), and the kind's material (a log wood, a stone stone: what a
+/// repair spends, decision 116; null for food, seeds and things).
 /// </summary>
-public sealed record InventoryEntryView(string Item, string Kind, string Name, int Count, double MassKg, int? HealQuarters, bool Here);
+public sealed record InventoryEntryView(string Item, string Kind, string Name, int Count, double MassKg, int? HealQuarters, bool Here, string? Material = null);
 
 /// <summary>
 /// The inventory's readers and the player's keys (P-Inventory): what the pockets and the chest hold for the HUD and player.status, the
@@ -46,7 +47,7 @@ public partial class CommandHost
         {
             var known = rules?.Kind(kind);
             var name = KernelJson.DisplayText(known?.Words(count) ?? kind, InventoryContents.MaxNameLength);
-            list.Add(new InventoryEntryView(kind, "stack", name, count, Math.Round(count * (known?.MassKg ?? 0), 4), known?.HealQuarters, true));
+            list.Add(new InventoryEntryView(kind, "stack", name, count, Math.Round(count * (known?.MassKg ?? 0), 4), known?.HealQuarters, true, known?.Material));
         }
         foreach (var thing in contents.Things)
             list.Add(new InventoryEntryView(thing.Id, "thing", KernelJson.DisplayText(thing.Name, InventoryContents.MaxNameLength), 1, Math.Round(thing.MassKg, 4), null,
@@ -68,7 +69,7 @@ public partial class CommandHost
         if (InventoryRules is not { } rules) return new(false, InventoryNotHere);
         if (!_held.TryGetValue(PlayerAvatar, out var held)) return new(false, HoldSomething);
         var name = HeldName(PlayerAvatar);
-        var kind = rules.KindOfAsset(held.Item.Asset.AssetId);
+        var kind = KindOfObject(rules, held.Item);
         if (PlayerAtCamp())
         {
             var chest = ChestContents;
@@ -159,6 +160,7 @@ public partial class CommandHost
         {
             var entry = new JsonObject { ["item"] = e.Item, ["kind"] = e.Kind, ["name"] = e.Name, ["count"] = Math.Clamp(e.Count, 1, InventoryContents.MaxUnits), ["mass_kg"] = Math.Clamp(e.MassKg, 0, 50) };
             if (e.HealQuarters is { } heal) entry["heal_quarters"] = heal;
+            if (e.Material is { } material) entry["material"] = material;
             if (pockets && e.Kind == "thing") entry["here"] = e.Here;
             return (JsonNode?)entry;
         }).ToArray()),
@@ -202,6 +204,15 @@ public partial class CommandHost
     }
 
     private int _shoreReturnsSeen;
+
+    /// <summary>Test seam: a creation scorched as fire leaves one (its repair quote from its hash-pinned design), for the repair's cost.</summary>
+    internal void ScorchForTests(string id)
+    {
+        var state = new NatureObject { Id = id, Creation = true, Burn = 0.5f };
+        QuoteRepair(state);
+        Nature.Objects[id] = state;
+        ApplyNatureObjects();
+    }
 
     /// <summary>Test seam: the deep-water return's loss, as the body's shore return calls it (no water in the test room to swim out of).</summary>
     internal void DeepWaterReturnForTests() => LosePocketStacks(sea: true);

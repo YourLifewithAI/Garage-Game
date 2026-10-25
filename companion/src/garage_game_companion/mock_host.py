@@ -848,11 +848,8 @@ class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin, InventoryMixi
             for bubble in list(self.bubbles.values()):
                 self._end_bubble(bubble, "popped")
             fresh = self._fresh_vitals()
-            # An island nothing has happened to yet begins with the new rules' wallet (the kernel's UseRules).
-            untouched = self._nature_untouched() and self.wallet == self._fresh_wallet()
+            # The materials wallet is retired (P-Inventory-2): new rules bring none (the kernel's UseRules).
             self.rules = rules
-            if untouched:
-                self.wallet = self._fresh_wallet()
             self.rules_notice = "" if rules is not None else (notice or "This island has no rules, so the Gubble has no abilities.")
             for mode, profile in self._vitals_profiles.items():
                 if profile == fresh:

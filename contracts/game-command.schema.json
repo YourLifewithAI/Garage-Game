@@ -3929,7 +3929,7 @@
         ]
       },
       "nature.repair": {
-        "description": "Repair one scorched creation from its hash-pinned design, at its original material cost from the team's wallet (free in Creative). The Gubble's repair of a creation the player made waits for the player's yes. Durable.",
+        "description": "Repair one scorched creation from its hash-pinned design, at its original material cost (free in Creative), paid in logs and stones (P-Inventory-2, decision 116): a unit of the rules pack's kind whose material each is per unit of cost, from the pockets first, then the chest; invalid_args, in the kernel's words, when they hold too few (\"This repair needs 2 logs and 1 stone, more than your pockets and the chest hold.\") or no kind is made of a material. The Gubble's repair waits for the player's yes when the creation is the player's, or when it would spend anything (the logs and stones are the player's). Durable.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -4039,7 +4039,7 @@
         }
       },
       "item.gather": {
-        "description": "Gather the loose log or stone the player is holding (an obj: it picked up with entity.grab) into the team's wallet: a log is wood, a stone is stone, by what the object is made of (its asset's material roles: bark or wood, or stone; a movable thing that is no container). It leaves the island as one durable room revision (room state keeps it as a removed entity, as fire's leaves a burnt one) and the wallet's count shows on player.status (wallet). Player-only: refused permission_denied to a companion before anything is looked up. Holding nothing, or holding something that is not a loose log or stone, is request_invalid at $.args.target. No data: the object is in affected.",
+        "description": "Gather a loose log or stone into the pockets (P-Inventory-2, decision 116 and the founder's refinement of 25 October: picking one up is not a carry): an obj: within the player's reach, or the one it holds. A log is a unit of the rules pack's inventory kind whose material is wood, a stone of the kind whose material is stone, by what the object is made of (its asset's material roles: bark or wood, or stone; a movable thing that is no container). It joins its stack at once and that slot becomes the hand's selection (inventory.select's state). Refused occupied in the pockets' own words when the stack or the slots are full, and the thing stays where it is; unsupported_capability without the pack's inventory block; request_invalid for a thing that is no loose log or stone; target_busy while the hands hold something else; out_of_bounds out of reach. It leaves the island as one durable room revision (room state keeps it as a removed entity, as fire's leaves a burnt one). Player-only: refused permission_denied to a companion before anything is looked up. No data: the object is in affected. The materials wallet it once filled is retired.",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -4113,7 +4113,7 @@
         "properties": {}
       },
       "inventory.store": {
-        "description": "Put something away. From the hand (the default): what the actor holds into the chest, at a camp (a lit campfire or the starting one), or into the pockets, anywhere: a held stackable (a room object of a kind that names its asset) as a unit of its stack, a unique thing as an entry of its own (decision 99). From the pockets: a stack or a thing into the chest, at a camp. A unique thing keeps its id: its entity stays in room state as removed (marked gathered in the kernel's nature block) until it comes out. Caps are counts (decision 120): the pack's slots for the pockets and the chest, and a stack's own size (occupied past either). The pockets and the hand are the player's alone: a companion naming the pockets is refused permission_denied before anything is looked up. The chest alone has a companion path: while the player's team setting \"Let the Gubble use the chest\" (gubble_chest) is on, the companion may store what its own avatar holds, at a camp; with it off every companion store is permission_denied at $.op before anything is looked up. No price. A durable receipt with data, one room revision, as item.gather's: the chest and a thing held away are the island's room state (the island save's nature, its team block and the receipt in one write; the team file's pockets beside it).",
+        "description": "Put something away. From the hand (the default): what the actor holds into the chest, at a camp (a lit campfire or the starting one), or into the pockets, anywhere: a held stackable (a room object of a kind that names its asset, or since P-Inventory-2 a loose log or stone, by the kind whose material it is) as a unit of its stack, a unique thing as an entry of its own (decision 99). From the pockets: a stack or a thing into the chest, at a camp. A unique thing keeps its id: its entity stays in room state as removed (marked gathered in the kernel's nature block) until it comes out. Caps are counts (decision 120): the pack's slots for the pockets and the chest, and a stack's own size (occupied past either). The pockets and the hand are the player's alone: a companion naming the pockets is refused permission_denied before anything is looked up. The chest alone has a companion path: while the player's team setting \"Let the Gubble use the chest\" (gubble_chest) is on, the companion may store what its own avatar holds, at a camp; with it off every companion store is permission_denied at $.op before anything is looked up. No price. A durable receipt with data, one room revision, as item.gather's: the chest and a thing held away are the island's room state (the island save's nature, its team block and the receipt in one write; the team file's pockets beside it).",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -4656,7 +4656,7 @@
         }
       },
       "player.status": {
-        "description": "The player's mode and body: health, stamina and what climbing has earned. consequences is false in Creative. Since the mechanics round the host may add the connection energy (energy), the hearts in quarters (hearts) and the bar's bands (bar); the maximum health and stamina are fields of the vitals, up to 30 hearts with Big heart (720) and the top band with Big bar (4.8 m); and the team's wallet (wallet), the materials gathered and spent on repairs, as nature.describe counts them; and since P-Inventory the pockets (pockets) and the island's chest (chest), when the pack has an inventory block.",
+        "description": "The player's mode and body: health, stamina and what climbing has earned. consequences is false in Creative. Since the mechanics round the host may add the connection energy (energy), the hearts in quarters (hearts) and the bar's bands (bar); the maximum health and stamina are fields of the vitals, up to 30 hearts with Big heart (720) and the top band with Big bar (4.8 m); and since P-Inventory the pockets (pockets) and the island's chest (chest), when the pack has an inventory block. Since P-Inventory-2 the materials wallet is retired (decision 116): logs and stones are stacks in the pockets and the chest, each entry naming its material.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -4792,18 +4792,6 @@
               }
             }
           },
-          "wallet": {
-            "description": "The team's materials (one wallet for the player and the Gubble, kept with the island save): what item.gather put in and repairs took out.",
-            "type": "object",
-            "propertyNames": {
-              "$ref": "#/$defs/creation_material"
-            },
-            "additionalProperties": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 100000
-            }
-          },
           "pockets": {
             "description": "The player's pockets in this mode (P-Inventory), when the island's rules pack has an inventory block.",
             "$ref": "#/$defs/inventory_status"
@@ -4880,7 +4868,7 @@
             "maximum": 200
           },
           "wallet": {
-            "description": "The team's materials for repairs, one wallet for the player and the Gubble.",
+            "description": "The materials a repair could spend now, by material: the units of the kinds with a material (a log wood, a stone stone) in the pockets and the chest together (P-Inventory-2: the wallet itself is retired; the name stays for its readers).",
             "type": "object",
             "propertyNames": {
               "$ref": "#/$defs/creation_material"
@@ -5579,7 +5567,7 @@
         ],
         "properties": {
           "cost": {
-            "description": "What it cost the team's wallet, by material (nothing in Creative).",
+            "description": "What it cost, by material (nothing in Creative): that many units of the kinds whose material each is, taken from the pockets first, then the chest.",
             "type": "object",
             "propertyNames": {
               "$ref": "#/$defs/creation_material"
@@ -5719,7 +5707,7 @@
       }
     },
     "player_only_ops": {
-      "description": "Ops a companion principal can never perform. The companion adapter must not expose them and the host refuses them from companion principals (permission_denied), never holding them for a click. Unlocking is always a direct player action, and so are the player's own settings (the world's physics, the game mode, Glow's touch and sound), the player's wishes (submitting, stopping and reading them), and since the mechanics round picking up a Fractal (item.pickup; since P-Food also a unit of food from a plant, into the pockets), gathering a held loose log or stone into the wallet (item.gather), choosing a knack (knack.set), spending Fractals at a camp (fractal.spend, the second contract round), marking a receipt yes or not that (receipt.mark) and resetting Trust (trust.reset), and since P-Inventory using a unit from the pockets (inventory.use) and setting a thing from them down (inventory.drop). inventory.store and inventory.take are the player's for the pockets and the hand too, but not listed here: the chest has a companion path behind the player's team setting gubble_chest (their args say how each is refused before anything is looked up).",
+      "description": "Ops a companion principal can never perform. The companion adapter must not expose them and the host refuses them from companion principals (permission_denied), never holding them for a click. Unlocking is always a direct player action, and so are the player's own settings (the world's physics, the game mode, Glow's touch and sound), the player's wishes (submitting, stopping and reading them), and since the mechanics round picking up a Fractal (item.pickup; since P-Food also a unit of food from a plant, into the pockets), gathering a loose log or stone into the pockets (item.gather; the wallet it once filled is retired since P-Inventory-2), choosing a knack (knack.set), spending Fractals at a camp (fractal.spend, the second contract round), marking a receipt yes or not that (receipt.mark) and resetting Trust (trust.reset), and since P-Inventory using a unit from the pockets (inventory.use) and setting a thing from them down (inventory.drop). inventory.store and inventory.take are the player's for the pockets and the hand too, but not listed here: the chest has a companion path behind the player's team setting gubble_chest (their args say how each is refused before anything is looked up).",
       "enum": [
         "protect.unlock",
         "world.set_physics",
@@ -6091,7 +6079,7 @@
       "pattern": "^[a-f0-9]{32}$"
     },
     "creation_material": {
-      "description": "A creation part's material, the creation compiler's vocabulary (creation_compiler.gd). The team's wallet and every repair cost count in these.",
+      "description": "A creation part's material, the creation compiler's vocabulary (creation_compiler.gd). Every repair cost counts in these; since P-Inventory-2 a rules pack's inventory kind may name one as its material (a log wood, a stone stone), which is what a repair spends.",
       "enum": [
         "stone",
         "wood",
@@ -6201,7 +6189,7 @@
       ]
     },
     "inventory_entry": {
-      "description": "One entry: a stack (its kind, the pack's word for it, the units and their mass, and the quarters a unit heals when its use heals) or a unique thing (its object id, its name, its mass; in the pockets, here false when it belongs to another island, where alone it comes out). Names are untrusted display text, shown only.",
+      "description": "One entry: a stack (its kind, the pack's word for it, the units and their mass, and the quarters a unit heals when its use heals) or a unique thing (its object id, its name, its mass; in the pockets, here false when it belongs to another island, where alone it comes out). Names are untrusted display text, shown only. Since P-Inventory-2 a stack of a kind with a material (a log, a stone: what repairs spend, decision 116) names it (material).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -6249,6 +6237,9 @@
         },
         "here": {
           "type": "boolean"
+        },
+        "material": {
+          "$ref": "#/$defs/creation_material"
         }
       }
     },

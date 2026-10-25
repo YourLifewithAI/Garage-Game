@@ -170,6 +170,8 @@ public partial class CommandHost
         _natureUnavailable = false;
         NatureNotice = "";
         ApplyNatureObjects();
+        // P-Inventory-2: an older save's wallet becomes the chest's stacks (CommandHostInventory.MigrateWallet).
+        MigrateWallet();
         NatureChanged?.Invoke();
     }
 
@@ -518,19 +520,20 @@ public partial class CommandHost
             throw new Refusal("revision_conflict", "This creation's design changed; its old repair quote no longer applies.", "$.args.target");
         if (Nature.Fire != null) throw new Refusal("target_busy", FireBusyWords(principal), retryable: true);
         var free = Mode == "creative";
-        if (!free && item.RepairCost.Any(c => Nature.Wallet.GetValueOrDefault(c.Key) < c.Value))
-            throw new Refusal("invalid_args", "The team's material supply cannot cover this repair yet.", "$.args.target");
+        // P-Inventory-2 (decision 116): the cost is logs and stones from the pockets first, then the chest (CommandHostInventory.RepairSpend).
+        var bill = free || item.RepairCost.Count == 0 ? null : RepairSpend(item.RepairCost);
         var data = new JsonObject { ["cost"] = free ? new JsonObject() : new JsonObject(item.RepairCost.OrderBy(c => c.Key, StringComparer.Ordinal).Select(c => KeyValuePair.Create(c.Key, (JsonNode?)c.Value))) };
         if (preview) return NaturePreviewed("nature.repair", principal, action, data, new[] { id });
-        if (principal != PlayerPrincipal && instance["owner_id"].AsString() == PlayerPrincipal && approvedBy == null)
-            return Hold(root, principal, action, fingerprint, "nature.repair", $"The Gubble asks to repair {id}, which you made, using the team's materials.",
-                new() { [id] = EntityRevision(id) }, bindRevision: true);
+        // The Gubble's repair waits for the player's yes when the creation is the player's, or when it spends: the logs and stones are the player's.
+        var players = instance["owner_id"].AsString() == PlayerPrincipal;
+        if (principal != PlayerPrincipal && approvedBy == null && (players || bill != null))
+            return Hold(root, principal, action, fingerprint, "nature.repair", RepairAsk(id, players, bill), new() { [id] = EntityRevision(id) }, bindRevision: true);
         var candidate = Nature.Copy();
         var step = candidate.BeginUndo("Repair", Revision + 1, principal, Mode);
         candidate.RememberObject(step, id);
-        if (!free) foreach (var (material, units) in item.RepairCost) candidate.Wallet[material] -= units;
         candidate.Objects.Remove(id);
-        return CommitNature(candidate, "nature.repair", principal, action, fingerprint, approvedBy, new[] { id }, data, undo: false);
+        return bill == null ? CommitNature(candidate, "nature.repair", principal, action, fingerprint, approvedBy, new[] { id }, data, undo: false)
+            : CommitRepair(candidate, bill, principal, action, fingerprint, approvedBy, id, data);
     }
 
     /// <summary>
@@ -655,7 +658,8 @@ public partial class CommandHost
             ["weather"] = new JsonObject { ["pattern"] = NatureWeather.Pattern, ["rain"] = NatureWeather.Rain01, ["wind_mps"] = KernelJson.Vector(NatureWeather.WindMps) },
             ["planted_cells"] = Nature.Cells.Values.Count(c => c.Growth > 0 && seesCell(c)),
             ["burning_cells"] = Nature.Cells.Values.Count(c => c.BurningS > 0 && seesCell(c)),
-            ["wallet"] = new JsonObject(Nature.Wallet.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => KeyValuePair.Create(p.Key, (JsonNode?)p.Value))),
+            // The materials a repair could spend now: the stacks of logs and stones in the pockets and the chest (the wallet is retired, P-Inventory-2).
+            ["wallet"] = MaterialCounts(),
             ["scorched"] = new JsonArray(Nature.Objects.Values.Where(o => o.Creation && o.Burn > 0 && knows(o.Id)).Select(o => o.Id).OrderBy(id => id, StringComparer.Ordinal).Select(id => (JsonNode?)id).ToArray()),
             ["can_undo"] = NatureCanUndo,
             // An empty notice stays empty (the contract: "empty otherwise"): DisplayText answers "Refused." for empty text.

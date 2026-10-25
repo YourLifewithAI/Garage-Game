@@ -534,6 +534,15 @@ public partial class CommandHost
         }
         var target = SandboxControls.ThingAhead(Player, entities, SandboxRules.CarryLimitKg(PlayerAvatar), MassOf, PlayerReaches);
         if (target == null) return new(false, "Nothing to pick up within reach. Walk up to something and face it.");
+        // P-Inventory-2 (decision 116, the founder's refinement): a log or stone is not carried: F (and E) gathers it into its stack.
+        if (InventoryRules is { } rules && Room.Objects.FirstOrDefault(o => o.Id == target["id"]!.GetValue<string>()) is { } loose &&
+            GatherMaterial(loose) != null && KindOfObject(rules, loose) is { } kind)
+        {
+            var name = KernelJson.DisplayText(loose.DisplayName ?? loose.Asset.DisplayName, 40);
+            var gathered = PlayerGatherFrom(loose.Id);
+            var count = PocketContents.Units(kind.Id);
+            return Outcome(gathered, $"{name} is in your pockets: {count} {KernelJson.DisplayText(kind.Words(count), 40).ToLowerInvariant()}.");
+        }
         var grabbed = PlayerSandbox("entity.grab", new JsonObject { ["target"] = target["id"]!.GetValue<string>() });
         return Outcome(grabbed, $"Holding {HeldName(PlayerAvatar)}. {PlayerControls.Label(Act.Hands)} sets it down in front of you, or on top of what you face.");
     }

@@ -169,7 +169,9 @@
     "kinds": [
       { "id": "apple", "name": "Apple", "plural": "Apples", "mass_kg": 0.02, "stack": 99, "use": { "heal_quarters": 2 } },
       { "id": "berries", "name": "Berries", "mass_kg": 0.005, "stack": 99, "use": { "heal_quarters": 1 } },
-      { "id": "seed", "name": "Seed", "plural": "Seeds", "mass_kg": 0.001, "stack": 99 }
+      { "id": "seed", "name": "Seed", "plural": "Seeds", "mass_kg": 0.001, "stack": 99 },
+      { "id": "log", "name": "Log", "plural": "Logs", "mass_kg": 0.03, "stack": 99, "material": "wood" },
+      { "id": "stone", "name": "Stone", "plural": "Stones", "mass_kg": 0.05, "stack": 99, "material": "stone" }
     ],
     "pockets": { "entries": 10 },
     "chest": { "entries": 20 }

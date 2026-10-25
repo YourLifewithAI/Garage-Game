@@ -125,8 +125,8 @@ public partial class RoomHud
             if (host.VitalsNotice.Length > 0) _modeHelp.Text += "\n" + host.VitalsNotice;
         }
         _weatherHelp.Text = $"{WeatherWords(host.NatureWeather.Pattern)} · Wind {host.NatureWeather.WindMps.Length():0.00} m/s\nThe weather changes naturally across the island.";
-        // The wallet's counts, in every mode (a gathered log or stone is in it): repairs spend it outside Creative.
-        _natureMaterials.Text = (host.Mode == "creative" && !held ? "Repairs are free in Creative mode.\n" : "") + "In your wallet: " + MaterialWords(host.Nature.Wallet);
+        // The logs and stones, in every mode (P-Inventory-2: the wallet is retired; repairs spend the stacks, the pockets first, outside Creative).
+        _natureMaterials.Text = (host.Mode == "creative" && !held ? "Repairs are free in Creative mode.\n" : "") + "Logs and stones, in your pockets and the chest: " + Ui.InventoryPages.MaterialStacks(host);
         var previous = _repairChoice.Selected >= 0 && _repairChoice.Selected < _repairIds.Count ? _repairIds[_repairChoice.Selected] : null;
         var ids = host.Nature.Objects.Values.Where(item => item.Creation && item.Burn > 0).Select(item => item.Id).OrderBy(id => id, StringComparer.Ordinal).ToArray();
         if (!_repairIds.SequenceEqual(ids) || _repairChoice.ItemCount == 0)

@@ -24,10 +24,8 @@
     "planted_cells": 46,
     "burning_cells": 0,
     "wallet": {
-      "copper": 8,
-      "leaf": 20,
-      "stone": 10,
-      "wood": 19
+      "stone": 2,
+      "wood": 5
     },
     "scorched": [],
     "can_undo": true,

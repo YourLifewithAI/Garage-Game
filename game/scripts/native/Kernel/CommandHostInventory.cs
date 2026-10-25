@@ -152,10 +152,11 @@ public partial class CommandHost
         if (from == "pockets") return StoreFromPockets(args, rules, principal, actionId, fingerprint, preview);
         var actor = principal == PlayerPrincipal ? PlayerAvatar : CompanionAvatarId;
         if (!_held.TryGetValue(actor, out var held)) throw new Refusal("request_invalid", HoldSomething, "$.args");
-        if (Str(args, "item") is { } named && named != held.Target && rules.KindOfAsset(held.Item.Asset.AssetId)?.Id != named)
+        if (Str(args, "item") is { } named && named != held.Target && KindOfObject(rules, held.Item)?.Id != named)
             throw new Refusal("request_invalid", NotWhatIsHeld, "$.args.item");
         if (args.TryGetProperty("count", out var count) && count.GetInt32() != 1) throw new Refusal("invalid_args", AThingIsOne, "$.args.count");
-        var kind = rules.KindOfAsset(held.Item.Asset.AssetId);
+        // A unit of a kind (a windfall by its asset, a log or stone by its material, decision 116) joins its stack; anything else is a thing.
+        var kind = KindOfObject(rules, held.Item);
         if (to == "pockets")
         {
             // Anywhere: a unit of a kind joins its stack; a unique thing takes an entry of its own (decision 99), under the pockets' caps.
@@ -452,7 +453,7 @@ public partial class CommandHost
     /// write changes nothing: the chest is put back and the refusal is the authority's.
     /// </summary>
     private JsonObject CommitInventory(NatureState candidate, InventoryContents chest, string op, string principal, string actionId, string fingerprint,
-        IEnumerable<string> affected, JsonObject data)
+        IEnumerable<string> affected, JsonObject data, string? approvedBy = null)
     {
         if (_natureUnavailable) throw new Refusal("not_ready", NatureNotice, retryable: true);
         candidate.ChangedAt = Revision + 1;
@@ -460,6 +461,8 @@ public partial class CommandHost
         var before = _chest;
         _chest = chest;
         var meta = new Godot.Collections.Dictionary { ["fingerprint"] = fingerprint, ["op"] = op, ["at_utc"] = Now() };
+        // A Gubble's change the player said yes to (a repair spending the pockets) carries that yes, as CommitNature's does.
+        if (approvedBy != null && principal != PlayerPrincipal) meta["approved_by"] = approvedBy;
         var request = new Godot.Collections.Dictionary
         {
             ["op"] = "nature", ["action_id"] = actionId, ["expected_revision"] = Revision, ["expected_permission_revision"] = PermissionRevision,
@@ -479,6 +482,101 @@ public partial class CommandHost
         _teamDirty = false;
         _saveClock = 0;
         return Durable(Authority.Call(KernelNames.ReceiptFor, principal, actionId).AsGodotDictionary(), replayed: false);
+    }
+
+    // ---- the retired wallet (P-Inventory-2, decision 116): what repairs spend is the stacks, the pockets first, then the chest ----
+
+    /// <summary>
+    /// What a paid repair takes (decision 116): its cost, by the creation compiler's materials, in units of the pack's kinds whose material
+    /// each is, from the pockets first, then the chest (whose chest is the island's, wherever the repair is). Refused invalid_args, in the
+    /// kernel's words, when the pockets and the chest hold too few, or no kind is made of a material (copper and leaf have none yet).
+    /// </summary>
+    private RepairBill RepairSpend(IReadOnlyDictionary<string, int> cost)
+    {
+        Settle();
+        var rules = InventoryRules;
+        var pockets = PocketContents;
+        var chest = ChestContents;
+        var need = new List<string>();
+        var short_ = false;
+        // In the pack's order of its kinds (a log before a stone), then any material no kind is made of.
+        int Order(string material) => rules?.KindOfMaterial(material) is { } kind ? rules.Kinds.ToList().IndexOf(kind) : int.MaxValue;
+        foreach (var (material, units) in cost.OrderBy(c => Order(c.Key)).ThenBy(c => c.Key, StringComparer.Ordinal))
+        {
+            if (units <= 0) continue;
+            var kind = rules?.KindOfMaterial(material);
+            need.Add(kind == null ? $"{units} {material}" : $"{units} {KernelJson.DisplayText(kind.Words(units), InventoryContents.MaxNameLength).ToLowerInvariant()}");
+            if (kind == null) { short_ = true; continue; }
+            var fromPockets = Math.Min(units, pockets.Units(kind.Id));
+            var fromChest = Math.Min(units - fromPockets, chest.Units(kind.Id));
+            if (fromPockets + fromChest < units) short_ = true;
+            pockets = pockets.WithUnits(kind.Id, pockets.Units(kind.Id) - fromPockets);
+            chest = chest.WithUnits(kind.Id, chest.Units(kind.Id) - fromChest);
+        }
+        var words = need.Count switch { 0 => "nothing", 1 => need[0], _ => string.Join(", ", need.Take(need.Count - 1)) + " and " + need[^1] };
+        if (short_) throw new Refusal("invalid_args", $"This repair needs {words}, more than your pockets and the chest hold.", "$.args.target");
+        return new RepairBill(pockets, chest, words, !pockets.Same(PocketContents));
+    }
+
+    /// <summary>A repair's bill: the pockets and the chest after it, its cost in words ("2 logs and 1 stone"), and whether the pockets give.</summary>
+    private sealed record RepairBill(InventoryContents Pockets, InventoryContents Chest, string Words, bool FromPockets);
+
+    /// <summary>
+    /// A paid repair, one durable room revision (the island's nature, its team block with the chest after it, and the receipt), then the
+    /// pockets give (a pockets write lost now leaves the units unspent, never lost twice; a committed receipt is never taken back).
+    /// </summary>
+    private JsonObject CommitRepair(NatureState candidate, RepairBill bill, string principal, string actionId, string fingerprint, string? approvedBy, string id, JsonObject data)
+    {
+        if (bill.FromPockets) RequirePocketsFiled();
+        var result = CommitInventory(candidate, bill.Chest, "nature.repair", principal, actionId, fingerprint, new[] { id }, data, approvedBy);
+        if (bill.FromPockets) SavePockets(bill.Pockets, keepIfUnsaved: true);
+        return result;
+    }
+
+    /// <summary>The Gubble's ask for a repair (it waits for the player's yes): the player's own creation, and what it would spend of the player's.</summary>
+    private static string RepairAsk(string id, bool players, RepairBill? bill) =>
+        bill == null ? $"The Gubble asks to repair {id}, which you made." :
+        players ? $"The Gubble asks to repair {id}, which you made, with {bill.Words} from your pockets and the chest." :
+        $"The Gubble asks to repair {id}, with {bill.Words} from your pockets and the chest.";
+
+    /// <summary>
+    /// The retired wallet's counts become the chest's stacks (decision 116: "an older save's wallet counts become chest stacks on load"),
+    /// once the island's pack has an inventory block that names a kind for the material (a log for wood, a stone for stone): added to the
+    /// chest's stack of the kind, up to its size and the chest's slots. Whatever cannot be moved (copper and leaf, which no kind is made of
+    /// yet, or past a cap) stays in the retired wallet as it was, read and written back unchanged, never spent. The chest and the nature go
+    /// in one write of the island save (the authority's set_nature with the team block), so a save can never hold both the stacks and the
+    /// wallet they came from; a write that fails changes nothing, and the next load tries again. Called when nature loads and when rules
+    /// arrive (UseRules): the pack may come after the save.
+    /// </summary>
+    private void MigrateWallet()
+    {
+        if (Nature.Wallet.Count == 0 || InventoryRules is not { } rules || Room == null || _natureUnavailable) return;
+        if (Authority == null || !Authority.Call(KernelNames.IsReady).AsBool() || (_migrationOffer != null && !Godot.FileAccess.FileExists(SavePath))) return;
+        var wallet = Nature.Wallet;
+        var chest = ChestContents;
+        var left = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var (material, units) in wallet.OrderBy(p => p.Key, StringComparer.Ordinal))
+        {
+            if (units <= 0) continue;
+            var kind = rules.KindOfMaterial(material);
+            var have = kind == null ? 0 : chest.Units(kind.Id);
+            var moved = kind == null || (have == 0 && chest.Entries >= rules.Chest.Entries) ? 0 : Math.Min(units, Math.Max(0, kind.Stack - have));
+            if (moved > 0) chest = chest.WithUnits(kind!.Id, have + moved);
+            if (units - moved > 0) left[material] = units - moved;
+        }
+        var before = _chest;
+        _chest = chest;
+        Nature.Wallet = left;
+        using var team = KernelJson.ToVariant(ExportTeam(_notes));
+        using var nature = KernelJson.ToVariant(NatureBlock.Pack(Nature));
+        if (!SavedOk(Authority.Call(KernelNames.SetNature, nature, team)))
+        {
+            _chest = before;
+            Nature.Wallet = wallet;
+            return;
+        }
+        _teamDirty = false;
+        _saveClock = 0;
     }
 
     /// <summary>Before a change whose pockets give after the room revision: the team file must be there to keep them (not a file that would not read).</summary>
