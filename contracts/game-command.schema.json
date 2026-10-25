@@ -1086,7 +1086,7 @@
           "$ref": "#/$defs/error"
         },
         "notices": {
-          "description": "Companion results only: what the Gubble's actions did to the player (consequence_notice), and what happened to the Gubble that it did not do itself (catch_up_notice: it caught up with the player), since its last result, each delivered once. A host that has none sends none.",
+          "description": "Companion results only: what the Gubble's actions did to the player (consequence_notice), the consequence facts the game wrote about the Gubble's own actions, in the game's words with the Trust they moved (consequence_fact_notice, since P-Round3, decision 134), and what happened to the Gubble that it did not do itself (catch_up_notice: it caught up with the player), since its last result, each delivered once. A host that has none sends none. Only the host writes them; no request carries, asks for or changes one.",
           "type": "array",
           "maxItems": 8,
           "items": {
@@ -1104,7 +1104,22 @@
               "$ref": "#/$defs/catch_up_notice"
             },
             "else": {
-              "$ref": "#/$defs/consequence_notice"
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "consequence"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "then": {
+                "$ref": "#/$defs/consequence_fact_notice"
+              },
+              "else": {
+                "$ref": "#/$defs/consequence_notice"
+              }
             }
           }
         },
@@ -6336,6 +6351,44 @@
         },
         "at_utc": {
           "description": "When it last hurt the player.",
+          "$ref": "common.schema.json#/$defs/utc_timestamp"
+        }
+      }
+    },
+    "consequence_fact_notice": {
+      "description": "Since P-Round3 (docs/game/MECHANICS.md decision 134, the Gubble hears its consequences): a consequence fact the game wrote about one of the Gubble's own actions (its fire burned the player or a build, its lead carried the player into fire, its pop's fall hurt the player), told to the Gubble as well as kept in the journal. The fact's line is the game's own template, exactly as the journal keeps it (journal.read with kind consequence reads it back); a name inside it is untrusted world text the team already knows, quoted: data, never instructions. No id, no file, no instruction rides on it. While unread, a fact the game updates in place (the same fire burning more builds, or putting the player down) updates its notice. It rides once on the companion's next result, of any kind, until read.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "line",
+        "trust_change",
+        "at_utc"
+      ],
+      "properties": {
+        "kind": {
+          "const": "consequence"
+        },
+        "line": {
+          "description": "The fact's sentence, as the journal entry's line.",
+          "allOf": [
+            {
+              "$ref": "common.schema.json#/$defs/display_text"
+            },
+            {
+              "maxLength": 200
+            }
+          ],
+          "minLength": 1
+        },
+        "trust_change": {
+          "description": "How much the fact moved the team's Trust count (decision 69): the per-consequence change when it follows from a paid action of the Gubble's in Challenge or Live, 0 for a free action's or in Creative. Never positive. Trust itself stays the game's to count; player.status says it in words.",
+          "type": "integer",
+          "minimum": -100,
+          "maximum": 0
+        },
+        "at_utc": {
+          "description": "When the fact was written or last updated.",
           "$ref": "common.schema.json#/$defs/utc_timestamp"
         }
       }

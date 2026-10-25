@@ -1,0 +1,22 @@
+{
+  "schema": "garage_game.result",
+  "version": 1,
+  "ok": true,
+  "op": "inventory.use",
+  "action_id": "use-0010",
+  "principal": "player:local",
+  "room_id": "garage_example",
+  "revision": 15,
+  "replayed": false,
+  "preview": false,
+  "at_utc": "2026-10-06T00:05:00Z",
+  "transient": true,
+  "data": {
+    "item": "apple",
+    "count": 1,
+    "healed_quarters": 2,
+    "sound": "eat",
+    "seeds": 0,
+    "seeds_loose": 1
+  }
+}

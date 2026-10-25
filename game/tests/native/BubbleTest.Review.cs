@@ -247,8 +247,13 @@ public partial class BubbleTest
             await Frames(1);
             _host.AdvanceNature(Tick);
         }
-        var facts = Send(Query("journal.read", new JsonObject { ["kind"] = "consequence" }), Companion)["data"]?["entries"]?.AsArray().OfType<JsonObject>()
+        var read = Send(Query("journal.read", new JsonObject { ["kind"] = "consequence" }), Companion);
+        var facts = read["data"]?["entries"]?.AsArray().OfType<JsonObject>()
             .Where(e => e["line"]!.GetValue<string>().StartsWith("The Gubble's bubble carried you into fire", StringComparison.Ordinal)).ToList() ?? new();
+        // Decision 134: the Gubble hears it on its next result (this one), in the fact's words, with the Trust it moved.
+        var heard = read["notices"]?.AsArray().OfType<JsonObject>().Where(n => n["kind"]?.GetValue<string>() == CommandHost.ConsequenceNoticeKind).ToList() ?? new();
+        Check(heard.Count == 1 && facts.Count == 1 && heard[0]["line"]?.GetValue<string>() == facts[0]["line"]?.GetValue<string>() && heard[0]["trust_change"]?.GetValue<int>() == cost,
+            $"the Gubble hears its lead's consequence in the fact's own words, trust_change {cost}: " + Canonical(read["notices"]));
         var hurt = Health < health;
         var afterHarm = _host.TrustCount;
         if (_host.PlayerInBubble) await DiveKey();

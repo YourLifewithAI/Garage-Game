@@ -692,8 +692,10 @@ class NatureMixin:
             place = self._nearest_known_place(at)
             line = POP_FALL_PREFIX + ("" if place is None else " near " + self._quoted(place)) + \
                 (" until you had to recover." if recovered else ".")
-            self._add_history(self._fact("consequence", line, _COMPANION, _COMPANION, None, None, list(at)))
-            self._note_trust_consequence(True)
+            fact = self._fact("consequence", line, _COMPANION, _COMPANION, None, None, list(at))
+            self._add_history(fact)
+            # Decision 134: the Gubble hears it on its next result, with the Trust it moved.
+            self._tell_gubble(fact, self._move_trust_for(True))
             return True
 
     def _note_pop(self, held_player: bool, by_gubble: bool) -> None:
@@ -2030,6 +2032,7 @@ class NatureMixin:
                 return
             self._builds_burnt.append(creation)
             self._build_entry["line"] = self._plain(self._build_burnt_line(self._builds_burnt[0]), 200)
+            self._retell_gubble(self._build_entry)
             return
         self._build_fire = fire.revision
         self._builds_burnt = [creation]
@@ -2041,7 +2044,7 @@ class NatureMixin:
                                        creation if view is not None else None, view[0] if view is not None else None,
                                        view[1] if view is not None else centre)
         self._add_history(self._build_entry)
-        self._note_trust_consequence(fire.paid)
+        self._tell_gubble(self._build_entry, self._move_trust_for(fire.paid))
 
     def _build_burnt_line(self, first: str) -> str:
         view = self._team_view(first)

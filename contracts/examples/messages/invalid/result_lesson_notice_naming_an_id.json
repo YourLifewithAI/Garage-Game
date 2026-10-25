@@ -1,0 +1,32 @@
+{
+  "schema": "garage_game.result",
+  "version": 1,
+  "ok": true,
+  "op": "player.status",
+  "query_id": "q-0040",
+  "principal": "companion:local",
+  "room_id": "garage_example",
+  "revision": 7,
+  "replayed": false,
+  "preview": false,
+  "data": {
+    "mode": "challenge",
+    "health": 64.0,
+    "max_health": 100,
+    "stamina": 0.35,
+    "max_stamina": 0.65,
+    "completed_climbs": 2,
+    "recoveries": 0,
+    "consequences": true
+  },
+  "at_utc": "2026-10-06T00:05:00Z",
+  "notices": [
+    {
+      "kind": "consequence",
+      "line": "The Gubble's fire burned you near \"Pine shelving\".",
+      "trust_change": -3,
+      "at_utc": "2026-10-06T00:04:50Z",
+      "subject": "creation:00000001"
+    }
+  ]
+}

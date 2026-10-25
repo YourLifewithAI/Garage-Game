@@ -209,9 +209,20 @@ public partial class BubbleTest
     }
 
     /// <summary>The journal's consequence facts in the Gubble's lessons (journal.read kind consequence) whose line starts so.</summary>
-    private int Facts(string prefix) =>
-        Send(Query("journal.read", new JsonObject { ["kind"] = "consequence" }), Companion)["data"]?["entries"]?.AsArray()
-            .Count(e => e?["line"]?.GetValue<string>().StartsWith(prefix, StringComparison.Ordinal) == true) ?? 0;
+    private int Facts(string prefix) => FactsHeard(prefix).Facts;
+
+    /// <summary>
+    /// The same read, and the consequence notices (decision 134) its result carried to the Gubble whose line starts so: what the Gubble heard
+    /// on that result, its next since the last.
+    /// </summary>
+    private (int Facts, System.Collections.Generic.List<JsonObject> Heard) FactsHeard(string prefix)
+    {
+        var read = Send(Query("journal.read", new JsonObject { ["kind"] = "consequence" }), Companion);
+        var facts = read["data"]?["entries"]?.AsArray().Count(e => e?["line"]?.GetValue<string>().StartsWith(prefix, StringComparison.Ordinal) == true) ?? 0;
+        var heard = read["notices"]?.AsArray().OfType<JsonObject>()
+            .Where(n => n["kind"]?.GetValue<string>() == CommandHost.ConsequenceNoticeKind && n["line"]?.GetValue<string>().StartsWith(prefix, StringComparison.Ordinal) == true).ToList();
+        return (facts, heard ?? new System.Collections.Generic.List<JsonObject>());
+    }
 
     /// <summary>
     /// Decision 88 (replacing 43's and 60's slow drift): out of a bubble is a fall. Each way a carry pops high in the air (the dive key, X,
@@ -250,8 +261,11 @@ public partial class BubbleTest
             var ride = _player.Ride;
             var falling = !_player.IsOnFloor() && _player.Velocity.Y < -0.1f;
             var landing = await UntilDown();
-            var facts = Facts(CommandHost.PopFallPrefix);
+            var (facts, heard) = FactsHeard(CommandHost.PopFallPrefix);
             var gubbles = how.StartsWith("gubble", StringComparison.Ordinal);
+            // Decision 134: the Gubble hears its own pop's fall (and only its own), with the Trust it cost.
+            Check(gubbles ? heard.Count == 1 && heard[0]["trust_change"]?.GetValue<int>() == TrustLaws.PerConsequence : heard.Count == 0,
+                $"the Gubble hears a fall after its own pop, and only then ({how}): " + string.Join(" | ", heard.Select(n => n.ToJsonString())));
             results.Add($"{how}: {ride} falling {falling} from {height:0.00} m, landed {landing:0.00} m/s, health {health} to {Health}, facts {facts}, Trust {trust} to {_host.TrustCount}, " +
                         $"ended {ReceiptData(Companion, lift)?["ended"]}");
             Check(Ok(lift) && Ok(led) && ride == SmallPlayerController.BubbleRide.None && falling && height > 0.5f && landing > safe && Health < health &&
