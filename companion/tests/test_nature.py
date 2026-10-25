@@ -438,8 +438,10 @@ class GrowUnlocks(NatureCase):
         here = self.grow([1.38, 0.0, 1.2], 0.2)
         self.assertEqual(refusal(self.send(PLAYER, "nature.cast", here)), ("target_busy", "$.args.center_m", m.REPLANT_STANDING))
         host.move_avatar("avatar:player", SPAWN)
+        self.assertEqual(self.send(COMPANION, "nature.cast", here, preview=True)["data"]["kind"], m.KIND_REPLANT)
         replanted = self.send(COMPANION, "nature.cast", here)
-        self.assertEqual((refusal(replanted), replanted["data"]["kind"], replanted["data"]["grown_plants"]), ("ok", m.KIND_REPLANT, 1))
+        self.assertEqual((refusal(replanted), replanted["data"].get("kind"), replanted["data"]["grown_plants"]), ("ok", None, 1),
+                         "its durable receipt keeps the plain Grow shape, as the kernel's")
         self.assertEqual((host.plant_factor("plant:oak-0"), host.plant_factor("plant:oak-1")), (0.5, 0.0), "one plant: the nearest burnt one")
         phases = [host.plant_factor("plant:oak-0")]
         for _hour in range(3):
@@ -460,7 +462,7 @@ class GrowUnlocks(NatureCase):
         preview = self.send(PLAYER, "nature.cast", here, preview=True)
         self.assertEqual((preview["data"]["kind"], preview["data"]["grown_plants"], host.sprouts), (m.KIND_SPROUTS, 12, []))
         sprouted = self.send(PLAYER, "nature.cast", here)
-        self.assertEqual((refusal(sprouted), sprouted["data"]["kind"], sprouted["data"]["grown_plants"], len(host.sprouts)), ("ok", m.KIND_SPROUTS, 12, 12))
+        self.assertEqual((refusal(sprouted), sprouted["data"]["grown_plants"], len(host.sprouts)), ("ok", 12, 12))
         self.assertEqual({s.template for s in host.sprouts} <= {"plant:grass-0", "plant:daisies-0"}, True, "never a tree")
         self.assertTrue(all(s.factor == 0.5 for s in host.sprouts))
         casts = [12]

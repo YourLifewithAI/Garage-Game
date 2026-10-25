@@ -23,7 +23,6 @@
     "requires_approval": false,
     "started_cells": 0,
     "grown_plants": 1,
-    "kind": "bridge",
     "end_m": [
       -0.1,
       0.2,

@@ -4962,7 +4962,7 @@
               "maximum": 4096
             },
             "kind": {
-              "description": "What the place made of the cast. Fire (decision 77): firepit, fireline, snuff or will_o_wisp; absent, plain Fire (today a Fireline's durable receipt keeps the plain shape too). Grow's unlocks (decisions 104 to 107): sprouts (seedlings on bare fertile soil, grown_plants of them), replant (one burnt plant back as a seedling), bridge (a deck from lip to lip) or ivy (a strip up a wall); absent, plain Grow or a waterpad.",
+              "description": "What the place made of the cast. Fire (decision 77): firepit, fireline, snuff or will_o_wisp; absent, plain Fire (today a Fireline's durable receipt keeps the plain shape too). Grow's unlocks (decisions 104 to 107): sprouts (seedlings on bare fertile soil, grown_plants of them), replant (one burnt plant back as a seedling), bridge (a deck from lip to lip) or ivy (a strip up a wall); absent, plain Grow or a waterpad (today an unlock's durable receipt keeps the plain Grow shape too, until the kernel's room-state reader knows these kinds: the P-Grow change request; its preview always names it).",
               "enum": [
                 "fire",
                 "firepit",

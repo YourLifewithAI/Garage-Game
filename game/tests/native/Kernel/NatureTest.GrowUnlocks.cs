@@ -32,6 +32,12 @@ public partial class NatureTest
     }
 
     private static string? Kind(JsonObject result) => result["data"]?["kind"]?.GetValue<string>();
+
+    /// <summary>
+    /// What a committed unlock's durable receipt says of its kind: nothing yet. It keeps the plain Grow shape until the kernel's
+    /// room-state reader knows Grow's kinds (CommandHostRoomState.NatureDataProblem, the P-Grow change request, which makes this the kind).
+    /// </summary>
+    private static bool ReceiptKind(JsonObject result, string kind) => Kind(result) == null;
     private static int Grown(JsonObject result) => result["data"]?["grown_plants"]?.GetValue<int>() ?? -1;
     private SproutView? SproutsShown => _world!.GetNode("Room").GetNodeOrNull<SproutView>(SproutView.ViewName);
 
@@ -114,7 +120,7 @@ public partial class NatureTest
         Check(pips - _host.Vitals.Pips == 4, $"sprouts are priced as any Grow: the player's order 4 pips ({pips} to {_host.Vitals.Pips})");
         var sprouts = _host.Nature.Sprouts.ToList();
         var apart = sprouts.SelectMany((a, i) => sprouts.Skip(i + 1).Select(b => CampLaws.Flat(a.PositionM, b.PositionM))).DefaultIfEmpty(9).Min();
-        Check(Ok(cast) && Kind(cast) == GrowKindWords.Sprouts && Grown(cast) == 12 && sprouts.Count == 12 && apart >= GrowKindLaws.SproutApartM &&
+        Check(Ok(cast) && ReceiptKind(cast, GrowKindWords.Sprouts) && Grown(cast) == 12 && sprouts.Count == 12 && apart >= GrowKindLaws.SproutApartM &&
               sprouts.All(s => CampLaws.Flat(s.PositionM, BareAt) <= 0.5f && s.Factor == GrowKindLaws.SeedlingStart && s.Template.StartsWith("plant:grass-", StringComparison.Ordinal)),
             $"Grow on bare fertile soil makes 12 sprouts in its circle, at least {apart:0.000} m apart, each copying the nearest grass at half size: " + Canonical(cast["error"] ?? cast["data"]));
         Check(SproutsShown?.Count == 12 && SproutsShown!.Drawn.All(d => Math.Abs(d.Place.Basis.Scale.Y - 0.5f * _room.Copies!.Sets.First(s => s.Name == "grass").Scale(0).Y) < 0.6f),
@@ -126,6 +132,12 @@ public partial class NatureTest
         _now = sownAt;
         GrowCast(Player, BareAt, 0.5);
         Check(Canonical(NatureBlock.Pack(_host.Nature)["sprouts"]) == first, "the same cast in the same place makes the same sprouts: their spots, their copies, their sowing");
+        // Room state carries them: a fresh room rebuilt from this one's state has the sprouts and the receipt that grew them.
+        var exported = _host.ExportRoomState()!;
+        await NewWorld(SavePath("unlocks-sprouts-rebuilt"));
+        var rebuilt = _host.ImportRoomState((JsonObject)exported.DeepClone());
+        Check(rebuilt.Ok && _host.Nature.Sprouts.Count == 12 && Canonical(NatureBlock.Pack(_host.Nature)["sprouts"]) == first,
+            "a room rebuilt from room state keeps the sprouts and the receipt that grew them: " + rebuilt.Message);
         // Byte-exact on reload, and the phases advance with the island clock: a reload continues them.
         await NewWorld(SavePath("unlocks-sprouts"));
         var saved = Canonical(NatureBlock.Pack(_host.Nature));
@@ -181,7 +193,7 @@ public partial class NatureTest
         var gubble = GrowCast(Companion, new Vector3(-1.4f, 0.01f, 0.6f), 0.3);
         var paid = pips - _host.Vitals.Pips;
         await Frames(10);
-        Check(Ok(gubble) && Kind(gubble) == GrowKindWords.Sprouts && paid == 2 && _player.GlobalPosition.DistanceTo(player) < 0.001f,
+        Check(Ok(gubble) && ReceiptKind(gubble, GrowKindWords.Sprouts) && paid == 2 && _player.GlobalPosition.DistanceTo(player) < 0.001f,
             $"the Gubble's sprouts round the player cost its own idea's 2 pips ({pips} to {pips - paid}) and leave the player where they were (moved {_player.GlobalPosition.DistanceTo(player) * 1000:0.0} mm): " +
             Canonical(gubble["error"] ?? gubble["data"]));
         Check(Ok(_host.PlayerNatureUndo()), "(the Gubble's sprouts are taken back)");
@@ -242,11 +254,12 @@ public partial class NatureTest
         var (player, _) = Bodies();
         var pips = _host.Vitals.Pips;
         _now = sownAt;
+        var replantPreview = GrowCast(Companion, TreeAt + new Vector3(-0.2f, 0.01f, 0), 0.5, preview: true);
         var replant = GrowCast(Companion, TreeAt + new Vector3(-0.2f, 0.01f, 0), 0.5);
         await Frames(10);
         var record = _host.Nature.Plants.GetValueOrDefault(Tree);
         var perch = HitDown(TreeAt.X, TreeAt.Z, RoomBuilder.HiddenLayer);
-        Check(Ok(replant) && Kind(replant) == GrowKindWords.Replant && Grown(replant) == 1 && record is { Burn: 0, SownS: not null } && Math.Abs(record.Factor - 0.5f) < 1e-4f &&
+        Check(Ok(replantPreview) && Kind(replantPreview) == GrowKindWords.Replant && Ok(replant) && ReceiptKind(replant, GrowKindWords.Replant) && Grown(replant) == 1 && record is { Burn: 0, SownS: not null } && Math.Abs(record.Factor - 0.5f) < 1e-4f &&
               Copies.FactorOf(Tree) == 0.5f && Math.Abs(perch - 0.47f) < 0.01f && TrunkAt(0.15f) && !TrunkAt(0.3f),
             $"Grow on burnt ground returns the burnt tree as a seedling at half size, its trunk and perch with it (perch at {perch:0.000} m): " + Canonical(replant["error"] ?? replant["data"]));
         Check(pips - _host.Vitals.Pips == 2 && _player.GlobalPosition.DistanceTo(player) < 0.001f && !_host.Nature.Cells.Values.Any(c => c.Ash > 0 && CampLaws.Flat(c.Position, TreeAt) <= 0.5f),
@@ -357,10 +370,12 @@ public partial class NatureTest
         // The Gubble's bridge, the player at the lip: one-sided collision over the void alone, and no one moved.
         var (player, _) = Bodies();
         var pips = _host.Vitals.Pips;
+        var bridgePreview = GrowCast(Companion, NearLip, 0.1, FarLip, preview: true);
         var made = GrowCast(Companion, NearLip, 0.1, FarLip);
         await Frames(10);
         var bridge = _host.Nature.Bridges.FirstOrDefault();
-        Check(Ok(made) && Kind(made) == GrowKindWords.Bridge && Grown(made) == 1 && bridge != null && Math.Abs(bridge.LengthM - 1.2f) < 1e-3f &&
+        Check(Ok(bridgePreview) && Kind(bridgePreview) == GrowKindWords.Bridge && Canonical(bridgePreview["data"]?["end_m"]) == Canonical(made["data"]?["end_m"]) &&
+              Ok(made) && ReceiptKind(made, GrowKindWords.Bridge) && Grown(made) == 1 && bridge != null && Math.Abs(bridge.LengthM - 1.2f) < 1e-3f &&
               Math.Abs(bridge.SpanFromM - 0.05f) < 0.006f && Math.Abs(bridge.SpanToM - 1.15f) < 0.006f && BridgesShown?.Count == 1 && pips - _host.Vitals.Pips == 2,
             $"the Gubble grows a 1.2 m deck from lip to lip, collided over the 1.1 m void alone (span {bridge?.SpanFromM:0.000} to {bridge?.SpanToM:0.000} m), for its 2 pips: " +
             Canonical(made["error"] ?? made["data"]));
@@ -401,6 +416,10 @@ public partial class NatureTest
         // Another one there, or past the island's most, is refused; saved and back on load.
         var twin = GrowCast(Player, NearLip + new Vector3(0, 0, 0.05f), 0.1, FarLip + new Vector3(0, 0, 0.05f));
         Check(Code(twin) == "invalid_args" && Message(twin) == CommandHost.BridgeHere, "a second deck beside the first is refused: " + Message(twin));
+        var state = _host.ExportRoomState()!;
+        await NewWorld(SavePath("unlocks-bridge-rebuilt"));
+        var rebuilt = _host.ImportRoomState((JsonObject)state.DeepClone());
+        Check(rebuilt.Ok && _host.Nature.Bridges.Count == 1 && BridgesShown?.Count == 1, "a room rebuilt from room state keeps the bridge, its receipts with it: " + rebuilt.Message);
         await NewWorld(SavePath("unlocks-bridge"));
         Block("LedgeA", new Vector3(LedgeA.Position.X, 0, LedgeA.Position.Y), new Vector3(LedgeA.End.X, LedgeY, LedgeA.End.Y));
         Block("LedgeB", new Vector3(LedgeB.Position.X, 0, LedgeB.Position.Y), new Vector3(LedgeB.End.X, LedgeY, LedgeB.End.Y));
@@ -472,11 +491,12 @@ public partial class NatureTest
         await Frames(10);
         var noRoot = GrowCast(Player, new Vector3(-0.9f, 0.6f, -0.6f), 0.1);
         Check(Code(noRoot) == "invalid_args" && Message(noRoot) == CommandHost.IvyNoRoot, "ivy needs standable ground within 0.4 m under the aim (the table's side, 0.6 m up): " + Message(noRoot));
+        var ivyPreview = GrowCast(Player, new Vector3(-1.3f, 0.2f, 0.3f), 0.1, preview: true);
         var pips = _host.Vitals.Pips;
         var cast = GrowCast(Player, new Vector3(-1.3f, 0.2f, 0.3f), 0.1);
         var strip = _host.Nature.Ivy.FirstOrDefault();
         var shown = _world!.GetNode("Room").GetNodeOrNull<IvyView>(IvyView.ViewName);
-        Check(Ok(cast) && Kind(cast) == GrowKindWords.Ivy && Grown(cast) == 1 && pips - _host.Vitals.Pips == 4 && strip != null && Math.Abs(strip.BaseM.Y) < 0.005f &&
+        Check(Ok(ivyPreview) && Kind(ivyPreview) == GrowKindWords.Ivy && Ok(cast) && ReceiptKind(cast, GrowKindWords.Ivy) && Grown(cast) == 1 && pips - _host.Vitals.Pips == 4 && strip != null && Math.Abs(strip.BaseM.Y) < 0.005f &&
               strip.NormalM.DistanceTo(Vector3.Right) < 0.01f && strip.LedgeM is { } ledge && Math.Abs(ledge.Y - 0.4f) < 0.005f && shown?.Count == 1 && shown.Factor == GrowKindLaws.IvyClimbFactor,
             $"Grow at the cliff roots ivy on the floor at its foot, reaching its 0.4 m ledge, priced as any Grow: {Canonical(cast["error"] ?? cast["data"])} base {strip?.BaseM} ledge {strip?.LedgeM}");
         var near = GrowCast(Player, new Vector3(-1.3f, 0.2f, 0.45f), 0.1);

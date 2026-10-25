@@ -1239,7 +1239,8 @@ class NatureMixin:
             return {"data": data}
         if keyed and not self._approving:
             return {"_ask": {"reason": hold, "touched": {}, "bind_revision": True}, "data": data}
-        committed = {k: v for k, v in data.items() if k not in ("cells", "cells_truncated")}
+        # The durable receipt keeps the plain Grow shape until the kernel's room-state reader knows the kinds (as the kernel's).
+        committed = {k: v for k, v in data.items() if k not in ("cells", "cells_truncated", "kind")}
         committed["started_cells"] = 0
         price = self._guard_energy(ability.capability, principal)
         if not apply:

@@ -209,6 +209,9 @@ public partial class CommandHost
         data.Remove("cells");
         data.Remove("cells_truncated");
         data["started_cells"] = 0;
+        // The durable receipt keeps the plain Grow shape until the room-state reader knows Grow's kinds (CommandHostRoomState's
+        // NatureDataProblem; the P-Grow change request), as the Fireline's did: an island state carrying it must rebuild meanwhile.
+        data.Remove("kind");
         // The guard at commit (CommandHostEnergy): priced as any Grow (decision 107), charged once the revision is saved.
         var price = GuardEnergy(ability.Capability, principal);
         var result = CommitNature(candidate, "nature.cast", principal, action, fingerprint, approvedBy, Array.Empty<string>(), data, undo: false);
