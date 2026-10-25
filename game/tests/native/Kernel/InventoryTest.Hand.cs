@@ -78,8 +78,8 @@ public partial class InventoryTest
         revision = _host.Revision;
         var back = Select(Player, 1);
         Check(Ok(back) && _host.HeldBy(PlayerAvatar) == null && !EntityIds().Contains("obj:cup") && _host.Revision == revision + 1 &&
-              _host.PocketEntries.Select(e => (e.Item, e.Slot)).SequenceEqual(new[] { ("apple", 1), ("obj:cup", 2) }) && _host.Hand.Holds == "unit",
-            "selecting another slot returns the cup to its own slot (one durable revision, a store into the pockets) and arms the apple");
+              _host.PocketEntries.Select(e => (e.Item, e.Slot)).SequenceEqual(new[] { ("apple", 1), ("obj:cup", 2), ("seed", 3) }) && _host.Hand.Holds == "unit",
+            "selecting another slot returns the cup to its own slot (one durable revision, a store into the pockets) and arms the apple (the eaten one's seed in slot 3)");
         Check(Ok(Select(Player, 2)) && Ok(Select(Player, 3, "abilities")) && _host.HeldBy(PlayerAvatar) == null && _host.PocketEntries.Any(e => e.Item == "obj:cup") &&
               Canonical(HandOf(Status())) == Canonical(HandJson("abilities", 3, "ability", pockets: 2, abilities: 3)),
             "the abilities' layer in the hand returns the cup too, and keeps the pockets' slot for when the layer comes back: " + Canonical(HandOf(Status())));
@@ -89,7 +89,7 @@ public partial class InventoryTest
         Check(_host.HandNow == new HandSelection("pockets", 2, 3) && _host.HeldBy(PlayerAvatar) == null && EntityIds().Contains("obj:cup") && _host.PocketEntries.All(e => e.Item != "obj:cup") &&
               _host.Hand.Holds == "nothing",
             "after a reload the hand's selection is kept; the cup it held is not (holding is never saved): it lies on the island where it was last put down");
-        Check(Ok(Store(Player, "chest", from: "pockets", item: "apple")) && _host.PocketEntries.Count == 0, "(the apple goes in the chest)");
+        Check(Ok(Store(Player, "chest", from: "pockets", item: "apple")) && _host.PocketEntries.All(e => e.Item == "seed"), "(the apple goes in the chest)");
     }
 
     /// <summary>Use and drop on the selected slot, the pockets' take into the hand, a gathered log's slot, and the refusals.</summary>

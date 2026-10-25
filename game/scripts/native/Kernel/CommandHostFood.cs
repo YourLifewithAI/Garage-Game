@@ -49,6 +49,7 @@ public partial class CommandHost
     public const string FoodInTheWay = "That is out of reach: something is in the way.";
     public const string NoFoodInReach = "There is no food in reach to pick.";
     public const string FoodTooMany = "The island cannot keep track of more picked plants today: eat what you have first.";
+    public const string FoodOnTheGround = "What is left of it lies on the ground: pick it up.";
     /// <summary>The sound an eaten unit makes, as its receipt names it (contracts: data.inventory.sound).</summary>
     public const string FoodSoundEat = "eat";
     /// <summary>A plant rooted this far from the feet is looked at for E (the food's spots lie within it, a grown tree's too).</summary>
@@ -89,6 +90,9 @@ public partial class CommandHost
     private bool GrownBack(NatureFood record) =>
         FoodRulesNow is not { } rules || Math.Max(0, SownNowS() - record.PickedS) / 3600.0 * Math.Max(1, GrowDayScale()) >= rules.RegrowH - 1e-9;
 
+    /// <summary>A plant's food record once one more spot of it is picked (a pick, a windfall picked up, a windfall the flames took).</summary>
+    private NatureFood Picking(string plant, int spot) => new() { Id = plant, Picked = PickedNow(plant) | (1 << spot), PickedS = SownNowS() };
+
     /// <summary>The size a plant is drawn at: 1 natural, grown above 1, a seedling below, 0 burnt down.</summary>
     private float ShownFactor(string plant) => Nature.Plants.TryGetValue(plant, out var record) ? record.Shown : 1;
 
@@ -124,8 +128,11 @@ public partial class CommandHost
         if (Player == null || !IsInstanceValid(Player) || !Player.IsInsideTree()) throw new Refusal("not_ready", "The player is not in the room.", retryable: true);
         var picked = PickedNow(plant.Id);
         var factor = ShownFactor(plant.Id);
-        var left = Enumerable.Range(0, plant.Spots.Count).Where(i => (picked & (1 << i)) == 0).ToList();
-        if (left.Count == 0) throw new Refusal("not_ready", GrowsBackWords(rules), "$.args.target", retryable: true);
+        // P-Inventory-2 (decision 118): windfalls lie loose at the trunk, picked up from the ground (inventory.take); the plant bears the rest.
+        var left = Enumerable.Range(0, plant.Spots.Count).Where(i => (picked & (1 << i)) == 0 && plant.Spots[i].Place != FoodPlace.Windfall).ToList();
+        if (left.Count == 0)
+            throw Enumerable.Range(0, plant.Spots.Count).Any(i => (picked & (1 << i)) == 0)
+                ? new Refusal("request_invalid", FoodOnTheGround, "$.args.target") : new Refusal("not_ready", GrowsBackWords(rules), "$.args.target", retryable: true);
         var reached = left.Where(i => FoodWithinReach(Player, plant.Box(i, factor))).ToList();
         if (reached.Count == 0)
             throw left.Any(i => SandboxRules.WithinReach(Player, Lowered(plant.Box(i, factor), Player.JumpApexNowM)))
@@ -142,7 +149,7 @@ public partial class CommandHost
         foreach (var gone in candidate.Food.Values.Where(GrownBack).Select(f => f.Id).ToList()) candidate.Food.Remove(gone);
         if (!candidate.Food.ContainsKey(plant.Id) && candidate.Food.Count >= FoodLaws.MaxFoodPlants) throw new Refusal("occupied", FoodTooMany, "$.args.target");
         if (preview) return Previewed("item.pickup", principal, actionId, target);
-        candidate.Food[plant.Id] = new NatureFood { Id = plant.Id, Picked = picked | (1 << spot), PickedS = SownNowS() };
+        candidate.Food[plant.Id] = Picking(plant.Id, spot);
         // The pockets gain first, then the plant gives (one room revision): a revision refused puts the pockets back.
         SavePockets(next);
         try { return CommitNature(candidate, "item.pickup", principal, actionId, fingerprint, null, Array.Empty<string>(), new JsonObject { ["food"] = plant.Id }, undo: false); }
@@ -174,45 +181,54 @@ public partial class CommandHost
 
     /// <summary>
     /// What E would pick now, without picking it: the unit of food the player faces (within SandboxControls.AheadDegrees) within reach with
-    /// a clear way to it, the most faced first, then the nearest. Ok: "Pick an apple" or "Pick berries" (the kind's words), the plant and
-    /// where it is. When it would not fit the pockets: not Ok, the pockets' own words ("Your pockets are full: they hold 6 things."), the
-    /// plant and where (E says so and picks nothing). Nothing faced: not Ok with no words and no plant, and E does something else.
+    /// a clear way to it, the most faced first, then the nearest: on a plant (a canopy apple, berries; Source the plant, "Pick an apple") or
+    /// loose on the ground (P-Inventory-2: a windfall at its trunk, a unit dropped; Source FromTheGround, "Pick up an apple"). When it would
+    /// not fit the pockets: not Ok, the pockets' own words ("Your pockets are full: ten things."), the source and where (E says so and picks
+    /// nothing). Nothing faced: not Ok with no words and no source, and E does something else.
     /// </summary>
     public FoodOutcome PlayerCanPick()
     {
-        if (FoodRulesNow is not { } rules || InventoryRules is not { } inventory || Room?.Copies is not { } copies) return new(false, "");
+        if (InventoryRules is not { } inventory) return new(false, "");
         if (Player == null || !IsInstanceValid(Player) || !Player.IsInsideTree()) return new(false, "");
         var feet = Player.GlobalPosition;
-        var candidates = new List<(FoodPlant Plant, Aabb Box, float Angle, float Gap)>();
-        foreach (var plant in FoodLayout.Near(copies, rules, feet.X, feet.Z, FoodNearM))
-        {
-            var factor = ShownFactor(plant.Id);
-            if (factor <= 0) continue;
-            var picked = PickedNow(plant.Id);
-            for (var i = 0; i < plant.Spots.Count; i++)
+        var candidates = new List<(string Source, string Kind, Aabb Box, float Angle, float Gap, bool Loose)>();
+        if (FoodRulesNow is { } rules && Room?.Copies is { } copies)
+            foreach (var plant in FoodLayout.Near(copies, rules, feet.X, feet.Z, FoodNearM))
             {
-                if ((picked & (1 << i)) != 0) continue;
-                var box = plant.Box(i, factor);
-                if (!FoodWithinReach(Player, box)) continue;
-                var angle = FoodAngle(Player, box);
-                if (angle <= SandboxControls.AheadDegrees) candidates.Add((plant, box, angle, feet.DistanceSquaredTo(box.GetCenter())));
+                var factor = ShownFactor(plant.Id);
+                if (factor <= 0) continue;
+                var picked = PickedNow(plant.Id);
+                for (var i = 0; i < plant.Spots.Count; i++)
+                {
+                    if ((picked & (1 << i)) != 0 || plant.Spots[i].Place == FoodPlace.Windfall) continue;
+                    var box = plant.Box(i, factor);
+                    if (!FoodWithinReach(Player, box)) continue;
+                    var angle = FoodAngle(Player, box);
+                    if (angle <= SandboxControls.AheadDegrees) candidates.Add((plant.Id, plant.Source.Kind, box, angle, feet.DistanceSquaredTo(box.GetCenter()), false));
+                }
             }
-        }
-        foreach (var (plant, box, _, _) in candidates.OrderBy(c => c.Angle).ThenBy(c => c.Gap).ThenBy(c => c.Plant.Id, StringComparer.Ordinal))
+        // The loose units (windfalls and units dropped), already faced, in reach and clear.
+        var loose = LooseInReach();
+        foreach (var unit in loose) candidates.Add((FromTheGround, unit.Kind, unit.Box, unit.Angle, unit.Gap, true));
+        foreach (var (source, kindId, box, _, _, isLoose) in candidates.OrderBy(c => c.Angle).ThenBy(c => c.Gap).ThenBy(c => c.Source, StringComparer.Ordinal))
         {
-            if (!Physics().ReachClear(Player, box, new Rid())) continue;
-            var kind = inventory.Kind(plant.Source.Kind)!;
+            if (!isLoose && !Physics().ReachClear(Player, box, new Rid())) continue;
+            if (inventory.Kind(kindId) is not { } kind) continue;
             var pockets = PocketContents;
             var at = box.GetCenter();
             if (FitsWords(pockets.WithUnits(kind.Id, pockets.Units(kind.Id) + 1), inventory, inventory.Pockets, pockets: true, kind) is { } full)
-                return new(false, full, plant.Id, kind.Id, at);
-            return new(true, "Pick " + FoodWords(kind), plant.Id, kind.Id, at);
+                return new(false, full, source, kind.Id, at);
+            return new(true, (isLoose ? "Pick up " : "Pick ") + FoodWords(kind), source, kind.Id, at);
         }
         return new(false, "");
     }
 
-    /// <summary>E's pick: the food PlayerCanPick faces, as the player's item.pickup (refused, with the pockets' words, when they are full).</summary>
-    public JsonObject PlayerPick(bool preview = false) => PlayerCanPick().Source is { } plant ? PlayerPickFrom(plant, preview)
+    /// <summary>
+    /// E's pick: what PlayerCanPick faces, as the player's item.pickup of the plant, or the pockets' take from the ground for a loose unit
+    /// (refused, with the pockets' words, when they are full).
+    /// </summary>
+    public JsonObject PlayerPick(bool preview = false) => PlayerCanPick() is { Source: { } source } faced
+        ? source == FromTheGround ? PlayerTakeFromGround(faced.Kind!, preview) : PlayerPickFrom(source, preview)
         : Fail("item.pickup", PlayerPrincipal, null, null, new Refusal("target_not_found", NoFoodInReach, "$.args.target"));
 
     /// <summary>One unit of a plant's food into the pockets, as the player's item.pickup.</summary>
@@ -269,7 +285,13 @@ public partial class CommandHost
     internal IReadOnlyList<FoodView.Spot> FoodSpotsNear(Vector3 at, float radius)
     {
         var spots = new List<FoodView.Spot>();
-        if (FoodRulesNow is not { } rules || Room?.Copies is not { } copies) return spots;
+        if (FoodRulesNow is not { } rules || Room?.Copies is not { } copies)
+        {
+            foreach (var unit in Nature.Loose)
+                if (new Vector2(unit.PositionM.X - at.X, unit.PositionM.Z - at.Z).LengthSquared() <= radius * radius)
+                    spots.Add(new FoodView.Spot(unit.PositionM, LooseLook(unit.Kind), 0));
+            return spots;
+        }
         foreach (var plant in FoodLayout.Near(copies, rules, at.X, at.Z, radius))
         {
             var factor = ShownFactor(plant.Id);
@@ -279,6 +301,16 @@ public partial class CommandHost
             for (var i = 0; i < plant.Spots.Count; i++)
                 if ((picked & (1 << i)) == 0) spots.Add(new FoodView.Spot(plant.At(i, factor), look, plant.Spots[i].HangM * factor));
         }
+        // P-Inventory-2: the units dropped loose, each by its kind's look.
+        foreach (var unit in Nature.Loose)
+            if (new Vector2(unit.PositionM.X - at.X, unit.PositionM.Z - at.Z).LengthSquared() <= radius * radius)
+                spots.Add(new FoodView.Spot(unit.PositionM, LooseLook(unit.Kind), 0));
         return spots;
     }
+
+    /// <summary>How a loose unit of a kind is drawn: an apple, berries, a seed, a log or a stone (a kind of no look of its own as a seed).</summary>
+    private static FoodView.Look LooseLook(string kind) => kind switch
+    {
+        "apple" => FoodView.Look.Apple, "berries" => FoodView.Look.Berries, "log" => FoodView.Look.Log, "stone" => FoodView.Look.Stone, _ => FoodView.Look.Seed,
+    };
 }

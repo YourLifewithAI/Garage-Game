@@ -1404,8 +1404,9 @@ def inventory_round(at: str) -> dict:
         # An apple eaten heals half a heart at once (decisions 92 and 111); at full hearts it stays in the pockets.
         "command_player_eats_an_apple": command("inventory.use", "use-0001", {"item": "apple"}, note="Player-only."),
         # Every unit eaten makes its sound (P-Food, decision 108): the receipt says so, in Creative too, where it heals nothing.
+        # P-Inventory-2 (decision 118): an apple eaten leaves a seed in the pockets (berries one time in three).
         "result_player_eats_an_apple": result("inventory.use", "use-0001", "player:local", 5, at, transient=True,
-                                              data={"item": "apple", "count": 1, "healed_quarters": 2, "sound": "eat"}),
+                                              data={"item": "apple", "count": 1, "healed_quarters": 2, "sound": "eat", "seeds": 1}),
         "result_player_eats_an_apple_in_creative": result("inventory.use", "use-0002", "player:local", 5, at, transient=True,
                                                           data={"item": "apple", "count": 0, "healed_quarters": 0, "sound": "eat"}),
         "result_apple_at_full_hearts": refused("inventory.use", "use-0003", "player:local", "not_ready",
@@ -1441,6 +1442,16 @@ def inventory_round(at: str) -> dict:
                                                                affected=["obj:cup"], data={"item": "obj:cup", "count": 1, "to": "hand"}),
         # A use and a drop that name no item act on the selected slot.
         "command_player_eats_the_armed_unit": command("inventory.use", "use-0005", {}),
+        # P-Inventory-2 (decision 118): a stack's unit set down lies loose before the player; E or F picks it up again from the ground.
+        "command_player_sets_an_apple_down": command("inventory.drop", "drop-0002", {"item": "apple"}, note="Player-only."),
+        "result_player_sets_an_apple_down": result("inventory.drop", "drop-0002", "player:local", 8, at, transient=False,
+                                                   data={"item": "apple", "count": 1, "to": "ground"}),
+        "command_player_picks_up_a_loose_apple": command("inventory.take", "take-0006", {"from": "ground", "item": "apple", "to": "pockets"},
+                                                         note="The loose apple the player faces within reach: a windfall at its tree's trunk, or one set down."),
+        "result_player_picks_up_a_loose_apple": result("inventory.take", "take-0006", "player:local", 9, at, transient=False,
+                                                       data={"item": "apple", "count": 1, "to": "pockets"}),
+        "result_seeds_have_no_use_yet": refused("inventory.use", "use-0006", "player:local", "request_invalid",
+                                                "Seeds have no use yet: planting comes with farming.", "$.args.item"),
         # The whole list's first answer (no category, no cursor) carries the inventory's ops; a filtered or later page does not.
         "query_capabilities_of_the_inventory": query("capabilities.list", "q-0051", {"limit": 1}),
         "result_capabilities_of_the_inventory": answer("capabilities.list", "q-0051", "companion:local", 5, at, {
@@ -1510,6 +1521,10 @@ def inventory_round_refused(at: str) -> dict:
         "command_select_on_the_wheel": command("inventory.select", "select-0010", {"slot": 1, "layer": "wheel"}),
         "command_select_without_a_slot": command("inventory.select", "select-0011", {}),
         "command_take_from_the_pockets_into_the_pockets": command("inventory.take", "take-0011", {"from": "pockets", "item": "obj:cup", "to": "pockets"}),
+        # P-Inventory-2 (decision 118): a loose unit comes off the ground into the pockets, one at a time; an eating gives a few seeds at most.
+        "command_take_from_the_ground_into_the_hand": command("inventory.take", "take-0012", {"from": "ground", "item": "apple", "to": "hand"}),
+        "command_take_two_from_the_ground": command("inventory.take", "take-0013", {"from": "ground", "item": "apple", "to": "pockets", "count": 2}),
+        "result_eaten_with_a_bag_of_seeds": {**eaten, "data": {**eaten["data"], "seeds": 11}},
         "result_select_kept_as_durable": {**valid["result_player_selects_a_slot"], "transient": False},
         "result_hand_holding_a_wish": {**status, "data": {**status["data"], "hand": {**status["data"]["hand"], "holds": "wish"}}},
         "result_chest_entry_with_hidden_words": {**status, "data": {**status["data"], "chest": {**status["data"]["chest"], "entries": [

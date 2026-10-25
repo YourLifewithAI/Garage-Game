@@ -144,7 +144,10 @@ public partial class FoodTest
 
     // ---- item 2: picking ----
 
-    /// <summary>E facing a windfall picks one into the pockets: the prompt's words, a preview, the durable receipt, the record, the team file.</summary>
+    /// <summary>
+    /// E facing a windfall picks one into the pockets: the prompt's words, a preview, the durable receipt, the record, the team file. A windfall
+    /// lies loose at the trunk (P-Inventory-2, decision 118), so E picks it up from the ground: the pockets' take, the plant's spot picked.
+    /// </summary>
     private async Task TestPick()
     {
         await NewWorld("pick");
@@ -156,23 +159,25 @@ public partial class FoodTest
         var (food, stand) = Approach(TreeA, windfalls[0]);
         await Face(stand, food, "facing the first windfall");
         var faced = _host.PlayerCanPick();
-        Check(faced.Ok && faced.Words == "Pick an apple" && faced.Source == TreeA && faced.Kind == "apple" && faced.At is { } at && at.DistanceTo(tree.Box(windfalls[0], 1).GetCenter()) < 1e-4f,
-            $"E faces the windfall: \"{faced.Words}\", the tree and where the apple lies");
+        Check(faced.Ok && faced.Words == "Pick up an apple" && faced.Source == CommandHost.FromTheGround && faced.Kind == "apple" && faced.At is { } at &&
+              at.DistanceTo(tree.Box(windfalls[0], 1).GetCenter()) < 1e-4f,
+            $"E faces the windfall: \"{faced.Words}\", lying loose on the ground, where the apple lies");
         var revision = _host.Revision;
         var preview = Dumped(_host.PlayerPick(preview: true));
         Check(Ok(preview) && preview["preview"]?.GetValue<bool>() == true && _host.Revision == revision && Units("apple") == 0 && _host.FoodLeft(TreeA).Count == tree.Spots.Count,
             "a preview picks nothing: " + Canonical(preview));
         var picked = Dumped(_host.PlayerPick());
         var record = _host.Nature.Food.GetValueOrDefault(TreeA);
-        Check(Ok(picked) && picked["transient"]?.GetValue<bool>() == false && picked["revision"]?.GetValue<int>() == revision + 1 && _host.Revision == revision + 1 &&
-              Canonical(picked["affected"]) == Canonical(new JsonArray(TreeA)) && picked["data"] == null && Units("apple") == 1 && !_host.FoodLeft(TreeA).Contains(windfalls[0]) &&
+        var taken = Canonical(new JsonObject { ["count"] = 1, ["item"] = "apple", ["to"] = "pockets" });
+        Check(Ok(picked) && picked["op"]?.GetValue<string>() == "inventory.take" && picked["transient"]?.GetValue<bool>() == false && picked["revision"]?.GetValue<int>() == revision + 1 &&
+              _host.Revision == revision + 1 && picked["affected"] == null && Canonical(picked["data"]) == taken && Units("apple") == 1 && !_host.FoodLeft(TreeA).Contains(windfalls[0]) &&
               record is { } kept && kept.Picked == 1 << windfalls[0] && kept.PickedS == Seconds(_now),
-            "E picks it into the pockets: one durable room revision naming the tree, the spot picked and when: " + Canonical(picked));
+            "E picks it up into the pockets: one durable room revision (the pockets' take from the ground), the tree's spot picked and when: " + Canonical(picked));
         var team = TeamFile.Parse(File.ReadAllBytes(TeamPath("pick")));
         Check(team.PocketsOf("challenge").Units("apple") == 1, "the team file's pockets hold the apple");
         var lookup = Send(Query("receipt.lookup", new JsonObject { ["action_id"] = picked["action_id"]!.GetValue<string>() }), Player);
-        Check(lookup["data"]?["receipt"]?["revision"]?.GetValue<int>() == revision + 1 && Canonical(lookup["data"]?["receipt"]?["affected"]) == Canonical(new JsonArray(TreeA)),
-            "receipt.lookup finds the pick, the tree in affected: " + Canonical(lookup["data"]));
+        Check(lookup["data"]?["receipt"]?["revision"]?.GetValue<int>() == revision + 1 && Canonical(lookup["data"]?["receipt"]?["data"]) == taken,
+            "receipt.lookup finds the pick and what it took: " + Canonical(lookup["data"]));
         foreach (var spot in windfalls.Skip(1))
         {
             var (next, from) = Approach(TreeA, spot);
@@ -283,12 +288,14 @@ public partial class FoodTest
         var harm = _host.ApplyPlayerDamage(20, PlayerDamageSource.Fire);
         var hurt = Quarters;
         var eaten = Use(Player, "apple");
-        Check(harm != null && hurt <= max - 3 && Ok(eaten) && Quarters == hurt + 2 && Units("apple") == 0 &&
-              Canonical(eaten["data"]) == Canonical(new JsonObject { ["count"] = 1, ["healed_quarters"] = 2, ["item"] = "apple", ["sound"] = "eat" }) &&
+        Check(harm != null && hurt <= max - 3 && Ok(eaten) && Quarters == hurt + 2 && Units("apple") == 0 && Units("seed") == 1 &&
+              Canonical(eaten["data"]) == Canonical(new JsonObject { ["count"] = 1, ["healed_quarters"] = 2, ["item"] = "apple", ["seeds"] = 1, ["sound"] = "eat" }) &&
               _sounds.SequenceEqual(new[] { "apple" }) && _host.FoodSoundsPlayed == played + 1,
             $"just hurt ({hurt} of {max} quarters), the apple heals half a heart at once with no unharmed wait, and makes its sound: " + Canonical(eaten));
         var munched = Use(Player, "berries");
-        Check(Ok(munched) && Quarters == hurt + 3 && Canonical(munched["data"]) == Canonical(new JsonObject { ["count"] = 1, ["healed_quarters"] = 1, ["item"] = "berries", ["sound"] = "eat" }) &&
+        var berrySeeds = munched["data"]?["seeds"]?.GetValue<int>() ?? -1;
+        Check(Ok(munched) && Quarters == hurt + 3 && berrySeeds is 0 or 1 && Units("seed") == 1 + berrySeeds &&
+              Canonical(munched["data"]) == Canonical(new JsonObject { ["count"] = 1, ["healed_quarters"] = 1, ["item"] = "berries", ["seeds"] = berrySeeds, ["sound"] = "eat" }) &&
               _sounds.SequenceEqual(new[] { "apple", "berries" }),
             "berries heal a quarter, at once, with their sound");
         await NewWorld("eat-creative", mode: "creative");
@@ -393,13 +400,23 @@ public partial class FoodTest
 
     // ---- the save ----
 
-    /// <summary>The counts in the nature block: a reload keeps them; room state carries them and the pick's receipt; a tampered record is refused.</summary>
+    /// <summary>
+    /// The counts in the nature block: a reload keeps them; room state carries them and the picks' receipts (a windfall's take from the
+    /// ground, the berries' item.pickup naming the shrub); a tampered record is refused.
+    /// </summary>
     private async Task TestReload()
     {
         await NewWorld("reload");
         await PickWindfall(0);
+        var (berries, byBerries) = Approach(Shrub, 0);
+        await Face(byBerries, berries, "facing the shrub's berries");
+        Check(Ok(Dumped(_host.PlayerPick())) && Units("berries") == 1, "the shrub's berries picked");
         var spot = Spots(TreeA, FoodPlace.Windfall)[0];
-        var expected = new JsonObject { [TreeA] = new JsonObject { ["picked"] = 1 << spot, ["picked_s"] = Seconds(_now) } };
+        var expected = new JsonObject
+        {
+            [TreeA] = new JsonObject { ["picked"] = 1 << spot, ["picked_s"] = Seconds(_now) },
+            [Shrub] = new JsonObject { ["picked"] = 1, ["picked_s"] = Seconds(_now) },
+        };
         var packed = NatureBlock.Pack(_host.Nature)["food"];
         Check(Canonical(packed) == Canonical(expected), "the nature block keeps the spot picked and when: " + Canonical(packed));
         await NewWorld("reload", keepFiles: true);
@@ -407,8 +424,10 @@ public partial class FoodTest
             "a reload keeps it: the spot still bare, the apple in the pockets");
         var state = _host.ExportRoomState()!;
         var receipt = state["receipts"]!.AsObject().Select(p => p.Value!["result"]!).FirstOrDefault(r => r["op"]?.GetValue<string>() == "item.pickup");
-        Check(Canonical(state["extensions"]?["x_play_nature"]?["food"]) == Canonical(expected) && receipt != null && Canonical(receipt["affected"]) == Canonical(new JsonArray(TreeA)),
-            "room state carries the food in x_play_nature and the pick's receipt, naming the tree");
+        var take = state["receipts"]!.AsObject().Select(p => p.Value!["result"]!).FirstOrDefault(r => r["op"]?.GetValue<string>() == "inventory.take");
+        Check(Canonical(state["extensions"]?["x_play_nature"]?["food"]) == Canonical(expected) && receipt != null && Canonical(receipt["affected"]) == Canonical(new JsonArray(Shrub)) &&
+              take != null && Canonical(take["data"]) == Canonical(new JsonObject { ["count"] = 1, ["item"] = "apple", ["to"] = "pockets" }) && take["affected"] == null,
+            "room state carries the food in x_play_nature and the picks' receipts: the windfall's take, the berries' pick naming the shrub");
         await NewWorld("reload-import");
         var imported = _host.ImportRoomState((JsonObject)state.DeepClone());
         Check(imported.Ok && Canonical(NatureBlock.Pack(_host.Nature)["food"]) == Canonical(expected) && !_host.FoodLeft(TreeA).Contains(spot), "and it imports: " + imported.Message);

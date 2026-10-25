@@ -39,8 +39,13 @@ namespace GarageGame.Native.Kernel;
 ///   the face, the face's normal, the ledge it reaches if any and its burn; at most NatureState.MaxIvy). A replanted plant keeps when
 ///   it was sown ("sown_s", no factor: a seedling's size is its phase on the island clock, never saved).
 /// - What was picked from the plants that bear food (P-Food, "food", absent while nothing is): by plant id, sorted, each the spots
-///   picked as bits ("picked", 1 to 255) and when the last was picked ("picked_s", whole seconds of the island clock's UTC), at most
-///   FoodLaws.MaxFoodPlants, each a plant of this room's copies (never a stone). No undo step remembers them: a pick is never taken back.
+///   picked as bits ("picked", 1 to 255) and when the regrowth clock started ("picked_s", whole seconds of the island clock's UTC; one
+///   fruit comes back each regrow_h after it, P-Inventory-2), at most FoodLaws.MaxFoodPlants, each a plant of this room's copies (never
+///   a stone). No undo step remembers them: a pick is never taken back.
+/// - The loose units dropped on the island (P-Inventory-2, decision 118: "loose", absent while none is): in the order dropped, each its
+///   kind (a token) and its bottom centre in this room's bounds, at most NatureState.MaxLoose. No undo step remembers them.
+/// - The retired materials wallet (P-Inventory-2, decision 116: "wallet", absent on every island since): an older block's is read for its
+///   migration into the chest (CommandHost.MigrateWallet), and only counts that could not move yet are written back.
 /// </summary>
 public static class NatureBlock
 {
@@ -130,6 +135,9 @@ public static class NatureBlock
         if (state.Food.Count > 0)
             block["food"] = new JsonObject(state.Food.OrderBy(p => p.Key, StringComparer.Ordinal)
                 .Select(p => KeyValuePair.Create(p.Key, (JsonNode?)new JsonObject { ["picked"] = p.Value.Picked, ["picked_s"] = p.Value.PickedS })));
+        // P-Inventory-2: the loose units dropped, in the order dropped; absent while none is (every earlier block reads as none).
+        if (state.Loose.Count > 0)
+            block["loose"] = new JsonArray(state.Loose.Select(l => (JsonNode?)new JsonObject { ["kind"] = l.Kind, ["position_m"] = KernelJson.Vector(l.PositionM) }).ToArray());
         var resting = state.Cells.Values.Where(c => c.RestS > 0).OrderBy(c => c.X).ThenBy(c => c.Z).ToList();
         if (resting.Count > 0)
         {
@@ -360,6 +368,8 @@ public static class NatureBlock
         if (block["food"] is JsonObject food)
             foreach (var (id, record) in food)
                 state.Food[id] = new NatureFood { Id = id, Picked = Int(record!["picked"]), PickedS = Long(record["picked_s"]) };
+        if (block["loose"] is JsonArray loose)
+            state.Loose = loose.Select(node => new NatureLoose { Kind = node!["kind"]!.GetValue<string>(), PositionM = Vector(node["position_m"]!) }).ToList();
         if (block["plants"] is JsonObject plants)
             foreach (var (id, plant) in ReadPlants(plants)) state.Plants[id] = plant!;
         if (block["waterpads"] is JsonArray pads) state.Waterpads = ReadWaterpads(pads);
@@ -461,10 +471,11 @@ public static class NatureBlock
         if (Normalized(node) is not { } block) return "not an object";
         // The retired wallet (P-Inventory-2) is optional: an older save's is read for its migration, a newer one has none.
         var required = new[] { "format", "cell_m", "weather_s", "changed_at", "trail", "names", "cells", "objects", "undo" };
-        if (block.Any(p => !required.Contains(p.Key) && p.Key is not ("fire" or "undone" or "rest" or "fractals" or "plants" or "waterpads" or "sprouts" or "bridges" or "ivy" or "food" or "wallet")) ||
+        if (block.Any(p => !required.Contains(p.Key) && p.Key is not ("fire" or "undone" or "rest" or "fractals" or "plants" or "waterpads" or "sprouts" or "bridges" or "ivy" or "food" or "wallet" or "loose")) ||
             required.Any(k => !block.ContainsKey(k))) return "its fields";
         if (block["fractals"] is { } fractals && FractalsProblem(fractals)) return "its Fractals picked up";
         if (block["food"] is { } food && FoodProblem(food, room) is { } foodWhy) return "its food picked: " + foodWhy;
+        if (block["loose"] is { } loose && LooseProblem(loose, room) is { } looseWhy) return "its loose units: " + looseWhy;
         if (block["plants"] is { } plants && PlantsProblem(plants, room, absentAllowed: false) is { } plantsWhy) return "its plants: " + plantsWhy;
         if (block["waterpads"] is { } pads && WaterpadsProblem(pads, room, emptyAllowed: false) is { } padsWhy) return "its waterpads: " + padsWhy;
         if (UnlocksProblem(block, room, emptyAllowed: false) is { } unlocksWhy) return "its " + unlocksWhy;
@@ -796,6 +807,21 @@ public static class NatureBlock
             if (value is not JsonObject record || record.Count != 2 || !record.ContainsKey("picked") || !record.ContainsKey("picked_s")) return "a plant's fields";
             if (!Whole(record["picked"], (1 << FoodLaws.MaxSpots) - 1) || record["picked"]!.GetValue<double>() < 1) return "the spots picked";
             if (!Whole(record["picked_s"], GrowKindLaws.MaxSownS)) return "when it was picked";
+        }
+        return null;
+    }
+
+    private static readonly Regex KindToken = new(@"\A[a-z][a-z0-9_-]{0,63}\z", RegexOptions.Compiled);
+
+    /// <summary>The loose units (P-Inventory-2): 1 to NatureState.MaxLoose, each exactly its kind (a token) and its spot, in this room's bounds (with a room).</summary>
+    private static string? LooseProblem(JsonNode node, RoomData? room)
+    {
+        if (node is not JsonArray loose || loose.Count is < 1 or > NatureState.MaxLoose) return "not 1 to the most the island keeps";
+        foreach (var value in loose)
+        {
+            if (value is not JsonObject unit || unit.Count != 2 || unit["kind"]?.GetValueKind() != JsonValueKind.String || !KindToken.IsMatch(unit["kind"]!.GetValue<string>()) ||
+                !Vec3(unit["position_m"])) return "a unit's fields";
+            if (room != null && !room.Bounds.Grow(0.05f).HasPoint(Vector(unit["position_m"]!))) return "a unit outside the island";
         }
         return null;
     }

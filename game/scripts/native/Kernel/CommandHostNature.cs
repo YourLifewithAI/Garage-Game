@@ -808,6 +808,8 @@ public partial class CommandHost
         var changed = Nature.Step(NatureLaws.StepS, Sample, NatureFireproof, Active);
         changed |= BurnNatureObjects(NatureLaws.StepS);
         changed |= BurnPlants(NatureLaws.StepS);
+        // P-Inventory-2: the loose units burn too (CommandHostInventoryLoose).
+        changed |= BurnLooseUnits();
         if (Player != null && IsInstanceValid(Player))
         {
             var at = Player.GlobalPosition;

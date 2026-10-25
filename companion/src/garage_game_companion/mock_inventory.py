@@ -137,7 +137,8 @@ class InventoryMixin:
         item, to = args["item"], args["to"]
         player = principal.startswith("player:")
         if not player:
-            self._companion_chest_only("$.args.to" if to == "pockets" else None)
+            # P-Inventory-2: from the pockets (into the hand) or the ground (into the pockets) is the player's alone, as the kernel's.
+            self._companion_chest_only("$.args.to" if to == "pockets" else "$.args.from" if args.get("from") in ("pockets", "ground") else None)
         self._inventory_rules()
         if player:
             self._not_yet_for_the_player()

@@ -4248,7 +4248,7 @@
         ]
       },
       "inventory.take": {
-        "description": "Take something out: from the chest (the default), at a camp: a unique thing into the actor's hand (empty hands, within its carry limit) or into the pockets, a stack's units into the pockets; since P-Inventory-2 from the pockets (from: pockets), anywhere: a unique thing of this island into the player's hand, its slot kept for it and then the hand's selection (HOTBAR.md: the hand); a stack stays in the pockets (request_invalid: its slot arms a unit). Into the pockets, and anything from them, is the player's alone (permission_denied to a companion before anything is looked up); while gubble_chest is on the companion may take a thing from the chest into its own hands, never the player's; with it off every companion take is permission_denied at $.op. A durable receipt with data, one room revision, as a store's.",
+        "description": "Take something out: from the chest (the default), at a camp: a unique thing into the actor's hand (empty hands, within its carry limit) or into the pockets, a stack's units into the pockets; since P-Inventory-2 from the pockets (from: pockets), anywhere: a unique thing of this island into the player's hand, its slot kept for it and then the hand's selection (HOTBAR.md: the hand); a stack stays in the pockets (request_invalid: its slot arms a unit).; since P-Inventory-2 (decision 118) from the ground (from: ground), anywhere: the loose unit of the kind the player faces within reach (a windfall lying at its plant's trunk, its spot then picked until it grows back, or a unit set down with inventory.drop) into its stack in the pockets, one unit (to pockets; target_not_found when none is in reach; occupied in the pockets' words when it would not fit), nothing in affected. Into the pockets, and anything from them, is the player's alone (permission_denied to a companion before anything is looked up); while gubble_chest is on the companion may take a thing from the chest into its own hands, never the player's; with it off every companion take is permission_denied at $.op. A durable receipt with data, one room revision, as a store's.",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -4272,10 +4272,11 @@
             "maximum": 1000
           },
           "from": {
-            "description": "chest (the default) or pockets.",
+            "description": "chest (the default), pockets or ground.",
             "enum": [
               "chest",
-              "pockets"
+              "pockets",
+              "ground"
             ]
           }
         },
@@ -4298,11 +4299,33 @@
                 }
               }
             }
+          },
+          {
+            "if": {
+              "properties": {
+                "from": {
+                  "const": "ground"
+                }
+              },
+              "required": [
+                "from"
+              ]
+            },
+            "then": {
+              "properties": {
+                "to": {
+                  "const": "pockets"
+                },
+                "count": {
+                  "const": 1
+                }
+              }
+            }
           }
         ]
       },
       "inventory.use": {
-        "description": "Use one unit of a stack in the pockets: a kind whose use heals (heal_quarters) heals at once, with no unharmed wait (decision 111); at full hearts the unit stays (not_ready); in Creative nothing changes but the receipt (decision 108: food heals nothing there, and nothing in the inventory is lost, decision 101). Every unit eaten makes its sound (decision 108, Creative too): its receipt's data says so (sound eat). A kind with no use is request_invalid. Player-only. A transient receipt with data (count 0 when nothing was used): a use changes the pockets (the team file) and the body, never the room. Since P-Inventory-2 no item is the hand's selected slot (inventory.select): its stack's unit; a thing there has no use (request_invalid); an empty slot is target_not_found; no pockets slot chosen is request_invalid.",
+        "description": "Use one unit of a stack in the pockets: a kind whose use heals (heal_quarters) heals at once, with no unharmed wait (decision 111); at full hearts the unit stays (not_ready); in Creative nothing changes but the receipt (decision 108: food heals nothing there, and nothing in the inventory is lost, decision 101). Every unit eaten makes its sound (decision 108, Creative too): its receipt's data says so (sound eat). A kind with no use is request_invalid, in the kernel's words (a seed: planting comes with farming; a log or stone: for building and repairs). Since P-Inventory-2 (decision 118) an apple eaten gives a seed into the pockets, berries one time in three (chosen from the eating's action id, provisional), when it fits (data.seeds: how many went in). Player-only. A transient receipt with data (count 0 when nothing was used): a use changes the pockets (the team file) and the body, never the room. Since P-Inventory-2 no item is the hand's selected slot (inventory.select): its stack's unit; a thing there has no use (request_invalid); an empty slot is target_not_found; no pockets slot chosen is request_invalid.",
         "type": "object",
         "additionalProperties": false,
         "required": [],
@@ -4314,7 +4337,7 @@
         }
       },
       "inventory.drop": {
-        "description": "Set a unique thing from the pockets on the ground before the player (the room's physics settles it, as a put-down does), on the island it came from; it is back in the room with its own id. A stack's unit is set down only once its kind has a body in the world (unsupported_capability until then). Player-only. A durable receipt with data, as a store's: the thing's new pose is saved first as a put-down's is (an entity.place receipt under the host's own action id, one room revision), then the drop's own receipt is the next. Since P-Inventory-2 no item is the hand's selected slot: the unique thing it took into the hand is set down from there, the same two revisions.",
+        "description": "Set a unique thing from the pockets on the ground before the player (the room's physics settles it, as a put-down does), on the island it came from; it is back in the room with its own id. Since P-Inventory-2 (decision 118) a stack's unit is set down too: one unit lies loose on the ground before the player, a thing of its kind in the world (the kernel's x_play_nature loose list, at most 256 an island, the oldest going first; loose units burn in fire), picked up again with inventory.take from the ground; one durable room revision, nothing in affected, data to ground; no ground before the player is out_of_bounds (retryable). Player-only. A durable receipt with data, as a store's: the thing's new pose is saved first as a put-down's is (an entity.place receipt under the host's own action id, one room revision), then the drop's own receipt is the next. Since P-Inventory-2 no item is the hand's selected slot: the unique thing it took into the hand is set down from there, the same two revisions.",
         "type": "object",
         "additionalProperties": false,
         "required": [],
@@ -5802,7 +5825,7 @@
         }
       },
       "inventory": {
-        "description": "What an inventory command moved: the entry, how many units (0 when nothing moved: an inventory.use in Creative), where it went, and for inventory.use the quarters of a heart it healed and the sound it made (eat: the unit was eaten, the game's FoodSound hook fired; Creative heals nothing and keeps the sound, decision 108).",
+        "description": "What an inventory command moved: the entry, how many units (0 when nothing moved: an inventory.use in Creative), where it went, and for inventory.use the quarters of a heart it healed and the sound it made (eat: the unit was eaten, the game's FoodSound hook fired; Creative heals nothing and keeps the sound, decision 108) and, since P-Inventory-2, the seeds it gave into the pockets (decision 118).",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -5835,6 +5858,12 @@
             "enum": [
               "eat"
             ]
+          },
+          "seeds": {
+            "description": "inventory.use: the seeds the unit eaten put in the pockets (an apple one, berries one time in three; none when they would not fit).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10
           }
         }
       },

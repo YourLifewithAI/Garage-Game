@@ -69,6 +69,10 @@ class OnTheMock(unittest.TestCase):
                 self.assertEqual(refusal(self.send(COMPANION, "inventory.store", args)), ("permission_denied", path, mock_inventory.POCKETS_ARE_PLAYERS))
         self.assertEqual(refusal(self.send(COMPANION, "inventory.take", {"item": "apple", "to": "pockets"})),
                          ("permission_denied", "$.args.to", mock_inventory.POCKETS_ARE_PLAYERS))
+        # P-Inventory-2: the pockets' take into the hand and the take off the ground are the player's too, refused where the kernel refuses them.
+        for args, path in (({"from": "pockets", "item": "obj:cup", "to": "hand"}, "$.args.from"), ({"from": "ground", "item": "apple", "to": "pockets"}, "$.args.to")):
+            with self.subTest(args=args):
+                self.assertEqual(refusal(self.send(COMPANION, "inventory.take", args)), ("permission_denied", path, mock_inventory.POCKETS_ARE_PLAYERS))
         for op in ("inventory.use", "inventory.drop"):
             with self.subTest(op=op):
                 self.assertEqual(refusal(self.send(COMPANION, op, {"item": "apple"})), ("permission_denied", "$.op", mock_inventory.PLAYER_ONLY))
@@ -166,6 +170,8 @@ class TheKernelsWords(unittest.TestCase):
                 body = source[source.index(method):]
                 self.assertLess(body.index("CompanionChestOnly("), body.index("RequireInventory(principal)"))
                 self.assertLess(body.index("RequireInventory(principal)"), body.index("Settle()"))
+        # P-Inventory-2: a take from the pockets or the ground names the pockets in from, as the mock's does.
+        self.assertIn('CompanionChestOnly(to == "pockets" ? "$.args.to" : from is "pockets" or FromTheGround ? "$.args.from" : null);', source)
         only = source[source.index("private void CompanionChestOnly("):]
         self.assertLess(only.index("PocketsArePlayers"), only.index("GubbleChestOff"))
 

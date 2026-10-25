@@ -241,7 +241,7 @@ public partial class PlayHudTest
         var (apple, appleStand) = InvApproach("plant:broadleaf-0", windfalls[0]);
         await InvFace(appleStand, apple);
         var full = host.PlayerCanPick();
-        Check(full is { Ok: false, Source: "plant:broadleaf-0" } && full.Words == "Your pockets are full: one thing." &&
+        Check(full is { Ok: false, Source: CommandHost.FromTheGround } && full.Words == "Your pockets are full: one thing." &&
               hud.Interaction.Kind == RoomHud.InteractKind.FoodFull && hud.Interaction.Words == full.Words && prompt.Visible && prompt.Text == full.Words,
             $"facing an apple with the pockets full, the pockets' own words stand beside it: \"{hud.Interaction.Words}\"");
         var left = host.FoodLeft("plant:broadleaf-0").Count;
@@ -332,11 +332,11 @@ public partial class PlayHudTest
         var shrubLeft = host.FoodLeft("plant:shrub-0").Count;
         await InvKey(Key.E);
         Check(InvUnits("berries") == 1 && host.FoodLeft("plant:shrub-0").Count == shrubLeft - 1 && hud.NoticeText == "You picked berries. In your pockets: 1 berries.", "E picks one unit into the pockets: " + hud.NoticeText);
-        // The tree's windfall: the brief's own example.
+        // The tree's windfall: the brief's own example. It lies loose at the trunk (P-Inventory-2, decision 118): E picks it up off the ground.
         await InvFace(appleStand, apple);
-        Check(hud.Interaction.Kind == RoomHud.InteractKind.PickFood && hud.Interaction.Words == "E: pick an apple", $"at the tree's foot: \"{hud.Interaction.Words}\"");
+        Check(hud.Interaction.Kind == RoomHud.InteractKind.PickFood && hud.Interaction.Words == "E: pick up an apple", $"at the tree's foot: \"{hud.Interaction.Words}\"");
         await InvKey(Key.E);
-        Check(InvUnits("apple") == 1 && hud.NoticeText == "You picked an apple. In your pockets: 1 apple.", "E picks the apple: " + hud.NoticeText);
+        Check(InvUnits("apple") == 1 && hud.NoticeText == "You picked up an apple. In your pockets: 1 apple.", "E picks the apple up: " + hud.NoticeText);
 
         // Eat: in Creative only the sound's receipt; the unit stays.
         await InvKey(Key.Tab);
@@ -351,7 +351,14 @@ public partial class PlayHudTest
             $"in Creative eating is only the sound's receipt, and the unit stays: \"{hud.NoticeText}\"");
         ((Button)hud.PocketRows.First(r => r.Name == "Pocket_berries").FindChild("Drop_berries", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(2);
-        Check(hud.NoticeText == "Berries cannot be set down yet: use them, or keep them in the chest." && InvUnits("berries") == 1, "a unit of food cannot be set down yet, in the host's words: " + hud.NoticeText);
+        Check(hud.NoticeText == "You set Berries down." && InvUnits("berries") == 0 && host.LooseUnits.Count == 1 && host.LooseUnits[0].Kind == "berries",
+            "a unit of food set down lies loose before the player (decision 118): " + hud.NoticeText);
+        await InvKey(Key.Tab);
+        await Frames(2);
+        Check(hud.Interaction.Kind == RoomHud.InteractKind.PickFood && hud.Interaction.Words == "E: pick up berries", $"E faces the loose berries: \"{hud.Interaction.Words}\"");
+        await InvKey(Key.E);
+        Check(InvUnits("berries") == 1 && host.LooseUnits.Count == 0 && hud.NoticeText == "You picked up berries. In your pockets: 1 berries.", "E picks them up again: " + hud.NoticeText);
+        await InvKey(Key.Tab);
         ((Button)hud.PocketRows.First(r => r.Name == "Pocket_berries").FindChild("Eat_berries", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(2);
         Check(hud.NoticeText == "Crunch! You ate berries. Nothing heals in Creative, so it stays in your pockets." && InvUnits("berries") == 1 && sounds == 2, "berries likewise: " + hud.NoticeText);
@@ -367,7 +374,7 @@ public partial class PlayHudTest
         var (apple2, apple2Stand) = InvApproach("plant:broadleaf-0", windfalls[1]);
         await InvFace(apple2Stand, apple2);
         await InvKey(Key.E);
-        Check(InvUnits("apple") == 1 && hud.NoticeText == "You picked an apple. In your pockets: 1 apple.", "(a windfall picked in Challenge: " + hud.NoticeText + ")");
+        Check(InvUnits("apple") == 1 && hud.NoticeText == "You picked up an apple. In your pockets: 1 apple.", "(a windfall picked in Challenge: " + hud.NoticeText + ")");
         await InvKey(Key.Tab);
         appleRow = hud.PocketRows.First(r => r.Name == "Pocket_apple");
         ((Button)appleRow.FindChild("Eat_apple", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
@@ -380,7 +387,8 @@ public partial class PlayHudTest
         ((Button)appleRow.FindChild("Eat_apple", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(2);
         Check(hurt < quarters - 2 && host.BodyRules.Quarters(host.Vitals) == hurt + 2 && InvUnits("apple") == 0 && hud.NoticeText == "Crunch! You ate an apple: half a heart healed." &&
-              !hud.PocketRows.Any(), $"hurt, the apple heals half a heart at once and is used up: \"{hud.NoticeText}\" ({hurt} to {host.BodyRules.Quarters(host.Vitals)} quarters)");
+              hud.PocketRows.Select(r => r.Name.ToString()).SequenceEqual(new[] { "Pocket_seed" }) && InvUnits("seed") == 1,
+            $"hurt, the apple heals half a heart at once and is used up, leaving its seed: \"{hud.NoticeText}\" ({hurt} to {host.BodyRules.Quarters(host.Vitals)} quarters)");
         await InvKey(Key.Tab);
         FreshBodies(host);
         host.PlayerMode("creative");

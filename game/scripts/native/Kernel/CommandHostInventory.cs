@@ -213,11 +213,12 @@ public partial class CommandHost
     {
         var to = Str(args, "to")!;
         var from = Str(args, "from") ?? "chest";
-        if (principal != PlayerPrincipal) CompanionChestOnly(to == "pockets" ? "$.args.to" : from == "pockets" ? "$.args.from" : null);
+        if (principal != PlayerPrincipal) CompanionChestOnly(to == "pockets" ? "$.args.to" : from is "pockets" or FromTheGround ? "$.args.from" : null);
         var rules = RequireInventory(principal);
         Settle();
-        // P-Inventory-2: a unique thing from the pockets into the hand (the hotbar's hand, CommandHostInventoryHand).
+        // P-Inventory-2: a unique thing from the pockets into the hand (the hotbar's hand, CommandHostInventoryHand); a loose unit off the ground.
         if (from == "pockets") return TakeFromPockets(args, rules, principal, actionId, fingerprint, preview);
+        if (from == FromTheGround) return TakeFromGround(args, rules, principal, actionId, fingerprint, preview);
         var item = Str(args, "item")!;
         var actor = principal == PlayerPrincipal ? PlayerAvatar : CompanionAvatarId;
         var chest = ChestContents;
@@ -287,7 +288,7 @@ public partial class CommandHost
         var have = pockets.Units(item);
         if (have == 0) throw new Refusal("target_not_found", NotInPockets, "$.args.item");
         var kind = rules.Kind(item);
-        if (kind?.HealQuarters is not { } heal) throw new Refusal("request_invalid", $"{kind?.Plural ?? "That"} {(kind == null ? "has" : "have")} no use yet.", "$.args.item");
+        if (kind?.HealQuarters is not { } heal) throw new Refusal("request_invalid", NoUseWords(kind), "$.args.item");
         if (Mode == "creative")
         {
             if (preview) return Previewed("inventory.use", principal, actionId);
@@ -300,7 +301,9 @@ public partial class CommandHost
         var (healed, quarters) = HealedBy(vitals, heal);
         if (quarters <= 0) throw new Refusal("not_ready", $"Your hearts are full: the {kind.Name} stays in your pockets.", "$.args.item", retryable: true);
         if (preview) return Previewed("inventory.use", principal, actionId);
-        SavePockets(pockets.WithUnits(item, have - 1));
+        // P-Inventory-2 (decision 118): an apple eaten gives a seed, berries one time in three, into the pockets in the same write.
+        var (eaten, seeds) = WithSeeds(pockets.WithUnits(item, have - 1), SeedsFromEating(item, actionId));
+        SavePockets(eaten);
         if (TrySaveVitals(_playerModes.WithCurrent(healed)) is not { } saved)
         {
             SavePockets(pockets, keepIfUnsaved: true);
@@ -308,7 +311,22 @@ public partial class CommandHost
         }
         _playerModes = saved;
         _vitalsDirty = false;
-        return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), Eaten(item, Moved(item, 1, null, healed: quarters)));
+        var data = Eaten(item, Moved(item, 1, null, healed: quarters));
+        data["seeds"] = seeds;
+        return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), data);
+    }
+
+    /// <summary>
+    /// Why a unit of a kind has no use (inventory.use, in the kernel's words): a seed waits for farming, a log or stone is material (it is
+    /// set down, or spent on a repair), anything else has none yet.
+    /// </summary>
+    private static string NoUseWords(InventoryKind? kind)
+    {
+        if (kind == null) return "That has no use yet.";
+        var plural = KernelJson.DisplayText(kind.Plural, InventoryContents.MaxNameLength);
+        if (kind.Id == FoodLaws.SeedKind) return $"{plural} have no use yet: planting comes with farming.";
+        if (kind.Material != null) return $"{plural} are for building and repairs: set one down, or keep them.";
+        return $"{plural} have no use yet.";
     }
 
     /// <summary>
@@ -346,8 +364,8 @@ public partial class CommandHost
         if (!item.StartsWith("obj:", StringComparison.Ordinal))
         {
             if (pockets.Units(item) == 0) throw new Refusal("target_not_found", NotInPockets, "$.args.item");
-            var plural = rules.Kind(item)?.Plural ?? "Those";
-            throw new Refusal("unsupported_capability", $"{plural} cannot be set down yet: use them, or keep them in the chest.", "$.args.item");
+            // P-Inventory-2 (decision 118): a unit lies loose on the ground before the player, a thing in the world (CommandHostInventoryLoose).
+            return DropUnit(item, pockets, principal, actionId, fingerprint, preview);
         }
         var thing = pockets.Thing(item) ?? throw new Refusal("target_not_found", NotInPockets, "$.args.item");
         if (!OfThisIsland(thing)) throw new Refusal("request_invalid", OtherIsland, "$.args.item");
@@ -678,7 +696,7 @@ public partial class CommandHost
             throw new Refusal("request_invalid", "to is chest or pockets.", "$.args.to");
         if (op == "inventory.take" && to is not ("hand" or "pockets")) throw new Refusal("request_invalid", "to is hand or pockets.", "$.args.to");
         if (op == "inventory.store" && args.TryGetProperty("from", out _) && Str(args, "from") is not ("hand" or "pockets")) throw new Refusal("request_invalid", "from is hand or pockets.", "$.args.from");
-        if (op == "inventory.take" && args.TryGetProperty("from", out _) && Str(args, "from") is not ("chest" or "pockets")) throw new Refusal("request_invalid", "from is chest or pockets.", "$.args.from");
+        if (op == "inventory.take" && args.TryGetProperty("from", out _) && Str(args, "from") is not ("chest" or "pockets" or FromTheGround)) throw new Refusal("request_invalid", "from is chest, pockets or ground.", "$.args.from");
         if (args.TryGetProperty("item", out var item))
         {
             var text = item.ValueKind == JsonValueKind.String ? item.GetString()! : "";

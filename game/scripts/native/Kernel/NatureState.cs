@@ -218,6 +218,19 @@ public sealed class NatureFood
 }
 
 /// <summary>
+/// A loose unit lying in the world (P-Inventory-2, decision 118): a unit of a stack set down with inventory.drop (an apple, berries, a
+/// seed, a log, a stone), of the rules pack's kind, its bottom centre on the ground. Picked up again into its stack with F or E (the
+/// pockets' take from the ground); burns in fire. Saved with the island in the order dropped, at most NatureState.MaxLoose, the oldest
+/// going first. A windfall is not one of these: it lies loose at its plant's trunk from the start, by the food layout (FoodLayout).
+/// </summary>
+public sealed class NatureLoose
+{
+    public string Kind { get; set; } = "";
+    public Vector3 PositionM { get; set; }
+    public NatureLoose Copy() => (NatureLoose)MemberwiseClone();
+}
+
+/// <summary>
 /// A sprout (decision 104, Grow's seedless growth): a plant Grow grew on bare fertile soil, copying one of the island's grass or flower
 /// copies (Template, plant:&lt;set&gt;-&lt;row&gt;: its set's mesh, its size and its tint), rooted at PositionM and turned by a hash of its spot.
 /// It is a seedling from SownS on the island clock, growing through its phases to its natural size (Factor, derived, never saved); it
@@ -375,6 +388,8 @@ public sealed class NatureState
     public const int MaxUndoCells = 8192;
     public const int MaxWalletKinds = 32;
     public const int MaxWalletUnits = 100000;
+    /// <summary>The loose units an island keeps (P-Inventory-2, decision 118); the 257th dropped takes the oldest's place.</summary>
+    public const int MaxLoose = 256;
 
     public double WeatherS { get; set; }
     /// <summary>The room revision of the latest durable nature change (0 before any): nature.describe's nature_revision.</summary>
@@ -413,6 +428,15 @@ public sealed class NatureState
     public HashSet<string> FractalsPicked { get; set; } = new(StringComparer.Ordinal);
     /// <summary>What was picked from the plants that bear food (P-Food), by plant id: only plants picked and not grown back yet.</summary>
     public Dictionary<string, NatureFood> Food { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>The loose units dropped on the island (P-Inventory-2), oldest first, at most MaxLoose. No undo step remembers them.</summary>
+    public List<NatureLoose> Loose { get; set; } = new();
+
+    /// <summary>A unit dropped loose: at the end of the list, the oldest going when the island already keeps MaxLoose.</summary>
+    public void Drop(NatureLoose unit)
+    {
+        while (Loose.Count >= MaxLoose) Loose.RemoveAt(0);
+        Loose.Add(unit);
+    }
 
     /// <summary>A new island's wallet: empty, whatever the pack says (the wallet is retired, P-Inventory-2; traits.wallet.start is read and ignored).</summary>
     public static Dictionary<string, int> FreshWallet() => new(StringComparer.Ordinal);
@@ -428,7 +452,7 @@ public sealed class NatureState
     /// Gubble walks, with no command.
     /// </summary>
     public bool Untouched(bool trailAllowed, IReadOnlyDictionary<string, int> startWallet) =>
-        Objects.Count == 0 && Plants.Count == 0 && Waterpads.Count == 0 && Sprouts.Count == 0 && Bridges.Count == 0 && Ivy.Count == 0 && Fire == null && Undo.Count == 0 && UndoneAt < 0 && ChangedAt == 0 && TrailEnabled && TrailPrincipal == "player" && FractalsPicked.Count == 0 && Food.Count == 0 &&
+        Objects.Count == 0 && Plants.Count == 0 && Waterpads.Count == 0 && Sprouts.Count == 0 && Bridges.Count == 0 && Ivy.Count == 0 && Fire == null && Undo.Count == 0 && UndoneAt < 0 && ChangedAt == 0 && TrailEnabled && TrailPrincipal == "player" && FractalsPicked.Count == 0 && Food.Count == 0 && Loose.Count == 0 &&
         TrailRulesSha256.Length == 0 && Wallet.Count == startWallet.Count && startWallet.All(p => Wallet.GetValueOrDefault(p.Key, -1) == p.Value) &&
         (trailAllowed || Cells.Count == 0);
 
@@ -443,6 +467,7 @@ public sealed class NatureState
         Wallet = new(Wallet, StringComparer.Ordinal), Fire = Fire?.Copy(), Undo = Undo.Select(s => s.Copy()).ToList(),
         UndoneAt = UndoneAt, UndoneTo = UndoneTo, FractalsPicked = new(FractalsPicked, StringComparer.Ordinal),
         Food = Food.ToDictionary(p => p.Key, p => p.Value.Copy(), StringComparer.Ordinal),
+        Loose = Loose.Select(l => l.Copy()).ToList(),
     };
 
     /// <summary>The weather now: a function of the saved clock, so a reload resumes the same weather (with no offline catch-up).</summary>

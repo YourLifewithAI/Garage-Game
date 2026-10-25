@@ -80,6 +80,9 @@ EXPECTED_FAILURES = {
     "command_select_on_the_wheel": "'wheel' is not one of ['pockets', 'abilities']",
     "command_select_without_a_slot": "'slot' is a required property",
     "command_take_from_the_pockets_into_the_pockets": "'hand' was expected",
+    "command_take_from_the_ground_into_the_hand": "'pockets' was expected",
+    "command_take_two_from_the_ground": "1 was expected",
+    "result_eaten_with_a_bag_of_seeds": "11 is greater than the maximum of 10",
     "result_select_kept_as_durable": "True was expected",
     "result_hand_holding_a_wish": "'wish' is not one of",
     "result_chest_entry_with_hidden_words": "$.data.chest.entries[0].name",
@@ -2376,7 +2379,7 @@ class InventoryTests(unittest.TestCase):
             for document in documents:
                 with self.subTest(op=op, action=document["action_id"]):
                     self.assertEqual(document["transient"], op == "inventory.use")
-                    self.assertEqual(set(document["data"]) - {"item", "count", "to", "healed_quarters", "sound"}, set())
+                    self.assertEqual(set(document["data"]) - {"item", "count", "to", "healed_quarters", "sound", "seeds"}, set())
         self.assertEqual(free_form_objects(self.defs["data"]["inventory"], "data/inventory", self.defs), [])
         # The contract says so: a committed store, take or drop claiming to be transient is invalid, and a use claiming durability.
         for name, op, transient in (("result_player_stores_the_held_thing_in_the_chest", "inventory.store", True),

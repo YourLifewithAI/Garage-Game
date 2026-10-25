@@ -364,14 +364,16 @@ public partial class InventoryTest
         var harm = _host.ApplyPlayerDamage(20, PlayerDamageSource.Fire);
         var hurt = Quarters;
         var writes = _vitals.Writes;
+        var seeds = Units(_host.PocketEntries, "seed");
         var eaten = Use(Player, "apple");
-        Check(harm != null && hurt < max - 2 && Ok(eaten) && Quarters == hurt + 2 && Canonical(eaten["data"]) == Canonical(new JsonObject { ["count"] = 1, ["healed_quarters"] = 2, ["item"] = "apple", ["sound"] = "eat" }) &&
+        Check(harm != null && hurt < max - 2 && Ok(eaten) && Quarters == hurt + 2 &&
+              Canonical(eaten["data"]) == Canonical(new JsonObject { ["count"] = 1, ["healed_quarters"] = 2, ["item"] = "apple", ["seeds"] = 1, ["sound"] = "eat" }) &&
               Units(_host.PocketEntries, "apple") == 1 && _vitals.Writes > writes && VitalsRules.For(_host.Rules, _host.Mode).Quarters(_vitals.Saved.For("challenge")) == hurt + 2,
             $"just hurt ({hurt} of {max} quarters), an apple heals half a heart at once, with no unharmed wait, and the heal is saved: " + Canonical(eaten));
-        Check(Refused(Use(Player, "seed"), "request_invalid", "Seeds have no use yet.", "$.args.item"), "seeds have no use yet");
+        Check(seeds > 0 && Units(_host.PocketEntries, "seed") == seeds + 1 && TeamFile.Parse(File.ReadAllBytes(TeamPath("heal"))).PocketsOf("challenge").Units("seed") == seeds + 1,
+            "the apple eaten leaves a seed in the pockets, saved with them (decision 118)");
+        Check(Refused(Use(Player, "seed"), "request_invalid", "Seeds have no use yet: planting comes with farming.", "$.args.item"), "seeds have no use yet: planting comes with farming");
         Check(Refused(Use(Player, "berries"), "target_not_found", CommandHost.NotInPockets, "$.args.item"), "nothing to eat of a kind the pockets do not hold");
-        Check(Refused(Drop(Player, "apple"), "unsupported_capability", "Apples cannot be set down yet: use them, or keep them in the chest.", "$.args.item"),
-            "a stack's unit has no body in the world yet, so it is not set down");
         await NewWorld("heal-creative", mode: "creative");
         Check(await PickUp("obj:apple_1", ByApple1) && Ok(Store(Player, "pockets")), "an apple in Creative's pockets");
         var health = _host.Vitals.Health;
