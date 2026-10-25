@@ -1,0 +1,37 @@
+{
+  "schema": "garage_game.result",
+  "version": 1,
+  "ok": true,
+  "op": "capabilities.list",
+  "query_id": "q-0051",
+  "principal": "companion:local",
+  "room_id": "garage_example",
+  "revision": 5,
+  "replayed": false,
+  "preview": false,
+  "data": {
+    "items": [],
+    "inventory": {
+      "gubble_chest": true,
+      "ops": [
+        {
+          "op": "inventory.store",
+          "player_only": false
+        },
+        {
+          "op": "inventory.take",
+          "player_only": false
+        },
+        {
+          "op": "inventory.use",
+          "player_only": true
+        },
+        {
+          "op": "inventory.drop",
+          "player_only": true
+        }
+      ]
+    }
+  },
+  "at_utc": "2026-10-06T00:05:00Z"
+}

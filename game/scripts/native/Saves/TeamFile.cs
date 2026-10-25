@@ -20,14 +20,17 @@ public sealed record ChosenKnack(int Slot, string Knack, int Rank);
 /// The team file (contracts/team.schema.json $defs/team, garage_game.team version 1, the team folder's team.json): what belongs to the
 /// team whatever the mode or island. The person is a profile, not an avatar (a display name and the costume worn); the knacks chosen
 /// and their ranks; the Gubble's name and colour, bound to the team for life; Trust, counted by the host from receipts and
-/// consequence facts (M8, WithTrust), never by a request. Immutable: every change is a new record. Display names
-/// are untrusted text, shown only. The machine's switches are not here (MachineSettings).
+/// consequence facts (M8, WithTrust), never by a request; and since P-Inventory the pockets, one set per mode (carried everywhere:
+/// decisions 98 and 99), and the team's own switch "Let the Gubble use the chest" (settings.gubble_chest, decision 100), written only
+/// by the player's own control. Immutable: every change is a new record. Display names are untrusted text, shown only. The machine's
+/// switches are not here (MachineSettings).
 /// </summary>
 public sealed record TeamFile
 {
     public const string SchemaId = SchemaIds.Team;
     public const int Version = 1;
-    public const int MaxBytes = 16 * 1024;
+    /// <summary>64 KiB since P-Inventory: three modes of pockets, each up to 16 things with an 80-character name (was 16 KiB).</summary>
+    public const int MaxBytes = 64 * 1024;
     public const int MaxNameLength = 40;
     public const int TrustBound = 1_000_000;
     /// <summary>At most this many knacks keep a rank set aside (knacks.earned): a rules pack's table has at most 32.</summary>
@@ -55,6 +58,29 @@ public sealed record TeamFile
     public string GubbleName { get; init; } = CompanionAvatar.DefaultName;
     public string GubbleColour { get; init; } = "#65b9b0";
     public int Trust { get; init; }
+    /// <summary>The pockets by mode (P-Inventory): only a mode whose pockets hold something is kept, so a team without any writes as before.</summary>
+    public IReadOnlyDictionary<string, InventoryContents> Pockets { get; init; } = NoPockets;
+    /// <summary>"Let the Gubble use the chest" (settings.gubble_chest, decision 100): off unless the player turned it on.</summary>
+    public bool GubbleChest { get; init; }
+    public static readonly IReadOnlyDictionary<string, InventoryContents> NoPockets =
+        new System.Collections.ObjectModel.ReadOnlyDictionary<string, InventoryContents>(new Dictionary<string, InventoryContents>());
+
+    /// <summary>One mode's pockets (empty when the file keeps none for it).</summary>
+    public InventoryContents PocketsOf(string mode) => Pockets.TryGetValue(mode, out var held) ? held : InventoryContents.Empty;
+
+    /// <summary>The team with one mode's pockets (empty takes the mode away); the same contents return this record, so nothing is written.</summary>
+    public TeamFile WithPockets(string mode, InventoryContents contents)
+    {
+        if (PocketsOf(mode).Same(contents)) return this;
+        var pockets = new SortedDictionary<string, InventoryContents>(StringComparer.Ordinal);
+        foreach (var (key, value) in Pockets) pockets[key] = value;
+        if (contents.IsEmpty) pockets.Remove(mode);
+        else pockets[mode] = contents;
+        return (this with { Pockets = pockets.Count == 0 ? NoPockets : new System.Collections.ObjectModel.ReadOnlyDictionary<string, InventoryContents>(pockets) }).Checked();
+    }
+
+    /// <summary>The team with the Gubble's chest switch set (the player's own control only); the same value returns this record.</summary>
+    public TeamFile WithGubbleChest(bool allowed) => allowed == GubbleChest ? this : (this with { GubbleChest = allowed }).Checked();
 
 
     /// <summary>The knacks as the host reads them (CommandHost.UseKnacks): id to rank.</summary>
@@ -126,6 +152,12 @@ public sealed record TeamFile
             Earned.Any(p => p.Key == null || !Token.IsMatch(p.Key) || p.Value is < 2 or > 3 || Knacks.Any(k => string.Equals(k.Knack, p.Key, StringComparison.Ordinal))))
             throw new TeamFileException("The team file has invalid knack ranks.");
         if (Trust is < -TrustBound or > TrustBound) throw new TeamFileException("The team file has an invalid Trust count.");
+        // P-Inventory: a mode's pockets hold something, at most 16 entries, each thing once, every name display text.
+        if (Pockets == null || Pockets.Any(p => !TeamLayout.ValidMode(p.Key) || p.Value == null || p.Value.IsEmpty || p.Value.Entries > 16 ||
+                p.Value.Stacks.Any(s => s.Key == null || !Token.IsMatch(s.Key) || s.Value is < 1 or > InventoryContents.MaxUnits) ||
+                p.Value.Things.Any(x => x == null || !InventoryContents.IsName(x.Name) || !double.IsFinite(x.MassKg) || x.MassKg is <= 0 or > 10) ||
+                p.Value.Things.Select(x => (x.RoomId, x.ManifestPrefix, x.Id)).Distinct().Count() != p.Value.Things.Count))
+            throw new TeamFileException("The team file has invalid pockets.");
         return this;
     }
 
@@ -134,7 +166,8 @@ public sealed record TeamFile
 
     /// <summary>
     /// The file as written: compact JSON in the schema's order, UTF-8 without a BOM, one final LF. knacks.earned only when a rank
-    /// is set aside, so a team without one writes the same bytes as before it existed.
+    /// is set aside, and settings and pockets only when there is something in them, so a team without them writes the same bytes as
+    /// before they existed.
     /// </summary>
     public byte[] Serialize()
     {
@@ -151,7 +184,19 @@ public sealed record TeamFile
             gubble = new { name = GubbleName, colour = GubbleColour },
             trust = new { count = Trust },
         };
-        var json = JsonSerializer.SerializeToUtf8Bytes(document, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+        var options = new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+        var json = JsonSerializer.SerializeToUtf8Bytes(document, options);
+        // P-Inventory's two optional keys, after the rest and only when there is something in them (the bytes before are unchanged).
+        var extra = new System.Text.Json.Nodes.JsonObject();
+        if (GubbleChest) extra["settings"] = new System.Text.Json.Nodes.JsonObject { ["gubble_chest"] = true };
+        if (Pockets.Count > 0)
+            extra["pockets"] = new System.Text.Json.Nodes.JsonObject(Pockets.OrderBy(p => Array.IndexOf(TeamLayout.Modes.ToArray(), p.Key))
+                .Select(p => KeyValuePair.Create(p.Key, (System.Text.Json.Nodes.JsonNode?)p.Value.PocketsBlock())));
+        if (extra.Count > 0)
+        {
+            var tail = Encoding.UTF8.GetBytes(extra.ToJsonString(options));
+            json = json[..^1].Concat(new[] { (byte)',' }).Concat(tail[1..]).ToArray();
+        }
         var bytes = new byte[json.Length + 1];
         json.CopyTo(bytes, 0);
         bytes[^1] = (byte)'\n';
@@ -167,7 +212,9 @@ public sealed record TeamFile
             new UTF8Encoding(false, true).GetCharCount(bytes);
             using var document = CanonicalJson.Parse(bytes);
             var root = document.RootElement;
-            Fields(root, "schema", "version", "team_id", "created_utc", "profile", "knacks", "gubble", "trust");
+            // settings and pockets are optional (P-Inventory): a team file from before them reads as it is.
+            Fields(root, new[] { "schema", "version", "team_id", "created_utc", "profile", "knacks", "gubble", "trust" }
+                .Concat(new[] { "settings", "pockets" }.Where(name => root.ValueKind == JsonValueKind.Object && root.TryGetProperty(name, out _))).ToArray());
             if (!SchemaIds.IsSchema(Text(root, "schema"), "team") || root.GetProperty("version").GetRawText() != "1") throw new TeamFileException("The team file has an unsupported version.");
             var profile = root.GetProperty("profile");
             Fields(profile, "display_name", "costume");
@@ -200,12 +247,33 @@ public sealed record TeamFile
             Fields(gubble, "name", "colour");
             var trust = root.GetProperty("trust");
             Fields(trust, "count");
+            var gubbleChest = false;
+            if (root.TryGetProperty("settings", out var settings))
+            {
+                Fields(settings, "gubble_chest");
+                if (settings.GetProperty("gubble_chest").ValueKind != JsonValueKind.True) throw new TeamFileException("The team file has an invalid setting.");
+                gubbleChest = true;
+            }
+            var pockets = NoPockets;
+            if (root.TryGetProperty("pockets", out var saved))
+            {
+                if (saved.ValueKind != JsonValueKind.Object || !saved.EnumerateObject().Any()) throw new TeamFileException("The team file has invalid pockets.");
+                var modes = new SortedDictionary<string, InventoryContents>(StringComparer.Ordinal);
+                foreach (var mode in saved.EnumerateObject())
+                {
+                    if (!TeamLayout.ValidMode(mode.Name) || modes.ContainsKey(mode.Name) || InventoryContents.FromPockets(mode.Value, out _) is not { } contents)
+                        throw new TeamFileException("The team file has invalid pockets.");
+                    modes[mode.Name] = contents;
+                }
+                pockets = new System.Collections.ObjectModel.ReadOnlyDictionary<string, InventoryContents>(modes);
+            }
             return new TeamFile
             {
                 TeamId = Text(root, "team_id"), CreatedUtc = Text(root, "created_utc"),
                 DisplayName = Text(profile, "display_name"), Costume = Text(profile, "costume"),
                 SlotsOpen = Whole(knacks.GetProperty("slots_open")), Knacks = list, Earned = earned,
                 GubbleName = Text(gubble, "name"), GubbleColour = Text(gubble, "colour"), Trust = Whole(trust.GetProperty("count"), allowNegative: true),
+                GubbleChest = gubbleChest, Pockets = pockets,
             }.Checked();
         }
         catch (Exception error) when (error is CanonicalJsonException or JsonException or InvalidOperationException or FormatException or OverflowException or DecoderFallbackException or KeyNotFoundException)

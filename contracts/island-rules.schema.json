@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.garage-game.invalid/v1/island-rules.schema.json",
   "title": "EnFractal island rules",
-  "description": "An island's own laws as data: the abilities the island grants, each carried out by one engine primitive, with its bounds, who may cast it, what it may target and its safety tier. Written by the integrator and by theme packs through contract rounds; read by the host's rules loader, the mock host and later the HUD. Stored as game/rules/<rules_id>/v<rules_version>.json (loaded as res://rules/<rules_id>/v<rules_version>.json). A seed or draft version may be edited in place; once a version is candidate or approved, or anything pins it, its file never changes and a change means a new version file. A pack can only narrow the engine's limits: each primitive's outer limits are the if/then rules under $defs/ability, and an ability's bounds must sit inside them. A command must then sit inside the ability's bounds. contracts/validate.py checks what a schema cannot: unique capabilities and categories, each default inside its range, and each default radius and duration at most its maximum. Since the mechanics round (M0, 14 October 2026) a pack may also carry six optional blocks, the design's numbers as data (docs/game/MECHANICS.md): traits (hearts, harm, the stamina bar, connection energy, the wallet), cost (each ability's price in pips), modes (one row per mode and difficulty), names (what the screen calls things), knacks and fractals. Each is optional and so is each part of it: an absent block or part keeps today's behaviour, so a pack without them plays exactly as before. contracts/validate.py also checks the blocks against each other: prices name the pack's abilities, the most health and stamina a pack allows fit the command contract's bounds, knacks stay within a fifth and upside, and the mode rows are unique.",
+  "description": "An island's own laws as data: the abilities the island grants, each carried out by one engine primitive, with its bounds, who may cast it, what it may target and its safety tier. Written by the integrator and by theme packs through contract rounds; read by the host's rules loader, the mock host and later the HUD. Stored as game/rules/<rules_id>/v<rules_version>.json (loaded as res://rules/<rules_id>/v<rules_version>.json). A seed or draft version may be edited in place; once a version is candidate or approved, or anything pins it, its file never changes and a change means a new version file. A pack can only narrow the engine's limits: each primitive's outer limits are the if/then rules under $defs/ability, and an ability's bounds must sit inside them. A command must then sit inside the ability's bounds. contracts/validate.py checks what a schema cannot: unique capabilities and categories, each default inside its range, and each default radius and duration at most its maximum. Since the mechanics round (M0, 14 October 2026) a pack may also carry six optional blocks, the design's numbers as data (docs/game/MECHANICS.md): traits (hearts, harm, the stamina bar, connection energy, the wallet), cost (each ability's price in pips), modes (one row per mode and difficulty), names (what the screen calls things), knacks and fractals. Each is optional and so is each part of it: an absent block or part keeps today's behaviour, so a pack without them plays exactly as before. contracts/validate.py also checks the blocks against each other: prices name the pack's abilities, the most health and stamina a pack allows fit the command contract's bounds, knacks stay within a fifth and upside, and the mode rows are unique. Since P-Inventory (25 October) a seventh optional block, inventory: the kinds that stack and the caps of the pockets and the chest; validate.py checks each kind's id once and each asset in one kind at most.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -104,6 +104,9 @@
     },
     "extensions": {
       "$ref": "common.schema.json#/$defs/extensions"
+    },
+    "inventory": {
+      "$ref": "#/$defs/inventory"
     }
   },
   "$defs": {
@@ -1440,6 +1443,139 @@
         "typed": {
           "description": "False: untyped, the decided default. True: typed Fractals, behind this flag.",
           "type": "boolean"
+        }
+      }
+    },
+    "inventory": {
+      "description": "The pockets and the chest (P-Inventory; docs/game/MECHANICS.md decisions 98 to 103): the kinds that stack, the pockets' caps (carried everywhere, per team and mode) and the chest's (one per island save, shared by every campsite). A unique thing (a loose room object of no kind) takes an entry of its own and counts its asset's mass. Every number is provisional. Absent: no pockets and no chest, today's behaviour.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kinds",
+        "pockets",
+        "chest"
+      ],
+      "properties": {
+        "kinds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/inventory_kind"
+          }
+        },
+        "pockets": {
+          "description": "The pockets: at most this many entries and this mass (provisional: 6 and 0.3 kg).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entries",
+            "mass_kg"
+          ],
+          "properties": {
+            "entries": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16
+            },
+            "mass_kg": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 10
+            }
+          }
+        },
+        "chest": {
+          "description": "The chest: at most this many entries and this mass (the proposal's 12 and 2 kg, the Gubble's own carry limit).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entries",
+            "mass_kg"
+          ],
+          "properties": {
+            "entries": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "mass_kg": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 50
+            }
+          }
+        }
+      }
+    },
+    "inventory_kind": {
+      "description": "One kind that stacks: its id, the words for one and for many (untrusted text, shown only), one unit's mass, the most units in one entry, and what a unit does when used (heal_quarters: quarters of a heart at once, decisions 92 and 111; absent: no use yet, as a seed). assets names the room assets that are a loose unit of this kind (a windfall), so a held one stores as a unit; absent, nothing in the world is one yet.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "mass_kg",
+        "stack"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/token"
+        },
+        "name": {
+          "allOf": [
+            {
+              "$ref": "common.schema.json#/$defs/display_text"
+            },
+            {
+              "maxLength": 40
+            }
+          ],
+          "minLength": 1
+        },
+        "plural": {
+          "allOf": [
+            {
+              "$ref": "common.schema.json#/$defs/display_text"
+            },
+            {
+              "maxLength": 40
+            }
+          ],
+          "minLength": 1
+        },
+        "mass_kg": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 0.5
+        },
+        "stack": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "use": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "heal_quarters"
+          ],
+          "properties": {
+            "heal_quarters": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
+            }
+          }
+        },
+        "assets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "common.schema.json#/$defs/token"
+          }
         }
       }
     }

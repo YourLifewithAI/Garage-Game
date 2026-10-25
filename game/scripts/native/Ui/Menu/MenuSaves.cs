@@ -210,20 +210,34 @@ public static class CarriedBuilds
 
     /// <summary>
     /// What a Creative island loses on its way into Challenge: its undo steps (and the record of the last undo), a fire still
-    /// burning, the Fractals picked up and the materials gathered. It becomes this team's Challenge save, at this difficulty.
-    /// A save from before the team block or the nature block has nothing of theirs to strip.
+    /// burning, the Fractals picked up and the materials gathered, and since P-Inventory the chest (in the team block's camp block):
+    /// the copy's chest starts empty, and the things it held are back on the copy's island where they were last put down (a chest
+    /// filled freely in Creative would be a free start; the island itself is the same island). The pockets are per mode in the team
+    /// file, so Challenge's own were never Creative's. It becomes this team's Challenge save, at this difficulty. A save from before
+    /// the team block or the nature block has nothing of theirs to strip.
     /// </summary>
     private static void Strip(JsonObject root, string team, string difficulty)
     {
         var version = root["version"]?.GetValue<int>() ?? 0;
+        var chestThings = new List<string>();
         if (version >= 5)
         {
             var block = root["team"] as JsonObject ?? new JsonObject();
             block["team_id"] = team;
             block["mode"] = "challenge";
             block["difficulty"] = difficulty;
+            if (block["camp"] is JsonObject camp && camp["chest"] is JsonObject chest)
+            {
+                if (chest["things"] is JsonArray things)
+                    chestThings.AddRange(things.Select(id => id is JsonValue value && value.TryGetValue<string>(out var text) ? text : null).OfType<string>());
+                camp.Remove("chest");
+            }
             root["team"] = block;
         }
+        // The chest's things come back to the island: the nature block holds them away with the gathered mark, as a gathered log.
+        if (version >= 6 && root["nature"] is JsonObject held && held["objects"] is JsonObject objects)
+            foreach (var id in chestThings)
+                if (objects[id] is JsonObject item && item["gathered"] is JsonValue mark && mark.TryGetValue<bool>(out var gathered) && gathered) objects.Remove(id);
         if (version >= 6 && root["nature"] is JsonObject nature)
         {
             nature["undo"] = new JsonArray();

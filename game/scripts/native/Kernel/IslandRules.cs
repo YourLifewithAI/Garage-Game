@@ -58,7 +58,7 @@ public sealed partial class IslandRules
     private static readonly Regex ExtensionKey = new(@"\Ax_[a-z0-9_]{1,63}\z", RegexOptions.Compiled);
     private static readonly string[] ReservedParams = { "principal", "action_id", "approval", "approval_id", "approved", "owner", "owner_id", "room_id", "actor", "grant", "role" };
     // The mechanics round's six blocks (traits, cost, modes, names, knacks, fractals) are read by IslandRulesMechanics.cs.
-    private static readonly string[] TopFields = { "schema", "version", "rules_id", "rules_version", "display_name", "description", "status", "magic_word", "abilities", "extensions", "traits", "cost", "modes", "names", "knacks", "fractals" };
+    private static readonly string[] TopFields = { "schema", "version", "rules_id", "rules_version", "display_name", "description", "status", "magic_word", "abilities", "extensions", "traits", "cost", "modes", "names", "knacks", "fractals", "inventory" };
     private static readonly string[] TopRequired = { "schema", "version", "rules_id", "rules_version", "display_name", "status", "magic_word", "abilities" };
     private static readonly string[] AbilityFields =
     {
@@ -163,6 +163,8 @@ public sealed partial class IslandRules
                 RulesId = rulesId, RulesVersion = rulesVersion, DisplayName = displayName, Description = description, Status = status, MagicWord = magicWord,
                 Sha256 = CanonicalJson.Sha256Hex(bytes), Abilities = abilities,
                 Traits = mechanics.Traits, Cost = mechanics.Cost, Modes = mechanics.Modes, Names = mechanics.Names, Knacks = mechanics.Knacks, Fractals = mechanics.Fractals,
+                // P-Inventory's optional block (Kernel/Inventory/InventoryRules.cs).
+                Inventory = ParseInventoryBlock(root),
             };
         }
     }

@@ -58,6 +58,19 @@ LOCKED_RULES: dict[str, str] = {}
 
 # Each invalid example and the reason it must fail.
 EXPECTED_FAILURES = {
+    # P-Inventory (25 October): the four commands' shapes, the data a receipt keeps, and the readers' closed entries.
+    "command_store_from_the_pockets_without_an_item": "'item' is a required property",
+    "command_store_from_the_pockets_into_the_pockets": "$.args.to: 'chest' was expected",
+    "command_store_into_the_hand": "'hand' is not one of ['chest', 'pockets']",
+    "command_take_without_where": "'to' is a required property",
+    "command_take_a_thousand_and_one": "1001 is greater than the maximum of 1000",
+    "command_use_of_a_thing": "'obj:paint_clutter' does not match",
+    "command_drop_with_a_count": "('count' was unexpected)",
+    "command_store_for_the_players_avatar": "('actor' was unexpected)",
+    "result_store_without_its_data": "'data' is a required property",
+    "result_use_healing_past_the_hearts": "121 is greater than the maximum of 120",
+    "result_pockets_with_a_price": "('price' was unexpected)",
+    "result_chest_entry_with_hidden_words": "$.data.chest.entries[0].name",
     "command_with_a_misspelt_schema_id": "unknown schema 'garagegame.command'",
     "command_with_principal": "'principal' was unexpected",
     "command_carries_approval": "'approval' was unexpected",
@@ -314,7 +327,9 @@ PLAYER_ONLY_OPS = {"protect.unlock", "world.set_physics", "world.set_mode", "glo
                    # The mechanics round: a Fractal's pickup and a held log or stone gathered (M0, M1), a knack, a receipt's mark and a Trust reset.
                    "item.pickup", "item.gather", "knack.set", "receipt.mark", "trust.reset",
                    # The second contract round (15 October): five Fractals spent at a camp.
-                   "fractal.spend"}
+                   "fractal.spend",
+                   # P-Inventory (25 October): a unit used and a thing set down from the pockets; store and take keep a companion path to the chest.
+                   "inventory.use", "inventory.drop"}
 FACT_FIELDS = ("line", "subject", "actor", "directed_by", "pin_m", "state", "quantity", "job_id")
 NOTE_FIELDS = ("author", "text", "untrusted")
 
@@ -1731,7 +1746,7 @@ class IslandRulesTests(unittest.TestCase):
 
 MECHANICS_TRANSIENT = {"knack.set", "receipt.mark", "trust.reset", "fractal.spend"}
 MECHANICS_DURABLE = {"item.pickup", "item.gather"}
-MECHANICS_BLOCKS = ("traits", "cost", "modes", "names", "knacks", "fractals")
+MECHANICS_BLOCKS = ("traits", "cost", "modes", "names", "knacks", "fractals", "inventory")
 STORYBOOK_WILD_V5 = RULES / "storybook_wild" / "v5.json"
 MECHANICS_EXAMPLE = EXAMPLES / "rules" / "mechanics_example.json"
 LEDGER = EXAMPLES / "ledger" / "stamina_ledger.json"
@@ -1761,6 +1776,10 @@ RULES_FAILURES = {
     "rules_climb_that_buys_nothing": "0 is less than or equal to the minimum of 0",
     "rules_holding_cost_below_nothing": "-0.01 is less than the minimum of 0",
     "rules_half_a_pip": "8.5 is not of type 'integer'",
+    # P-Inventory (25 October).
+    "rules_inventory_kind_twice": "inventory kind 'apple' appears more than once",
+    "rules_inventory_asset_of_two_kinds": "asset 'windfall_apple' is a unit of more than one inventory kind",
+    "rules_inventory_pockets_past_sixteen": "$.inventory.pockets.entries: 17 is greater than the maximum of 16",
 }
 # Each invalid team document (examples/teams_invalid) and the reason it must fail.
 TEAM_FAILURES = {
@@ -1776,6 +1795,11 @@ TEAM_FAILURES = {
     "vitals_fractals_never_found": "3 Fractals in hand but only 2 found",
     "vitals_of_version_one": "$.version: 2 was expected",
     "expertise_of_six": "is too long",
+    # P-Inventory (25 October): the pockets per mode and the Gubble's chest setting.
+    "team_pockets_with_seventeen_entries": "the creative pockets hold more than 16 entries",
+    "team_pockets_holding_one_thing_twice": "the challenge pockets hold one thing twice",
+    "team_gubble_chest_written_off": "$.settings.gubble_chest: True was expected",
+    "team_pockets_of_an_empty_mode": "$.pockets.creative: {} should be non-empty",
 }
 
 
@@ -2244,6 +2268,99 @@ def write_playtest(base: Path, manifest: dict, events: bytes) -> Path:
 def unfinished(manifest: dict) -> dict:
     """The manifest as the launch wrote it, before any quit."""
     return {k: v for k, v in manifest.items() if k not in ("ended_utc", "played_s", "counts")}
+
+
+# ---------- P-Inventory (25 October 2026): the pockets and the chest (docs/game/MECHANICS.md decisions 98 to 103) ----------
+
+INVENTORY_OPS = ("inventory.store", "inventory.take", "inventory.use", "inventory.drop")
+
+
+class InventoryTests(unittest.TestCase):
+    """The four commands, who may use them, their receipts and readers, and where the pockets and the chest are saved."""
+
+    def setUp(self):
+        self.defs = validate.load_strict(COMMAND_SCHEMA)["$defs"]
+
+    def test_the_four_ops_are_commands_whose_receipts_are_transient_with_data(self):
+        self.assertLessEqual(set(INVENTORY_OPS), set(self.defs["command_op"]["enum"]))
+        results = {}
+        for path in (EXAMPLES / "messages" / "valid").glob("result_*.json"):
+            document = validate.load_strict(path)
+            if document["op"] in INVENTORY_OPS and document["ok"]:
+                results.setdefault(document["op"], []).append(document)
+        self.assertEqual(set(results), set(INVENTORY_OPS))
+        for op, documents in results.items():
+            for document in documents:
+                with self.subTest(op=op, action=document["action_id"]):
+                    self.assertTrue(document["transient"], "what moved is saved by the host itself; the room revision does not move")
+                    self.assertEqual(set(document["data"]) - {"item", "count", "to", "healed_quarters"}, set())
+        self.assertEqual(free_form_objects(self.defs["data"]["inventory"], "data/inventory", self.defs), [])
+
+    def test_use_and_drop_are_the_players_and_store_and_take_keep_the_chests_one_path(self):
+        only = set(self.defs["player_only_ops"]["enum"])
+        self.assertLessEqual({"inventory.use", "inventory.drop"}, only)
+        self.assertFalse({"inventory.store", "inventory.take"} & only, "the chest has a companion path behind gubble_chest")
+        for op in ("inventory.store", "inventory.take"):
+            with self.subTest(op=op):
+                words = self.defs["args"][op]["description"]
+                self.assertIn("gubble_chest", words)
+                self.assertIn("permission_denied", words)
+                self.assertIn("before anything is looked up", words)
+        # No field carries an approval, a principal, a price or an avatar to act through: the principal is the trusted caller's.
+        for op in INVENTORY_OPS:
+            with self.subTest(op=op):
+                self.assertEqual(set(self.defs["args"][op]["properties"]) - {"to", "from", "item", "count"}, set())
+
+    @unittest.skipUnless((KERNEL / "CommandHost.cs").is_file(), "the kernel host is not in this checkout")
+    def test_the_kernel_hosts_the_four_ops_as_the_contract_says(self):
+        self.assertLessEqual(set(INVENTORY_OPS), kernel_set(KERNEL / "CommandHost.cs", "CommandOps"))
+        self.assertLessEqual(set(INVENTORY_OPS), kernel_set(KERNEL / "CommandHost.cs", "TransientOps"))
+        player_only = kernel_set(KERNEL / "CommandHost.cs", "PlayerOnlyOps")
+        self.assertLessEqual({"inventory.use", "inventory.drop"}, player_only)
+        self.assertFalse({"inventory.store", "inventory.take"} & player_only)
+
+    def test_the_readers_list_their_fields(self):
+        self.assertEqual(free_form_objects(self.defs["inventory_status"], "inventory_status", self.defs), [])
+        self.assertEqual(free_form_objects(self.defs["data"]["capabilities.list"]["properties"]["inventory"], "capabilities inventory", self.defs), [])
+        status = valid_example("result_player_status_with_pockets_and_chest")
+        self.assertEqual(validate.check_document(EXAMPLES / "messages" / "valid" / "result_player_status_with_pockets_and_chest.json"), [])
+        self.assertIn("here", status["data"]["pockets"]["entries"][2], "a thing from another island says so")
+        # An answer from before P-Inventory, without them, stays valid.
+        self.assertEqual(validate.schema_errors(valid_example("result_player_status_with_energy")), [])
+
+    def test_the_chest_is_in_the_camp_block_and_its_things_are_removed_from_the_room(self):
+        state = validate.load_strict(EXAMPLES / "room_state" / "garage_example_state_inventory.json")
+        self.assertEqual(validate.schema_errors(state), [])
+        self.assertEqual(validate.check_state(state, "state", GARAGE), [])
+        broken = copy.deepcopy(state)
+        broken["extensions"]["x_play_camp"]["chest"]["things"] = ["obj:bean_bag"]
+        self.assertTrue(any("obj:bean_bag is in the chest, but room state does not keep it as removed" in p for p in validate.check_state(broken, "state", GARAGE)))
+        empty = copy.deepcopy(state)
+        empty["extensions"]["x_play_camp"]["chest"] = {}
+        self.assertTrue(validate.schema_errors(empty), "an empty chest writes no key at all")
+        # The camp block's other keys stay the kernel's own.
+        self.assertNotIn("additionalProperties", validate.load_strict(CONTRACTS / "room-state.schema.json")["$defs"]["x_play_camp"])
+
+    def test_the_team_file_keeps_the_pockets_per_mode_and_the_setting_only_when_on(self):
+        team_schema = validate.load_strict(CONTRACTS / "team.schema.json")
+        team = team_schema["$defs"]["team"]
+        self.assertFalse({"pockets", "settings"} & set(team["required"]), "a team file from before reads as it was")
+        self.assertEqual(set(team["properties"]["pockets"]["properties"]), {"creative", "challenge", "live"})
+        self.assertEqual(team["properties"]["settings"]["properties"]["gubble_chest"], {"const": True})
+        document = validate.load_strict(TEAM / "team.json")
+        self.assertEqual(validate.check_document(TEAM / "team.json"), [])
+        self.assertTrue(document["settings"]["gubble_chest"])
+
+    def test_the_inventory_block_is_optional_and_v5_carries_the_proposals_numbers(self):
+        schema = validate.load_strict(CONTRACTS / "island-rules.schema.json")
+        self.assertNotIn("inventory", schema["required"])
+        v5 = validate.load_strict(STORYBOOK_WILD_V5)["inventory"]
+        kinds = {kind["id"]: kind for kind in v5["kinds"]}
+        self.assertEqual(kinds["apple"]["use"], {"heal_quarters": 2}, "an apple heals half a heart (decision 92)")
+        self.assertEqual(kinds["berries"]["use"], {"heal_quarters": 1}, "berries a quarter")
+        self.assertNotIn("use", kinds["seed"], "seeds are reserved, with no use yet")
+        self.assertFalse(any("assets" in kind for kind in v5["kinds"]), "nothing yields a kind yet: P-Food places them")
+        self.assertEqual((v5["pockets"], v5["chest"]), ({"entries": 6, "mass_kg": 0.3}, {"entries": 12, "mass_kg": 2}))
 
 
 class PlaytestRecordTests(unittest.TestCase):

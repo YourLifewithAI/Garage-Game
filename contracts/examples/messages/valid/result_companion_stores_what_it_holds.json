@@ -1,0 +1,22 @@
+{
+  "schema": "garage_game.result",
+  "version": 1,
+  "ok": true,
+  "op": "inventory.store",
+  "action_id": "store-0004",
+  "principal": "companion:local",
+  "room_id": "garage_example",
+  "revision": 5,
+  "replayed": false,
+  "preview": false,
+  "at_utc": "2026-10-06T00:05:00Z",
+  "transient": true,
+  "affected": [
+    "obj:bean_bag"
+  ],
+  "data": {
+    "item": "obj:bean_bag",
+    "count": 1,
+    "to": "chest"
+  }
+}

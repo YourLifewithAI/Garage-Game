@@ -1,0 +1,643 @@
+{
+  "schema": "garage_game.room_state",
+  "version": 1,
+  "room_id": "garage_example",
+  "room_pin": {
+    "manifest_sha256": "455f16034dde371d32209ef253b25561e72014c0bb359e88ba25b9ff5aea3f5d"
+  },
+  "style_pin": {
+    "preset_id": "storybook_painterly",
+    "preset_version": 1,
+    "preset_sha256": "5d1c0e8a1b7f4e3c9a2d6b8f0e4a7c3d1b9f5e2a8c6d4b0f7e3a1c9d5b2f8e64"
+  },
+  "rules": {
+    "command_version": 1,
+    "compiler_version": 1
+  },
+  "store_revision": 4,
+  "session": {
+    "session_id": "5f2c9a7d41e08b36c0d1a2b3c4d5e6f7",
+    "written_utc": "2026-10-06T00:04:00Z",
+    "build": "dev-example"
+  },
+  "entities": {
+    "obj:bean_bag": {
+      "id": "obj:bean_bag",
+      "kind": "object",
+      "revision": 2,
+      "transform": {
+        "position_m": [
+          1.0,
+          0.0,
+          0.9
+        ],
+        "rotation": [
+          0.0,
+          0.258819,
+          0.0,
+          0.965926
+        ]
+      },
+      "provenance": {
+        "kind": "captured_generated",
+        "created_by": "system:capture",
+        "created_revision": 0
+      },
+      "protection": {
+        "locked": false
+      }
+    },
+    "creation:00000001": {
+      "id": "creation:00000001",
+      "kind": "creation",
+      "revision": 2,
+      "transform": {
+        "position_m": [
+          -1.2,
+          0.0,
+          0.8
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "creation": {
+        "source": {
+          "schema": "enfractal.creation",
+          "version": 1,
+          "name": "Spinner",
+          "seed": 51,
+          "mount": "ground",
+          "parts": [
+            {
+              "id": "foot",
+              "shape": "cylinder",
+              "position_m": [
+                0,
+                0.15,
+                0
+              ],
+              "rotation_deg": [
+                0,
+                0,
+                0
+              ],
+              "size_m": [
+                1.1,
+                0.3,
+                1.1
+              ],
+              "material": "stone"
+            },
+            {
+              "id": "pole",
+              "shape": "cylinder",
+              "position_m": [
+                0,
+                0.9,
+                0
+              ],
+              "rotation_deg": [
+                0,
+                0,
+                0
+              ],
+              "size_m": [
+                0.15,
+                1.2,
+                0.15
+              ],
+              "material": "wood"
+            },
+            {
+              "id": "rotor",
+              "shape": "rotor",
+              "position_m": [
+                0,
+                1.6,
+                0
+              ],
+              "rotation_deg": [
+                0,
+                0,
+                0
+              ],
+              "size_m": [
+                2,
+                0.18,
+                2
+              ],
+              "material": "copper"
+            }
+          ],
+          "nodes": [
+            {
+              "id": "beat",
+              "op": "timer",
+              "part_id": "pole",
+              "params": {
+                "interval_s": 3
+              }
+            },
+            {
+              "id": "turn",
+              "op": "spin",
+              "part_id": "rotor",
+              "params": {
+                "speed_rpm": 30,
+                "duration_s": 2.5
+              }
+            },
+            {
+              "id": "signal",
+              "op": "light",
+              "part_id": "pole",
+              "params": {
+                "intensity": 0.4,
+                "duration_s": 2.5
+              }
+            }
+          ],
+          "edges": [
+            {
+              "from": "beat",
+              "to": "turn"
+            },
+            {
+              "from": "beat",
+              "to": "signal"
+            }
+          ]
+        },
+        "source_sha256": "649d6fa9ea95a1aa283c6ddc523fecd3ba866f2a8440c77933538c2bf0996532"
+      },
+      "provenance": {
+        "kind": "ai_created",
+        "created_by": "companion:local",
+        "created_revision": 2
+      },
+      "protection": {
+        "locked": true,
+        "locked_by": "player:local",
+        "locked_revision": 3,
+        "support_ids": [
+          "shell:floor"
+        ]
+      }
+    },
+    "avatar:player": {
+      "id": "avatar:player",
+      "kind": "avatar",
+      "revision": 1,
+      "avatar": {
+        "role": "player",
+        "display_name": "Player",
+        "appearance": {
+          "color": "#d28f63"
+        }
+      },
+      "provenance": {
+        "kind": "hand_authored",
+        "created_by": "system:host",
+        "created_revision": 0
+      },
+      "protection": {
+        "locked": false
+      }
+    },
+    "avatar:companion": {
+      "id": "avatar:companion",
+      "kind": "avatar",
+      "revision": 1,
+      "avatar": {
+        "role": "companion",
+        "display_name": "Wisp",
+        "appearance": {
+          "color": "#65b9b0"
+        }
+      },
+      "provenance": {
+        "kind": "hand_authored",
+        "created_by": "system:host",
+        "created_revision": 0
+      },
+      "protection": {
+        "locked": false
+      }
+    },
+    "obj:paint_clutter": {
+      "id": "obj:paint_clutter",
+      "kind": "object",
+      "revision": 3,
+      "removed": true,
+      "transform": {
+        "position_m": [
+          -1.6,
+          0.0,
+          -0.4
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "provenance": {
+        "kind": "captured_scanned",
+        "created_by": "system:room",
+        "created_revision": 0
+      },
+      "protection": {
+        "locked": false
+      }
+    }
+  },
+  "receipts": {
+    "player:local|place-beanbag-0001": {
+      "fingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+      "result": {
+        "schema": "enfractal.result",
+        "version": 1,
+        "ok": true,
+        "op": "entity.place",
+        "action_id": "place-beanbag-0001",
+        "principal": "player:local",
+        "room_id": "garage_example",
+        "revision": 1,
+        "replayed": false,
+        "preview": false,
+        "at_utc": "2026-10-06T00:01:00Z",
+        "affected": [
+          "obj:bean_bag"
+        ]
+      }
+    },
+    "companion:local|spinner-0001": {
+      "fingerprint": "2222222222222222222222222222222222222222222222222222222222222222",
+      "result": {
+        "schema": "enfractal.result",
+        "version": 1,
+        "ok": true,
+        "op": "creation.place",
+        "action_id": "spinner-0001",
+        "principal": "companion:local",
+        "room_id": "garage_example",
+        "revision": 2,
+        "replayed": false,
+        "preview": false,
+        "at_utc": "2026-10-06T00:02:00Z",
+        "created": [
+          "creation:00000001"
+        ]
+      }
+    },
+    "player:local|lock-spinner-0001": {
+      "fingerprint": "3333333333333333333333333333333333333333333333333333333333333333",
+      "result": {
+        "schema": "enfractal.result",
+        "version": 1,
+        "ok": true,
+        "op": "protect.lock",
+        "action_id": "lock-spinner-0001",
+        "principal": "player:local",
+        "room_id": "garage_example",
+        "revision": 3,
+        "replayed": false,
+        "preview": false,
+        "at_utc": "2026-10-06T00:03:00Z",
+        "affected": [
+          "creation:00000001"
+        ]
+      }
+    },
+    "companion:local|move-beanbag-0002": {
+      "fingerprint": "4444444444444444444444444444444444444444444444444444444444444444",
+      "result": {
+        "schema": "enfractal.result",
+        "version": 1,
+        "ok": true,
+        "op": "entity.place",
+        "action_id": "move-beanbag-0002",
+        "principal": "companion:local",
+        "room_id": "garage_example",
+        "revision": 4,
+        "replayed": false,
+        "preview": false,
+        "at_utc": "2026-10-06T00:04:00Z",
+        "affected": [
+          "obj:bean_bag"
+        ]
+      }
+    },
+    "companion:local|note-0001": {
+      "fingerprint": "5555555555555555555555555555555555555555555555555555555555555555",
+      "result": {
+        "schema": "garage_game.result",
+        "version": 1,
+        "ok": true,
+        "op": "journal.note",
+        "action_id": "note-0001",
+        "principal": "companion:local",
+        "room_id": "garage_example",
+        "revision": 4,
+        "replayed": false,
+        "preview": false,
+        "at_utc": "2026-10-06T00:04:30Z",
+        "transient": false,
+        "data": {
+          "entry_id": "entry-fqkvcpytfsbmnq3ld5v75mizwy"
+        }
+      }
+    }
+  },
+  "checkpoints": [
+    {
+      "id": "before_spinner",
+      "revision": 1,
+      "label": "Before the spinner",
+      "path": "checkpoints/r1.json",
+      "created_utc": "2026-10-06T00:01:30Z"
+    }
+  ],
+  "journal": {
+    "open_tasks": [
+      {
+        "entry_id": "entry-57imdbj44uwi5mvi3a3gealb3a",
+        "kind": "task",
+        "at_utc": "2026-10-06T00:04:20Z",
+        "revision": 4,
+        "line": "Following you",
+        "actor": "companion:local",
+        "directed_by": "player:local",
+        "subject": {
+          "entities": [
+            "avatar:player"
+          ],
+          "name": "Player"
+        },
+        "state": "active"
+      }
+    ],
+    "history": [
+      {
+        "entry_id": "entry-zwwxase76lbaq3h2ttangf545q",
+        "kind": "built",
+        "at_utc": "2026-10-06T00:02:00Z",
+        "revision": 2,
+        "line": "Built \"Spinner\" on the floor, on its own initiative",
+        "actor": "companion:local",
+        "directed_by": "companion:local",
+        "subject": {
+          "entities": [
+            "creation:00000001"
+          ],
+          "name": "Spinner"
+        },
+        "pin_m": [
+          -1.2,
+          0.0,
+          0.8
+        ]
+      },
+      {
+        "entry_id": "entry-fvnyxy5km2qqb7mfb5o6cjnfj4",
+        "kind": "task",
+        "at_utc": "2026-10-06T00:04:10Z",
+        "revision": 4,
+        "line": "Fetched \"Paint supplies\", at the player's direction",
+        "actor": "companion:local",
+        "directed_by": "player:local",
+        "subject": {
+          "entities": [
+            "obj:paint_clutter"
+          ],
+          "name": "Paint supplies"
+        },
+        "state": "done"
+      }
+    ],
+    "notes": [
+      {
+        "entry_id": "entry-fqkvcpytfsbmnq3ld5v75mizwy",
+        "kind": "note",
+        "at_utc": "2026-10-06T00:04:30Z",
+        "revision": 4,
+        "author": "companion:local",
+        "text": "You like the bean bag beside the shelves. Maybe a reading nook there?",
+        "untrusted": true
+      }
+    ]
+  },
+  "discovered": {
+    "cell_m": 0.05,
+    "levels": [
+      {
+        "support": "shell:floor",
+        "height_m": 0.0,
+        "min_xz_m": [
+          -3.0,
+          -2.75
+        ],
+        "columns": 120,
+        "rows": 110,
+        "cells": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAwP////////8PAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      {
+        "support": "obj:bean_bag",
+        "height_m": 0.55,
+        "min_xz_m": [
+          0.55,
+          0.45
+        ],
+        "columns": 18,
+        "rows": 18,
+        "cells": "/////////////////////////////////////////////////////w8="
+      }
+    ],
+    "entities": {
+      "creation:00000001": {
+        "entity": {
+          "id": "creation:00000001",
+          "kind": "creation",
+          "display_name": "Spinner",
+          "revision": 2,
+          "position_m": [
+            -1.2,
+            0.0,
+            0.8
+          ],
+          "bounds_m": {
+            "min_m": [
+              -1.75,
+              0.0,
+              0.25
+            ],
+            "max_m": [
+              -0.6499999999999999,
+              0.3,
+              1.35
+            ]
+          },
+          "affordances": [],
+          "movable": true,
+          "protected": true,
+          "provenance_kind": "ai_created"
+        },
+        "last_seen_utc": "2026-10-06T00:03:10Z",
+        "last_seen_revision": 3,
+        "may_be_stale": false
+      },
+      "obj:bean_bag": {
+        "entity": {
+          "id": "obj:bean_bag",
+          "kind": "object",
+          "display_name": "Bean bag",
+          "revision": 2,
+          "position_m": [
+            1.0,
+            0.0,
+            0.9
+          ],
+          "bounds_m": {
+            "min_m": [
+              0.55,
+              0.0,
+              0.45
+            ],
+            "max_m": [
+              1.45,
+              0.55,
+              1.35
+            ]
+          },
+          "affordances": [
+            "walkable_top",
+            "climbable",
+            "soft",
+            "sittable"
+          ],
+          "movable": true,
+          "protected": false,
+          "provenance_kind": "captured_generated",
+          "category": "grey bean bag",
+          "category_group": "furniture"
+        },
+        "last_seen_utc": "2026-10-06T00:04:20Z",
+        "last_seen_revision": 4,
+        "may_be_stale": false
+      },
+      "obj:paint_clutter": {
+        "entity": {
+          "id": "obj:paint_clutter",
+          "kind": "object",
+          "display_name": "Paint supplies",
+          "revision": 0,
+          "position_m": [
+            0.8,
+            0.9,
+            -2.5
+          ],
+          "bounds_m": {
+            "min_m": [
+              0.4,
+              0.9,
+              -2.675
+            ],
+            "max_m": [
+              1.2000000000000002,
+              1.15,
+              -2.325
+            ]
+          },
+          "affordances": [
+            "breakable"
+          ],
+          "movable": true,
+          "protected": false,
+          "provenance_kind": "captured_generated",
+          "category": "paint bottles and brushes",
+          "category_group": "clutter_set"
+        },
+        "last_seen_utc": "2026-10-06T00:03:40Z",
+        "last_seen_revision": 3,
+        "may_be_stale": false
+      },
+      "obj:shelving_right": {
+        "entity": {
+          "id": "obj:shelving_right",
+          "kind": "object",
+          "display_name": "Pine shelving",
+          "revision": 0,
+          "position_m": [
+            0.8,
+            0.0,
+            -2.5
+          ],
+          "bounds_m": {
+            "min_m": [
+              0.35500000000000004,
+              0.0,
+              -2.75
+            ],
+            "max_m": [
+              1.245,
+              1.79,
+              -2.25
+            ]
+          },
+          "affordances": [
+            "walkable_top",
+            "climbable",
+            "container"
+          ],
+          "movable": false,
+          "protected": false,
+          "provenance_kind": "captured_generated",
+          "category": "pine shelving unit",
+          "category_group": "storage"
+        },
+        "last_seen_utc": "2026-10-06T00:03:40Z",
+        "last_seen_revision": 3,
+        "may_be_stale": false
+      }
+    }
+  },
+  "extensions": {
+    "x_clock": {
+      "zone_id": "Etc/UTC",
+      "day_scale": 1,
+      "seasons_per_year": 4,
+      "phase_h": 0,
+      "hemisphere": "north"
+    },
+    "x_team": {
+      "team_id": "example_team",
+      "mode": "challenge",
+      "difficulty": "gentle"
+    },
+    "x_play_camp": {
+      "spots": {
+        "challenge": {
+          "player_m": [
+            0.2,
+            0.0,
+            0.9
+          ]
+        }
+      },
+      "lit": [],
+      "chest": {
+        "stacks": {
+          "apple": 5
+        },
+        "things": [
+          "obj:paint_clutter"
+        ]
+      }
+    }
+  }
+}

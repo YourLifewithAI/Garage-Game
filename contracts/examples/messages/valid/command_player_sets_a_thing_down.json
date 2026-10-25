@@ -1,0 +1,11 @@
+{
+  "schema": "garage_game.command",
+  "version": 1,
+  "action_id": "drop-0001",
+  "room_id": "garage_example",
+  "op": "inventory.drop",
+  "args": {
+    "item": "obj:paint_clutter"
+  },
+  "note": "Player-only."
+}

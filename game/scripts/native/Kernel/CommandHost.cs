@@ -133,6 +133,8 @@ public partial class CommandHost : Node
         // are hosted (M1), knack.set too (M3, Saves/CommandHostTeams.cs), and fractal.spend (the second contract round, hosted in
         // M1's fix round: CommandHostFractals), and receipt.mark and trust.reset since M8 (CommandHostTrust).
         "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset",
+        // P-Inventory (CommandHostInventory): the pockets and the chest. use and drop are the player's; store and take keep the chest's companion path.
+        "inventory.store", "inventory.take", "inventory.use", "inventory.drop",
     };
     private static readonly HashSet<string> QueryOps = new()
     {
@@ -147,11 +149,13 @@ public partial class CommandHost : Node
     /// in the player's profile files, never in the room. Never entity.release: putting a thing down is saved state
     /// (kernel-host-gaps P8), and never a nature change, which is room state. Transient() refuses any other op.
     /// </summary>
-    private static readonly HashSet<string> TransientOps = new() { "goal.set", "goal.stop", "effect.start", "effect.stop", "effect.adjust", "glow.configure", "entity.grab", "creation.activate", "world.set_physics", "world.set_mode", "wish.stop", "knack.set", "fractal.spend", "receipt.mark", "trust.reset" };
+    private static readonly HashSet<string> TransientOps = new() { "goal.set", "goal.stop", "effect.start", "effect.stop", "effect.adjust", "glow.configure", "entity.grab", "creation.activate", "world.set_physics", "world.set_mode", "wish.stop", "knack.set", "fractal.spend", "receipt.mark", "trust.reset",
+        // P-Inventory: what moved is saved by the host itself (the island save's nature and team block in one write, the team file's pockets), no room revision.
+        "inventory.store", "inventory.take", "inventory.use", "inventory.drop" };
     /// <summary>contracts $defs/player_only_ops: refused from a companion with permission_denied, never held.</summary>
-    private static readonly HashSet<string> PlayerOnlyOps = new() { "protect.unlock", "world.set_physics", "world.set_mode", "glow.configure", "wish.submit", "wish.stop", "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset" };
+    private static readonly HashSet<string> PlayerOnlyOps = new() { "protect.unlock", "world.set_physics", "world.set_mode", "glow.configure", "wish.submit", "wish.stop", "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset", "inventory.use", "inventory.drop" };
     /// <summary>The mechanics round's player-only ops (contracts/README.md "Player-only operations"): the player's own, with no tool.</summary>
-    private static readonly HashSet<string> MechanicsPlayerOps = new() { "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset" };
+    private static readonly HashSet<string> MechanicsPlayerOps = new() { "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset", "inventory.use", "inventory.drop" };
     /// <summary>The Gubble may find a Fractal and go to it, never gather it: the same refusal whether or not the Fractal exists.</summary>
     public const string FractalRefusal = "Only the player can pick up a Fractal.";
     /// <summary>The mechanics round's stubs' words (unsupported_capability at $.op), the mock host's too.</summary>
@@ -706,6 +710,11 @@ public partial class CommandHost : Node
                 // M8: the player's marks and reset (CommandHostTrust).
                 "receipt.mark" => MarkReceipt(args, principal, actionId, fingerprint, preview),
                 "trust.reset" => ResetTrust(principal, actionId, fingerprint, preview),
+                // P-Inventory: the pockets and the chest (CommandHostInventory).
+                "inventory.store" => InventoryStore(args, principal, actionId, fingerprint, preview),
+                "inventory.take" => InventoryTake(args, principal, actionId, fingerprint, preview),
+                "inventory.use" => InventoryUse(args, principal, actionId, fingerprint, preview),
+                "inventory.drop" => InventoryDrop(args, principal, actionId, fingerprint, preview),
                 _ => throw new Refusal("unsupported_capability", "This operation is not available yet.", "$.op"),
             };
             ObserveWishCommand(root, result, principal);
@@ -1263,7 +1272,8 @@ public partial class CommandHost : Node
                 "room.describe" => Describe(principal),
                 "entities.list" => List(args, principal),
                 "entity.inspect" => Inspect(args, principal),
-                "capabilities.list" => Capabilities(args),
+                // P-Inventory: the four inventory ops and the Gubble's chest switch, when the pack has the block.
+                "capabilities.list" => WithInventoryOps(Capabilities(args)),
                 "observe" => Observe(args, principal),
                 "receipt.lookup" => Lookup(args, principal),
                 "approval.status" => Status(args, principal),
@@ -2469,6 +2479,7 @@ public partial class CommandHost : Node
         if (op.StartsWith("nature.", StringComparison.Ordinal)) { CheckNatureArgs(op, args); return; }
         if (op == "effect.adjust") { CheckEffectAdjustArgs(args); return; }
         if (op == "glow.configure") { CheckGlowConfigureArgs(args); return; }
+        if (op.StartsWith("inventory.", StringComparison.Ordinal)) { CheckInventoryArgs(op, args); return; }
         string[] allowed = op switch
         {
             "entity.grab" => new[] { "target", "actor" },
