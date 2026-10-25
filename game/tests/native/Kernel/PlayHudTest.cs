@@ -54,6 +54,8 @@ public partial class PlayHudTest : Node
             await TestGlowJournalFresh();
             await TestMagicPanel();
             await TestFoldedHelp();
+            // The hotbar's layout by numbers (PlayHudTest.Hotbar.cs).
+            await TestHotbarLayout();
             // Notices where the eye is: under the reticle, fading after about four seconds (PlayHudTest.Notice.cs).
             await TestNotices();
             // The card is in the help and the full-screen key (PlayHudTest.Screen.cs); the swim hint is with the views, which move the body.
@@ -138,6 +140,8 @@ public partial class PlayHudTest : Node
             // The Fire behaviours packet (PlayHudTest.FireBehaviours.cs): Fractals collected by touch, the Magic panel's key, Fire on the wheel.
             await TestFractalTouch();
             await TestMagicKey();
+            // The hotbar's magic layer (PlayHudTest.Hotbar.cs), before Fire is learned.
+            await TestHotbarAbilities();
             await TestFireWheel();
             // Grow's drag from lip to lip and its locks (PlayHudTest.GrowDrag.cs).
             await TestGrowDragAndLocks();
@@ -203,8 +207,9 @@ public partial class PlayHudTest : Node
         ("gubble_slot_4", Key.Key4, false), ("gubble_slot_5", Key.Key5, false),
         // Fire on the wheel (decision 77): 6; and the Magic panel's own key, M (it was only a button inside H).
         ("gubble_slot_6", Key.Key6, false), ("hud_magic", Key.M, false),
-        // The pockets panel (inventory HUD pass): Tab, which nothing was bound to.
+        // The hotbar's layer switch (the pockets panel's Tab, the panel retired into the bar), and its keys 7 to 0.
         ("pockets_panel", Key.Tab, false),
+        ("gubble_slot_7", Key.Key7, false), ("gubble_slot_8", Key.Key8, false), ("gubble_slot_9", Key.Key9, false), ("gubble_slot_10", Key.Key0, false),
         ("hands", Key.F, false), ("push", Key.V, false), ("item_gather", Key.E, false),
         // Fire's camp: sit down by a lit campfire (decision 70).
         ("rest", Key.Z, false),
@@ -388,7 +393,9 @@ public partial class PlayHudTest : Node
                 $"WASD move · Shift run · Space jump · B back to {home} · R recover · drag to look around",
                 "Climb: keep walking into a steep face, W up, S down, A/D across, Space lets go · Swim: deep water floats you, Space leaps · Dive: hold Ctrl, Space rises, W swims the way you look, let go to drift up",
                 "F1 first person · F2 third person: wheel zooms out to look around, and zoomed out drag orbits and WASD follows the view",
-                "O observe (a very tight tilt-shift view, best zoomed out) · C settings · M the Gubble's magic · Tab your pockets (eat, or set a thing down) · J journal (Esc closes any; with nothing open, Esc is the menu: save, load, settings, the main menu)",
+                "O observe (a very tight tilt-shift view, best zoomed out) · C settings · M the Gubble's magic · J journal (Esc closes any; with nothing open, Esc is the menu: save, load, settings, the main menu)",
+                // The hotbar (docs/game/HOTBAR.md): its ten keys, Tab, the wheel over it, what a pocket slot and a magic slot do.
+                "Bar: 1 to 0 choose a slot (or the wheel or a click over it) · Tab: pockets or magic · E or a click uses a pocket slot, E or F sets a thing down",
                 "F11 full screen on or off (kept for your next launch)",
                 "Walk into a fractal to collect it · F pick up what you face · F again sets it down in front of you, or on top of what you face (the box, the book) · V push what you face 10 cm",
                 "The Gubble, your companion:",
@@ -417,6 +424,7 @@ public partial class PlayHudTest : Node
                 Key.Kp0, Key.Kp1, Key.Kp2, Key.Kp3, Key.Kp4, Key.Kp5, Key.Kp6, Key.Kp7, Key.Kp8, Key.Kp9,
                 Key.KpAdd, Key.KpSubtract, Key.KpMultiply, Key.KpDivide, Key.KpPeriod, Key.KpEnter, Key.Insert, Key.Delete, Key.Pause, Key.Pageup, Key.Pagedown,
                 Key.Home, Key.End, Key.Numlock, Key.Scrolllock, Key.Sysreq, Key.F25, Key.F26, Key.F27, Key.F28, Key.F29, Key.F30, Key.F31, Key.F32,
+                Key.F33, Key.F34, Key.F35, Key.Launch0, Key.Launch1,
             };
             var actions = PlayerControls.Specs.Select(spec => spec.Action).ToArray();
             Check(pool.Length >= actions.Length, "enough spare keys to give every control its own");

@@ -29,7 +29,7 @@ public static class PromptCost
     }
 
     /// <summary>The pieces that are measured, each its own total (the suite says which costs what).</summary>
-    public enum Piece { Notice, Prompt, Decide, Camp, Pockets }
+    public enum Piece { Notice, Prompt, Decide, Camp, Hotbar }
     public static readonly long[] PieceTicks = new long[5];
 
     /// <summary>The piece that began at this timestamp adds its time to the frame.</summary>

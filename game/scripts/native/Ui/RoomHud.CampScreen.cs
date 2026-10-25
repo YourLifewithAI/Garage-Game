@@ -119,7 +119,8 @@ public partial class RoomHud
         _campAge = 0;
         if (Host is not { } host || !_campOpen) return;
         var viewport = GetViewport().GetVisibleRect().Size;
-        _campScreen.Size = new Vector2(Mathf.Clamp(viewport.X - 36, 320, 500), Mathf.Clamp(viewport.Y - 200, 300, 600));
+        // It ends above the hotbar and its caption (RoomHud.Hotbar.cs), which stay in view while you rest.
+        _campScreen.Size = new Vector2(Mathf.Clamp(viewport.X - 36, 320, 500), Mathf.Clamp(Mathf.Min(viewport.Y - 200, BarClearTop(viewport) - 150), 260, 600));
         var titles = CampPages.Titles(host);
         for (var i = 0; i < titles.Length; i++) _campTabs.SetTabTitle(i, titles[i]);
         var page = _campTabs.CurrentTab;

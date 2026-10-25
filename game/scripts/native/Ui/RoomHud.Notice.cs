@@ -126,20 +126,24 @@ public partial class RoomHud
         var screen = GetViewport().GetVisibleRect().Size;
         var size = _noticeCard.GetCombinedMinimumSize();
         _noticeCard.Size = size;
-        // Clear of a panel open on the left (the camp, the Magic panel, the pockets, the settings): the card stands to its right.
+        // Clear of a panel open on the left (the camp, the Magic panel, the settings): the card stands to its right; and above the hotbar.
         var leftClear = 0f;
-        foreach (var panel in new Control[] { _campScreen, _magicPanel, _pocketsPanel, _settings })
+        foreach (var panel in new Control[] { _campScreen, _magicPanel, _settings })
             if (panel is { Visible: true }) leftClear = Mathf.Max(leftClear, panel.GetGlobalRect().End.X + 16);
-        _noticeCard.Position = NoticePlace(AimScreenPoint(), size, screen, leftClear);
+        _noticeCard.Position = NoticePlace(AimScreenPoint(), size, screen, leftClear, _hotbar != null && _hotbar.Visible ? screen.Y - BarClearTop(screen) : 0);
     }
 
-    /// <summary>Where a notice card of this size goes for a reticle at this point on a screen of this size (the suite checks it by numbers).</summary>
-    public static Vector2 NoticePlace(Vector2 reticle, Vector2 size, Vector2 screen, float leftClear = 0)
+    /// <summary>
+    /// Where a notice card of this size goes for a reticle at this point on a screen of this size (the suite checks it by numbers): bottomClear
+    /// is how much of the screen's foot it keeps off (the hotbar and its caption).
+    /// </summary>
+    public static Vector2 NoticePlace(Vector2 reticle, Vector2 size, Vector2 screen, float leftClear = 0, float bottomClear = 0)
     {
         var anchor = new Vector2(
             Mathf.Clamp(reticle.X, screen.X * NoticeEdgeShareX, screen.X * (1 - NoticeEdgeShareX)),
             Mathf.Clamp(reticle.Y, screen.Y * NoticeEdgeShareTop, screen.Y * (1 - NoticeEdgeShareBottom)));
         var at = new Vector2(Mathf.Max(anchor.X - size.X * 0.5f, leftClear), anchor.Y + NoticeBelowReticlePx);
-        return new Vector2(Mathf.Clamp(at.X, 16, Mathf.Max(16, screen.X - size.X - 16)), Mathf.Clamp(at.Y, 16, Mathf.Max(16, screen.Y - size.Y - 16)));
+        var foot = Mathf.Max(16, bottomClear);
+        return new Vector2(Mathf.Clamp(at.X, 16, Mathf.Max(16, screen.X - size.X - 16)), Mathf.Clamp(at.Y, 16, Mathf.Max(16, screen.Y - size.Y - foot)));
     }
 }

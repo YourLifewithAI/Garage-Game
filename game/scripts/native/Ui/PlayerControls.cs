@@ -50,8 +50,20 @@ public static class Act
     public static readonly StringName GubbleSlot5 = "gubble_slot_5";
     /// <summary>6: Fire (decisions 77 and 83): a tap lights the fire where you point at once, a drag (once Fireline is learned) a line.</summary>
     public static readonly StringName GubbleSlot6 = "gubble_slot_6";
-    /// <summary>The slot actions in slot order (index 0 is slot 1).</summary>
+    /// <summary>The ability slot actions in slot order (index 0 is slot 1): the six by category, the bar's first six keys.</summary>
     public static readonly StringName[] GubbleSlots = { GubbleSlot1, GubbleSlot2, GubbleSlot3, GubbleSlot4, GubbleSlot5, GubbleSlot6 };
+    /// <summary>The hotbar's seventh to ninth keys, 7 to 9 (docs/game/HOTBAR.md): pocket slots 7 to 9, or the magic still to come.</summary>
+    public static readonly StringName GubbleSlot7 = "gubble_slot_7";
+    public static readonly StringName GubbleSlot8 = "gubble_slot_8";
+    public static readonly StringName GubbleSlot9 = "gubble_slot_9";
+    /// <summary>The hotbar's tenth key, 0 (slot 10: the tenth pocket slot, or magic still to come).</summary>
+    public static readonly StringName GubbleSlot10 = "gubble_slot_10";
+    /// <summary>
+    /// The hotbar's ten keys in slot order (index 0 is slot 1; keys 1 to 0, decision 119): on the pockets' layer each chooses its pocket slot,
+    /// on the magic layer the first six are the abilities (GubbleSlots) and the rest the slots to come. (The map's names are the ability slots'
+    /// from before the bar: gubble_slot_1 to gubble_slot_10.)
+    /// </summary>
+    public static readonly StringName[] BarSlots = { GubbleSlot1, GubbleSlot2, GubbleSlot3, GubbleSlot4, GubbleSlot5, GubbleSlot6, GubbleSlot7, GubbleSlot8, GubbleSlot9, GubbleSlot10 };
     // The hands.
     /// <summary>Pick up what the player faces, or put down what it holds.</summary>
     public static readonly StringName Hands = "hands";
@@ -81,8 +93,11 @@ public static class Act
     public static readonly StringName HudMagic = "hud_magic";
     /// <summary>The journal, the leather book at the lower right: opens it at its index, and closes it again.</summary>
     public static readonly StringName Journal = "journal";
-    /// <summary>Tab: the pockets panel (what the pockets hold, with Eat and Drop for each; RoomHud.Pockets.cs), opened and closed again.</summary>
-    public static readonly StringName PocketsPanel = "pockets_panel";
+    /// <summary>
+    /// Tab: the hotbar's layer switch (docs/game/HOTBAR.md; RoomHud.Hotbar.cs), the pockets brought down or the Gubble's magic. Its map name
+    /// is from when Tab opened the pockets panel, which the bar retired: the input map keeps it, as it keeps item_gather.
+    /// </summary>
+    public static readonly StringName BarLayer = "pockets_panel";
     /// <summary>The eye icon above the journal: look through the Gubble's eyes, and back to the player's own.</summary>
     public static readonly StringName GubbleEyes = "gubble_eyes";
     /// <summary>Esc: first lets go of what is going on (a panel, the journal, the Gubble's eyes, the wheel, a drag, a chosen bubble), then opens the menu (decisions 81 and 97). (Its map name is from when it freed the captured mouse.)</summary>
@@ -147,8 +162,12 @@ public static class PlayerControls
             changed = true;
         }
         // Fire on the wheel (decision 77): 6, and the Magic panel's key, M, until project.godot carries the packet's two actions;
-        // the pockets panel's Tab likewise (a fixture whose input map was built without project.godot's).
-        foreach (var (action, key) in new[] { (Act.GubbleSlot6, Key.Key6), (Act.HudMagic, Key.M), (Act.PocketsPanel, Key.Tab) })
+        // the bar's Tab and its keys 7 to 0 likewise (a fixture whose input map was built without project.godot's).
+        foreach (var (action, key) in new[]
+        {
+            (Act.GubbleSlot6, Key.Key6), (Act.HudMagic, Key.M), (Act.BarLayer, Key.Tab),
+            (Act.GubbleSlot7, Key.Key7), (Act.GubbleSlot8, Key.Key8), (Act.GubbleSlot9, Key.Key9), (Act.GubbleSlot10, Key.Key0),
+        })
         {
             if (InputMap.HasAction(action)) continue;
             InputMap.AddAction(action, 0.2f);
@@ -173,6 +192,8 @@ public static class PlayerControls
         new(Act.GubbleAsk, ControlContext.Always), new(Act.GubbleRecall, ControlContext.Always), new(Act.GubbleStop, ControlContext.Always),
         new(Act.GubbleSlot1, ControlContext.Always), new(Act.GubbleSlot2, ControlContext.Always), new(Act.GubbleSlot3, ControlContext.Always),
         new(Act.GubbleSlot4, ControlContext.Always), new(Act.GubbleSlot5, ControlContext.Always), new(Act.GubbleSlot6, ControlContext.Always),
+        new(Act.GubbleSlot7, ControlContext.Always), new(Act.GubbleSlot8, ControlContext.Always), new(Act.GubbleSlot9, ControlContext.Always),
+        new(Act.GubbleSlot10, ControlContext.Always),
         new(Act.Hands, ControlContext.Always), new(Act.Push, ControlContext.Always), new(Act.Interact, ControlContext.Always),
         new(Act.Rest, ControlContext.Always),
         new(Act.PhysicsNext, ControlContext.Always), new(Act.TimeStep, ControlContext.Always),
@@ -181,7 +202,7 @@ public static class PlayerControls
         new(Act.HudHelp, ControlContext.Always),
         new(Act.HudCustomize, ControlContext.Always | ControlContext.Customize),
         new(Act.HudMagic, ControlContext.Always | ControlContext.Customize),
-        new(Act.PocketsPanel, ControlContext.Always | ControlContext.Customize),
+        new(Act.BarLayer, ControlContext.Always),
         new(Act.Journal, ControlContext.Always | ControlContext.Customize | ControlContext.Reading),
         new(Act.GubbleEyes, ControlContext.Always | ControlContext.Customize | ControlContext.Looking),
         new(Act.MouseRelease, ControlContext.Always | ControlContext.Customize | ControlContext.Reading | ControlContext.Looking),

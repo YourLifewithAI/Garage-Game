@@ -45,6 +45,8 @@ public static class CampPages
     public static List<JournalLine> MagicLines(CommandHost host)
     {
         var lines = new List<JournalLine> { new(JournalInk.Button, $"Open the Magic panel · {PlayerControls.KeyLabel(Act.HudMagic)}", MagicTarget) };
+        // The keys below are the hotbar's magic side (decision 128): Tab brings it down while the pockets are.
+        lines.Add(Faint($"On the bar at the bottom: {PlayerControls.KeyLabel(Act.BarLayer)} brings the magic side down, then each one's key casts it (the right button's hold still opens the wheel)."));
         lines.AddRange(JournalPages.AbilityLines(host));
         return lines;
     }

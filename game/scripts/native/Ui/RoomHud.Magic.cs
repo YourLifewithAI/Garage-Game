@@ -22,7 +22,7 @@ public partial class RoomHud
     public bool MagicPanelOpen => _magicPanel != null && _magicPanel.Visible;
     public bool ChoosingMagicSpot => _pickingMagicSpot;
     public string MagicMessage => _magicMessageText;
-    private bool ReadingPanelOpen => SettingsOpen || JournalOpen || MagicPanelOpen || PocketsPanelOpen || GubbleViewOpen;
+    private bool ReadingPanelOpen => SettingsOpen || JournalOpen || MagicPanelOpen || GubbleViewOpen;
 
     private void BuildMagicPanel(Node actions, Node statusColumn, Theme theme)
     {
@@ -78,7 +78,6 @@ public partial class RoomHud
         {
             CloseJournalNow();
             if (SettingsOpen) ToggleSettings();
-            if (PocketsPanelOpen) SetPocketsPanelOpen(false);
             _pickingMagicSpot = false;
         }
         _magicPanel.Visible = open;
@@ -164,7 +163,8 @@ public partial class RoomHud
     {
         if (_magicPanel == null) return;
         var viewport = GetViewport().GetVisibleRect().Size;
-        _magicPanel.Size = new Vector2(Mathf.Clamp(viewport.X - 36, 320, 480), Mathf.Clamp(viewport.Y - 200, 300, 620));
+        // It ends above the hotbar and its caption (RoomHud.Hotbar.cs).
+        _magicPanel.Size = new Vector2(Mathf.Clamp(viewport.X - 36, 320, 480), Mathf.Clamp(Mathf.Min(viewport.Y - 200, BarClearTop(viewport) - 150), 260, 620));
         _magicTargetText.Text = !_magicAim.Hit || _magicAim.AtGubble ? "Aim: on the Gubble" : _magicAim.Entity is { } id && id.StartsWith("creation:", StringComparison.Ordinal) ? "Aim: your selected creation" : "Aim: your selected spot";
         if (_magicMessage != null) _magicMessage.Text = _magicMessageText;
         if (Host is not { } host) return;

@@ -54,6 +54,8 @@ public partial class RoomHud
         MeterTextures.Release();
         // An Esc menu that paused the game lets it go (RoomHud.Pause.cs).
         ReleasePause();
+        // The hotbar's ear on the host's commands (RoomHud.Hotbar.cs).
+        StopListeningForTheBar();
     }
 
     /// <summary>"Show numbers on the meters" as the profile says: off unless the player turned it on.</summary>

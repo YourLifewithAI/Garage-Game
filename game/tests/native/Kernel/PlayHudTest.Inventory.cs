@@ -38,7 +38,7 @@ public partial class PlayHudTest
     private CommandHost _ih = null!;
     private RoomHud _ihud = null!;
 
-    /// <summary>The test room with a broadleaf tree and a shrub, and on the rug two windfall apples, a seed pod, a cup and a brick of 0.29 kg (the apples and the pod are units of their kinds once the pack says so).</summary>
+    /// <summary>The test room with a broadleaf tree and a shrub, and on the rug two windfall apples, a seed pod, a cup, a brick of 0.29 kg and a pebble (the apples and the pod are units of their kinds once the pack says so; the pebble, of stone, is a stone).</summary>
     private static string InventoryHudRoom()
     {
         IslandFixture.Row Bush(Vector3 at, float top, uint seed) => new(at.X, 0, at.Z, 0, new Vector3(1, top / 0.13f, 1), new Color(0.8f, 0.9f, 0.7f), top, 0, 0, seed);
@@ -54,6 +54,8 @@ public partial class PlayHudTest
             ("seed_pod", "Seed pod", "seed pod", 0.001, new[] { 0.012, 0.012, 0.012 }, "foliage"),
             ("cup_proxy", "Cup", "cup", 0.05, new[] { 0.03, 0.04, 0.03 }, "ceramic"),
             ("brick_proxy", "Brick", "brick", 0.29, new[] { 0.06, 0.03, 0.04 }, "ceramic"),
+            // A stone (its material's role is stone: a unit of the stone kind, decision 116), for the hotbar's set down.
+            ("pebble_proxy", "Pebble", "pebble", 0.05, new[] { 0.03, 0.02, 0.03 }, "stone"),
         };
         foreach (var (asset, name, category, mass, size, role) in assets)
         {
@@ -72,7 +74,7 @@ public partial class PlayHudTest
             File.WriteAllBytes(Path.Combine(target, relative), bytes);
             files.Add(new JsonObject { ["path"] = relative, ["sha256"] = CanonicalJson.Sha256Hex(bytes), ["bytes"] = bytes.Length });
         }
-        foreach (var (id, asset, x, z) in new[] { ("obj:apple_1", "windfall_apple", 0.3, 0.35), ("obj:apple_2", "windfall_apple", 0.3, 0.45), ("obj:pod", "seed_pod", 0.3, 0.65), ("obj:cup", "cup_proxy", -0.2, 0.75), ("obj:brick", "brick_proxy", 0.0, 0.95) })
+        foreach (var (id, asset, x, z) in new[] { ("obj:apple_1", "windfall_apple", 0.3, 0.35), ("obj:apple_2", "windfall_apple", 0.3, 0.45), ("obj:pod", "seed_pod", 0.3, 0.65), ("obj:cup", "cup_proxy", -0.2, 0.75), ("obj:brick", "brick_proxy", 0.0, 0.95), ("obj:pebble", "pebble_proxy", 0.7, 0.4) })
             objects.Add(new JsonObject
             {
                 ["id"] = id, ["asset"] = $"objects/{asset}/asset.json",
@@ -92,6 +94,8 @@ public partial class PlayHudTest
         kinds.First(k => k!["id"]!.GetValue<string>() == "apple")!["assets"] = new JsonArray("windfall_apple");
         kinds.First(k => k!["id"]!.GetValue<string>() == "seed")!["assets"] = new JsonArray("seed_pod");
         foreach (var source in pack["food"]!["sources"]!.AsArray()) source!["one_in"] = 1;
+        // Three windfalls under the tree (the pack's two to four, by the plant's id): two for Creative's bar (a count to fall by one), one for Challenge.
+        pack["food"]!["sources"]!.AsArray().First(s => s!["kind"]!.GetValue<string>() == "apple")!["windfalls"] = new JsonArray(3, 3);
         return IslandRules.Parse(Encoding.UTF8.GetBytes(pack.ToJsonString()));
     }
 
@@ -119,6 +123,7 @@ public partial class PlayHudTest
                 "(the pack's pockets and chest are there, empty)");
             await InvEOrder();
             await InvFoodAndPanel();
+            await InvBarWheelAndClick();
             await InvCost();
             await InvCampPage();
             await InvSettingsSwitch();
@@ -227,14 +232,13 @@ public partial class PlayHudTest
         Check(host.HeldBy(player) == null && host.PocketEntries.Count == 1 && host.ChestEntries.Count == 3, "and E sets it down in front of the player: " + hud.NoticeText);
     }
 
-    // ---- food, the Tab panel ----
+    // ---- food, and the hotbar's pockets (the Tab panel's place: docs/game/HOTBAR.md) ----
 
     private async Task InvFoodAndPanel()
     {
         var host = _ih;
         var hud = _ihud;
         var prompt = hud.InteractPrompt;
-        var view = hud.GetViewport().GetVisibleRect().Size;
         // Facing a windfall with the pockets full: the pockets' words stand beside it and E picks nothing.
         var windfalls = host.FoodPlants.First(p => p.Id == "plant:broadleaf-0").Spots.Select((s, i) => (s, i)).Where(p => p.s.Place == FoodPlace.Windfall).Select(p => p.i).ToArray();
         Check(windfalls.Length > 0, "(the tree has windfalls)");
@@ -248,75 +252,8 @@ public partial class PlayHudTest
         await InvKey(Key.E);
         Check(host.PocketEntries.Count == 1 && host.FoodLeft("plant:broadleaf-0").Count == left && hud.NoticeText == full.Words, "E says the same as a notice and picks nothing: " + hud.NoticeText);
 
-        // Tab opens the panel on the left, under the meters: the brick, with Eat dimmed and Drop live; the body waits.
-        Check(PlayerControls.Label(Act.PocketsPanel) == "Tab" && InputMap.HasAction(Act.PocketsPanel) && PlayerControls.Specs.Any(spec => spec.Action == Act.PocketsPanel),
-            "the pockets panel's key is Tab, an input action in the map and in the list of controls");
-        await InvKey(Key.Tab);
-        var panel = hud.PocketsPanel;
-        var rect = panel.GetGlobalRect();
-        Check(hud.PocketsPanelOpen && panel.Visible && !_iw.Player.InputEnabled, "Tab opens the pockets panel and the body waits");
-        Check(rect.Position == new Vector2(18, 150) && rect.Size.X >= 320 && rect.End.X <= view.X && rect.End.Y <= view.Y && !rect.Intersects(hud.MeterPanel.GetGlobalRect()) && rect.End.X < view.X * 0.5f,
-            $"on the left where the Magic panel opens, under the meters and clear of them: {rect.Position.X:0},{rect.Position.Y:0} {rect.Size.X:0}x{rect.Size.Y:0} of {view.X:0}x{view.Y:0}");
-        Check(hud.PocketsCapsText == "1 of 1 thing" && hud.PocketRows.Count() == 1, "it lists the caps and one entry: " + hud.PocketsCapsText);
-        var row = hud.PocketRows.Single();
-        var entry = (Label)row.GetNode("Entry");
-        var eat = (Button)row.FindChild("Eat_obj_brick", true, false)!;
-        var drop = (Button)row.FindChild("Drop_obj_brick", true, false)!;
-        var rowRect = row.GetGlobalRect();
-        Check(entry.Text == "Brick · 0.29 kg" && eat.Disabled && !drop.Disabled && rowRect.Position.X >= rect.Position.X && drop.GetGlobalRect().End.X <= rect.End.X &&
-              eat.GetGlobalRect().End.X <= drop.GetGlobalRect().Position.X && entry.GetGlobalRect().Size.X >= 150,
-            $"the entry reads \"{entry.Text}\", a thing is not eaten, and its Eat and Drop sit inside the panel after the words (the words {entry.GetGlobalRect().Size.X:0} px wide)");
-        Check(row.GetChildren().OfType<Button>().All(b => b.FocusMode == Control.FocusModeEnum.None) && panel.FindChild("PocketsClose", true, false) is Button { FocusMode: Control.FocusModeEnum.None },
-            "nothing on it takes the keyboard (Space jumps, Tab opens and closes; neither presses a button)");
-        // Esc closes it first (decision 97), then the next opens the menu.
-        await InvKey(Key.Escape);
-        Check(!hud.PocketsPanelOpen && _iw.Player.InputEnabled && !hud.PauseMenuOpen, "the first Esc closes the panel and gives the body back; it does not open the menu");
-        await InvKey(Key.Escape);
-        Check(hud.PauseMenuOpen, "and the next opens the menu");
-        hud.ClosePauseMenu();
-        await InvKey(Key.Tab);
-        await InvKey(Key.Tab);
-        Check(!hud.PocketsPanelOpen && _iw.Player.InputEnabled, "Tab opens it and Tab again closes it");
-        // Tab is also the engine's focus-next key: a footer button the player clicked holds the focus, and Tab, sent as the engine would
-        // send it, still opens the panel (the HUD lets the focus go first) instead of moving the focus.
-        await InvKey(Key.H);
-        var follow = hud.FindChild("CompanionActions", true, false)!.GetChildren().OfType<Button>().First(b => b.Text == "Follow");
-        follow.GrabFocus();
-        Check(hud.GetViewport().GuiGetFocusOwner() == follow, "(a button of the help holds the keyboard focus)");
-        Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = Key.Tab, Keycode = Key.Tab, Pressed = true });
-        await Frames(3);
-        Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = Key.Tab, Keycode = Key.Tab, Pressed = false });
-        await Frames(2);
-        Check(hud.PocketsPanelOpen && hud.GetViewport().GuiGetFocusOwner() == null, "Tab sent to the engine opens the panel even with a clicked button holding the focus");
-        // (The engine hands the key to every HUD in the tree: the suite's first room's gets it too, and is put back.)
-        _hud.SetPocketsPanelOpen(false);
-        await InvKey(Key.Tab);
-        await InvKey(Key.H);
-        // Another panel takes the screen: it closes the pockets, and the pockets close the others.
-        await InvKey(Key.Tab);
-        await InvKey(Key.M);
-        Check(hud.MagicPanelOpen && !hud.PocketsPanelOpen, "M opens the Magic panel and the pockets go");
-        await InvKey(Key.Tab);
-        Check(hud.PocketsPanelOpen && !hud.MagicPanelOpen, "Tab from the Magic panel opens the pockets and the Magic panel goes");
-        await InvKey(Key.C);
-        Check(hud.SettingsOpen && !hud.PocketsPanelOpen, "C opens the settings and the pockets go");
-        await InvKey(Key.Tab);
-        Check(hud.PocketsPanelOpen && !hud.SettingsOpen, "Tab from the settings opens the pockets");
-        await InvKey(Key.Tab);
-        Check(!hud.PocketsPanelOpen && _iw.Player.InputEnabled, "(closed again)");
-
-        // A thing from the pockets set down before the player, through inventory.drop.
-        await InvKey(Key.Tab);
-        var revision = host.Revision;
-        drop = (Button)hud.PocketRows.Single().FindChild("Drop_obj_brick", true, false)!;
-        drop.EmitSignal(BaseButton.SignalName.Pressed);
-        await Frames(4);
-        Check(host.PocketEntries.Count == 0 && host.Revision >= revision + 2 && hud.NoticeText == "You set Brick down." && hud.PocketsFoot == "You set Brick down." &&
-              !hud.PocketRows.Any() && hud.PocketsCapsText == "0 of 1 thing" && hud.PocketsPanel.FindChildren("*", "Label", true, false).OfType<Label>().Any(l => l.Text == RoomHud.PocketsEmptyWords),
-            $"Drop sets the brick down before the player (the pose and the drop are two room changes): \"{hud.PocketsFoot}\", the caps \"{hud.PocketsCapsText}\", the empty panel says how to fill it");
-        await InvKey(Key.Tab);
-        // The shipped ten slots again.
-        host.UseRules(InventoryHudPack());
+        // The bar's pockets (PlayHudTest.Hotbar.cs): Tab, a key within the frame, the brick in the hand and back, Esc, F; then the shipped ten slots.
+        await InvBarThing();
 
         // Now the berries: "E: pick berries", one unit into the pockets, in the host's words.
         var (berries, berryStand) = InvApproach("plant:shrub-0", 0);
@@ -337,37 +274,30 @@ public partial class PlayHudTest
         Check(hud.Interaction.Kind == RoomHud.InteractKind.PickFood && hud.Interaction.Words == "E: pick up an apple", $"at the tree's foot: \"{hud.Interaction.Words}\"");
         await InvKey(Key.E);
         Check(InvUnits("apple") == 1 && hud.NoticeText == "You picked up an apple. In your pockets: 1 apple.", "E picks the apple up: " + hud.NoticeText);
+        // A second windfall, for the bar's count to fall by one.
+        Check(windfalls.Length == 3, "(the test pack's tree has three windfalls)");
+        var (third, thirdStand) = InvApproach("plant:broadleaf-0", windfalls[2]);
+        await InvFace(thirdStand, third);
+        await InvKey(Key.E);
+        Check(InvUnits("apple") == 2, "(a second apple: " + hud.NoticeText + ")");
 
-        // Eat: in Creative nothing heals, but the unit is used up (decision 125) and its sound plays.
-        await InvKey(Key.Tab);
-        Check(hud.PocketRows.Count() == 2 && hud.PocketsCapsText == "2 of 10 things", $"the panel lists the apple and the berries: {hud.PocketsCapsText}");
-        var appleRow = hud.PocketRows.First(r => r.Name == "Pocket_apple");
-        Check(((Label)appleRow.GetNode("Entry")).Text == "Apple ×1 · 0.02 kg · heals half a heart each", "an apple's line says what it heals: " + ((Label)appleRow.GetNode("Entry")).Text);
-        var sounds = 0;
-        host.FoodSound += _ => sounds++;
-        ((Button)appleRow.FindChild("Eat_apple", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
-        await Frames(2);
-        Check(hud.NoticeText == "Crunch! You ate an apple." && InvUnits("apple") == 0 && InvUnits("seed") == 1 && sounds == 1,
-            $"in Creative eating heals nothing but uses the apple up, leaving its seed (decisions 118 and 125): \"{hud.NoticeText}\"");
-        // The notice stands to the right of the open panel.
-        var card = hud.NoticeCard.GetGlobalRect();
-        Check(hud.NoticeShowing && card.Position.X >= panel.GetGlobalRect().End.X + 15, $"the notice card stands clear of the open panel ({card.Position.X:0} against {panel.GetGlobalRect().End.X:0})");
-        ((Button)hud.PocketRows.First(r => r.Name == "Pocket_berries").FindChild("Drop_berries", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
-        await Frames(2);
-        Check(hud.NoticeText == "You set Berries down." && InvUnits("berries") == 0 && host.LooseUnits.Count == 1 && host.LooseUnits[0].Kind == "berries",
-            "a unit of food set down lies loose before the player (decision 118): " + hud.NoticeText);
-        await InvKey(Key.Tab);
-        await Frames(2);
+        // The armed units, used from the bar (PlayHudTest.Hotbar.cs): a click and E, food eaten, a seed refused, a stone set down and picked up.
+        await InvBarUnits();
+        // A unit of food set down lies loose before the player (decision 118; the bar sets down logs and stones only, so the kernel's own drop of the
+        // selected slot here), and E picks it up again.
+        var berrySlot = host.PocketEntries.First(e => e.Item == "berries").Slot;
+        await InvKey(InvBarKey(berrySlot));
+        Check(host.PlayerDropSelected()["ok"]?.GetValue<bool>() == true && InvUnits("berries") == 0 && host.LooseUnits.Any(u => u.Kind == "berries"), "(the berries' unit set down loose, by the kernel's drop of the selected slot)");
+        await Frames(40);
         Check(hud.Interaction.Kind == RoomHud.InteractKind.PickFood && hud.Interaction.Words == "E: pick up berries", $"E faces the loose berries: \"{hud.Interaction.Words}\"");
         await InvKey(Key.E);
-        Check(InvUnits("berries") == 1 && host.LooseUnits.Count == 0 && hud.NoticeText == "You picked up berries. In your pockets: 1 berries.", "E picks them up again: " + hud.NoticeText);
-        await InvKey(Key.Tab);
-        // (Berries give a seed one time in three by the eating's id, the HUD's own: the kernel's food suite eats them. A harvest's hook, which
-        // farming will call, puts a second seed in the stack for the camp page's Store all.)
-        Check(host.FoodHarvested("plant:broadleaf-0") == 1 && InvUnits("seed") == 2 && hud.PocketRows.Count() == 2, "(a harvest's seed joins the stack: berries and two seeds)");
-        await InvKey(Key.Tab);
+        Check(InvUnits("berries") == 1 && !host.LooseUnits.Any(u => u.Kind == "berries") && hud.NoticeText == "You picked up berries. In your pockets: 1 berries.", "E picks them up again: " + hud.NoticeText);
+        // (Berries give a seed one time in three by the eating's id: the kernel's food suite counts those. A harvest's hook, which farming will
+        // call, puts one more seed in the stack.)
+        var seeds = InvUnits("seed");
+        Check(host.FoodHarvested("plant:broadleaf-0") == 1 && InvUnits("seed") == seeds + 1, "(a harvest's seed joins the stack)");
 
-        // Challenge has pockets of its own (empty): another windfall, picked there. Full hearts keep the unit; hurt, it heals at once.
+        // Challenge has pockets of its own (empty), and a hand of its own (never chosen: the magic layer down). Full hearts keep the unit; hurt, it heals at once.
         FreshBodies(host);
         Check(host.PlayerMode("challenge")["ok"]?.GetValue<bool>() == true && host.Mode == "challenge" && host.PocketEntries.Count == 0, "(Challenge: full hearts, pockets of its own, empty)");
         Check(windfalls.Length > 1, "(the tree has a second windfall)");
@@ -375,34 +305,45 @@ public partial class PlayHudTest
         await InvFace(apple2Stand, apple2);
         await InvKey(Key.E);
         Check(InvUnits("apple") == 1 && hud.NoticeText == "You picked up an apple. In your pockets: 1 apple.", "(a windfall picked in Challenge: " + hud.NoticeText + ")");
+        await Frames(8);
+        Check(host.HandNow.IsNone && hud.BarLayerShown == HandSelection.AbilitiesLayer, "Challenge's hand is its own, never chosen: the magic layer is down");
         await InvKey(Key.Tab);
-        appleRow = hud.PocketRows.First(r => r.Name == "Pocket_apple");
-        ((Button)appleRow.FindChild("Eat_apple", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
+        var appleSlot = host.PocketEntries.First(e => e.Item == "apple").Slot;
+        await InvKey(InvBarKey(appleSlot));
+        hud.PointerForTests = InvOffTheBar;
+        hud._UnhandledInput(LeftButton(true));
+        hud._UnhandledInput(LeftButton(false));
         await Frames(2);
-        Check(hud.NoticeText == "Your hearts are full: the Apple stays in your pockets." && InvUnits("apple") == 1 && hud.PocketsFoot == hud.NoticeText, "at full hearts the host's words, and the unit stays: " + hud.NoticeText);
+        Check(hud.NoticeText == "Your hearts are full: the Apple stays in your pockets." && InvUnits("apple") == 1, "a click on the armed apple at full hearts: the host's words, and the unit stays: " + hud.NoticeText);
         var quarters = host.BodyRules.Quarters(host.Vitals);
         host.ApplyPlayerDamage(20, PlayerDamageSource.Fire);
         var hurt = host.BodyRules.Quarters(host.Vitals);
-        appleRow = hud.PocketRows.First(r => r.Name == "Pocket_apple");
-        ((Button)appleRow.FindChild("Eat_apple", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
+        hud._UnhandledInput(LeftButton(true));
+        hud._UnhandledInput(LeftButton(false));
         await Frames(2);
         Check(hurt < quarters - 2 && host.BodyRules.Quarters(host.Vitals) == hurt + 2 && InvUnits("apple") == 0 && hud.NoticeText == "Crunch! You ate an apple: half a heart healed." &&
-              hud.PocketRows.Select(r => r.Name.ToString()).SequenceEqual(new[] { "Pocket_seed" }) && InvUnits("seed") == 1,
-            $"hurt, the apple heals half a heart at once and is used up, leaving its seed: \"{hud.NoticeText}\" ({hurt} to {host.BodyRules.Quarters(host.Vitals)} quarters)");
-        await InvKey(Key.Tab);
+              host.PocketEntries.Select(e => e.Item).SequenceEqual(new[] { "seed" }) && InvUnits("seed") == 1,
+            $"hurt, the click eats the apple and it heals half a heart at once, leaving its seed: \"{hud.NoticeText}\" ({hurt} to {host.BodyRules.Quarters(host.Vitals)} quarters)");
+        hud.PointerForTests = null;
         FreshBodies(host);
         host.PlayerMode("creative");
+        await Frames(8);
     }
 
     /// <summary>
-    /// What the inventory pass adds to a frame (E's prompt now asks the host about the chest, the pockets and food; the panel reads the pockets), against the
-    /// HUD packet's budget of 0.5 ms: walking about the tree and the shrub with notices coming, then standing by the food with the panel open.
+    /// What the inventory pass and the hotbar add to a frame (E's prompt asks the host about the chest, the pockets, food and the hand; the bar
+    /// reads the hand and the pockets at its pace and follows the pointer), against the HUD packet's budget of 0.5 ms: walking about the tree and
+    /// the shrub with notices coming and a unit armed on the bar, then the pointer moving over the bar, its caption following and the wheel
+    /// stepping the selection now and then.
     /// </summary>
     private async Task InvCost()
     {
         var hud = _ihud;
+        var bar = hud.Hotbar;
         var spots = new[] { InvApproach("plant:shrub-0", 0).Stand, InvApproach("plant:broadleaf-0", 0).Stand, InvAway, InvAtCamp, InvApproach("plant:shrub-0", 0).Stand + new Vector3(0.1f, 0, 0) };
         await InvStand(InvAtCamp);
+        if (hud.BarLayerShown != HandSelection.PocketsLayer) await InvKey(Key.Tab);
+        await InvKey(InvBarKey(_ih.PocketEntries.First().Slot));
         PromptCost.Reset();
         PromptCost.Measuring = true;
         for (var i = 0; i < 600; i++)
@@ -416,21 +357,28 @@ public partial class PlayHudTest
             await Frames(1);
         }
         var walking = (PromptCost.MeanMs, PromptCost.WorstMs, PromptCost.Frames, PromptCost.SamplesMs.OrderBy(m => m).ElementAt((int)(PromptCost.SamplesMs.Count * 0.99)));
-        GD.Print("PLAY_HUD_COST: the inventory pass's prompt, notice and pockets walking about the tree and the shrub, ms a frame: " +
+        var walkingBar = PromptCost.PieceMeanMs(PromptCost.Piece.Hotbar);
+        GD.Print("PLAY_HUD_COST: the inventory pass's prompt, notice and bar walking about the tree and the shrub with a unit armed, ms a frame: " +
                  string.Join(", ", Enum.GetValues<PromptCost.Piece>().Select(p => $"{p} {PromptCost.PieceMeanMs(p):0.0000}")) + $"; mean {walking.MeanMs:0.0000}, 99% under {walking.Item4:0.000}, worst {walking.WorstMs:0.000} over {walking.Frames} frames");
         await InvStand(InvApproach("plant:shrub-0", 0).Stand);
-        hud._UnhandledInput(Press(Key.Tab));
-        await Frames(4);
+        var writes = bar.Writes;
         PromptCost.Reset();
-        for (var i = 0; i < 300; i++) await Frames(1);
-        var open = (PromptCost.MeanMs, PromptCost.WorstMs, PromptCost.Frames, PromptCost.SamplesMs.OrderBy(m => m).ElementAt((int)(PromptCost.SamplesMs.Count * 0.99)));
+        for (var i = 0; i < 300; i++)
+        {
+            if (i % 25 == 0) hud.PointerForTests = bar.Placed.Row[i / 25 % Hotbar.Slots].GetCenter();
+            if (i % 75 == 40) hud._UnhandledInput(new InputEventMouseButton { ButtonIndex = MouseButton.WheelDown, Pressed = true });
+            await Frames(1);
+        }
+        var over = (PromptCost.MeanMs, PromptCost.WorstMs, PromptCost.Frames, PromptCost.SamplesMs.OrderBy(m => m).ElementAt((int)(PromptCost.SamplesMs.Count * 0.99)));
+        var overBar = PromptCost.PieceMeanMs(PromptCost.Piece.Hotbar);
         PromptCost.Measuring = false;
-        GD.Print("PLAY_HUD_COST: the pockets panel open, ms a frame: " + string.Join(", ", Enum.GetValues<PromptCost.Piece>().Select(p => $"{p} {PromptCost.PieceMeanMs(p):0.0000}")) +
-                 $"; mean {open.MeanMs:0.0000}, 99% under {open.Item4:0.000}, worst {open.WorstMs:0.000} over {open.Frames} frames, {PromptCost.AllocatedBytes / Math.Max(1, open.Frames)} bytes a frame");
-        Check(walking.Frames >= 550 && walking.MeanMs < 0.5 && walking.Item4 < 0.5 && open.Frames >= 280 && open.MeanMs < 0.5 && open.Item4 < 0.5,
-            $"the pass's additions cost {walking.MeanMs:0.000} ms a frame walking about the food and {open.MeanMs:0.000} ms with the panel open (99 in 100 under {walking.Item4:0.000} and {open.Item4:0.000} ms), against the HUD's budget of 0.5 ms");
-        hud._UnhandledInput(Press(Key.Tab));
-        await Frames(2);
+        hud.PointerForTests = null;
+        GD.Print("PLAY_HUD_COST: the pointer over the bar, its caption following, the wheel stepping it, ms a frame: " + string.Join(", ", Enum.GetValues<PromptCost.Piece>().Select(p => $"{p} {PromptCost.PieceMeanMs(p):0.0000}")) +
+                 $"; mean {over.MeanMs:0.0000}, 99% under {over.Item4:0.000}, worst {over.WorstMs:0.000} over {over.Frames} frames, {PromptCost.AllocatedBytes / Math.Max(1, over.Frames)} bytes a frame; the bar written {bar.Writes - writes} times");
+        Check(walking.Frames >= 550 && walking.MeanMs < 0.5 && walking.Item4 < 0.5 && over.Frames >= 280 && over.MeanMs < 0.5 && over.Item4 < 0.5,
+            $"the pass's additions cost {walking.MeanMs:0.000} ms a frame walking about the food and {over.MeanMs:0.000} ms with the pointer over the bar (99 in 100 under {walking.Item4:0.000} and {over.Item4:0.000} ms), against the HUD's budget of 0.5 ms");
+        Check(walkingBar < 0.1 && overBar < 0.1 && bar.Writes - writes <= 8,
+            $"the bar's own share is {walkingBar:0.0000} ms a frame walking and {overBar:0.0000} ms under the pointer, and it is written again only when it changes ({bar.Writes - writes} times in 300 frames with four wheel steps)");
     }
 
     // ---- the camp's Inventory page ----
@@ -441,8 +389,14 @@ public partial class PlayHudTest
         var hud = _ihud;
         var screen = hud.CampScreen;
         await InvStand(InvAtCamp);
-        Check(host.ChestEntries.Count == 3 && host.PocketEntries.Count == 2 && host.HeldBy(CommandHost.PlayerAvatar) == null,
-            "(the chest holds the cup, an apple and the doorstop; Creative's pockets berries and two seeds, the apple eaten; the hands are empty)");
+        var seeds = InvUnits("seed");
+        Check(host.ChestEntries.Count == 3 && host.PocketEntries.Select(e => e.Item).Order().SequenceEqual(new[] { "berries", "seed", "stone" }) && seeds >= 2 && host.HeldBy(CommandHost.PlayerAvatar) == null,
+            $"(the chest holds the cup, an apple and the doorstop; Creative's pockets berries, {seeds} seeds and a stone, the apple eaten; the hands are empty)");
+        // The bar's selection: the berries' slot chosen (a unit armed). At the camp E still sits you down first.
+        if (hud.BarLayerShown != HandSelection.PocketsLayer) await InvKey(Key.Tab);
+        var berrySlot = host.PocketEntries.First(e => e.Item == "berries").Slot;
+        var seedSlot = host.PocketEntries.First(e => e.Item == "seed").Slot;
+        await InvKey(InvBarKey(berrySlot));
         await InvKey(Key.E);
         Check(hud.Sitting && hud.CampOpen, "E sits the player at the fire and opens the camp");
         hud.CampTabs.CurrentTab = 4;
@@ -450,9 +404,11 @@ public partial class PlayHudTest
         var page = hud.CampPageText;
         Check(page.Contains("The chest\n3 of 20 things", StringComparison.Ordinal) && page.Contains("Cup · 0.05 kg", StringComparison.Ordinal) &&
               page.Contains("Apple ×1 · 0.02 kg · heals half a heart each", StringComparison.Ordinal) && page.Contains("Doorstop · 0.3 kg", StringComparison.Ordinal) &&
-              // The pockets in slot order (P-Inventory-2: the hotbar's): the berries were picked first.
-              page.Contains("Your pockets\n2 of 10 things\nBerries ×1 · 0.005 kg · heals a quarter of a heart each", StringComparison.Ordinal) && page.Contains("Seeds ×2 · 0.002 kg", StringComparison.Ordinal),
-            "the Inventory page lists the chest's entries with their masses and caps, and the pockets beside it: " + page.Replace("\n", " | "));
+              // The pockets in slot order (P-Inventory-2: the hotbar's), each with its slot on the bar, and the bar's selection (the hotbar packet).
+              page.Contains($"Your pockets\n3 of 10 things\nOn the bar: slot {berrySlot}, Berries ×1, one ready to use.\n", StringComparison.Ordinal) &&
+              page.Contains($"{berrySlot} · Berries ×1 · 0.005 kg · heals a quarter of a heart each · chosen", StringComparison.Ordinal) &&
+              page.Contains($"{seedSlot} · Seeds ×{seeds} · ", StringComparison.Ordinal) && !page.Contains($"{seedSlot} · Seeds ×{seeds} · {InventoryPages.Kg(seeds * 0.001)} kg · chosen", StringComparison.Ordinal),
+            "the Inventory page lists the chest's entries with their masses and caps, and the pockets beside it, by slot, with the bar's choice: " + page.Replace("\n", " | "));
         Check(page.Contains("The Gubble may not use the chest. You can let it in the settings (C).", StringComparison.Ordinal) && !screen.FindChildren("*", "CheckButton", true, false).Any(),
             "the Gubble's chest switch is read-only words here, off by default, with the setting in the settings and no switch on the page");
         var campRect = screen.GetGlobalRect();
@@ -481,15 +437,16 @@ public partial class PlayHudTest
         await Frames(3);
         Check(InvUnits("apple") == 1 && host.ChestEntries.All(e => e.Item != "apple") && hud.CampFoot == "Took 1 Apple into your pockets.", "Take puts the chest's apple into the pockets: " + hud.CampFoot);
         var lines = hud.CampPageText;
-        Check(lines.Contains("Your pockets\n3 of 10 things\nBerries ×1", StringComparison.Ordinal) && lines.IndexOf("Seeds ×2", lines.IndexOf("Your pockets", StringComparison.Ordinal), StringComparison.Ordinal) is var seeds &&
-              seeds > 0 && lines.IndexOf("Apple ×1", seeds, StringComparison.Ordinal) > seeds,
-            "and the pockets' lines follow, in slot order (the apple in the first free slot after the seeds): " + hud.CampPageText.Replace("\n", " | "));
+        var bySlot = host.PocketEntries.OrderBy(e => e.Slot).Select(e => lines.IndexOf($"\n{e.Slot} · {e.Name}", lines.IndexOf("Your pockets", StringComparison.Ordinal), StringComparison.Ordinal)).ToArray();
+        Check(lines.Contains("Your pockets\n4 of 10 things", StringComparison.Ordinal) && bySlot.Length == 4 && bySlot.All(i => i > 0) && bySlot.SequenceEqual(bySlot.Order()) &&
+              host.PocketEntries.First(e => e.Item == "apple").Slot == Enumerable.Range(1, 10).First(n => host.PocketEntries.All(e => e.Item == "apple" || e.Slot != n)),
+            "and the pockets' lines follow, in slot order, the apple in the first free slot: " + hud.CampPageText.Replace("\n", " | "));
         // Store from the pockets: all of a stack, or one.
         var storeAll = screen.FindChild("inv|store|seed|chest|all", true, false) as Button;
         Check(storeAll != null && screen.FindChild("inv|store|berries|chest|all", true, false) == null, "a stack of several has Store all, a single unit does not");
         storeAll!.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(3);
-        Check(InvUnits("seed") == 0 && host.ChestEntries.Any(e => e.Item == "seed" && e.Count == 2) && hud.CampFoot == "Stored 2 Seeds in the chest.", "Store all puts both seeds in the chest: " + hud.CampFoot);
+        Check(InvUnits("seed") == 0 && host.ChestEntries.Any(e => e.Item == "seed" && e.Count == seeds) && hud.CampFoot == $"Stored {seeds} Seeds in the chest.", "Store all puts every seed in the chest: " + hud.CampFoot);
         screen.FindChild("inv|store|berries|chest|1", true, false)!.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(3);
         Check(InvUnits("berries") == 0 && host.ChestEntries.Any(e => e.Item == "berries") && hud.CampFoot == "Stored 1 Berries in the chest.", "and Store puts the berries away: " + hud.CampFoot);
