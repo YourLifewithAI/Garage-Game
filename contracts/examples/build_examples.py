@@ -1491,8 +1491,18 @@ def food_round(at: str) -> dict:
 
 def round_three(at: str) -> dict:
     """The founder's third round (MECHANICS.md decisions 129 to 135): the Gubble's repair that spends logs or stones goes through without
-    asking, its receipt saying what it spent (data.spent, by kind; decision 131)."""
+    asking, its receipt saying what it spent (data.spent, by kind; decision 131); Grow's receipts count what ripened (ripened_plants,
+    decision 133): a cast at an orchard's cap that only ripens, previewed and committed."""
+    orchard = {"capability": "grow", "center_m": [0.9, 0.0, 1.1], "radius_m": 0.6, "duration_s": 1}
     return {
+        "command_grow_ripens_an_orchard_preview": command("nature.cast", "grow-0010", orchard, preview=True),
+        "result_grow_ripens_an_orchard_preview": {**result("nature.cast", "grow-0010", "companion:local", 15, at), "preview": True,
+                                                  "data": {**placed(orchard), "cell_count": 0, "cells": [], "cells_truncated": False,
+                                                           "grown_plants": 0, "ripened_plants": 3, "requires_approval": False}},
+        "command_grow_ripens_an_orchard": command("nature.cast", "grow-0010", orchard),
+        "result_grow_ripens_an_orchard": result("nature.cast", "grow-0010", "companion:local", 16, at, transient=False,
+                                                data={**placed(orchard), "cell_count": 0, "requires_approval": False, "started_cells": 0,
+                                                      "grown_plants": 0, "ripened_plants": 3}),
         "command_gubble_repairs_its_scorched_shed": command("nature.repair", "repair-0010", {"target": "creation:00000003"}),
         "result_gubble_repairs_its_scorched_shed": result("nature.repair", "repair-0010", "companion:local", 15, at, transient=False,
                                                           affected=["creation:00000003"],
@@ -1504,7 +1514,9 @@ def round_three_refused(at: str) -> dict:
     """What the third round's messages refuse, each for one reason (EXPECTED_FAILURES)."""
     valid = round_three(at)
     repaired = valid["result_gubble_repairs_its_scorched_shed"]
+    ripened = valid["result_grow_ripens_an_orchard"]
     return {
+        "result_grow_ripened_fewer_than_none": {**ripened, "data": {**ripened["data"], "ripened_plants": -1}},
         "result_repair_spent_nothing": {**repaired, "data": {**repaired["data"], "spent": {}}},
         "result_repair_spent_none_of_a_kind": {**repaired, "data": {**repaired["data"], "spent": {"log": 0}}},
     }

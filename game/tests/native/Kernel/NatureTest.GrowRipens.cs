@@ -48,24 +48,24 @@ public partial class NatureTest
         FullPool();
         var pips = _host.Vitals.Pips;
         var first = GrowTree(Player);
-        Check(Ok(first) && Grown(first) == 1 && Factor(Tree) > 1 && Factor(Tree) < cap - 1e-3f && _host.FoodLeft(Tree).Count == unripe && _host.Nature.Food.ContainsKey(Tree) &&
+        Check(Ok(first) && Grown(first) == 1 && Ripened(first) == 0 && Factor(Tree) > 1 && Factor(Tree) < cap - 1e-3f && _host.FoodLeft(Tree).Count == unripe && _host.Nature.Food.ContainsKey(Tree) &&
               pips - _host.Vitals.Pips == 4,
             $"a cast on a plant below its cap grows it ({Factor(Tree):0.000}) and does not ripen its food ({_host.FoodLeft(Tree).Count} of {spots} left), at Grow's price: " +
             Canonical(first["error"] ?? first["data"]));
         var second = GrowTree(Player);
-        Check(Ok(second) && Grown(second) == 1 && Math.Abs(Factor(Tree) - cap) < 1e-4f && _host.FoodLeft(Tree).Count == unripe,
+        Check(Ok(second) && Grown(second) == 1 && Ripened(second) == 0 && Math.Abs(Factor(Tree) - cap) < 1e-4f && _host.FoodLeft(Tree).Count == unripe,
             $"the cast that brings it to its cap ({Factor(Tree):0.000}) grows it and still does not ripen its food ({_host.FoodLeft(Tree).Count} of {spots})");
         // At its cap: what a cast would do, changing nothing.
         var revision = _host.Revision;
         FullPool();
         pips = _host.Vitals.Pips;
         var preview = GrowTree(Player, preview: true);
-        Check(Ok(preview) && Grown(preview) == 0 && _host.FoodLeft(Tree).Count == unripe && _host.Revision == revision && _host.Vitals.Pips == pips,
-            "at its cap with food unripe a preview says the cast goes (nothing grows) and changes nothing: " + Canonical(preview["error"] ?? preview["data"]));
+        Check(Ok(preview) && Grown(preview) == 0 && Ripened(preview) == 1 && _host.FoodLeft(Tree).Count == unripe && _host.Revision == revision && _host.Vitals.Pips == pips,
+            "at its cap with food unripe a preview says the cast goes (nothing grows, one plant would ripen: ripened_plants) and changes nothing: " + Canonical(preview["error"] ?? preview["data"]));
         var third = GrowTree(Player);
-        Check(Ok(third) && Grown(third) == 0 && _host.FoodLeft(Tree).Count == spots && !_host.Nature.Food.ContainsKey(Tree) && Math.Abs(Factor(Tree) - cap) < 1e-4f &&
+        Check(Ok(third) && Grown(third) == 0 && Ripened(third) == 1 && _host.FoodLeft(Tree).Count == spots && !_host.Nature.Food.ContainsKey(Tree) && Math.Abs(Factor(Tree) - cap) < 1e-4f &&
               _host.Revision == revision + 1 && pips - _host.Vitals.Pips == 4,
-            $"a cast on a plant at its cap ripens its food ({_host.FoodLeft(Tree).Count} of {spots}), grows nothing and is charged as any Grow (4 pips, " +
+            $"a cast on a plant at its cap ripens its food ({_host.FoodLeft(Tree).Count} of {spots}), grows nothing (its receipt counts one ripened, decision 133) and is charged as any Grow (4 pips, " +
             $"{pips} to {_host.Vitals.Pips}), one room revision: " + Canonical(third["error"] ?? third["data"]));
         // At its cap with its food ripe: refused as before, before the price.
         pips = _host.Vitals.Pips;
@@ -77,7 +77,7 @@ public partial class NatureTest
         FullPool();
         pips = _host.Vitals.Pips;
         var gubble = GrowTree(Companion);
-        Check(Ok(gubble) && Grown(gubble) == 0 && _host.FoodLeft(Tree).Count == spots && pips - _host.Vitals.Pips == 2,
+        Check(Ok(gubble) && Grown(gubble) == 0 && Ripened(gubble) == 1 && _host.FoodLeft(Tree).Count == spots && pips - _host.Vitals.Pips == 2,
             $"the Gubble's own Grow at the cap ripens the food at its own price (2 pips, {pips} to {_host.Vitals.Pips}): " + Canonical(gubble["error"] ?? gubble["data"]));
         // Picked a day and more ago: everything has grown back, so there is nothing to ripen, and the cast is refused as before.
         PickedAt(Tree, _now - TimeSpan.FromHours(25));
@@ -85,7 +85,15 @@ public partial class NatureTest
         var grownBack = GrowTree(Player);
         Check(Code(grownBack) == "invalid_args" && Message(grownBack) == "Every plant there is already full size." && _host.Revision == revision && _host.FoodLeft(Tree).Count == spots,
             "with what was picked grown back there is nothing to ripen: refused as before: " + Message(grownBack));
+        // Room state carries the ripening's receipt (ripened_plants, decision 133): a room rebuilt from it keeps the receipt.
+        var exported = _host.ExportRoomState()!;
+        var kept = exported["receipts"]!.AsObject().Select(p => p.Value!["result"]!).Count(r => r["op"]?.GetValue<string>() == "nature.cast" && r["data"]?["ripened_plants"]?.GetValue<int>() == 1);
         _host.Nature.Food.Remove(Tree);
+        await NewWorld(SavePath("grow-ripens-rebuilt"), afterRules: () => _host.UseRules(EveryPlantBears()));
+        var rebuilt = _host.ImportRoomState((JsonObject)exported.DeepClone());
+        Check(kept == 2 && rebuilt.Ok, $"room state keeps the ripenings' receipts ({kept}, each ripened_plants 1), and a room rebuilt from it loads them: " + rebuilt.Message);
         await FreeWorld();
     }
+
+    private static int Ripened(JsonObject result) => result["data"]?["ripened_plants"]?.GetValue<int>() ?? -1;
 }

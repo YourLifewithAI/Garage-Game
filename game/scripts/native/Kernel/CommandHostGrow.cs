@@ -143,7 +143,8 @@ public partial class CommandHost
     /// fertile spots (CastSprouts), else the wall's or the burnt ground's lock, each refused permission_denied before its count. A cast
     /// where nothing at all can grow or ripen (no plant, all full size with their food ripe or still growing, the island's grown plants at
     /// their most) is refused before the price, with the reason. It takes no ground cell, so its cell counts are 0; grown_plants says how
-    /// many grew (0 for a cast that only ripened or greened). One room revision, which room.undo takes back in Creative (a ripening is
+    /// many grew (0 for a cast that only ripened or greened), ripened_plants how many ripened (decision 133: 0 when none did, and for every
+    /// unlock and the waterpad). One room revision, which room.undo takes back in Creative (a ripening is
     /// not undone: the food's record keeps no undo step, as a pick's does not). What it showed teaches Grow's expertise, once per team
     /// (RecordGrowCast).
     /// </summary>
@@ -203,6 +204,8 @@ public partial class CommandHost
         {
             ["center_m"] = KernelJson.Vector(cast.Center), ["radius_m"] = KernelJson.Num(cast.Radius), ["duration_s"] = KernelJson.Num(cast.Duration),
             ["cell_count"] = 0, ["cells"] = new JsonArray(), ["cells_truncated"] = false, ["grown_plants"] = kept.Count, ["requires_approval"] = keyed,
+            // Decision 133: what ripened, counted on the receipt (and the preview: what would), as grown_plants counts what grew.
+            ["ripened_plants"] = ripening.Count,
         };
         if (preview) return NaturePreviewed("nature.cast", principal, action, data, Array.Empty<string>());
         if (keyed && approvedBy == null) return Hold(root, principal, action, fingerprint, "nature.cast", "The Gubble asks to grow the plants in this area.", new(), bindRevision: true);
@@ -323,7 +326,7 @@ public partial class CommandHost
         var data = new JsonObject
         {
             ["center_m"] = KernelJson.Vector(cast.Center), ["radius_m"] = KernelJson.Num(cast.Radius), ["duration_s"] = KernelJson.Num(cast.Duration),
-            ["cell_count"] = 0, ["cells"] = new JsonArray(), ["cells_truncated"] = false, ["grown_plants"] = 1, ["requires_approval"] = keyed,
+            ["cell_count"] = 0, ["cells"] = new JsonArray(), ["cells_truncated"] = false, ["grown_plants"] = 1, ["ripened_plants"] = 0, ["requires_approval"] = keyed,
         };
         if (preview) return NaturePreviewed("nature.cast", principal, action, data, Array.Empty<string>());
         if (keyed && approvedBy == null) return Hold(root, principal, action, fingerprint, "nature.cast", "The Gubble asks to grow a water lily leaf here.", new(), bindRevision: true);

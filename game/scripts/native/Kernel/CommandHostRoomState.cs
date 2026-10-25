@@ -379,7 +379,8 @@ public partial class CommandHost
         if (node is not JsonObject data) return true;
         var fields = op switch
         {
-            "nature.cast" => new[] { "center_m", "radius_m", "duration_s", "cell_count", "requires_approval", "started_cells", "max_burning_cells", "grown_plants", "kind", "end_m" },
+            // Decision 133: a Grow's receipt counts what ripened too (ripened_plants).
+            "nature.cast" => new[] { "center_m", "radius_m", "duration_s", "cell_count", "requires_approval", "started_cells", "max_burning_cells", "grown_plants", "ripened_plants", "kind", "end_m" },
             "nature.trail" => new[] { "enabled", "requires_approval" },
             // Decision 131: a paid repair's receipt says what it spent, by kind (validated as its cost is, below).
             "nature.repair" => new[] { "cost", "spent" },
@@ -399,7 +400,7 @@ public partial class CommandHost
                 "duration_s" => Number(value, 600) && value!.GetValue<double>() > 0,
                 "cell_count" or "started_cells" or "max_burning_cells" => Whole(value, NatureState.MaxCells),
                 "undone_steps" => Whole(value, NatureState.MaxUndoSteps),
-                "grown_plants" => Whole(value, NatureState.MaxGrownPlants),
+                "grown_plants" or "ripened_plants" => Whole(value, NatureState.MaxGrownPlants),
                 "requires_approval" or "enabled" => Bool(value),
                 "undone" => Text(value, 200),
                 _ => value is JsonObject cost && cost.Count <= NatureState.MaxWalletKinds &&

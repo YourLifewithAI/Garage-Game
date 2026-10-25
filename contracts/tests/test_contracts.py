@@ -175,6 +175,7 @@ EXPECTED_FAILURES = {
     "result_notice_of_another_kind": "'fire_hurt_gubble' is not one of ['fire_hurt_player']",
     # The third round (decisions 129 to 135): a repair's spend names at least one kind, each with a unit or more.
     "result_repair_spent_nothing": "should be non-empty",
+    "result_grow_ripened_fewer_than_none": "-1 is less than the minimum of 0",
     "result_repair_spent_none_of_a_kind": "0 is less than the minimum of 1",
     "result_notice_past_full_health": "721 is greater than the maximum of 720",
     "result_notice_in_someones_words": "('message' was unexpected)",

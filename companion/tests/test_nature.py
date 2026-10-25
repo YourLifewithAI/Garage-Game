@@ -387,9 +387,10 @@ class Grow(NatureCase):
         host.add_plant("plant:rock-0", [0.5, 0.0, 1.0], 0.2, "none", "stone")
         here = self.grow(IN_THE_OPEN)
         preview = self.send(COMPANION, "nature.cast", here, preview=True)
-        self.assertEqual((preview["data"]["grown_plants"], host.plant_factor("plant:daisies-0")), (2, 1.0))
+        self.assertEqual((preview["data"]["grown_plants"], preview["data"]["ripened_plants"], host.plant_factor("plant:daisies-0")), (2, 0, 1.0))
         first = self.send(COMPANION, "nature.cast", here)
-        self.assertEqual((refusal(first), first["data"]["grown_plants"], first["transient"]), ("ok", 2, False))
+        # Decision 133: Grow's receipts count what ripened as well (the box world's plants bear no food: 0, as the kernel says for none).
+        self.assertEqual((refusal(first), first["data"]["grown_plants"], first["data"]["ripened_plants"], first["transient"]), ("ok", 2, 0, False))
         self.assertEqual([host.plant_factor(p) for p in ("plant:daisies-0", "plant:oak-0", "plant:rock-0")], [1.25, 1.25, 1.0])
         self.send(COMPANION, "nature.cast", here)
         self.assertEqual(host.plant_factor("plant:oak-0"), 1.4, "a tree grows at most 0.4 m taller")
@@ -486,7 +487,8 @@ class GrowUnlocks(NatureCase):
         preview = self.send(PLAYER, "nature.cast", here, preview=True)
         self.assertEqual((preview["data"]["kind"], preview["data"]["grown_plants"], host.sprouts), (m.KIND_SPROUTS, 12, []))
         sprouted = self.send(PLAYER, "nature.cast", here)
-        self.assertEqual((refusal(sprouted), sprouted["data"]["kind"], sprouted["data"]["grown_plants"], len(host.sprouts)), ("ok", m.KIND_SPROUTS, 12, 12))
+        self.assertEqual((refusal(sprouted), sprouted["data"]["kind"], sprouted["data"]["grown_plants"], sprouted["data"]["ripened_plants"], len(host.sprouts)),
+                         ("ok", m.KIND_SPROUTS, 12, 0, 12))
         self.assertEqual({s.template for s in host.sprouts} <= {"plant:grass-0", "plant:daisies-0"}, True, "never a tree")
         self.assertTrue(all(s.factor == 0.5 for s in host.sprouts))
         casts = [12]

@@ -1174,7 +1174,8 @@ class NatureMixin:
         else every plant rooted in the circle that is not at its cap and no seedling still growing grows the pack's share of its natural
         size (twice while it rains), the ash there greens; where that finds nothing, sprouts on bare fertile ground, once open; each
         lock and every other "nothing to grow" refused before the price, in the kernel's order and words. The box world's plants bear
-        no food, so never the kernel's cast that only ripens a plant at its cap (decision 127)."""
+        no food, so never the kernel's cast that only ripens a plant at its cap (decision 127): its receipts count ripened_plants 0
+        (decision 133)."""
         center, radius = cast["center"], cast["radius"]
         if "end_m" in message["args"]:
             return self._cast_bridge(principal, message, apply, new_revision, ability, cast, preview,
@@ -1222,7 +1223,7 @@ class NatureMixin:
             raise HostError("invalid_args", GROW_TOO_MANY.format(most=MAX_GROWN_PLANTS), field_path="$.args.center_m")
         keyed = not principal.startswith("player:") and ability.tier == "keyed_yes"
         data = {"center_m": center, "radius_m": radius, "duration_s": cast["duration"], "cell_count": 0, "cells": [],
-                "cells_truncated": False, "grown_plants": len(kept), "requires_approval": keyed}
+                "cells_truncated": False, "grown_plants": len(kept), "ripened_plants": 0, "requires_approval": keyed}
         if preview:
             return {"data": data}
         if keyed and not self._approving:
@@ -1283,7 +1284,7 @@ class NatureMixin:
         kernel's CommitGrowKind)."""
         keyed = not principal.startswith("player:") and ability.tier == "keyed_yes"
         data = {"center_m": cast["center"], "radius_m": cast["radius"], "duration_s": cast["duration"], "cell_count": 0, "cells": [],
-                "cells_truncated": False, "grown_plants": grown, "requires_approval": keyed, "kind": kind, **(extra or {})}
+                "cells_truncated": False, "grown_plants": grown, "ripened_plants": 0, "requires_approval": keyed, "kind": kind, **(extra or {})}
         if preview:
             return {"data": data}
         if keyed and not self._approving:

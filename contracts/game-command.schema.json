@@ -5488,6 +5488,12 @@
               "minimum": 0,
               "maximum": 4096
             },
+            "ripened_plants": {
+              "description": "Grow, since P-Round3 (decision 133): the plants whose unripe food the cast ripened (plants already at their cap with food picked and not grown back, decision 127); 0 when nothing ripened, and for a waterpad and every unlock (sprouts, replant, bridge, ivy). A plant the cast grew never ripens in the same cast, so a plant is counted in grown_plants or here, never both. Both hosts write it on every Grow; absent for Fire and on receipts from before P-Round3.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4096
+            },
             "kind": {
               "description": "What the place made of the cast. Fire (decision 77): firepit, fireline, snuff or will_o_wisp; absent, plain Fire (today a Fireline's durable receipt keeps the plain shape too). Grow's unlocks (decisions 104 to 107): sprouts (seedlings on bare fertile soil, grown_plants of them), replant (one burnt plant back as a seedling), bridge (a deck from lip to lip) or ivy (a strip up a wall); absent, plain Grow or a waterpad.",
               "enum": [
@@ -5575,6 +5581,12 @@
           },
           "grown_plants": {
             "description": "Grow: the plants rooted in the circle that would grow (none at their cap; 0 for a cast that would only ripen the food on plants at their cap, decision 127), as the requester's team sees the place; 1 for a water lily leaf on water (a waterpad); the sprouts that would sprout; 1 for a plant replanted, a bridge or an ivy strip. Absent for Fire.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4096
+          },
+          "ripened_plants": {
+            "description": "Grow, since P-Round3 (decision 133): the plants whose unripe food the cast would ripen (at their cap, decision 127); 0 when none would, and for a waterpad and every unlock. Absent for Fire.",
             "type": "integer",
             "minimum": 0,
             "maximum": 4096
