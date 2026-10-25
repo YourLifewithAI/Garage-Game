@@ -366,6 +366,16 @@ Multiplayer is a later phase and out of scope for the engine work now.
 127. **Grow grows first, then ripens.** A cast on a plant below its size cap grows it (a quarter bigger per cast, up to twice the natural size or 0.4 m taller, decisions 52 and 67) and does not ripen its food; a cast on a plant at the cap ripens its unripe food and is charged; with nothing to grow and nothing to ripen it is refused as before.
 128. **The ability wheel gives way to the hotbar:** abilities always visible on the bar, selected without stopping; the wheel's hold stays as a fallback for one round, the smart ask's tap stays.
 
+**The founder's answers of 25 October, third round (to the hotbar's, the inventory rework's and the nature rulings' questions):**
+
+129. **Switching the bar's layers never touches what the hands carry:** Tab to the magic layer with a thing in hand keeps it there; casting with full hands is allowed. Only choosing a different pocket slot returns a hand-held unique thing to its slot.
+130. **F drops a food unit** as it drops a thing; the bar sets down logs and stones and E uses a unit as built. A click never casts the armed ability (kept for now). After gathering a log its slot is chosen, so E again sets it down (wanted). The H help opens above the bar, leaving it visible. No ghost-before-cast for any ability.
+131. **The Gubble repairs without asking** when a repair spends logs or stones, and the spend is made visible: an icon above the thing being repaired shows the resources consumed.
+132. **A seed that does not fit the pockets drops loose** at the player's feet rather than being lost.
+133. **Grow's receipts count what ripened** (`ripened_plants`, a contract round), so the journal, the playtest reader and the Gubble can read an orchard.
+134. **The Gubble hears its consequences:** when a consequence fact is written about the companion's own action, the host sends the companion a notice in the game's words (a new notice kind; untrusted text as every name and sign). Paying twice for size and ripening stays; letting the player choose size or ripening is Grow's next step (a Ripen slot on the magic layer once there is room).
+135. **Confirmed as built:** choosing another slot puts what the hands carry into the pockets only when a pocket slot is chosen; a thing in the hand is not saved as held; the berries' seed varies by session; a pick while a plant regrows keeps the clock's phase; seedlings' daylight is a fixed 06:00 to 18:00; Creative's undo does not take back a ripening.
+
 **Still open for the founder** (with the recommendation this document carries; the letter is the one the build plan uses):
 
 - F. **Competitive balance** (the brief's two options): a sealed profile with knowledge as the only carry-over is the recommendation (section 9). Live is later, so no packet waits on it.
