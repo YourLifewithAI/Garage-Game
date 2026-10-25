@@ -13,7 +13,8 @@ namespace GarageGame.Native.Kernel;
 /// makes up to GrowKindLaws.SproutsPerCast sprouts in its circle, on a lattice fixed to the island (so the same cast in the same place
 /// makes the same sprouts, and a second cast fills only the spots left), each at least 0.15 m from every plant, on fertile ground
 /// (grass or soil) as moist as Bloom's flowers needed. Each copies one of the nearest grass and flower sets (its nearest copy's size and
-/// tint, the set chosen by a hash of the spot), and is a seedling at half size growing through its phases on the island clock. The
+/// tint, the set chosen by a hash of the spot), and is a seedling at half size growing through its phases of the island clock's daylight
+/// (decision 122: the cast never fails for light; the seed locks its spot at any hour, and a night cast grows from sunrise). The
 /// island keeps at most NatureState.MaxSprouts. They have no collision, burn as plants (a burnt one is gone, leaving ash), are saved in
 /// the nature block and undone in Creative; SproutView draws them.
 /// </summary>

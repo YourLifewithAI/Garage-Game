@@ -12,7 +12,7 @@ namespace GarageGame.Native.Kernel;
 /// Replanting (decision 105, opened with seedless growth at two Grow expertise; decision 67's "unless replanted"): Grow on burnt ground
 /// returns one plant, the nearest burnt plant record to the cast (a clump of flowers, a tree, a single plant: one record) of a set that
 /// sets seed, as a seedling: its burn cleared in Nature.Plants (the manifest untouched), half its natural size, growing through its
-/// phases on the island clock as a sprout does. A tree comes back with its trunk, pole and perches at its size, so it is climbed again.
+/// phases of the island clock's daylight as a sprout does (decision 122: a night cast grows from sunrise). A tree comes back with its trunk, pole and perches at its size, so it is climbed again.
 /// The ash in the circle greens at once, as Green ash does (decision 75). A plant with collision (a tree, a solid one) is not replanted
 /// while an avatar stands where it would grow: no cast moves an avatar.
 /// </summary>

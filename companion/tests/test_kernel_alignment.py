@@ -420,6 +420,7 @@ class NatureMatchesTheKernel(unittest.TestCase):
             # Grow's unlocks (decisions 76 and 104 to 107).
             "SEEDLESS_AT": (unlocks, "SeedlessAt"), "BRIDGE_AT": (unlocks, "BridgeAt"), "IVY_AT": (unlocks, "IvyAt"),
             "SEEDLING_START": (unlocks, "SeedlingStart"), "SEEDLING_PHASES": (unlocks, "SeedlingPhases"), "SEEDLING_PHASE_H": (unlocks, "SeedlingPhaseH"),
+            "DAYLIGHT_FROM": (unlocks, "DaylightFrom"), "DAYLIGHT_UNTIL": (unlocks, "DaylightUntil"),
             "SPROUTS_PER_CAST": (unlocks, "SproutsPerCast"), "SPROUT_APART_M": (unlocks, "SproutApartM"), "SPROUT_LATTICE_M": (unlocks, "SproutLatticeM"),
             "SPROUT_JITTER_M": (unlocks, "SproutJitterM"), "SPROUT_SETS_MIXED": (unlocks, "SproutSetsMixed"), "SPROUT_SET_SEARCH_M": (unlocks, "SproutSetSearchM"),
             "MAX_SPROUTS": (state, "MaxSprouts"), "MAX_BRIDGES": (state, "MaxBridges"),
