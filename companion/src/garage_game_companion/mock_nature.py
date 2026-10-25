@@ -569,6 +569,12 @@ class NatureMixin:
             parts.append(f"{units} {word}")
         return "nothing" if not parts else parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
 
+    def _repair_spent(self, cost: dict[str, int]) -> dict[str, int]:
+        """The kernel's RepairBill.Spent as data.spent (decision 131): each material's units by the pack's kind whose material it is."""
+        kinds = list((self.rules.inventory or {}).get("kinds", [])) if self.rules is not None else []
+        by_material = {kind["material"]: kind["id"] for kind in kinds if "material" in kind}
+        return {by_material[material]: units for material, units in sorted(cost.items()) if units > 0 and material in by_material}
+
     def _nature_untouched(self) -> bool:
         return (not self.burn_records and not self.plant_state and not self.sprouts and not self.bridges and self.fire is None and not self.undo_steps and self.undone_at < 0
                 and self.nature_changed_at == 0)
@@ -1835,8 +1841,14 @@ class NatureMixin:
         if not free and any(self.wallet.get(material, 0) < units for material, units in record.repair_cost.items()):
             raise HostError("invalid_args", REPAIR_NO_MATERIALS.format(needs=self._repair_needs(record.repair_cost)), field_path="$.args.target")
         data = {"cost": {} if free else dict(sorted(record.repair_cost.items()))}
+        # Decision 131: what a paid repair spends, by kind, on its receipt (the preview's too: what it would spend), whoever repairs.
+        spent = {} if free else self._repair_spent(record.repair_cost)
+        if spent:
+            data["spent"] = spent
         if message.get("preview") is True:
             return {"affected": [target], "data": data}
+        # The Gubble's repair of a build the player made waits for the yes, as every change of what the player made does; a spend alone
+        # never asks (decision 131: the Gubble repairs without asking when a repair spends logs or stones, and the spend is shown).
         if not principal.startswith("player:") and entity.created_by == _PLAYER and not self._approving:
             return {"_ask": {"reason": REPAIR_HOLD.format(target=target), "touched": {target: entity.revision}, "bind_revision": True},
                     "affected": [target], "data": data}

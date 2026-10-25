@@ -241,9 +241,29 @@ class Builds(NatureCase):
         self.assertEqual(refusal(self.send(PLAYER, "nature.repair", {"target": tower})),
                          ("invalid_args", "$.args.target", "This repair needs 1 log, more than your pockets and the chest hold."))
         self.host.wallet["wood"] = 1  # a log gathered, as the kernel's pockets would hold it
-        self.assertEqual(self.send(PLAYER, "nature.repair", {"target": tower}, preview=True)["data"], {"cost": {"wood": 1}})
-        self.assertTrue(self.send(PLAYER, "nature.repair", {"target": tower})["ok"])
+        self.assertEqual(self.send(PLAYER, "nature.repair", {"target": tower}, preview=True)["data"], {"cost": {"wood": 1}, "spent": {"log": 1}})
+        repaired = self.send(PLAYER, "nature.repair", {"target": tower})
+        self.assertEqual((repaired["ok"], repaired["data"]), (True, {"cost": {"wood": 1}, "spent": {"log": 1}}), "the receipt says what it spent (decision 131)")
         self.assertEqual(self.ask(PLAYER, "nature.describe")["data"]["wallet"]["wood"], 0)
+
+    def test_the_gubble_repairs_its_own_build_without_asking_and_says_what_it_spent(self):
+        """Decision 131: the Gubble's repair that spends logs or stones no longer waits for the player's yes (a build the player made
+        still does, as every change of it); refused in the kernel's words when the stacks cannot pay; its receipt carries data.spent."""
+        self.host.learn_fire()
+        self.assertTrue(self.send(PLAYER, "world.set_mode", {"mode": "challenge"})["ok"])
+        built = self.send(COMPANION, "creation.place", {"source": block("Shed"), "placement": {"position_m": [0.6, 0.0, 1.2]}})
+        self.assertTrue(built["ok"], built.get("error"))
+        shed = built["created"][0]
+        self.assertTrue(self.light(COMPANION, self.fire(IN_THE_OPEN, duration=3))["ok"])
+        self.later(5)
+        self.assertEqual(self.ask(PLAYER, "nature.describe")["data"]["scorched"], [shed])
+        self.assertEqual(refusal(self.send(COMPANION, "nature.repair", {"target": shed})),
+                         ("invalid_args", "$.args.target", "This repair needs 1 log, more than your pockets and the chest hold."))
+        self.host.wallet["wood"] = 1  # a log gathered
+        repaired = self.send(COMPANION, "nature.repair", {"target": shed})
+        self.assertEqual((refusal(repaired), repaired["data"], "approved_by" in repaired, self.host.pending_approvals()),
+                         ("ok", {"cost": {"wood": 1}, "spent": {"log": 1}}, False, []), "repaired at once, with no ask, the spend on the receipt")
+        self.assertEqual((self.ask(PLAYER, "nature.describe")["data"]["scorched"], self.host.wallet["wood"]), ([], 0))
 
 
 class TheGubblesFire(NatureCase):

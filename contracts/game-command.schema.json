@@ -4007,7 +4007,7 @@
         ]
       },
       "nature.repair": {
-        "description": "Repair one scorched creation from its hash-pinned design, at its original material cost (free in Creative), paid in logs and stones (P-Inventory-2, decision 116): a unit of the rules pack's kind whose material each is per unit of cost, from the pockets first, then the chest; invalid_args, in the kernel's words, when they hold too few (\"This repair needs 2 logs and 1 stone, more than your pockets and the chest hold.\") or no kind is made of a material. The Gubble's repair waits for the player's yes when the creation is the player's, or when it would spend anything (the logs and stones are the player's). Durable.",
+        "description": "Repair one scorched creation from its hash-pinned design, at its original material cost (free in Creative), paid in logs and stones (P-Inventory-2, decision 116): a unit of the rules pack's kind whose material each is per unit of cost, from the pockets first, then the chest; invalid_args, in the kernel's words, when they hold too few (\"This repair needs 2 logs and 1 stone, more than your pockets and the chest hold.\") or no kind is made of a material. The Gubble's repair of a creation the player made waits for the player's yes, as every change of what the player made does; since P-Round3 (decision 131) a spend no longer asks: the Gubble repairs without asking when a repair spends logs or stones, charged from the pockets first, then the chest, as the player's repair is (refused in the kernel's words when they hold too few), and the spend is made visible (data.spent; the game shows it above the thing repaired). Durable.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -5727,6 +5727,20 @@
             "type": "object",
             "propertyNames": {
               "$ref": "#/$defs/creation_material"
+            },
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          },
+          "spent": {
+            "description": "Since P-Round3 (decision 131): what a paid repair spent (a preview: would spend), by the rules pack's inventory kind (log, stone) and its units, the pockets first, then the chest; whoever repaired. Absent when it spent nothing (Creative, or a creation of no cost). The game shows the Gubble's spend above the thing it repaired.",
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 16,
+            "propertyNames": {
+              "$ref": "common.schema.json#/$defs/token"
             },
             "additionalProperties": {
               "type": "integer",

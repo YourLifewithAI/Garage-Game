@@ -381,7 +381,8 @@ public partial class CommandHost
         {
             "nature.cast" => new[] { "center_m", "radius_m", "duration_s", "cell_count", "requires_approval", "started_cells", "max_burning_cells", "grown_plants", "kind", "end_m" },
             "nature.trail" => new[] { "enabled", "requires_approval" },
-            "nature.repair" => new[] { "cost" },
+            // Decision 131: a paid repair's receipt says what it spent, by kind (validated as its cost is, below).
+            "nature.repair" => new[] { "cost", "spent" },
             _ => new[] { "undone", "undone_steps", "requires_approval" },
         };
         if (data.Any(p => !fields.Contains(p.Key))) return true;

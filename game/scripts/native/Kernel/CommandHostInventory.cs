@@ -543,6 +543,7 @@ public partial class CommandHost
         var pockets = PocketContents;
         var chest = ChestContents;
         var need = new List<string>();
+        var spent = new List<SpentUnits>();
         var short_ = false;
         // In the pack's order of its kinds (a log before a stone), then any material no kind is made of.
         int Order(string material) => rules?.KindOfMaterial(material) is { } kind ? rules.Kinds.ToList().IndexOf(kind) : int.MaxValue;
@@ -555,16 +556,24 @@ public partial class CommandHost
             var fromPockets = Math.Min(units, pockets.Units(kind.Id));
             var fromChest = Math.Min(units - fromPockets, chest.Units(kind.Id));
             if (fromPockets + fromChest < units) short_ = true;
+            spent.Add(new SpentUnits(kind.Id, units, need[^1]));
             pockets = pockets.WithUnits(kind.Id, pockets.Units(kind.Id) - fromPockets);
             chest = chest.WithUnits(kind.Id, chest.Units(kind.Id) - fromChest);
         }
         var words = need.Count switch { 0 => "nothing", 1 => need[0], _ => string.Join(", ", need.Take(need.Count - 1)) + " and " + need[^1] };
         if (short_) throw new Refusal("invalid_args", $"This repair needs {words}, more than your pockets and the chest hold.", "$.args.target");
-        return new RepairBill(pockets, chest, words, !pockets.Same(PocketContents));
+        return new RepairBill(pockets, chest, words, !pockets.Same(PocketContents), spent);
     }
 
-    /// <summary>A repair's bill: the pockets and the chest after it, its cost in words ("2 logs and 1 stone"), and whether the pockets give.</summary>
-    private sealed record RepairBill(InventoryContents Pockets, InventoryContents Chest, string Words, bool FromPockets);
+    /// <summary>
+    /// A repair's bill: the pockets and the chest after it, its cost in words ("2 logs and 1 stone"), whether the pockets give, and what it
+    /// spends of each kind in the pack's order (the receipt's data.spent and the RepairSpent event, decision 131).
+    /// </summary>
+    private sealed record RepairBill(InventoryContents Pockets, InventoryContents Chest, string Words, bool FromPockets, IReadOnlyList<SpentUnits> Spent)
+    {
+        /// <summary>data.spent: each kind's units, by the pack's kind ids.</summary>
+        public JsonObject Data() => new(Spent.Select(s => KeyValuePair.Create(s.Kind, (JsonNode?)s.Count)));
+    }
 
     /// <summary>
     /// A paid repair, one durable room revision (the island's nature, its team block with the chest after it, and the receipt), then the
@@ -578,11 +587,12 @@ public partial class CommandHost
         return result;
     }
 
-    /// <summary>The Gubble's ask for a repair (it waits for the player's yes): the player's own creation, and what it would spend of the player's.</summary>
-    private static string RepairAsk(string id, bool players, RepairBill? bill) =>
-        bill == null ? $"The Gubble asks to repair {id}, which you made." :
-        players ? $"The Gubble asks to repair {id}, which you made, with {bill.Words} from your pockets and the chest." :
-        $"The Gubble asks to repair {id}, with {bill.Words} from your pockets and the chest.";
+    /// <summary>
+    /// The Gubble's ask for a repair of the player's own creation (it waits for the player's yes, as every change of what the player made
+    /// does), and what it would spend. A spend alone no longer asks (decision 131).
+    /// </summary>
+    private static string RepairAsk(string id, RepairBill? bill) =>
+        bill == null ? $"The Gubble asks to repair {id}, which you made." : $"The Gubble asks to repair {id}, which you made, with {bill.Words} from your pockets and the chest.";
 
     /// <summary>
     /// The retired wallet's counts become the chest's stacks (decision 116: "an older save's wallet counts become chest stacks on load"),

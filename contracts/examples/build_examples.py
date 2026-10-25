@@ -1489,6 +1489,27 @@ def food_round(at: str) -> dict:
     }
 
 
+def round_three(at: str) -> dict:
+    """The founder's third round (MECHANICS.md decisions 129 to 135): the Gubble's repair that spends logs or stones goes through without
+    asking, its receipt saying what it spent (data.spent, by kind; decision 131)."""
+    return {
+        "command_gubble_repairs_its_scorched_shed": command("nature.repair", "repair-0010", {"target": "creation:00000003"}),
+        "result_gubble_repairs_its_scorched_shed": result("nature.repair", "repair-0010", "companion:local", 15, at, transient=False,
+                                                          affected=["creation:00000003"],
+                                                          data={"cost": {"stone": 1, "wood": 2}, "spent": {"log": 2, "stone": 1}}),
+    }
+
+
+def round_three_refused(at: str) -> dict:
+    """What the third round's messages refuse, each for one reason (EXPECTED_FAILURES)."""
+    valid = round_three(at)
+    repaired = valid["result_gubble_repairs_its_scorched_shed"]
+    return {
+        "result_repair_spent_nothing": {**repaired, "data": {**repaired["data"], "spent": {}}},
+        "result_repair_spent_none_of_a_kind": {**repaired, "data": {**repaired["data"], "spent": {"log": 0}}},
+    }
+
+
 def food_round_refused(at: str) -> dict:
     """What food's messages refuse, each for one reason (EXPECTED_FAILURES)."""
     picked = food_round(at)["result_player_picks_an_apple"]
@@ -1743,6 +1764,7 @@ def build_messages(out: Path) -> None:
     valid.update(grow_unlocks(at))
     valid.update(inventory_round(at))
     valid.update(food_round(at))
+    valid.update(round_three(at))
     # The 10x world (S2): observe sees the whole island unless a radius narrows it, and a plant copy is an entity.
     valid["query_observe_everything_in_sight"] = query("observe", "q-0030", {"actor": "avatar:companion"})
     valid["query_observe_across_the_island"] = query("observe", "q-0031", {"actor": "avatar:companion", "radius_m": 150})
@@ -1832,6 +1854,7 @@ def build_messages(out: Path) -> None:
     invalid.update(grow_unlocks_refused(at))
     invalid.update(inventory_round_refused(at))
     invalid.update(food_round_refused(at))
+    invalid.update(round_three_refused(at))
     # The 10x world (S2): a radius past 150 m, and a second spelling of one plant copy.
     invalid["query_observe_past_150_m"] = query("observe", "q-0033", {"actor": "avatar:companion", "radius_m": 151})
     invalid["command_go_to_a_tree_spelt_with_a_leading_zero"] = command("goal.set", "go-to-tree-0001", {

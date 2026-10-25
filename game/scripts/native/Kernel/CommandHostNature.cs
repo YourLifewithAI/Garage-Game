@@ -14,6 +14,15 @@ public enum FireOutcome { Fireproof, Scorches, BurnsDown }
 /// <summary>One row of the fire rule: what fire does to a kind of thing in a mode, and whether the player is asked first.</summary>
 public readonly record struct FireRuling(FireOutcome Outcome, bool AskFirst);
 
+/// <summary>What a repair spent of one kind (decision 131): the pack's kind id, its units, and the kernel's words for them ("2 logs").</summary>
+public sealed record SpentUnits(string Kind, int Count, string Words);
+
+/// <summary>
+/// The Gubble's repair spent (CommandHost.RepairSpent, decision 131): the thing repaired, the point above it where the HUD's icon goes (the top
+/// centre of its bounds before the repair), and what was spent, each kind in the pack's order.
+/// </summary>
+public sealed record RepairSpentView(string Thing, Vector3 At, IReadOnlyList<SpentUnits> Spent);
+
 /// <summary>
 /// Grow (CommandHostGrow), weather and Fire on the ground field, host side (docs/magic/README.md). Bloom and its flower trail
 /// went with decision 52: an older island's flowers are dropped when it loads, and nature.trail is refused. Nature is room state:
@@ -523,17 +532,51 @@ public partial class CommandHost
         // P-Inventory-2 (decision 116): the cost is logs and stones from the pockets first, then the chest (CommandHostInventory.RepairSpend).
         var bill = free || item.RepairCost.Count == 0 ? null : RepairSpend(item.RepairCost);
         var data = new JsonObject { ["cost"] = free ? new JsonObject() : new JsonObject(item.RepairCost.OrderBy(c => c.Key, StringComparer.Ordinal).Select(c => KeyValuePair.Create(c.Key, (JsonNode?)c.Value))) };
+        // Decision 131: what a paid repair spends, by kind, on its receipt (the preview's too: what it would spend).
+        if (bill != null) data["spent"] = bill.Data();
         if (preview) return NaturePreviewed("nature.repair", principal, action, data, new[] { id });
-        // The Gubble's repair waits for the player's yes when the creation is the player's, or when it spends: the logs and stones are the player's.
+        // The Gubble's repair of the player's own creation waits for the player's yes, as every change of what the player made does. A spend no
+        // longer asks (decision 131: the Gubble repairs without asking when a repair spends logs or stones, and the spend is shown instead).
         var players = instance["owner_id"].AsString() == PlayerPrincipal;
-        if (principal != PlayerPrincipal && approvedBy == null && (players || bill != null))
-            return Hold(root, principal, action, fingerprint, "nature.repair", RepairAsk(id, players, bill), new() { [id] = EntityRevision(id) }, bindRevision: true);
+        if (principal != PlayerPrincipal && approvedBy == null && players)
+            return Hold(root, principal, action, fingerprint, "nature.repair", RepairAsk(id, bill), new() { [id] = EntityRevision(id) }, bindRevision: true);
+        // Where the HUD shows the spend: above the scorched thing, the top centre of its bounds as it stands before the repair.
+        var above = bill != null && principal != PlayerPrincipal ? AboveOf(id) : null;
         var candidate = Nature.Copy();
         var step = candidate.BeginUndo("Repair", Revision + 1, principal, Mode);
         candidate.RememberObject(step, id);
         candidate.Objects.Remove(id);
-        return bill == null ? CommitNature(candidate, "nature.repair", principal, action, fingerprint, approvedBy, new[] { id }, data, undo: false)
-            : CommitRepair(candidate, bill, principal, action, fingerprint, approvedBy, id, data);
+        if (bill == null) return CommitNature(candidate, "nature.repair", principal, action, fingerprint, approvedBy, new[] { id }, data, undo: false);
+        var result = CommitRepair(candidate, bill, principal, action, fingerprint, approvedBy, id, data);
+        if (principal != PlayerPrincipal) RaiseRepairSpent(new RepairSpentView(id, above ?? Vector3.Zero, bill.Spent));
+        return result;
+    }
+
+    /// <summary>
+    /// The Gubble's repair spent logs or stones (decision 131: it repairs without asking, and the spend is made visible): the thing repaired,
+    /// where its icon goes (the top centre of its bounds before the repair) and what was spent, each kind's units and words ("2 logs"), in the
+    /// pack's order. Raised once the repair has committed (the receipt's data.spent says the same); the player's own repair raises none.
+    /// </summary>
+    public event Action<RepairSpentView>? RepairSpent;
+
+    /// <summary>The last Gubble repair's spend this session (tests; the HUD listens to RepairSpent).</summary>
+    public RepairSpentView? LastRepairSpent { get; private set; }
+
+    private void RaiseRepairSpent(RepairSpentView spent)
+    {
+        LastRepairSpent = spent;
+        // The repair has committed: a listener that fails can never turn its answer into a failure.
+        try { RepairSpent?.Invoke(spent); }
+        catch (Exception error) when (error is not OutOfMemoryException) { GD.Print("COMMAND_HOST a RepairSpent listener failed: " + error.GetType().Name); }
+    }
+
+    /// <summary>The top centre of a thing's bounds as the room's entities give them now, or null when it is not listed.</summary>
+    private Vector3? AboveOf(string id)
+    {
+        if (Entities().FirstOrDefault(e => e["id"]?.GetValue<string>() == id) is not { } entity || entity["bounds_m"] == null) return null;
+        var box = BoundsOf(entity);
+        var centre = box.GetCenter();
+        return new Vector3(centre.X, box.End.Y, centre.Z);
     }
 
     /// <summary>
