@@ -202,6 +202,9 @@ public partial class CommandHost
 
     private int _shoreReturnsSeen;
 
+    /// <summary>Test seam: the deep-water return's loss, as the body's shore return calls it (no water in the test room to swim out of).</summary>
+    internal void DeepWaterReturnForTests() => LosePocketStacks(sea: true);
+
     /// <summary>The body went home (B, the far net or the deep-water return): only the deep-water return, an empty bar in deep water, loses the stacks.</summary>
     private void PlayerWentHome(SmallPlayerController body)
     {
