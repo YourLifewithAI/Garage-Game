@@ -132,7 +132,7 @@ public partial class CommandHost
         var job = op == "goal.set" ? result["job_id"]?.GetValue<string>() : null;
         _trustLedger.Note(new TrustLedger.Entry
         {
-            ActionId = Str(root, "action_id")!, Op = op, Capability = capability, What = TrustWhat(op, capability), Place = TrustPlace(op, args),
+            ActionId = Str(root, "action_id")!, Op = op, Capability = capability, What = TrustWhat(op, capability, result), Place = TrustPlace(op, args),
             At = Clock(), Counted = TrustCounts, Paid = Trust.Paid(charged), Revision = result["revision"] is JsonValue at && at.TryGetValue<int>(out var revision) ? revision : null,
             ApprovedBy = result["approved_by"]?.GetValue<string>(), JobId = job, Pending = job != null,
         });
@@ -168,10 +168,13 @@ public partial class CommandHost
     }
 
     /// <summary>What a mark's line calls a command: the ability or goal, in plain words from the host's own table.</summary>
-    private string TrustWhat(string op, string? capability) => op switch
+    private string TrustWhat(string op, string? capability, JsonObject result) => op switch
     {
         "nature.cast" or "effect.start" => capability switch
         {
+            // Decision 133: the journal's line for the Gubble's Grow names what ripened (data.ripened_plants), when anything did.
+            "grow" when result["data"]?["ripened_plants"] is JsonValue ripened && ripened.TryGetValue<int>(out var count) && count > 0 =>
+                $"Grow that ripened {count} {(count == 1 ? "plant" : "plants")}",
             "fire" => "fire", "grow" => "Grow", "bubble_carry" => "bubble carry", "bubble_boat" => "bubble boat", "bubble_lift" => "bubble lift",
             { } ability when Rules?.Ability(ability) is { } known => known.Primitive == "particles.float" ? "bubble" : KernelJson.DisplayText(known.DisplayName, 24).ToLowerInvariant(),
             _ => "magic",
