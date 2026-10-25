@@ -486,11 +486,16 @@ public partial class NatureTest
         await NewWorld(SavePath("unlocks-ivy"), challenge: true);
         Block("Cliff", new Vector3(-1.9f, 0, 0.1f), new Vector3(-1.3f, 0.4f, 1.0f));
         Block("Step", new Vector3(1.3f, 0, -0.5f), new Vector3(1.9f, 0.3f, 0.0f));
+        Block("Pillar", new Vector3(-0.8f, 0, 0.9f), new Vector3(-0.7f, 1.0f, 1.1f));
         _host.LearnGrowForTests(5);
         Check(_companion.TryTeleportTo(new Vector3(-0.9f, 0.01f, 0.55f)) && _player.TryTeleportTo(new Vector3(-1.0f, 0.003f, 0.3f)), "(the Gubble and the player by the cliff)");
         await Frames(10);
-        var noRoot = GrowCast(Player, new Vector3(-0.9f, 0.6f, -0.6f), 0.1);
-        Check(Code(noRoot) == "invalid_args" && Message(noRoot) == CommandHost.IvyNoRoot, "ivy needs standable ground within 0.4 m under the aim (the table's side, 0.6 m up): " + Message(noRoot));
+        var noRoot = GrowCast(Player, new Vector3(-0.8f, 0.6f, 1.0f), 0.1);
+        Check(Code(noRoot) == "invalid_args" && Message(noRoot) == CommandHost.IvyNoRoot, "ivy needs standable ground within 0.4 m under the aim (the pillar's side, 0.6 m up): " + Message(noRoot));
+        // A thing is no wall (it can be carried away from its ivy): Grow at the table's side makes what the ground there makes.
+        var atTheTable = GrowCast(Player, new Vector3(-0.9f, 0.2f, -0.6f), 0.1, preview: true);
+        Check(Kind(atTheTable) != GrowKindWords.Ivy && Message(atTheTable) != CommandHost.IvyNoRoot && _host.Nature.Ivy.Count == 0,
+            "a thing's side is no wall for ivy (the table, 0.2 m up): " + Canonical(atTheTable["error"] ?? atTheTable["data"]));
         var ivyPreview = GrowCast(Player, new Vector3(-1.3f, 0.2f, 0.3f), 0.1, preview: true);
         var pips = _host.Vitals.Pips;
         var cast = GrowCast(Player, new Vector3(-1.3f, 0.2f, 0.3f), 0.1);
@@ -525,6 +530,7 @@ public partial class NatureTest
         var steps = 0;
         for (; steps < 240 && _host.Nature.Ivy.Count > 1; steps++) Steps(1);
         await Frames(2);
+        for (var step = 0; step < 480 && _host.Nature.Fire != null; step++) Steps(1);
         var burnt = await ClimbFace(new Vector3(-1.27f, 0.003f, 0.3f), Mathf.Pi / 2);
         Check(Ok(fire) && _host.Nature.Ivy.Count == 1 && shown?.Count == 1 && burnt.Top && Math.Abs(burnt.Paid / bare.Paid - 1) < 0.05f,
             $"a fire at its foot burns the strip as a plant in {steps * NatureLaws.StepS:0.0} s, and the climb there pays the full price again ({burnt.Paid:0.0000} m against {bare.Paid:0.0000} m; " +
@@ -532,6 +538,15 @@ public partial class NatureTest
         await NewWorld(SavePath("unlocks-ivy"), challenge: true);
         await Frames(2);
         Check(_host.Nature.Ivy.Count == 1 && _world!.GetNode("Room").GetNodeOrNull<IvyView>(IvyView.ViewName)?.Count == 1, "the ivy is saved with the island and drawn again on load");
+        _host.LearnGrowForTests(5);
+        Block("Cliff", new Vector3(-1.9f, 0, 0.1f), new Vector3(-1.3f, 0.4f, 1.0f));
+        Check(_companion.TryTeleportTo(new Vector3(-0.9f, 0.01f, 0.55f)), "(the Gubble by the cliff)");
+        await Frames(5);
+        for (var i = _host.Nature.Ivy.Count; i < NatureState.MaxIvy; i++)
+            _host.Nature.Ivy.Add(new NatureIvy { Id = "ivy:" + (i + 1), BaseM = new Vector3(1.9f, 0, -1.4f + 0.3f * i), NormalM = Vector3.Left });
+        var most = GrowCast(Player, new Vector3(-1.3f, 0.2f, 0.6f), 0.1);
+        Check(Code(most) == "invalid_args" && (Message(most) ?? "").Contains($"{NatureState.MaxIvy} ivy strips", StringComparison.Ordinal), $"the island keeps at most {NatureState.MaxIvy} ivy strips: " + Message(most));
+        _host.Nature.Ivy.RemoveRange(1, NatureState.MaxIvy - 1);
         var block = NatureBlock.Pack(_host.Nature);
         var forgeries = new (string Label, Action<JsonObject> Edit)[]
         {

@@ -29,8 +29,9 @@ public partial class CommandHost
 
     /// <summary>
     /// The wall a cast's point is on: no standable ground just under the point, and a face at least 70 degrees steep (an overhang to 110)
-    /// within IvyAimM of it, found by short level rays toward it from eight sides (the nearest hit, then the first side). A plant's own
-    /// collision (a tree's trunk) is no wall: trees are climbed as they are, and Grow at one grows it. Null: no wall.
+    /// within IvyAimM of it, found by short level rays toward it from eight sides (the nearest hit, then the first side), on the world
+    /// layer (what is drawn: never a tree's hidden pole). Only the island's own ground and walls are walls (WallSurface): a plant's
+    /// collision (a tree's trunk, climbed as trees are, and grown by Grow), a thing, a build, a bridge or a leaf is not. Null: no wall.
     /// </summary>
     private IvyWall? WallAt(Vector3 point)
     {
@@ -42,7 +43,7 @@ public partial class CommandHost
         for (var k = 0; k < 8; k++)
         {
             var side = new Vector3(Mathf.Cos(k * Mathf.Pi / 4), 0, Mathf.Sin(k * Mathf.Pi / 4));
-            using var query = PhysicsRayQueryParameters3D.Create(point + side * 0.06f, point - side * 0.02f, RoomBuilder.BodyMask, KernelNames.NoRids);
+            using var query = PhysicsRayQueryParameters3D.Create(point + side * 0.06f, point - side * 0.02f, RoomBuilder.WorldLayer, KernelNames.NoRids);
             query.HitBackFaces = false;
             using var hit = space.IntersectRay(query);
             if (hit.Count == 0) continue;
@@ -51,11 +52,27 @@ public partial class CommandHost
             var distance = at.DistanceTo(point);
             if (Math.Abs(normal.Y) > GrowKindLaws.IvyMaxNormalY || distance > GrowKindLaws.IvyAimM || normal.Dot(side) < 0.3f || distance >= nearest - 1e-5f) continue;
             using (var collider = hit[KernelNames.HitCollider])
-                if (collider.AsGodotObject() is Node node && node.HasMeta(PlantCopiesView.PlantRowsMeta)) continue;
+                if (!WallSurface(collider.AsGodotObject() as Node)) continue;
             nearest = distance;
             best = new IvyWall(at, normal);
         }
         return best;
+    }
+
+    /// <summary>
+    /// Whether a collider is the island's own ground or wall (a shell part, the land, a cliff): not a plant copy's, a thing's (obj:), a
+    /// build's (the runtime's assemblies), a bridge's or a waterpad's, each looked for up its node's parents.
+    /// </summary>
+    private bool WallSurface(Node? collider)
+    {
+        for (var node = collider; node != null; node = node.GetParent())
+        {
+            if (node.HasMeta(PlantCopiesView.PlantRowsMeta) || node.HasMeta(PlantCopiesView.PlantSetMeta)) return false;
+            if (node.HasMeta(KernelNames.EntityIdMeta) && MetaText(node, KernelNames.EntityIdMeta) is var id && !id.StartsWith("shell:", StringComparison.Ordinal)) return false;
+            if (Runtime != null && node.GetParent() == Runtime) return false;
+            if (node is Node3D { Name: var name } && (name == BridgeView.ViewName || name == WaterpadView.ViewName)) return false;
+        }
+        return true;
     }
 
     /// <summary>The face's direction up along it (the world's up, laid on the face): a strip grows this way from its foot.</summary>
