@@ -115,7 +115,7 @@ public partial class CommandHost
         catch (Refusal refusal) { return refusal.Message; }
     }
 
-    /// <summary>E's store: what PlayerCanStore chose (to the chest at a camp, else a unit to the pockets), as the player's command.</summary>
+    /// <summary>E's store: what PlayerCanStore chose (to the chest at a camp, else the held thing to the pockets), as the player's command.</summary>
     public JsonObject PlayerStore(bool preview = false)
     {
         var to = PlayerCanStore().To ?? (PlayerAtCamp() ? "chest" : "pockets");
