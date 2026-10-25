@@ -274,8 +274,9 @@ public partial class CommandHost
 
     /// <summary>
     /// inventory.use (player-only): one unit of a stack in the pockets. A kind whose use heals heals at once, its heal_quarters (decisions 92
-    /// and 111: no unharmed wait); at full hearts the unit stays (not_ready); in Creative nothing changes but the receipt (decisions 101 and
-    /// 108). The unit goes first, then the heal is saved; a heal that cannot be saved puts the unit back.
+    /// and 111: no unharmed wait); at full hearts the unit stays (not_ready). In Creative eating uses the unit up too (decision 125: hearts do
+    /// nothing there, so nothing heals, at full hearts or not; the sound still plays, decision 108). The unit goes first, then the heal is
+    /// saved; a heal that cannot be saved puts the unit back. An apple eaten gives a seed, berries one time in three (decision 118).
     /// </summary>
     private JsonObject InventoryUse(JsonElement args, string principal, string actionId, string fingerprint, bool preview)
     {
@@ -292,8 +293,12 @@ public partial class CommandHost
         if (Mode == "creative")
         {
             if (preview) return Previewed("inventory.use", principal, actionId);
-            // P-Food: eating makes its sound in Creative too (decision 108; CommandHostFood.Eaten).
-            return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), Eaten(item, Moved(item, 0, null, healed: 0)));
+            // P-Food: eating makes its sound in Creative too (decision 108; CommandHostFood.Eaten); P-Inventory-2: and uses the unit up (decision 125).
+            var (used, seedsThere) = WithSeeds(pockets.WithUnits(item, have - 1), SeedsFromEating(item, actionId));
+            SavePockets(used);
+            var creative = Eaten(item, Moved(item, 1, null, healed: 0));
+            creative["seeds"] = seedsThere;
+            return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), creative);
         }
         if (_playerVitalsUnavailable) throw new Refusal("not_ready", VitalsNotice, retryable: true);
         if (RecoveryPending || Vitals.Health <= 0) throw new Refusal("not_ready", NotOnYourFeet, "$.args.item", retryable: true);

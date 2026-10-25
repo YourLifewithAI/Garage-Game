@@ -350,7 +350,7 @@ public partial class InventoryTest
         Check(hurt == null && Units(_host.PocketEntries, "apple") == 1, "Creative loses nothing: no knockout, and the deep-water return keeps the apple");
     }
 
-    /// <summary>Food heals at once (decisions 92 and 111): no unharmed wait; at full hearts the unit stays; a kind with no use; Creative changes nothing.</summary>
+    /// <summary>Food heals at once (decisions 92 and 111): no unharmed wait; at full hearts the unit stays; a kind with no use; Creative heals nothing but uses the unit up (decision 125).</summary>
     private async Task TestInstantHeal()
     {
         await NewWorld("heal");
@@ -378,9 +378,9 @@ public partial class InventoryTest
         Check(await PickUp("obj:apple_1", ByApple1) && Ok(Store(Player, "pockets")), "an apple in Creative's pockets");
         var health = _host.Vitals.Health;
         var creative = Use(Player, "apple");
-        Check(Ok(creative) && Canonical(creative["data"]) == Canonical(new JsonObject { ["count"] = 0, ["healed_quarters"] = 0, ["item"] = "apple", ["sound"] = "eat" }) &&
-              Units(_host.PocketEntries, "apple") == 1 && _host.Vitals.Health == health,
-            "in Creative eating changes nothing but the receipt (decision 108), and nothing is lost (decision 101)");
+        Check(Ok(creative) && Canonical(creative["data"]) == Canonical(new JsonObject { ["count"] = 1, ["healed_quarters"] = 0, ["item"] = "apple", ["seeds"] = 1, ["sound"] = "eat" }) &&
+              Units(_host.PocketEntries, "apple") == 0 && Units(_host.PocketEntries, "seed") == 1 && _host.Vitals.Health == health,
+            "in Creative eating heals nothing (decision 108) but uses the unit up, as in every mode (decision 125)");
     }
 
     /// <summary>

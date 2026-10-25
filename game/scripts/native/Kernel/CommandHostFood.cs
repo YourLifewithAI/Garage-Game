@@ -21,20 +21,21 @@ public sealed record FoodOutcome(bool Ok, string Words, string? Source = null, s
 /// Food (P-Food; docs/game/MECHANICS.md decisions 92, 98, 101, 108, 111 and 113; D1 in docs/runs/RUN-2-PLAYTEST-ROUND-2.md):
 /// <list type="bullet">
 /// <item><b>Where.</b> The rules pack's food block names what each species bears (storybook_wild v5: windfall apples at the trunk's foot
-/// of one broadleaf in three, two to four each, and one or two in the canopy reached with a hop; a cluster of berries at the player's
+/// of one broadleaf in three, two to four each, lying loose (P-Inventory-2, decision 118: picked up from the ground), and one to three in
+/// the canopy reached with a hop (decision 126); a cluster of berries at the player's
 /// height on one shrub in four and one heather clump in four). Which plants bear, and where, is FoodLayout's: the plant's id alone, the
 /// same on every load, no generator or manifest change. What was picked is the island's nature (NatureState.Food: the spots picked and
-/// when the last was, absent while the plant bears everything).</item>
+/// when its regrowth clock started, absent while the plant bears everything).</item>
 /// <item><b>Picking</b> (decisions 98 and 113): item.pickup naming the plant, the player's alone (a player-only op: the companion is
 /// refused permission_denied before anything is looked up, and nothing on its surface points food out). One unit, the spot faced within
 /// reach (a canopy apple with a hop: while the body is in the air its reach rises by its hop), into the pockets under their caps (full:
 /// occupied, the pockets' own words, and nothing is picked). The pockets gain first, then the island's nature, one durable room
 /// revision, as a Fractal's pickup; a refused revision puts the pockets back. E's reader is PlayerCanPick, its key PlayerPick.</item>
 /// <item><b>Eating</b> is inventory.use (CommandHostInventory): heal_quarters at once with no unharmed wait (decision 111), the unit kept
-/// at full hearts, nothing healed in Creative; every unit eaten makes its sound (decision 108, Creative too): FoodSound, which the look
-/// fills, and the receipt says it played (data.sound "eat").</item>
-/// <item><b>Growing back</b> by the island clock (x_clock's day scale): everything picked from a plant is back once the pack's regrow_h
-/// island hours (24 in v5) have passed since its last pick, so a day away restocks the island. A Grow cast that grows a plant ripens it at
+/// at full hearts, nothing healed in Creative but the unit used up there too (decision 125); every unit eaten makes its sound (decision
+/// 108, Creative too): FoodSound, which the look fills, and the receipt says it played (data.sound "eat"); an apple leaves a seed.</item>
+/// <item><b>Growing back</b> by the island clock (x_clock's day scale; decision 124): one unit a plant every regrow_h island hours (24 in
+/// v5: one fruit a day), the first a day after a pick on a plant bearing everything, the lowest spot first (Picking). A Grow cast that grows a plant ripens it at
 /// once (CastGrow), fire burns its food with it (BurnPlants: the record goes when the plant burns down), so a burnt plant bears again when
 /// it is replanted (CastReplant). Picks are never undone.</item>
 /// <item><b>The look</b> is Room/FoodView's, under the plant copies' view: the kernel hands it the food near its focus (FoodSpotsNear) and
@@ -83,21 +84,51 @@ public partial class CommandHost
 
     // ---- what is left, by the island clock ----
 
-    /// <summary>The spots picked from a plant now (bits): its record's, unless everything picked has grown back since its last pick.</summary>
-    private int PickedNow(string plant) => Nature.Food.TryGetValue(plant, out var record) && !GrownBack(record) ? record.Picked : 0;
+    /// <summary>
+    /// The spots picked from a plant now (bits): its record's, less what has grown back since (decision 124: one unit a regrow_h island
+    /// day, the lowest spot first, FoodLayout's order).
+    /// </summary>
+    private int PickedNow(string plant) => Nature.Food.TryGetValue(plant, out var record) ? StillPicked(record, RegrownSince(record)) : 0;
 
-    /// <summary>Whether everything picked from a plant has grown back: regrow_h island hours since its last pick (the clock's day scale).</summary>
-    private bool GrownBack(NatureFood record) =>
-        FoodRulesNow is not { } rules || Math.Max(0, SownNowS() - record.PickedS) / 3600.0 * Math.Max(1, GrowDayScale()) >= rules.RegrowH - 1e-9;
+    /// <summary>How many units have grown back on a plant since its record's clock (whole regrow_h island days; the clock's day scale).</summary>
+    private int RegrownSince(NatureFood record) =>
+        FoodRulesNow is not { } rules ? int.MaxValue : (int)Math.Min(int.MaxValue, Math.Floor(Math.Max(0, SownNowS() - record.PickedS) / RegrowDayS(rules) + 1e-9));
 
-    /// <summary>A plant's food record once one more spot of it is picked (a pick, a windfall picked up, a windfall the flames took).</summary>
-    private NatureFood Picking(string plant, int spot) => new() { Id = plant, Picked = PickedNow(plant) | (1 << spot), PickedS = SownNowS() };
+    /// <summary>One regrow_h island day in seconds of the machine's clock (the island clock's day scale: four days a day make a day six hours).</summary>
+    private double RegrowDayS(FoodRules rules) => rules.RegrowH * 3600.0 / Math.Max(1, GrowDayScale());
+
+    /// <summary>A record's picked spots with so many grown back, the lowest first.</summary>
+    private static int StillPicked(NatureFood record, int regrown)
+    {
+        var picked = record.Picked;
+        for (var i = 0; i < regrown && picked != 0; i++) picked &= picked - 1;
+        return picked;
+    }
+
+    /// <summary>Whether everything picked from a plant has grown back (its record is no longer needed).</summary>
+    private bool GrownBack(NatureFood record) => StillPicked(record, RegrownSince(record)) == 0;
+
+    /// <summary>
+    /// A plant's food record once one more spot of it is picked (a pick, a windfall picked up, a windfall the flames took). Decision 124: one
+    /// unit grows back an island day. A pick on a plant bearing everything starts its clock, so the first unit is back regrow_h island hours
+    /// after it; a pick on one already regrowing keeps the clock's phase (its anchor moved on a day for each unit grown back since), so a
+    /// unit still comes back every day until the plant bears everything again.
+    /// </summary>
+    private NatureFood Picking(string plant, int spot)
+    {
+        var now = SownNowS();
+        if (!Nature.Food.TryGetValue(plant, out var record) || FoodRulesNow is not { } rules || GrownBack(record))
+            return new NatureFood { Id = plant, Picked = 1 << spot, PickedS = now };
+        var regrown = RegrownSince(record);
+        var anchor = record.PickedS + (long)Math.Floor(regrown * RegrowDayS(rules));
+        return new NatureFood { Id = plant, Picked = StillPicked(record, regrown) | (1 << spot), PickedS = Math.Min(anchor, now) };
+    }
 
     /// <summary>The size a plant is drawn at: 1 natural, grown above 1, a seedling below, 0 burnt down.</summary>
     private float ShownFactor(string plant) => Nature.Plants.TryGetValue(plant, out var record) ? record.Shown : 1;
 
     private static string GrowsBackWords(FoodRules rules) =>
-        "Everything on it has been picked: it grows back within " + (Math.Abs(rules.RegrowH - 24) < 1e-9 ? "a day." : $"{rules.RegrowH:0.#} hours.");
+        "Everything on it has been picked: one grows back " + (Math.Abs(rules.RegrowH - 24) < 1e-9 ? "each day." : $"every {rules.RegrowH:0.#} hours.");
 
     // ---- picking: item.pickup naming a plant ----
 
@@ -145,7 +176,7 @@ public partial class CommandHost
         CheckFits(next, inventory, inventory.Pockets, pockets: true, kind);
         if (_natureUnavailable) throw new Refusal("not_ready", NatureNotice, retryable: true);
         var candidate = Nature.Copy();
-        // What has grown back since needs no record: only plants picked within the last regrow_h hours are kept.
+        // What has grown back since needs no record: only plants still regrowing are kept.
         foreach (var gone in candidate.Food.Values.Where(GrownBack).Select(f => f.Id).ToList()) candidate.Food.Remove(gone);
         if (!candidate.Food.ContainsKey(plant.Id) && candidate.Food.Count >= FoodLaws.MaxFoodPlants) throw new Refusal("occupied", FoodTooMany, "$.args.target");
         if (preview) return Previewed("item.pickup", principal, actionId, target);

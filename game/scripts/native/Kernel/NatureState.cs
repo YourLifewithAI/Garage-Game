@@ -203,9 +203,10 @@ public sealed class NaturePlant
 
 /// <summary>
 /// What was picked from a plant that bears food (P-Food, decision 108; CommandHostFood): the spots picked since it last bore all of
-/// it, as bits (bit n is the plant's spot n, FoodLayout's order; the count picked is how many are set), and when the last was picked,
-/// in whole seconds of the island clock's UTC. Everything picked has grown back once FoodRules.RegrowH island hours have passed since
-/// then (derived from the clock, never saved). A plant with no record bears all its food. Not part of any undo step: a pick is never
+/// it, as bits (bit n is the plant's spot n, FoodLayout's order; the count picked is how many are set), and when its regrowth clock
+/// started, in whole seconds of the island clock's UTC (P-Inventory-2, decision 124: one unit grows back every FoodRules.RegrowH island
+/// hours from then, the lowest spot first, derived from the clock, never saved; CommandHostFood.Picking keeps the clock's phase across
+/// picks). A plant with no record bears all its food. Not part of any undo step: a pick is never
 /// taken back. A Grow cast that grows the plant ripens it (the record goes), and so does the plant burning down (its food burns with
 /// it), so a replanted plant bears again.
 /// </summary>

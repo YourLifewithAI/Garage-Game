@@ -13,8 +13,9 @@
   "transient": true,
   "data": {
     "item": "apple",
-    "count": 0,
+    "count": 1,
     "healed_quarters": 0,
-    "sound": "eat"
+    "sound": "eat",
+    "seeds": 1
   }
 }

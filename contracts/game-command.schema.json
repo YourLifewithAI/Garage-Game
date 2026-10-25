@@ -4325,7 +4325,7 @@
         ]
       },
       "inventory.use": {
-        "description": "Use one unit of a stack in the pockets: a kind whose use heals (heal_quarters) heals at once, with no unharmed wait (decision 111); at full hearts the unit stays (not_ready); in Creative nothing changes but the receipt (decision 108: food heals nothing there, and nothing in the inventory is lost, decision 101). Every unit eaten makes its sound (decision 108, Creative too): its receipt's data says so (sound eat). A kind with no use is request_invalid, in the kernel's words (a seed: planting comes with farming; a log or stone: for building and repairs). Since P-Inventory-2 (decision 118) an apple eaten gives a seed into the pockets, berries one time in three (chosen from the eating's action id, provisional), when it fits (data.seeds: how many went in). Player-only. A transient receipt with data (count 0 when nothing was used): a use changes the pockets (the team file) and the body, never the room. Since P-Inventory-2 no item is the hand's selected slot (inventory.select): its stack's unit; a thing there has no use (request_invalid); an empty slot is target_not_found; no pockets slot chosen is request_invalid.",
+        "description": "Use one unit of a stack in the pockets: a kind whose use heals (heal_quarters) heals at once, with no unharmed wait (decision 111); at full hearts the unit stays (not_ready); in Creative it heals nothing (decision 108) and, since P-Inventory-2 (decision 125), the unit is used up there too, at full hearts or not (hearts do nothing in Creative; other effects will). Every unit eaten makes its sound (decision 108, Creative too): its receipt's data says so (sound eat). A kind with no use is request_invalid, in the kernel's words (a seed: planting comes with farming; a log or stone: for building and repairs). Since P-Inventory-2 (decision 118) an apple eaten gives a seed into the pockets, berries one time in three (chosen from the eating's action id, provisional), when it fits (data.seeds: how many went in). Player-only. A transient receipt with data: a use changes the pockets (the team file) and the body, never the room. Since P-Inventory-2 no item is the hand's selected slot (inventory.select): its stack's unit; a thing there has no use (request_invalid); an empty slot is target_not_found; no pockets slot chosen is request_invalid.",
         "type": "object",
         "additionalProperties": false,
         "required": [],
@@ -5825,7 +5825,7 @@
         }
       },
       "inventory": {
-        "description": "What an inventory command moved: the entry, how many units (0 when nothing moved: an inventory.use in Creative), where it went, and for inventory.use the quarters of a heart it healed and the sound it made (eat: the unit was eaten, the game's FoodSound hook fired; Creative heals nothing and keeps the sound, decision 108) and, since P-Inventory-2, the seeds it gave into the pockets (decision 118).",
+        "description": "What an inventory command moved: the entry, how many units (an inventory.use in Creative used one since P-Inventory-2, decision 125; before it, 0), where it went, and for inventory.use the quarters of a heart it healed and the sound it made (eat: the unit was eaten, the game's FoodSound hook fired; Creative heals nothing and keeps the sound, decision 108, and uses the unit up, decision 125) and, since P-Inventory-2, the seeds it gave into the pockets (decision 118).",
         "type": "object",
         "additionalProperties": false,
         "required": [

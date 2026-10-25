@@ -338,7 +338,7 @@ public partial class PlayHudTest
         await InvKey(Key.E);
         Check(InvUnits("apple") == 1 && hud.NoticeText == "You picked up an apple. In your pockets: 1 apple.", "E picks the apple up: " + hud.NoticeText);
 
-        // Eat: in Creative only the sound's receipt; the unit stays.
+        // Eat: in Creative nothing heals, but the unit is used up (decision 125) and its sound plays.
         await InvKey(Key.Tab);
         Check(hud.PocketRows.Count() == 2 && hud.PocketsCapsText == "2 of 10 things", $"the panel lists the apple and the berries: {hud.PocketsCapsText}");
         var appleRow = hud.PocketRows.First(r => r.Name == "Pocket_apple");
@@ -347,8 +347,11 @@ public partial class PlayHudTest
         host.FoodSound += _ => sounds++;
         ((Button)appleRow.FindChild("Eat_apple", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(2);
-        Check(hud.NoticeText == "Crunch! You ate an apple. Nothing heals in Creative, so it stays in your pockets." && InvUnits("apple") == 1 && sounds == 1,
-            $"in Creative eating is only the sound's receipt, and the unit stays: \"{hud.NoticeText}\"");
+        Check(hud.NoticeText == "Crunch! You ate an apple." && InvUnits("apple") == 0 && InvUnits("seed") == 1 && sounds == 1,
+            $"in Creative eating heals nothing but uses the apple up, leaving its seed (decisions 118 and 125): \"{hud.NoticeText}\"");
+        // The notice stands to the right of the open panel.
+        var card = hud.NoticeCard.GetGlobalRect();
+        Check(hud.NoticeShowing && card.Position.X >= panel.GetGlobalRect().End.X + 15, $"the notice card stands clear of the open panel ({card.Position.X:0} against {panel.GetGlobalRect().End.X:0})");
         ((Button)hud.PocketRows.First(r => r.Name == "Pocket_berries").FindChild("Drop_berries", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(2);
         Check(hud.NoticeText == "You set Berries down." && InvUnits("berries") == 0 && host.LooseUnits.Count == 1 && host.LooseUnits[0].Kind == "berries",
@@ -359,12 +362,9 @@ public partial class PlayHudTest
         await InvKey(Key.E);
         Check(InvUnits("berries") == 1 && host.LooseUnits.Count == 0 && hud.NoticeText == "You picked up berries. In your pockets: 1 berries.", "E picks them up again: " + hud.NoticeText);
         await InvKey(Key.Tab);
-        ((Button)hud.PocketRows.First(r => r.Name == "Pocket_berries").FindChild("Eat_berries", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
-        await Frames(2);
-        Check(hud.NoticeText == "Crunch! You ate berries. Nothing heals in Creative, so it stays in your pockets." && InvUnits("berries") == 1 && sounds == 2, "berries likewise: " + hud.NoticeText);
-        // The notice stands to the right of the open panel.
-        var card = hud.NoticeCard.GetGlobalRect();
-        Check(hud.NoticeShowing && card.Position.X >= panel.GetGlobalRect().End.X + 15, $"the notice card stands clear of the open panel ({card.Position.X:0} against {panel.GetGlobalRect().End.X:0})");
+        // (Berries give a seed one time in three by the eating's id, the HUD's own: the kernel's food suite eats them. A harvest's hook, which
+        // farming will call, puts a second seed in the stack for the camp page's Store all.)
+        Check(host.FoodHarvested("plant:broadleaf-0") == 1 && InvUnits("seed") == 2 && hud.PocketRows.Count() == 2, "(a harvest's seed joins the stack: berries and two seeds)");
         await InvKey(Key.Tab);
 
         // Challenge has pockets of its own (empty): another windfall, picked there. Full hearts keep the unit; hurt, it heals at once.
@@ -442,7 +442,7 @@ public partial class PlayHudTest
         var screen = hud.CampScreen;
         await InvStand(InvAtCamp);
         Check(host.ChestEntries.Count == 3 && host.PocketEntries.Count == 2 && host.HeldBy(CommandHost.PlayerAvatar) == null,
-            "(the chest holds the cup, an apple and the doorstop; Creative's pockets an apple and berries; the hands are empty)");
+            "(the chest holds the cup, an apple and the doorstop; Creative's pockets berries and two seeds, the apple eaten; the hands are empty)");
         await InvKey(Key.E);
         Check(hud.Sitting && hud.CampOpen, "E sits the player at the fire and opens the camp");
         hud.CampTabs.CurrentTab = 4;
@@ -451,7 +451,7 @@ public partial class PlayHudTest
         Check(page.Contains("The chest\n3 of 20 things", StringComparison.Ordinal) && page.Contains("Cup · 0.05 kg", StringComparison.Ordinal) &&
               page.Contains("Apple ×1 · 0.02 kg · heals half a heart each", StringComparison.Ordinal) && page.Contains("Doorstop · 0.3 kg", StringComparison.Ordinal) &&
               // The pockets in slot order (P-Inventory-2: the hotbar's): the berries were picked first.
-              page.Contains("Your pockets\n2 of 10 things\nBerries ×1 · 0.005 kg · heals a quarter of a heart each", StringComparison.Ordinal) && page.Contains("Apple ×1 · 0.02 kg · heals half a heart each", StringComparison.Ordinal),
+              page.Contains("Your pockets\n2 of 10 things\nBerries ×1 · 0.005 kg · heals a quarter of a heart each", StringComparison.Ordinal) && page.Contains("Seeds ×2 · 0.002 kg", StringComparison.Ordinal),
             "the Inventory page lists the chest's entries with their masses and caps, and the pockets beside it: " + page.Replace("\n", " | "));
         Check(page.Contains("The Gubble may not use the chest. You can let it in the settings (C).", StringComparison.Ordinal) && !screen.FindChildren("*", "CheckButton", true, false).Any(),
             "the Gubble's chest switch is read-only words here, off by default, with the setting in the settings and no switch on the page");
@@ -479,15 +479,17 @@ public partial class PlayHudTest
         Check(host.ChestEntries.Any(e => e.Item == "obj:doorstop") && host.PocketEntries.All(e => e.Item != "obj:doorstop"), "and Store puts it back in the chest: " + hud.CampFoot);
         screen.FindChild("inv|take|apple|pockets|1", true, false)!.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(3);
-        Check(InvUnits("apple") == 2 && host.ChestEntries.All(e => e.Item != "apple") && hud.CampFoot == "Took 1 Apple into your pockets.", "Take puts the chest's apple into the pockets' stack: " + hud.CampFoot);
-        Check(hud.CampPageText.Contains("Your pockets\n2 of 10 things\nBerries ×1", StringComparison.Ordinal) && hud.CampPageText.Contains("Apples ×2 · 0.04 kg", StringComparison.Ordinal),
-            "and the pockets' lines follow, in slot order: " + hud.CampPageText.Replace("\n", " | "));
+        Check(InvUnits("apple") == 1 && host.ChestEntries.All(e => e.Item != "apple") && hud.CampFoot == "Took 1 Apple into your pockets.", "Take puts the chest's apple into the pockets: " + hud.CampFoot);
+        var lines = hud.CampPageText;
+        Check(lines.Contains("Your pockets\n3 of 10 things\nBerries ×1", StringComparison.Ordinal) && lines.IndexOf("Seeds ×2", lines.IndexOf("Your pockets", StringComparison.Ordinal), StringComparison.Ordinal) is var seeds &&
+              seeds > 0 && lines.IndexOf("Apple ×1", seeds, StringComparison.Ordinal) > seeds,
+            "and the pockets' lines follow, in slot order (the apple in the first free slot after the seeds): " + hud.CampPageText.Replace("\n", " | "));
         // Store from the pockets: all of a stack, or one.
-        var storeAll = screen.FindChild("inv|store|apple|chest|all", true, false) as Button;
+        var storeAll = screen.FindChild("inv|store|seed|chest|all", true, false) as Button;
         Check(storeAll != null && screen.FindChild("inv|store|berries|chest|all", true, false) == null, "a stack of several has Store all, a single unit does not");
         storeAll!.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(3);
-        Check(InvUnits("apple") == 0 && host.ChestEntries.Any(e => e.Item == "apple" && e.Count == 2) && hud.CampFoot == "Stored 2 Apples in the chest.", "Store all puts both apples in the chest: " + hud.CampFoot);
+        Check(InvUnits("seed") == 0 && host.ChestEntries.Any(e => e.Item == "seed" && e.Count == 2) && hud.CampFoot == "Stored 2 Seeds in the chest.", "Store all puts both seeds in the chest: " + hud.CampFoot);
         screen.FindChild("inv|store|berries|chest|1", true, false)!.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(3);
         Check(InvUnits("berries") == 0 && host.ChestEntries.Any(e => e.Item == "berries") && hud.CampFoot == "Stored 1 Berries in the chest.", "and Store puts the berries away: " + hud.CampFoot);

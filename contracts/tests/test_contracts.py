@@ -2509,7 +2509,8 @@ class FoodTests(unittest.TestCase):
         for name in ("result_player_eats_an_apple", "result_player_eats_an_apple_in_creative"):
             with self.subTest(example=name):
                 self.assertEqual(valid_example(name)["data"]["sound"], "eat")
-        self.assertEqual(valid_example("result_player_eats_an_apple_in_creative")["data"]["healed_quarters"], 0, "Creative heals nothing and keeps the sound")
+        creative = valid_example("result_player_eats_an_apple_in_creative")["data"]
+        self.assertEqual((creative["healed_quarters"], creative["count"]), (0, 1), "Creative heals nothing, keeps the sound and uses the unit up (decision 125)")
 
     def test_the_food_block_needs_the_inventory_and_v5_carries_d1s_numbers(self):
         schema = validate.load_strict(CONTRACTS / "island-rules.schema.json")
@@ -2518,8 +2519,9 @@ class FoodTests(unittest.TestCase):
         self.assertEqual(free_form_objects(schema["$defs"]["food"], "food", schema["$defs"]), [])
         food = validate.load_strict(STORYBOOK_WILD_V5)["food"]
         sources = {source["species"]: source for source in food["sources"]}
-        self.assertEqual(food["regrow_h"], 24, "a day away restocks everything")
-        self.assertEqual(sources["broadleaf"], {"kind": "apple", "species": "broadleaf", "one_in": 3, "windfalls": [2, 4], "canopy": [1, 2]})
+        self.assertEqual(food["regrow_h"], 24, "one fruit a plant grows back each island day (decision 124)")
+        self.assertEqual(sources["broadleaf"], {"kind": "apple", "species": "broadleaf", "one_in": 3, "windfalls": [2, 4], "canopy": [1, 3]},
+                         "one to three canopy apples a tree (decision 126)")
         self.assertEqual({sources[s]["one_in"] for s in ("shrub", "heather")}, {4})
         self.assertEqual({tuple(sources[s]["clusters"]) for s in ("shrub", "heather")}, {(1, 1)})
         kinds = {kind["id"] for kind in validate.load_strict(STORYBOOK_WILD_V5)["inventory"]["kinds"]}

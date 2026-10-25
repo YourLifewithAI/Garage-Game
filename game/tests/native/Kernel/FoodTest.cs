@@ -77,6 +77,7 @@ public partial class FoodTest : Node3D
             await TestCompanion();
             await TestEat();
             await TestRegrow();
+            await TestRegrowOneADay();
             await TestGrowRipens();
             await TestFireAndReplant();
             await TestReload();

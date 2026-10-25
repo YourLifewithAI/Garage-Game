@@ -1045,11 +1045,12 @@ MECHANICS = {
         "pockets": {"entries": 10},
         "chest": {"entries": 20},
     },
-    # P-Food (decisions 92, 98 and 108; D1): apples on one broadleaf in three (two to four windfalls at the trunk's foot, one or two in the
-    # canopy reached with a hop), a cluster of berries on one shrub and one heather clump in four, everything picked back in a day.
+    # P-Food (decisions 92, 98 and 108; D1): apples on one broadleaf in three (two to four windfalls at the trunk's foot, one to three in the
+    # canopy reached with a hop, decision 126), a cluster of berries on one shrub and one heather clump in four, one fruit back a plant a day
+    # (decision 124).
     "food": {
         "regrow_h": 24,
-        "sources": [{"kind": "apple", "species": "broadleaf", "one_in": 3, "windfalls": [2, 4], "canopy": [1, 2]},
+        "sources": [{"kind": "apple", "species": "broadleaf", "one_in": 3, "windfalls": [2, 4], "canopy": [1, 3]},
                     {"kind": "berries", "species": "shrub", "one_in": 4, "clusters": [1, 1]},
                     {"kind": "berries", "species": "heather", "one_in": 4, "clusters": [1, 1]}],
     },
@@ -1407,8 +1408,9 @@ def inventory_round(at: str) -> dict:
         # P-Inventory-2 (decision 118): an apple eaten leaves a seed in the pockets (berries one time in three).
         "result_player_eats_an_apple": result("inventory.use", "use-0001", "player:local", 5, at, transient=True,
                                               data={"item": "apple", "count": 1, "healed_quarters": 2, "sound": "eat", "seeds": 1}),
+        # P-Inventory-2 (decision 125): in Creative the unit is used up too; it heals nothing there.
         "result_player_eats_an_apple_in_creative": result("inventory.use", "use-0002", "player:local", 5, at, transient=True,
-                                                          data={"item": "apple", "count": 0, "healed_quarters": 0, "sound": "eat"}),
+                                                          data={"item": "apple", "count": 1, "healed_quarters": 0, "sound": "eat", "seeds": 1}),
         "result_apple_at_full_hearts": refused("inventory.use", "use-0003", "player:local", "not_ready",
                                                "Your hearts are full: the Apple stays in your pockets.", "$.args.item", retryable=True),
         "command_player_sets_a_thing_down": command("inventory.drop", "drop-0001", {"item": THING}, note="Player-only."),
