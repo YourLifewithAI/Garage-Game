@@ -49,7 +49,7 @@ The amounts and the places are decided (decision 92: an apple half a heart, berr
 - **Picking:** E facing one within reach, "E: eat an apple" or "E: eat berries", eaten on the spot (decision 92): an apple half a heart, berries a quarter. Nothing is carried until there is an inventory. Picking never costs pips and the Gubble cannot pick for the player (nothing targets the player's avatar).
 - **Growing back:** an apple a day per tree and a cluster a day per bush, by the island's clock (`x_clock`), so a day away restocks everything; Grow's cast on the plant ripens its food at once. Fire burns the food with the plant. Saved with the island as the plant's picked count and the time of the last pick.
 - **The look:** an apple a red sphere 1 cm across with a stalk; berries a cluster of six 0.3 cm dark blue beads on the shrub, read from a band away; a picked spot shows nothing until it grows back. Look's budget as for the Fractal's star: unshaded, no shadow, at most 64 drawn.
-- **Open for the founder:** windfalls or apples in the canopy with a hop; whether Creative's food heals (nothing hurts there); whether the Gubble should be able to point food out ("berries by the ridge") as it does Fractals.
+- **The founder's answers (25 October, decisions 108 and 111):** windfalls at the trunk and fruit in the canopy with a hop; Creative's food heals nothing but eating keeps its sound; the Gubble does not point food out; eating heals at once, with no wait. Picked food goes to the pockets (decision 98). The packet P-Food builds it after the inventory.
 - **Then:** its code is a packet of its own after P2 (the kernel's pick and heal with E, the look, the saved counts), Opus for the kernel and Sonnet for the look.
 
 ### P1: the kernel and the body (Opus)

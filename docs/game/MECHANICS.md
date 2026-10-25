@@ -329,6 +329,26 @@ Multiplayer is a later phase and out of scope for the engine work now.
 96. **A bubble's pop costs the Gubble Trust only when the Gubble pops it by its own action** and the fall hurts the player (question 8). A pop at the time limit, or because the player called the spell off, never counts against the Gubble.
 97. **Esc cancels first, then opens the menu** (question 6): while the player is in the middle of something (a chosen bubble, the wheel, anything Esc lets go today), the first Esc cancels it and the next opens the menu; with nothing going on, one Esc opens the menu.
 
+**The founder's answers of 25 October (from away, to the cloud session's questions; the inventory, Grow's unlocks, food and the rulings on the second round as built):**
+
+98. **Pockets and a chest.** The player carries a limited inventory at all times, the pockets, never drawn on the body; and a chest at the camp. Fractals go in neither: they are banked on the character sheet and spent at the campsite. What goes in the pockets (food, seeds) is decided as the kinds arrive.
+99. **Stacks and slots.** Food and seeds stack; a unique thing (a loose crate, cup or authored carryable) takes a slot of its own.
+100. **What the Gubble may do with the chest and the pockets is decided in play, by talking with it.** The game enforces what the player decided as a team setting, "Let the Gubble use the chest" (default off; the pockets are the player's alone, as the avatar is): with it off, the companion's chest commands are refused `permission_denied` before anything is looked up. The integrator's reading; a richer way to decide in conversation can follow.
+101. **Loss.** In Creative nothing in the inventory is ever lost. In Challenge and Live a knockout (and the deep-water return) loses the pockets' stackable items; unique items stay; the chest never spills.
+102. **One chest per island save**, shared by every campsite on the island.
+103. **Worth building now.** No hunger mechanic: health, healing and, later, crafting.
+104. **Seedless growth grows in phases:** a seedling starts at half size and reaches its natural size through phases of growth; the timing is tested in play (the first numbers are the packet's, provisional).
+105. **Replanting returns one plant:** for flowers a clump, for a tree a single tree, for a crop a single useful plant: the nearest burnt plant record to the cast.
+106. **The bridge is 1.2 m and stays so.** Unjumpable gaps are gates: the generator makes them in standard widths the bridge spans, rather than the bridge growing to fit (a Lane C rule for the generator, later).
+107. **Ivy costs something nominal** (1 pip ordered, 1 as the Gubble's idea, provisional) and grows one per ledge.
+108. **Food:** windfalls at the trunk and fruit in the canopy reached with a hop; in Creative food heals nothing but eating still makes its sound; the Gubble does not point food out.
+109. **A wisp is not a fire:** X does not remove it (it removed the oldest until now). Decision 80's cap stays: the fourth wisp replaces the oldest.
+110. **The Gubble's pop, defined:** a pop the Gubble chose (its stop, `effect.stop`, a new goal of its own, a recast) costs it Trust when the fall hurts (decision 96). A pop from the world (the timer, a blocked lead, a bump, a ceiling, a rules change) never does.
+111. **Camp healing starts sooner than 10 s after harm** (a pack value, `camp_heal_after_unharmed_s`, 2 s provisional). Eating food heals at once, with no wait.
+112. **A boat lasts 20 seconds:** the bubble that forms on water away from the player's feet (the wheel's Bubbles key or a `nature.cast` on water), where the 60 s default had crept in. The carry's 8 s (decision 95) is unchanged.
+113. **E with a thing in hand** banks a log or stone into the wallet and sets anything else down where you stand or on what you face, before it would sit you down (as built, 24 October); with the inventory, at a camp E stores the held thing in the chest first, and picked food goes to the pockets.
+114. **Confirmed as built:** consequence facts go to the journal only; a saved firepit keeps its saved spot over a regenerated manifest's; the four firepits of the 10x garage beyond first-run reach stay there (reachable, perhaps, with the abilities); the player's own Fire no longer puts out the Gubble's fire (decision 82 read strictly).
+
 **Still open for the founder** (with the recommendation this document carries; the letter is the one the build plan uses):
 
 - F. **Competitive balance** (the brief's two options): a sealed profile with knowledge as the only carry-over is the recommendation (section 9). Live is later, so no packet waits on it.

@@ -1,6 +1,6 @@
 # The inventory: what a chest at the camp would do
 
-For the founder, before any code. Today the hand carries one loose thing (0.5 kg), Fractals are a count, gathered logs and stones a wallet, food is eaten where it is found ([D1](../runs/RUN-2-PLAYTEST-ROUND-2.md)), and the camp's Inventory page says "coming" ([decision 87](MECHANICS.md)). Every number is a proposal.
+For the founder, before any code. Today the hand carries one loose thing (0.5 kg), Fractals are a count, gathered logs and stones a wallet, food is eaten where it is found ([D1](../runs/RUN-2-PLAYTEST-ROUND-2.md)), and the camp's Inventory page says "coming" ([decision 87](MECHANICS.md)). Every number is a proposal. **The founder answered on 25 October (MECHANICS.md decisions 98 to 103, 113): pockets as well as the chest, stacks and slots as proposed, the Gubble's part decided in play and enforced as a team setting, nothing lost in Creative and the pockets' stacks lost in Challenge and Live, one chest per island save, worth building now.** The packet P-Inventory builds it (the cloud session, 25 October).
 
 ## Your questions first
 

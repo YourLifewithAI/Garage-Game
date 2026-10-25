@@ -1,6 +1,6 @@
 # Grow's unlocks: what each would do
 
-For the founder, before any code: how [decision 76](../game/MECHANICS.md)'s three unlocks would behave, and the built mechanism each reuses. Every number is a proposal.
+For the founder, before any code: how [decision 76](../game/MECHANICS.md)'s three unlocks would behave, and the built mechanism each reuses. Every number is a proposal. **The founder answered on 25 October (MECHANICS.md decisions 104 to 107): seedlings at half size growing in phases, replanting the nearest plant record, the bridge 1.2 m fixed with gaps made in standard widths, ivy at a nominal price and one per ledge.** The packet P-Grow builds it (the cloud session, 25 October).
 
 ## What all three share
 
