@@ -349,6 +349,23 @@ Multiplayer is a later phase and out of scope for the engine work now.
 113. **E with a thing in hand** banks a log or stone into the wallet and sets anything else down where you stand or on what you face, before it would sit you down (as built, 24 October); with the inventory, at a camp E stores the held thing in the chest first, and picked food goes to the pockets.
 114. **Confirmed as built:** consequence facts go to the journal only; a saved firepit keeps its saved spot over a regenerated manifest's; the four firepits of the 10x garage beyond first-run reach stay there (reachable, perhaps, with the abilities); the player's own Fire no longer puts out the Gubble's fire (decision 82 read strictly).
 
+**The founder's answers of 25 October, second round (to the packets' questions; the hotbar, loose food and seeds, counts not weights):**
+
+115. **The pop, refined:** a wish's action cap ending a lead is the world's pop; the wish runner closing is the player's; **a Gubble recast the player said yes to is the player's pop** (no Trust moves when its fall hurts).
+116. **Logs and stones are material** for building later. A held log or stone at a camp goes into the chest. The integrator's reading, to build: logs and stones become ordinary stackable items (`log`, `stone`) in the pockets and the chest, gathered into the pockets as food is, and the separate materials wallet is retired: what repair and building spend is the stacks (the pockets first, then the chest); an older save's wallet counts become chest stacks on load.
+117. **Durable store, take, drop and picks are accepted** with their consequence for Creative's undo.
+118. **Food and seeds are things in the world:** a dropped unit has a body and can be picked up again; windfalls lie loose at the trunk; seeds come from eating (an apple gives a seed; berries give one in three, provisional) and from harvesting a farmable plant when farming exists.
+119. **The hotbar.** Ten slots along the bottom of the screen, keys 1 to 0; the selected slot is in the player's hand; the pockets are the hotbar, and the body is never stopped by it. Abilities move onto the hotbar too (decision 128): the first build shows the bar in two layers, abilities and pockets, Tab switching them, the other layer visible dimmed above; the layout is provisional until the founder plays ([HOTBAR.md](HOTBAR.md)).
+120. **Caps are counts, not weights:** a stack holds up to 99 (999 later if needed), the pockets 10 slots, the chest 20; no mass limits (masses stay data).
+121. **Seedlings keep growing while the player is away.**
+122. **A sprout's cast never fails for light:** the seed locks its spot; growth advances only in daylight, so a night cast grows from sunrise.
+123. **Ivy's drain and the seedling phases are tested in play** as built: on an ivy strip the bar drains at a quarter of a bare face's rate; three phases of one island hour.
+124. **Regrowth: one harvestable fruit per plant per island day.**
+125. **Eating uses the unit up in every mode,** Creative included (hearts do nothing there; other effects will).
+126. **Canopy apples: one to three per tree.**
+127. **A Grow cast on a plant at its size cap still ripens its food,** and is charged; Grow otherwise unchanged (a quarter bigger per cast, up to twice the natural size or 0.4 m taller, decisions 52 and 67).
+128. **The ability wheel gives way to the hotbar:** abilities always visible on the bar, selected without stopping; the wheel's hold stays as a fallback for one round, the smart ask's tap stays.
+
 **Still open for the founder** (with the recommendation this document carries; the letter is the one the build plan uses):
 
 - F. **Competitive balance** (the brief's two options): a sealed profile with knowledge as the only carry-over is the recommendation (section 9). Live is later, so no packet waits on it.
