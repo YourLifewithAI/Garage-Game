@@ -425,9 +425,9 @@ public partial class PlayHudTest
         await InvKey(Key.Key1);
         Check(abilities == 4 && host.HeldBy(player) == "obj:brick" && host.HandNow is { Layer: HandSelection.AbilitiesLayer, Abilities: 1 } && bar.RowChosen == 1,
             $"1 on the magic side with the brick in the hands records Glow's slot (from {abilities} to {host.HandNow.Abilities}) and the brick stays held: an ability key needs no empty hands");
-        await InvKey(Key.Key4);
-        Check(host.HeldBy(player) == "obj:brick" && host.HandNow is { Layer: HandSelection.AbilitiesLayer, Abilities: 4 } && bar.RowChosen == 4,
-            "and 4 chooses Fireworks the same way, the brick still held");
+        await InvKey(Key.Key3);
+        Check(host.HeldBy(player) == "obj:brick" && host.HandNow is { Layer: HandSelection.AbilitiesLayer, Abilities: 3 } && bar.RowChosen == 3,
+            "and 3 chooses Bubbles the same way, the brick still held");
         hud._UnhandledInput(Press(Key.X));
         hud.AimRayForTests = null;
         // Tab brings the pockets down through the kernel's select, which never touches what the hands carry (decision 129); a pocket slot
