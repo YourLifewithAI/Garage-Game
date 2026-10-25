@@ -571,6 +571,12 @@ class NatureMixin:
         """Decision 76's count: the team's Grow expertise learned, which opens each of Grow's unlocks."""
         return len(self.nature_expertise["grow"])
 
+    def grow_locked_kinds(self) -> list[str]:
+        """The unlocks the team has not opened yet, in order (the kernel's GrowLockedKinds): capabilities.list's locked_kinds of Grow."""
+        count = self.grow_count
+        return ([KIND_SPROUTS, KIND_REPLANT] if count < SEEDLESS_AT else []) + ([KIND_BRIDGE] if count < BRIDGE_AT else []) + \
+            ([KIND_IVY] if count < IVY_AT else [])
+
     def learn_grow(self, count: int) -> None:
         """The team knows the first count of Grow's expertise (the kernel's LearnGrowForTests): the host's own, never a request."""
         with self._lock:

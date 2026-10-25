@@ -425,6 +425,7 @@ class GrowUnlocks(NatureCase):
                          ("permission_denied", "$.args.center_m", m.SPROUTS_LOCKED))
         host.learn_grow(1)
         self.assertEqual(refusal(self.send(PLAYER, "nature.cast", self.grow(ON_THE_FLOOR, 0.1)))[0], "permission_denied", "one is not two")
+        self.assertEqual(host.grow_locked_kinds(), [m.KIND_SPROUTS, m.KIND_REPLANT, m.KIND_BRIDGE, m.KIND_IVY])
         self.assertEqual((host.revision, host.sprouts), (revision, []), "refused before the price: nothing changed")
 
     def test_a_burnt_plant_is_replanted_as_a_seedling_growing_in_phases(self):
@@ -434,6 +435,7 @@ class GrowUnlocks(NatureCase):
         for plant in ("plant:oak-0", "plant:oak-1"):
             host.plant_state[plant] = m.PlantState(burn=1.0)
         host.learn_grow(2)
+        self.assertEqual(host.grow_locked_kinds(), [m.KIND_BRIDGE, m.KIND_IVY])
         host.move_avatar("avatar:player", [1.4, 0.0, 1.2])
         here = self.grow([1.38, 0.0, 1.2], 0.2)
         self.assertEqual(refusal(self.send(PLAYER, "nature.cast", here)), ("target_busy", "$.args.center_m", m.REPLANT_STANDING))
