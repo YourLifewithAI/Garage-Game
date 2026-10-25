@@ -19,6 +19,8 @@ public static class GubbleMagic
     public static readonly string[] SlotIcons = { "☀", "✿", BubbleIcon, "✸", "⌂", FireIcon };
     /// <summary>Fire's slot (0-based): key 6 and the ninth wedge, just after Fireworks (decision 77).</summary>
     public const int FireSlot = 5;
+    /// <summary>Grow's slot (0-based): key 2, which dragged from lip to lip grows a bridge (RoomHud.GrowDrag.cs).</summary>
+    public const int GrowSlot = 1;
     /// <summary>Fire's own icon: the slot's, the wheel's wedge and the thought bubble's.</summary>
     public const string FireIcon = "♨";
     /// <summary>Fire's wedge and key until the first rest (decision 77): the reason under the lock.</summary>

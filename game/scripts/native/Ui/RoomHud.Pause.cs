@@ -304,6 +304,7 @@ public partial class RoomHud
         if (PocketsPanelOpen) { SetPocketsPanelOpen(false); going = true; }
         if (_drag.Pressed) { EndDrag(); going = true; }
         if (_fireKeyStart != null) { _fireKeyStart = null; going = true; }
+        if (_growKeyStart != null) { _growKeyStart = null; going = true; }
         if (SelectedBubble != null) { ClearBubbleSelection(); going = true; }
         // Sitting by the fire with the camp open: the first Esc stands you up and closes it (RoomHud.CampScreen.cs).
         if (!going && _sitting) { RestKey(); going = true; }

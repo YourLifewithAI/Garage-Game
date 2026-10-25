@@ -404,8 +404,8 @@ public partial class RoomHud : CanvasLayer
     private (int Map, bool Help, string Name, string Home, object? Rules, int Pool, int Beat, int Settings) KeyTextInputs() =>
         (PlayerControls.MapVersion, _keyHelp.Visible, Companion.CompanionName, Player.HomeName, Host?.Rules, PoolHint() | FireKeyBits(), PlaytestBeat(), SettingsBits());
 
-    /// <summary>What Fire's key words depend on (RoomHud.FireWheel.cs): whether Fire, and Fireline, are learned.</summary>
-    private int FireKeyBits() => Host is not { } host ? 0 : (host.FireLearned ? 1 << 28 : 0) | (host.FirelineLearned ? 1 << 29 : 0);
+    /// <summary>What Fire's and Grow's key words depend on (RoomHud.FireWheel.cs, RoomHud.GrowDrag.cs): whether Fire, and Fireline, are learned, and whether the bridge is open.</summary>
+    private int FireKeyBits() => Host is not { } host ? 0 : (host.FireLearned ? 1 << 28 : 0) | (host.FirelineLearned ? 1 << 29 : 0) | (host.BridgeUnlocked ? 1 << 27 : 0);
 
     private (int Map, bool Help, string Name, string Home, object? Rules, int Pool, int Beat, int Settings)? _keyTextsAsOf;
 
@@ -854,8 +854,10 @@ public partial class RoomHud : CanvasLayer
                 return;
             }
         }
-        // Key 6 coming up ends its tap or drag, which lights Fire at once (RoomHud.FireWheel.cs).
+        // Key 6 coming up ends its tap or drag, which lights Fire at once (RoomHud.FireWheel.cs); key 2 coming up ends its tap or its
+        // drag from lip to lip, which casts Grow (RoomHud.GrowDrag.cs).
         if (_fireKeyStart != null && PlayerControls.Released(press, Act.GubbleSlot6)) { FireKeyUp(); GetViewport().SetInputAsHandled(); return; }
+        if (_growKeyStart != null && PlayerControls.Released(press, Act.GubbleSlot2)) { GrowKeyUp(); GetViewport().SetInputAsHandled(); return; }
         // The ask button held: the mouse is the wheel's (a flick picks a wedge), and its release is the tap or the choice.
         if (_wheel.Held)
         {
@@ -941,6 +943,7 @@ public partial class RoomHud : CanvasLayer
             {
                 // 6 is Fire: its press starts a tap or a drag, its release lights it (RoomHud.FireWheel.cs).
                 if (slot == GubbleMagic.FireSlot) FireKeyDown();
+                else if (slot == GubbleMagic.GrowSlot) GrowKeyDown();
                 else CastSlot(slot, AimNow());
             }
             // Hand keys: pick up, put down and push, as commands from the player.

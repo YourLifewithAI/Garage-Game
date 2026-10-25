@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace GarageGame.Native;
@@ -61,9 +62,12 @@ public partial class GubbleWheel : Control
     private Label _title = null!;
     private Color _rim = new("eec471");
     private readonly List<int> _locked = new();
+    private readonly List<int> _noted = new();
 
     /// <summary>The wedges drawn locked now (their lock mark and reason), by index (tests).</summary>
     public IReadOnlyList<int> LockedWedges => _locked;
+    /// <summary>The wedges that work but carry a note and a padlock for what is still to unlock (Grow's bridge, ivy and the rest), by index (tests).</summary>
+    public IReadOnlyList<int> NotedWedges => _noted;
 
     /// <summary>The title over the wheel: whose magic it is.</summary>
     public Label Title => _title;
@@ -120,9 +124,11 @@ public partial class GubbleWheel : Control
     /// The wedges' words: an ability slot shows its icon and the island's display_name, or a dim "?" when the island has none in
     /// that category; an order shows its icon, name and key where it has one.
     /// </summary>
-    public void SetWedges(System.Func<int, string?> abilityName, System.Func<GubbleMagic.Wedge, string> orderWords, System.Func<int, string?>? lockedWords = null)
+    public void SetWedges(System.Func<int, string?> abilityName, System.Func<GubbleMagic.Wedge, string> orderWords, System.Func<int, string?>? lockedWords = null,
+        System.Func<int, string?>? noteWords = null)
     {
         _locked.Clear();
+        _noted.Clear();
         for (var i = 0; i < _wedgeLabels.Count; i++)
         {
             var wedge = GubbleMagic.Wedges[i];
@@ -131,12 +137,15 @@ public partial class GubbleWheel : Control
             var known = name != null;
             // A slot the island has but the team has not learned (Fire before the first rest): its name, the lock mark and the reason.
             var locked = known && wedge.Kind == GubbleMagic.WedgeKind.Ability ? lockedWords?.Invoke(wedge.Slot) : null;
+            // An ability that works but has more still to unlock (Grow's bridge and the rest): a note under its name and a padlock, bright.
+            var note = known && locked == null && wedge.Kind == GubbleMagic.WedgeKind.Ability ? noteWords?.Invoke(wedge.Slot) : null;
             var text = locked != null ? $"{wedge.Icon}\n{wedge.Slot + 1} {name}\n{WrapWords(locked)}"
-                : known ? (wedge.Kind == GubbleMagic.WedgeKind.Ability ? $"{wedge.Icon}\n{wedge.Slot + 1} {name}" : name!)
+                : known ? (wedge.Kind == GubbleMagic.WedgeKind.Ability ? $"{wedge.Icon}\n{wedge.Slot + 1} {name}" + (note != null ? "\n" + WrapWords(note) : "") : name!)
                 : $"{wedge.Icon}\n{wedge.Slot + 1} {wedge.Name}\n{LackingWords}";
             if (label.Text != text) label.Text = text;
             label.Modulate = new Color(1, 1, 1, locked != null ? LockedAlpha : known ? 1f : LackingAlpha);
             if (locked != null) _locked.Add(i);
+            else if (note != null) _noted.Add(i);
         }
     }
 
@@ -263,7 +272,7 @@ public partial class GubbleWheel : Control
         DrawCircle(_centre, CentrePx, new Color(0.16f, 0.24f, 0.23f, 0.95f));
         if (Hovered is { } hovered) DrawCircle(_centre + GubbleMagic.WedgeDirection(hovered) * RadiusPx, 40f, new Color(0.95f, 0.84f, 0.54f, 0.35f));
         // A locked wedge carries a small padlock drawn beside its icon (decision 77: Fire until the first rest), whatever the font has.
-        foreach (var locked in _locked)
+        foreach (var locked in _locked.Concat(_noted))
         {
             var at = _centre + GubbleMagic.WedgeDirection(locked) * RadiusPx + new Vector2(LockOffsetPx, -LockOffsetPx);
             DrawArc(at + new Vector2(0, -3f), 4f, Mathf.Pi, Mathf.Tau, 12, LockColour, 2f, true);

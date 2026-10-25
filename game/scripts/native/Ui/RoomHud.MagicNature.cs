@@ -16,6 +16,9 @@ public partial class RoomHud
     private Label _repairCost = null!;
     private Button _undoNature = null!;
     private CheckButton? _gubbleFire;
+    private Label _growUnlocks = null!;
+    /// <summary>The Magic panel's lines on Grow's four unlocks now (tests).</summary>
+    public string GrowUnlocksText => _growUnlocks?.Text ?? "";
     private Label _fireWords = null!;
     private Label _fireLocked = null!;
     private Button _fireLight = null!;
@@ -40,6 +43,8 @@ public partial class RoomHud
         MagicHeading(page, "GROW");
         AddButton(page, "Grow the plants at the selected spot", CastGrow, 32);
         page.AddChild(WrapMagicLabel("Grass, flowers, ferns, shrubs and trees grow a little each time, up to twice their size, and stay grown. A grown tree can be climbed."));
+        // Grow's unlocks by what the Gubble has learned (decision 76): each open one says what it does, each locked one is the host's own words.
+        _growUnlocks = WrapMagicLabel(""); _growUnlocks.Name = "GrowUnlocks"; page.AddChild(_growUnlocks);
         MagicHeading(page, "FIRE");
         page.AddChild(WrapMagicLabel("Fire can spread inside its outlined circle. Creations become scorched and repairable; other things can burn away."));
         // "Let the Gubble use fire" is one of the player's settings (RoomHud.Settings.cs): the switch moved there from this page.
@@ -136,6 +141,8 @@ public partial class RoomHud
         _undoNature.Visible = host.Mode == "creative";
         _undoNature.Disabled = !host.NatureCanUndo;
         _gubbleFire?.SetPressedNoSignal(host.GubbleFireAllowed);
+        var unlocks = GrowLocks.PanelWords(host);
+        if (_growUnlocks.Text != unlocks) _growUnlocks.Text = unlocks;
         _fireLocked.Visible = !host.FireLearned;
         _fireLight.Disabled = !host.FireLearned;
         RefreshRepairCost();
