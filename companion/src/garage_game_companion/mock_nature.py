@@ -21,6 +21,14 @@ What the mock keeps (room state, in memory with the room; the kernel saves it wi
   and nothing else; 30 s of rain puts a lit one out (the starting campfire only once the team has learned Fire); Snuff puts one
   out. `player_rests` is the rest key: the first rest by the starting campfire teaches Fire (decision 72).
 - **The weather.** The kernel's six-minute sequence on the host's clock from the room's load: dry for two minutes, rain, dry.
+- **Grow's unlocks** (decisions 76 and 104 to 107, CommandHostGrowKinds.cs and its siblings): the team's Grow expertise count opens
+  seedless growth and replanting at two, the bridge at three and ivy at five, each refused permission_denied before it in the kernel's
+  words and order. Sprouts on bare fertile ground (a shell part of grass or soil) copy the nearest grass and flower plants on the
+  kernel's lattice; replanting returns the nearest burnt plant that seeds as a seedling; both grow through three phases of an hour on
+  the host's clock (the mock has no island clock record: one game hour a real hour). A bridge is dragged from lip to lip over the box
+  world's floors (a walkable top at each end, level, 0.4 to 1.2 m, nothing standable within 0.15 m under the deck between them,
+  nothing in the way). The box world has no faces to climb, so never ivy (the kernel finds a wall by the room's physics), as never a
+  waterpad. Sprouts and bridges burn as plants and are undone as the kernel's are.
 - **Undo.** Each Grow, Fire and repair is one undo step, recorded with its mode; room.undo takes the latest steps back by room
   revision, in Creative only, as the kernel's NatureUndo does. Lighting a firepit is no step, as in the kernel.
 
@@ -134,6 +142,29 @@ FIRE_EXPERTISE = ("first_fire", "campfire", "fireline", "snuff", "will_o_wisp")
 GROW_EXPERTISE = ("tall_plant", "thicket", "green_ash", "rain_garden", "waterpad")
 # What the place made of a Fire cast (FireKindWords), as the preview's and the receipt's data.kind say it.
 KIND_FIRE, KIND_FIREPIT, KIND_FIRELINE, KIND_SNUFF = "fire", "firepit", "fireline", "snuff"
+# ---- Grow's unlocks (Kernel/CommandHostGrowKinds.cs GrowKindWords and GrowKindLaws) ----
+KIND_SPROUTS, KIND_REPLANT, KIND_BRIDGE, KIND_IVY = "sprouts", "replant", "bridge", "ivy"
+SEEDLESS_AT, BRIDGE_AT, IVY_AT = 2, 3, 5  # GrowKindLaws.SeedlessAt, BridgeAt, IvyAt: the team's Grow expertise count
+SEEDLING_START = 0.5  # GrowKindLaws.SeedlingStart
+SEEDLING_PHASES = 3  # GrowKindLaws.SeedlingPhases
+SEEDLING_PHASE_H = 1.0  # GrowKindLaws.SeedlingPhaseH (game hours; the mock's game hour is a real hour)
+SPROUTS_PER_CAST = 12  # GrowKindLaws.SproutsPerCast
+SPROUT_APART_M = 0.15  # GrowKindLaws.SproutApartM
+SPROUT_LATTICE_M = 0.18  # GrowKindLaws.SproutLatticeM
+SPROUT_JITTER_M = 0.01  # GrowKindLaws.SproutJitterM
+SPROUT_SETS_MIXED = 3  # GrowKindLaws.SproutSetsMixed
+SPROUT_SET_SEARCH_M = 32.0  # GrowKindLaws.SproutSetSearchM
+MAX_SPROUTS = 1024  # NatureState.MaxSprouts
+MAX_BRIDGES = 8  # NatureState.MaxBridges
+BRIDGE_MIN_M = 0.4  # GrowKindLaws.BridgeMinM
+BRIDGE_MAX_M = 1.2  # GrowKindLaws.BridgeMaxM
+BRIDGE_WIDTH_M = 0.1  # GrowKindLaws.BridgeWidthM
+BRIDGE_LEVEL_M = 0.02  # GrowKindLaws.BridgeLevelM
+BRIDGE_LIP_M = 0.04  # GrowKindLaws.BridgeLipM
+BRIDGE_VOID_DROP_M = 0.15  # GrowKindLaws.BridgeVoidDropM
+BRIDGE_SAMPLE_M = 0.025  # GrowKindLaws.BridgeSampleM
+BRIDGE_EDGE_M = 0.004  # GrowKindLaws.BridgeEdgeM
+BRIDGE_CLEAR_M = 0.1  # GrowKindLaws.BridgeClearM
 
 # ---- the kernel's words, word for word (test_kernel_alignment.py NatureMatchesTheKernel) ----
 NO_NATURE_ABILITY = "This island does not grant that nature ability."
@@ -178,6 +209,31 @@ GROW_NO_PLANT = ("There is no plant to grow there: Grow makes the island's own p
 GROW_FULL = "Every plant there is already full size."
 GROW_TOO_MANY = "The island already keeps {most} grown plants, the most it can: none more can grow."
 GROW_HOLD = "The Gubble asks to grow the plants in this area."
+SPROUTS_LOCKED = "Growing plants from bare soil comes once the Gubble has learned two of Grow's expertise."  # CommandHost.SproutsLocked
+REPLANT_LOCKED = "Replanting a burnt plant comes once the Gubble has learned two of Grow's expertise."  # CommandHost.ReplantLocked
+BRIDGE_LOCKED = "A bridge of plants comes once the Gubble has learned three of Grow's expertise."  # CommandHost.BridgeLocked
+IVY_LOCKED = "Climbing ivy comes once the Gubble has learned five of Grow's expertise."  # CommandHost.IvyLocked
+GROW_STILL_GROWING = "The seedlings there are still growing: give them time."  # CommandHost.GrowStillGrowing
+SPROUTS_NOTHING_TO_COPY = "No grass or flowers grow near enough for the sprouts to copy."  # CommandHost.SproutsNothingToCopy
+SPROUTS_GROUND_FULL = "Sprouts already grow in every free spot there."  # CommandHost.SproutsGroundFull
+SPROUTS_TOO_MANY = "The island already keeps {most} sprouts, the most it can."
+SPROUTS_HOLD = "The Gubble asks to grow sprouts on the bare ground here."
+REPLANT_STANDING = "Someone is standing where the plant would grow back: step away from it first."  # CommandHost.ReplantStandingWords
+REPLANT_HOLD = "The Gubble asks to replant a burnt plant here."
+BRIDGE_OUTSIDE = "Choose a bridge inside this island."
+BRIDGE_TOO_FAR = "Bring the Gubble closer: both lips of the bridge must be within its reach."
+BRIDGE_UNSEEN = "The team must see the whole gap the bridge will cross."
+BRIDGE_TOO_MANY = "The island already keeps {most} bridges of plants, the most it can."
+BRIDGE_TOO_LONG = "A bridge of plants is at most {most} m long."
+BRIDGE_TOO_SHORT = "A bridge of plants is at least {least} m long: a narrower gap can be hopped."
+BRIDGE_NO_LIP = "A bridge of plants grows from lip to lip: start and end the drag on solid ground at the gap's edges."  # CommandHost.BridgeNoLip
+BRIDGE_NOT_LEVEL = "The two lips are not level: a bridge of plants grows level, its lips within 2 cm of each other."  # CommandHost.BridgeNotLevel
+BRIDGE_NO_GAP = "There is no gap to cross there: a bridge of plants grows only over a drop or deep water."  # CommandHost.BridgeNoGap
+BRIDGE_TWO_GAPS = "There is ground in the middle of that gap: a bridge of plants crosses one gap, from lip to lip."  # CommandHost.BridgeTwoGaps
+BRIDGE_IN_THE_WAY = "Something is in the way of the bridge."  # CommandHost.BridgeInTheWay
+BRIDGE_HERE = "A bridge of plants already crosses here."  # CommandHost.BridgeHere
+BRIDGE_AVATAR = "Someone is in the gap where the bridge would grow: wait until it is clear."  # CommandHost.BridgeAvatar
+BRIDGE_HOLD = "The Gubble asks to grow a bridge of plants across this gap."
 REPAIR_NOT_HERE = "That is not in this room."
 REPAIR_LOCKED = "Only the player can unlock this protected creation."
 REPAIR_NOT_NEEDED = "That creation does not need repair."
@@ -301,6 +357,7 @@ class Plant:
     fuel_class: str = "grass"
     kind: str = "plant"  # plant, tree or stone
     submerged: bool = False
+    seeds: bool = True  # its set sets seed: a burnt one is replanted (contracts/README.md "Plant copies"); never a stone
 
     def grows(self) -> bool:  # PlantLaws.Grows
         return self.kind != "stone"
@@ -326,14 +383,41 @@ class PlantState:
 
     factor: float = 1.0
     burn: float = 0.0
+    sown: float | None = None  # a replanted seedling: when it was sown, on the host's clock (decision 105); its factor is its phase
 
     @property
     def burnt(self) -> bool:
         return self.burn >= 1
 
     @property
+    def seedling(self) -> bool:
+        return self.sown is not None and not self.burnt and self.factor < 1
+
+    @property
     def grown(self) -> bool:
         return not self.burnt and self.factor > 1
+
+
+@dataclass
+class Sprout:
+    """A sprout (the kernel's NatureSprout, decision 104): the plant it copies, its root, when it was sown, its burn and its phase."""
+
+    template: str
+    position: list[float]
+    sown: float
+    burn: float = 0.0
+    factor: float = SEEDLING_START
+
+
+@dataclass
+class Bridge:
+    """A bridge of plants (the kernel's NatureBridge, decision 106): its lips at the deck's height and the void's span along it."""
+
+    id: str
+    start: list[float]
+    end: list[float]
+    span: tuple[float, float]
+    burn: float = 0.0
 
 
 @dataclass
@@ -380,6 +464,8 @@ class UndoStep:
     plants: dict = field(default_factory=dict)  # id -> PlantState or None
     ash: dict = field(default_factory=dict)  # cell key -> (y, ash) or None
     wallet: dict = field(default_factory=dict)
+    sprouts: list | None = None  # the sprouts before the step changed them (None: it did not)
+    bridges: list | None = None
 
     @property
     def undoable(self) -> bool:
@@ -419,6 +505,8 @@ class NatureMixin:
         self._nature_t = 0.0  # the weather clock the simulation has reached
         self.plants: dict[str, Plant] = {}
         self.plant_state: dict[str, PlantState] = {}
+        self.sprouts: list[Sprout] = []
+        self.bridges: list[Bridge] = []
         self.burn_records: dict[str, BurnRecord] = {}
         self.ash: dict[str, tuple[float, float]] = {}  # cell key -> (its ground's height, ash)
         self.wallet = self._fresh_wallet()
@@ -448,7 +536,7 @@ class NatureMixin:
         return dict(sorted((start or FRESH_WALLET).items()))
 
     def _nature_untouched(self) -> bool:
-        return (not self.burn_records and not self.plant_state and self.fire is None and not self.undo_steps and self.undone_at < 0
+        return (not self.burn_records and not self.plant_state and not self.sprouts and not self.bridges and self.fire is None and not self.undo_steps and self.undone_at < 0
                 and self.nature_changed_at == 0)
 
     # ------------------------------------------------------------------ the team's expertise
@@ -478,6 +566,16 @@ class NatureMixin:
         """What a committed cast or the host's own observation showed, learned once per team (the kernel's RecordExpertise)."""
         self.nature_expertise[ability].update(found)
 
+    @property
+    def grow_count(self) -> int:
+        """Decision 76's count: the team's Grow expertise learned, which opens each of Grow's unlocks."""
+        return len(self.nature_expertise["grow"])
+
+    def learn_grow(self, count: int) -> None:
+        """The team knows the first count of Grow's expertise (the kernel's LearnGrowForTests): the host's own, never a request."""
+        with self._lock:
+            self._learn("grow", GROW_EXPERTISE[:count])
+
     def set_gubble_fire(self, allowed: bool) -> None:
         """The player's control for "Let the Gubble use fire" (the HUD's setting). No request reaches it."""
         with self._lock:
@@ -486,19 +584,21 @@ class NatureMixin:
     # ------------------------------------------------------------------ the game side: plants, rain, the rest key, the fall
 
     def add_plant(self, plant_id: str, position: list[float], height_m: float, fuel_class: str = "grass", kind: str = "plant",
-                  submerged: bool = False) -> str:
+                  submerged: bool = False, seeds: bool | None = None) -> str:
         """One of the island's plant copies, as the room's table would give it (the box world reads no plant tables): its id
         (plant:<set>-<row>), its root, its natural height and its fuel class (grass, herb, shrub, broadleaf, conifer; none for a
         stone)."""
         with self._lock:
             if not _PLANT_ID.fullmatch(plant_id):
                 raise ValueError("a plant copy's id is plant:<set>-<row>")
-            self.plants[plant_id] = Plant(plant_id, [float(v) for v in position], float(height_m), fuel_class, kind, submerged)
+            self.plants[plant_id] = Plant(plant_id, [float(v) for v in position], float(height_m), fuel_class, kind, submerged,
+                                          kind != "stone" if seeds is None else bool(seeds))
             return plant_id
 
     def plant_factor(self, plant_id: str) -> float:
         """A plant's size as a factor of its natural size now (0 once it burned down): what the game would draw."""
         with self._lock:
+            self._refresh_seedlings()
             state = self.plant_state.get(plant_id)
             return 1.0 if state is None else 0.0 if state.burnt else state.factor
 
@@ -674,7 +774,27 @@ class NatureMixin:
             state = self.plant_state.setdefault(plant.id, PlantState())
             state.burn = min(1.0, state.burn + rate / (1 + GROWN_FUEL_FACTOR * max(0.0, state.factor - 1)))
             if state.burnt:
+                state.sown, state.factor = None, 1.0  # a replanted seedling burnt down is a burnt plant like any other
                 self._leave_ash(step, plant.position)
+        # Grow's unlocks burn as plants (decisions 104 and 106): a sprout gone at 1, leaving ash; a bridge caught at a lip.
+        for sprout in list(self.sprouts):
+            template = self.plants.get(sprout.template)
+            if template is None or not self._catches({"min_m": [sprout.position[0] - 0.02, sprout.position[1], sprout.position[2] - 0.02],
+                                                        "max_m": [sprout.position[0] + 0.02, sprout.position[1] + template.height_m * sprout.factor,
+                                                                  sprout.position[2] + 0.02]}):
+                continue
+            self._remember_sprouts(step)
+            sprout.burn = min(1.0, sprout.burn + rate)
+            if sprout.burn >= 1:
+                self.sprouts.remove(sprout)
+                self._leave_ash(step, sprout.position)
+        for bridge in list(self.bridges):
+            if not self._catches(self._deck_box(bridge.start, bridge.end, -0.03, 0.03)):
+                continue
+            self._remember_bridges(step)
+            bridge.burn = min(1.0, bridge.burn + rate)
+            if bridge.burn >= 1:
+                self.bridges.remove(bridge)
 
     # ------------------------------------------------------------------ the campfires
 
@@ -969,6 +1089,9 @@ class NatureMixin:
             raise HostError("unsupported_capability", NO_NATURE_ABILITY, field_path="$.args.capability")
         if capability == "fire" and not self.fire_learned:
             raise HostError("permission_denied", FIRE_NOT_LEARNED, field_path="$.args.capability")
+        # Decision 106: a drag of Grow is a bridge, refused before its count ahead of the cast's checks (the kernel's RequireGrowDrag).
+        if capability == "grow" and "end_m" in args and self.grow_count < BRIDGE_AT:
+            raise HostError("permission_denied", BRIDGE_LOCKED, field_path="$.args.end_m")
         kind = self._fire_kind_of(args) if capability == "fire" else "grow"
         # Snuff lights nothing: it is not the Gubble's one fire, and passes its guardrails (the player's setting included).
         if capability == "fire" and not principal.startswith("player:") and kind in (KIND_FIRE, KIND_FIRELINE):
@@ -1000,20 +1123,28 @@ class NatureMixin:
         return token
 
     def _cast_grow(self, principal, message, apply, new_revision, ability, cast, preview):
-        """A Grow cast (the kernel's CastGrow): every plant rooted in the circle that is not at its cap grows the pack's share of its
-        natural size (twice while it rains), the ash there greens; refused before the price where nothing can grow."""
+        """A Grow cast where the place decides (the kernel's CastGrow, decisions 75 and 104 to 107): a drag a bridge; the box world has
+        no water and no faces, so never a waterpad nor ivy; on burnt ground the nearest burnt plant that seeds replanted, once open;
+        else every plant rooted in the circle that is not at its cap and no seedling still growing grows the pack's share of its natural
+        size (twice while it rains), the ash there greens; where that finds nothing, sprouts on bare fertile ground, once open; each
+        lock and every other "nothing to grow" refused before the price, in the kernel's order and words."""
         center, radius = cast["center"], cast["radius"]
+        if "end_m" in message["args"]:
+            return self._cast_bridge(principal, message, apply, new_revision, ability, cast, preview,
+                                     self._check_bridge(ability, message["args"], cast, principal))
+        self._refresh_seedlings()
+        wall = None  # the box world has no faces a wall's ivy would climb (the kernel's WallAt asks the room's physics)
         share = cast["intensity"] if ability.primitive == "growth.grow" else LEGACY_GROW_SHARE
         raining = self._rain() > WEATHER_RAIN01
         if raining:
             share *= RAIN_GARDEN_FACTOR
-        rooted = [p for p in self._rooted_in(center, radius) if p.grows() and not (p.id in self.plant_state and self.plant_state[p.id].burnt)]
+        standing = [p for p in self._rooted_in(center, radius) if p.grows() and not (p.id in self.plant_state and self.plant_state[p.id].burnt)]
+        rooted = [p for p in standing if not (p.id in self.plant_state and self.plant_state[p.id].seedling)]
         ash = self._ash_in(center, radius)
-        if not rooted and not ash:
-            raise HostError("invalid_args", GROW_NO_PLANT, field_path="$.args.center_m")
+        burnt = self._burnt_to_replant(center, radius)
+        if burnt and self.grow_count >= SEEDLESS_AT:
+            return self._cast_replant(principal, message, apply, new_revision, ability, cast, preview, burnt[0], ash)
         growing = [p for p in rooted if self._factor(p.id) < p.cap() - 1e-4]
-        if not growing and not ash:
-            raise HostError("invalid_args", GROW_FULL, field_path="$.args.center_m")
         room = MAX_GROWN_PLANTS - sum(1 for s in self.plant_state.values() if s.grown)
         kept = []
         for plant in growing:
@@ -1024,6 +1155,23 @@ class NatureMixin:
                 kept.append(plant)
                 room -= 1
         if not kept and not ash:
+            if wall is not None:
+                raise HostError("permission_denied", IVY_LOCKED, field_path="$.args.center_m")
+            if burnt:
+                raise HostError("permission_denied", REPLANT_LOCKED, field_path="$.args.center_m")
+            spots = self._sprout_spots(center, radius) if not standing else []
+            if spots:
+                if self.grow_count < SEEDLESS_AT:
+                    raise HostError("permission_denied", SPROUTS_LOCKED, field_path="$.args.center_m")
+                return self._cast_sprouts(principal, message, apply, new_revision, ability, cast, preview, spots)
+            if any(_flat(s.position, center) <= radius and abs(s.position[1] - center[1]) <= ROOT_HEIGHT_TOLERANCE_M for s in self.sprouts):
+                raise HostError("invalid_args", SPROUTS_GROUND_FULL, field_path="$.args.center_m")
+            if len(standing) > len(rooted) and not rooted:
+                raise HostError("invalid_args", GROW_STILL_GROWING, field_path="$.args.center_m")
+            if not rooted:
+                raise HostError("invalid_args", GROW_NO_PLANT, field_path="$.args.center_m")
+            if not growing:
+                raise HostError("invalid_args", GROW_FULL, field_path="$.args.center_m")
             raise HostError("invalid_args", GROW_TOO_MANY.format(most=MAX_GROWN_PLANTS), field_path="$.args.center_m")
         keyed = not principal.startswith("player:") and ability.tier == "keyed_yes"
         data = {"center_m": center, "radius_m": radius, "duration_s": cast["duration"], "cell_count": 0, "cells": [],
@@ -1042,11 +1190,10 @@ class NatureMixin:
         for plant in kept:
             self._remember_plant(step, plant.id)
             state = self.plant_state.setdefault(plant.id, PlantState())
+            state.sown = None  # a replanted plant grown on from its natural size is a plant like any other again
             state.factor = min(plant.cap(), state.factor + share)
             tall |= state.factor >= plant.cap() - 1e-4
-        for key in ash:
-            self._remember_cell(step, key)
-            self.ash.pop(key, None)  # Green ash: it greens at once; the burnt plants stay gone
+        self._green_ash(step, ash)
         self.nature_changed_at = new_revision
         self._charge_energy(price)
         learned = []
@@ -1060,6 +1207,300 @@ class NatureMixin:
             learned.append("rain_garden")
         self._learn("grow", learned)
         return {"data": committed}
+
+    def _green_ash(self, step, ash: list[str]) -> None:
+        for key in ash:
+            self._remember_cell(step, key)
+            self.ash.pop(key, None)  # Green ash: it greens at once
+
+    # ------------------------------------------------------------------ Grow's unlocks
+
+    def _seedling_factor(self, sown: float) -> float:
+        """A seedling's factor now (GrowKindLaws.SeedlingFactor of its phase): a third of the way to natural a game hour."""
+        phase = min(SEEDLING_PHASES, math.floor(max(0.0, self.clock.now() - sown) / 3600.0 / SEEDLING_PHASE_H + 1e-9))
+        return 1.0 if phase >= SEEDLING_PHASES else SEEDLING_START + (1 - SEEDLING_START) * phase / SEEDLING_PHASES
+
+    def _refresh_seedlings(self) -> None:
+        """The seedlings' sizes follow the clock (the kernel's RefreshSeedlings): derived from when they were sown."""
+        for state in self.plant_state.values():
+            if state.sown is not None and not state.burnt:
+                state.factor = self._seedling_factor(state.sown)
+        for sprout in self.sprouts:
+            sprout.factor = self._seedling_factor(sprout.sown)
+
+    def _commit_grow_kind(self, principal, message, apply, new_revision, ability, cast, preview, kind: str, grown: int, hold: str,
+                          change, learned=(), extra=None):
+        """One of Grow's unlocks previewed, held for a keyed pack's yes or committed as one revision, priced as any Grow (the
+        kernel's CommitGrowKind)."""
+        keyed = not principal.startswith("player:") and ability.tier == "keyed_yes"
+        data = {"center_m": cast["center"], "radius_m": cast["radius"], "duration_s": cast["duration"], "cell_count": 0, "cells": [],
+                "cells_truncated": False, "grown_plants": grown, "requires_approval": keyed, "kind": kind, **(extra or {})}
+        if preview:
+            return {"data": data}
+        if keyed and not self._approving:
+            return {"_ask": {"reason": hold, "touched": {}, "bind_revision": True}, "data": data}
+        committed = {k: v for k, v in data.items() if k not in ("cells", "cells_truncated")}
+        committed["started_cells"] = 0
+        price = self._guard_energy(ability.capability, principal)
+        if not apply:
+            return {"data": committed}
+        step = self._begin_undo("Grow", new_revision, principal)
+        change(step)
+        self.nature_changed_at = new_revision
+        self._charge_energy(price)
+        self._learn("grow", list(learned))
+        return {"data": committed}
+
+    @staticmethod
+    def _spot_hash(i: int, j: int) -> int:
+        """A lattice point's hash, the kernel's SpotHash (unsigned 32-bit arithmetic)."""
+        h = ((i * 0x9E3779B1) ^ (j * 0x85EBCA77)) & 0xFFFFFFFF
+        h ^= h >> 15
+        h = (h * 0x2C1B3C6D) & 0xFFFFFFFF
+        h ^= h >> 12
+        h = (h * 0x297A2D39) & 0xFFFFFFFF
+        return h ^ (h >> 15)
+
+    def _sprout_spots(self, center, radius: float) -> list[tuple[list[float], int]]:
+        """The free fertile spots of the circle a sprout may take, nearest first, at most 12 (the kernel's SproutSpots): lattice points
+        on a shell part of grass or soil, no ash or fire there, 0.15 m from every sprout and every plant still standing."""
+        spacing, row_m = SPROUT_LATTICE_M, SPROUT_LATTICE_M * math.sqrt(3) / 2
+        points = []
+        for j in range(math.floor((center[2] - radius) / row_m) - 1, math.ceil((center[2] + radius) / row_m) + 2):
+            offset = spacing * 0.5 if j & 1 else 0.0
+            for i in range(math.floor((center[0] - radius - offset) / spacing) - 1, math.ceil((center[0] + radius - offset) / spacing) + 2):
+                h = self._spot_hash(i, j)
+                x = i * spacing + offset + ((h & 0xFF) / 255 * 2 - 1) * SPROUT_JITTER_M
+                z = j * row_m + (((h >> 8) & 0xFF) / 255 * 2 - 1) * SPROUT_JITTER_M
+                distance = math.hypot(x - center[0], z - center[2])
+                if distance <= radius:
+                    points.append((distance, j, i, x, z, h))
+        spots = []
+        burning = set(self.fire.burning) if self.fire is not None else set()
+        for _d, _j, _i, x, z, h in sorted(points):
+            if len(spots) >= SPROUTS_PER_CAST:
+                break
+            ground = self._fertile_ground(x, z, center[1])
+            if ground is None or abs(ground - center[1]) > ROOT_HEIGHT_TOLERANCE_M:
+                continue
+            key = _key(*_grid([x, 0.0, z]))
+            if key in burning or (key in self.ash and self.ash[key][1] > 0):
+                continue
+            root = [x, ground, z]
+            if any(_flat(s.position, root) < SPROUT_APART_M and abs(s.position[1] - root[1]) <= ROOT_HEIGHT_TOLERANCE_M for s in self.sprouts):
+                continue
+            if any(not (p.id in self.plant_state and self.plant_state[p.id].burnt) for p in self._rooted_in(root, SPROUT_APART_M)):
+                continue
+            spots.append((root, h))
+        return spots
+
+    def _fertile_ground(self, x: float, z: float, near_y: float) -> float | None:
+        """The ground's height at a point when it is fertile: the highest walkable shell part's top under it, of grass or soil."""
+        best = None
+        for entity in self.entities.values():
+            if entity.kind != "shell" or "walkable_top" not in entity.affordances or entity.removed:
+                continue
+            box = entity.bounds()
+            if box["min_m"][0] <= x <= box["max_m"][0] and box["min_m"][2] <= z <= box["max_m"][2] and box["max_m"][1] <= near_y + 0.1:
+                if best is None or box["max_m"][1] > best[0]:
+                    best = (box["max_m"][1], self._surface_material(entity))
+        return best[0] if best is not None and best[1] in ("grass", "soil") else None
+
+    def _sprout_templates(self, center) -> list[Plant]:
+        """The nearest plant of each of the nearest three grass and flower kinds round a point (the kernel's SproutTemplates; the
+        mock's plants have no sets, so a kind is a plant's set name)."""
+        best: dict[str, tuple[float, str]] = {}
+        for plant in self.plants.values():
+            if plant.kind != "plant" or plant.fuel_class not in ("grass", "herb") or not plant.seeds:
+                continue
+            distance = _flat(plant.position, center)
+            if distance > SPROUT_SET_SEARCH_M:
+                continue
+            name = plant.id[len("plant:"):plant.id.rindex("-")]
+            if name not in best or (distance, plant.id) < best[name]:
+                best[name] = (distance, plant.id)
+        return [self.plants[pid] for _d, pid in sorted(best.values())[:SPROUT_SETS_MIXED]]
+
+    def _cast_sprouts(self, principal, message, apply, new_revision, ability, cast, preview, spots):
+        """Sprouts on the free fertile spots (the kernel's CastSprouts, decision 104)."""
+        templates = self._sprout_templates(cast["center"])
+        if not templates:
+            raise HostError("invalid_args", SPROUTS_NOTHING_TO_COPY, field_path="$.args.center_m")
+        room = MAX_SPROUTS - len(self.sprouts)
+        if room <= 0:
+            raise HostError("invalid_args", SPROUTS_TOO_MANY.format(most=MAX_SPROUTS), field_path="$.args.center_m")
+        kept = spots[:room]
+        sown = math.floor(self.clock.now())
+
+        def change(step):
+            self._remember_sprouts(step)
+            for root, h in kept:
+                self.sprouts.append(Sprout(templates[h % len(templates)].id, list(root), sown, factor=self._seedling_factor(sown)))
+        return self._commit_grow_kind(principal, message, apply, new_revision, ability, cast, preview, KIND_SPROUTS, len(kept), SPROUTS_HOLD, change)
+
+    def _burnt_to_replant(self, center, radius: float) -> list[Plant]:
+        return sorted((p for p in self._rooted_in(center, radius) if p.seeds and p.grows() and p.id in self.plant_state and self.plant_state[p.id].burnt),
+                      key=lambda p: (_flat(p.position, center), p.id))
+
+    def _avatar_where_it_grows(self, plant: Plant) -> bool:
+        """Whether an avatar stands where a replanted tree's trunk would be (the kernel's AvatarWhereItGrows; the mock's plants
+        without collision are all but trees)."""
+        if plant.kind != "tree":
+            return False
+        box = plant.bounds(1.0)
+        for avatar_id in ("avatar:player", _GUBBLE):
+            avatar = self.entities.get(avatar_id)
+            if avatar is None or avatar.removed:
+                continue
+            other = avatar.bounds()
+            if all(other["min_m"][i] <= box["max_m"][i] and other["max_m"][i] >= box["min_m"][i] for i in range(3)):
+                return True
+        return False
+
+    def _cast_replant(self, principal, message, apply, new_revision, ability, cast, preview, plant: Plant, ash: list[str]):
+        """The nearest burnt plant back as a seedling, and the ash greened (the kernel's CastReplant, decision 105)."""
+        if self._avatar_where_it_grows(plant):
+            raise HostError("target_busy", REPLANT_STANDING, field_path="$.args.center_m", retryable=True)
+        sown = math.floor(self.clock.now())
+
+        def change(step):
+            self._remember_plant(step, plant.id)
+            self.plant_state[plant.id] = PlantState(factor=self._seedling_factor(sown), burn=0.0, sown=sown)
+            self._green_ash(step, ash)
+        return self._commit_grow_kind(principal, message, apply, new_revision, ability, cast, preview, KIND_REPLANT, 1, REPLANT_HOLD, change,
+                                      learned=["green_ash"] if ash else [])
+
+    def _check_bridge(self, ability, args: dict, cast: dict, principal: str):
+        """A bridge's drag over the box world's floors, in the kernel's order (CheckBridge): the far lip inside the island, it and the
+        middle within reach and sight, the island's most, the length, the lips' ground and their level, no other bridge there, one
+        void between them, nothing in the way, no avatar where its deck would be."""
+        end = [_r(v) for v in args["end_m"]]
+        start = cast["center"]
+        if not all(self.room_bounds["min_m"][i] - 0.02 <= end[i] <= self.room_bounds["max_m"][i] + 0.02 for i in range(3)):
+            raise HostError("out_of_bounds", BRIDGE_OUTSIDE, field_path="$.args.end_m")
+        middle = [(start[i] + end[i]) / 2 for i in range(3)]
+        gubble = self.entities.get(_GUBBLE)
+        for point in (end, middle):
+            if gubble is None or gubble.removed or math.dist(gubble.position, point) > ability.reach_m:
+                raise HostError("out_of_bounds", BRIDGE_TOO_FAR, field_path="$.args.end_m", retryable=True)
+            if not self._team_sees_spot(point, principal, _GUBBLE):
+                raise HostError("target_not_found", BRIDGE_UNSEEN, field_path="$.args.end_m")
+        if len(self.bridges) >= MAX_BRIDGES:
+            raise HostError("invalid_args", BRIDGE_TOO_MANY.format(most=MAX_BRIDGES), field_path="$.args.end_m")
+        length = _flat(start, end)
+        if length > BRIDGE_MAX_M + 1e-4:
+            raise HostError("invalid_args", BRIDGE_TOO_LONG.format(most=f"{BRIDGE_MAX_M:.1f}"), field_path="$.args.end_m", allowed=BRIDGE_MAX_M)
+        if length < BRIDGE_MIN_M:
+            raise HostError("invalid_args", BRIDGE_TOO_SHORT.format(least=f"{BRIDGE_MIN_M:.1f}"), field_path="$.args.end_m")
+        near = self._floor_below(start, start[1] + BRIDGE_LIP_M, 2 * BRIDGE_LIP_M)
+        if near is None:
+            raise HostError("invalid_args", BRIDGE_NO_LIP, field_path="$.args.center_m")
+        far = self._floor_below(end, end[1] + BRIDGE_LIP_M, 2 * BRIDGE_LIP_M)
+        if far is None:
+            raise HostError("invalid_args", BRIDGE_NO_LIP, field_path="$.args.end_m")
+        if abs(near - far) > BRIDGE_LEVEL_M + 1e-4:
+            raise HostError("invalid_args", BRIDGE_NOT_LEVEL, field_path="$.args.end_m")
+        deck = max(near, far)
+        a, b = [start[0], deck, start[2]], [end[0], deck, end[2]]
+        if any(self._decks_meet(bridge, a, b) for bridge in self.bridges):
+            raise HostError("invalid_args", BRIDGE_HERE, field_path="$.args.end_m")
+        span = self._void_span(a, b)
+        if self._deck_blocked(a, b):
+            raise HostError("invalid_args", BRIDGE_IN_THE_WAY, field_path="$.args.end_m")
+        if self._avatar_over_span(a, b, span):
+            raise HostError("target_busy", BRIDGE_AVATAR, field_path="$.args.end_m", retryable=True)
+        return a, b, span
+
+    def _void_under(self, at) -> bool:
+        return self._floor_below(at, at[1] + 0.005, BRIDGE_VOID_DROP_M + 0.005) is None
+
+    def _void_span(self, a, b) -> tuple[float, float]:
+        """The one void the deck crosses, metres along it from a (the kernel's VoidSpan)."""
+        length = _flat(a, b)
+        steps = max(2, math.ceil(length / BRIDGE_SAMPLE_M))
+
+        def at(s: float):
+            return [a[i] + (b[i] - a[i]) * s / length for i in range(3)]
+        voids = [0 < k < steps and self._void_under(at(length * k / steps)) for k in range(steps + 1)]
+        if True not in voids:
+            raise HostError("invalid_args", BRIDGE_NO_GAP, field_path="$.args.end_m")
+        first, last = voids.index(True), len(voids) - 1 - voids[::-1].index(True)
+        if not all(voids[first:last + 1]):
+            raise HostError("invalid_args", BRIDGE_TWO_GAPS, field_path="$.args.end_m")
+
+        def edge(ground: float, hole: float) -> float:
+            while abs(hole - ground) > BRIDGE_EDGE_M:
+                mid = (ground + hole) / 2
+                if self._void_under(at(mid)):
+                    hole = mid
+                else:
+                    ground = mid
+            return hole
+        return (_r(edge(length * (first - 1) / steps, length * first / steps)), _r(edge(length * (last + 1) / steps, length * last / steps)))
+
+    def _deck_box(self, a, b, low: float, high: float) -> dict:
+        half = BRIDGE_WIDTH_M / 2
+        return {"min_m": [min(a[0], b[0]) - half, a[1] + low, min(a[2], b[2]) - half], "max_m": [max(a[0], b[0]) + half, a[1] + high, max(a[2], b[2]) + half]}
+
+    def _deck_blocked(self, a, b) -> bool:
+        """Whether a thing lies over the deck, from a step over it to BRIDGE_CLEAR_M (the box world's things are boxes)."""
+        box = self._deck_box(a, b, BRIDGE_LEVEL_M + 0.001, BRIDGE_CLEAR_M)
+        for entity in self.entities.values():
+            if entity.removed or entity.kind == "avatar" or entity.held_by:
+                continue
+            other = entity.bounds()
+            if all(other["min_m"][i] < box["max_m"][i] and other["max_m"][i] > box["min_m"][i] for i in range(3)):
+                return True
+        return False
+
+    @staticmethod
+    def _decks_meet(bridge: Bridge, a, b) -> bool:
+        if abs(bridge.start[1] - a[1]) > BRIDGE_CLEAR_M:
+            return False
+
+        def to_segment(p, s, e) -> float:
+            dx, dz = e[0] - s[0], e[2] - s[2]
+            t = max(0.0, min(1.0, ((p[0] - s[0]) * dx + (p[2] - s[2]) * dz) / max(dx * dx + dz * dz, 1e-8)))
+            return math.hypot(s[0] + dx * t - p[0], s[2] + dz * t - p[2])
+        for k in range(17):
+            mine = [a[i] + (b[i] - a[i]) * k / 16 for i in range(3)]
+            theirs = [bridge.start[i] + (bridge.end[i] - bridge.start[i]) * k / 16 for i in range(3)]
+            if to_segment(mine, bridge.start, bridge.end) < BRIDGE_WIDTH_M or to_segment(theirs, a, b) < BRIDGE_WIDTH_M:
+                return True
+        return False
+
+    def _avatar_over_span(self, a, b, span) -> bool:
+        """Whether an avatar is where the deck's collision would be: over the void, at the deck's height (the kernel's AvatarOverSpan)."""
+        length = _flat(a, b)
+        s, e = ([a[i] + (b[i] - a[i]) * span[k] / length for i in range(3)] for k in (0, 1))
+        box = self._deck_box(s, e, -0.005, 0.005)
+        for avatar_id in ("avatar:player", _GUBBLE):
+            avatar = self.entities.get(avatar_id)
+            if avatar is None or avatar.removed:
+                continue
+            other = avatar.bounds()
+            if all(other["min_m"][i] <= box["max_m"][i] and other["max_m"][i] >= box["min_m"][i] for i in range(3)):
+                return True
+        return False
+
+    def _cast_bridge(self, principal, message, apply, new_revision, ability, cast, preview, plan):
+        """The bridge grown (the kernel's CastBridge, decision 106): its receipt's center_m and end_m are its lips as it grew."""
+        a, b, span = plan
+
+        def change(step):
+            self._remember_bridges(step)
+            used = {bridge.id for bridge in self.bridges}
+            self.bridges.append(Bridge(next(f"bridge:{n}" for n in range(1, MAX_BRIDGES + 2) if f"bridge:{n}" not in used), a, b, span))
+        return self._commit_grow_kind(principal, message, apply, new_revision, ability, {**cast, "center": a}, preview, KIND_BRIDGE, 1, BRIDGE_HOLD,
+                                      change, extra={"end_m": b})
+
+    def _remember_sprouts(self, step) -> None:
+        if step is not None and step.sprouts is None:
+            step.sprouts = copy.deepcopy(self.sprouts)
+
+    def _remember_bridges(self, step) -> None:
+        if step is not None and step.bridges is None:
+            step.bridges = copy.deepcopy(self.bridges)
 
     def _factor(self, plant_id: str) -> float:
         state = self.plant_state.get(plant_id)
@@ -1484,6 +1925,10 @@ class NatureMixin:
                     self.ash.pop(key, None)
                 else:
                     self.ash[key] = cell
+            if step.sprouts is not None:
+                self.sprouts = copy.deepcopy(step.sprouts)
+            if step.bridges is not None:
+                self.bridges = copy.deepcopy(step.bridges)
             self.wallet = dict(step.wallet)
         self.undo_steps = [s for s in self.undo_steps if all(s is not taken for taken in steps)]
         if self.fire is not None:
