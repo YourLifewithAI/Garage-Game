@@ -314,7 +314,7 @@ Multiplayer is a later phase and out of scope for the engine work now.
 84. **Hearts do not heal by themselves** (one of the kids): they heal by resting at a camp and by eating food found in the world (apples, fish and the like). Replaces healing anywhere and decision 62's faster healing at camp.
 85. **A campfire hurts a player standing in it,** as any fire does.
 86. **One interaction key for the world,** shown by a prompt at what it works on: sitting at a camp, picking an apple, picking a thing up, opening a door. Which key is still to settle (Enter was suggested); it will be iterated.
-87. **Sitting at a camp changes the scene,** so the player knows they are resting, and **opens the camp:** the place to manage magic, see the expertise found, check stats and knacks, manage the inventory (not built yet) and spend Fractals.
+87. **Sitting at a camp changes the scene,** so the player knows they are resting, and **opens the camp:** the place to manage magic, see the expertise found, check stats and knacks, manage the inventory (built 25 October: the pockets and the chest, decisions 98 to 103) and spend Fractals.
 88. **Out of a bubble is a fall.** Falls hurt, and so does falling out of a bubble: a player can pop out, grab a wall and climb the rest on their stamina. Replaces decision 43's and 60's slow drift down.
 89. **A bubble's time is a ring of light** around it that shrinks as a countdown; when the ring is gone, the bubble pops.
 
