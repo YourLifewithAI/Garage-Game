@@ -10,8 +10,9 @@ decisions 98 to 103): small, for the companion's boundary.
   is gone from the room (removed) and keeps its id; the chest's caps are the pack's (entries and mass), occupied past either. The box
   world names no asset of a kind, so every held thing is a unique thing here, as under v5 in the kernel.
 - The player's inventory needs the body and the team file: the mock answers it not available yet (the kernel hosts it).
-- Every receipt transient with data, as the kernel's; player.status carries the pockets (empty here) and the chest, capabilities.list
-  the four ops on the whole list's first answer.
+- A store or a take is a durable room change with data, one room revision, as the kernel's (decided 25 October: the chest and a
+  thing held away are the island's room state); the thing's entity revision is that revision. player.status carries the pockets
+  (empty here) and the chest, capabilities.list the four ops on the whole list's first answer.
 
 test_kernel_alignment.py holds these words and numbers to the kernel's.
 """
@@ -117,6 +118,7 @@ class InventoryMixin:
         held.held_by = None
         del self.holding[actor]
         held.removed = True
+        self._touch(held, new_revision)
         self.chest.append(held_id)
         return {"affected": [held_id], "data": {"item": held_id, "count": 1, "to": "chest"}}
 
@@ -148,6 +150,7 @@ class InventoryMixin:
         self.chest.remove(item)
         thing.removed = False
         thing.position = list(self.entities[actor].position)
+        self._touch(thing, new_revision)
         self._take_hold(actor, thing)
         return {"affected": [item], "data": {"item": item, "count": 1, "to": "hand"}}
 

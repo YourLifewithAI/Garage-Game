@@ -1287,8 +1287,9 @@ GUBBLE_CHEST_OFF = "The player has not let the Gubble use the chest."
 
 
 def inventory_round(at: str) -> dict:
-    """P-Inventory's messages: the four commands and their transient receipts, the companion's chest path and its refusals, and the
-    readers (player.status's pockets and chest, capabilities.list's inventory)."""
+    """P-Inventory's messages: the four commands and their receipts (a store, a take and a drop durable, one room revision each, as
+    item.gather's; a use transient), the companion's chest path and its refusals, and the readers (player.status's pockets and chest,
+    capabilities.list's inventory)."""
     refused = lambda op, action_id, principal, code, message, path, retryable=False, **extra: {  # noqa: E731
         **result(op, action_id, principal, 5, at), "ok": False,
         "error": {"code": code, "message": message, "field_path": path, "retryable": retryable, **extra}}
@@ -1305,20 +1306,24 @@ def inventory_round(at: str) -> dict:
         # The player at a camp: the held thing into the chest (E's first choice there, decision 113).
         "command_player_stores_the_held_thing_in_the_chest": command("inventory.store", "store-0001", {"to": "chest"},
                                                                      note="Player-only for the hand and the pockets; at a camp."),
-        "result_player_stores_the_held_thing_in_the_chest": result("inventory.store", "store-0001", "player:local", 5, at, transient=True,
+        "result_player_stores_the_held_thing_in_the_chest": result("inventory.store", "store-0001", "player:local", 5, at, transient=False,
                                                                    affected=[THING], data={"item": THING, "count": 1, "to": "chest"}),
         # A held windfall apple (a room object of the apple kind) into the pockets, anywhere: it becomes a unit.
         "command_player_pockets_a_windfall": command("inventory.store", "store-0002", {"to": "pockets", "item": "obj:windfall_01"}),
-        "result_player_pockets_a_windfall": result("inventory.store", "store-0002", "player:local", 5, at, transient=True,
+        "result_player_pockets_a_windfall": result("inventory.store", "store-0002", "player:local", 6, at, transient=False,
                                                    affected=["obj:windfall_01"], data={"item": "apple", "count": 1, "to": "pockets"}),
+        # A held unique thing straight into the pockets, anywhere (decision 99: an entry of its own), under the pockets' caps.
+        "command_player_pockets_a_thing": command("inventory.store", "store-0006", {"to": "pockets", "item": "obj:toy_car"}),
+        "result_player_pockets_a_thing": result("inventory.store", "store-0006", "player:local", 7, at, transient=False,
+                                                affected=["obj:toy_car"], data={"item": "obj:toy_car", "count": 1, "to": "pockets"}),
         "command_player_stores_apples_from_the_pockets": command("inventory.store", "store-0003", {"from": "pockets", "to": "chest", "item": "apple", "count": 2}),
-        "result_player_stores_apples_from_the_pockets": result("inventory.store", "store-0003", "player:local", 5, at, transient=True,
+        "result_player_stores_apples_from_the_pockets": result("inventory.store", "store-0003", "player:local", 8, at, transient=False,
                                                                data={"item": "apple", "count": 2, "to": "chest"}),
         "command_player_takes_a_thing_into_the_hand": command("inventory.take", "take-0001", {"item": THING, "to": "hand"}),
-        "result_player_takes_a_thing_into_the_hand": result("inventory.take", "take-0001", "player:local", 5, at, transient=True,
+        "result_player_takes_a_thing_into_the_hand": result("inventory.take", "take-0001", "player:local", 9, at, transient=False,
                                                             affected=[THING], data={"item": THING, "count": 1, "to": "hand"}),
         "command_player_takes_berries_into_the_pockets": command("inventory.take", "take-0002", {"item": "berries", "to": "pockets", "count": 5}),
-        "result_player_takes_berries_into_the_pockets": result("inventory.take", "take-0002", "player:local", 5, at, transient=True,
+        "result_player_takes_berries_into_the_pockets": result("inventory.take", "take-0002", "player:local", 10, at, transient=False,
                                                                data={"item": "berries", "count": 5, "to": "pockets"}),
         # An apple eaten heals half a heart at once (decisions 92 and 111); at full hearts it stays in the pockets.
         "command_player_eats_an_apple": command("inventory.use", "use-0001", {"item": "apple"}, note="Player-only."),
@@ -1329,11 +1334,12 @@ def inventory_round(at: str) -> dict:
         "result_apple_at_full_hearts": refused("inventory.use", "use-0003", "player:local", "not_ready",
                                                "Your hearts are full: the Apple stays in your pockets.", "$.args.item", retryable=True),
         "command_player_sets_a_thing_down": command("inventory.drop", "drop-0001", {"item": THING}, note="Player-only."),
-        "result_player_sets_a_thing_down": result("inventory.drop", "drop-0001", "player:local", 5, at, transient=True,
+        # Its put-down pose is one revision first (an entity.place receipt under the host's own action id), the drop's own the next.
+        "result_player_sets_a_thing_down": result("inventory.drop", "drop-0001", "player:local", 12, at, transient=False,
                                                   affected=[THING], data={"item": THING, "count": 1, "to": "ground"}),
         # The companion's one path (decision 100): with gubble_chest on, what its own avatar holds into the chest, and back into its hands.
         "command_companion_stores_what_it_holds": command("inventory.store", "store-0004", {"to": "chest"}),
-        "result_companion_stores_what_it_holds": result("inventory.store", "store-0004", "companion:local", 5, at, transient=True,
+        "result_companion_stores_what_it_holds": result("inventory.store", "store-0004", "companion:local", 13, at, transient=False,
                                                         affected=["obj:bean_bag"], data={"item": "obj:bean_bag", "count": 1, "to": "chest"}),
         "command_companion_takes_into_its_hands": command("inventory.take", "take-0003", {"item": "obj:bean_bag", "to": "hand"}),
         "result_companion_pockets_refused": refused("inventory.take", "take-0004", "companion:local", "permission_denied", POCKETS_ALONE, "$.args.to"),
@@ -1432,10 +1438,15 @@ def mechanics_state(run2: dict) -> dict:
 
 def inventory_state(run2: dict) -> dict:
     """The garage's room state with P-Inventory's chest (x_play_camp's chest): five apples and the paint clutter, away from the room
-    (a removed entity) until it is taken out with its own id."""
+    (a removed entity) until it is taken out with its own id; the store that put it there is a durable receipt with its data, the
+    state's latest revision (5)."""
     state = mechanics_state(run2)
+    state["store_revision"] = 5
+    state["receipts"] = {**state["receipts"], "player:local|store-0001": {"fingerprint": "6" * 64, "result": result(
+        "inventory.store", "store-0001", "player:local", 5, "2026-10-06T00:04:40Z", transient=False, affected=[THING],
+        data={"item": THING, "count": 1, "to": "chest"})}}
     state["entities"] = {**state["entities"], "obj:paint_clutter": {
-        "id": "obj:paint_clutter", "kind": "object", "revision": 3, "removed": True,
+        "id": "obj:paint_clutter", "kind": "object", "revision": 5, "removed": True,
         "transform": {"position_m": [-1.6, 0.0, -0.4], "rotation": [0.0, 0.0, 0.0, 1.0]},
         "provenance": {"kind": "captured_scanned", "created_by": "system:room", "created_revision": 0}, "protection": {"locked": False}}}
     state["extensions"] = {**state["extensions"], "x_play_camp": {

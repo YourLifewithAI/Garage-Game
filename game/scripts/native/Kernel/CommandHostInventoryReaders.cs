@@ -59,9 +59,10 @@ public partial class CommandHost
 
     /// <summary>
     /// What E would do with the thing in the player's hand, by the inventory (decision 113), without doing it: at a camp, store it in the
-    /// chest first (when it fits); else a held unit of food or seeds goes to the pockets (when they have room); otherwise not this, and
-    /// the words say why (the HUD's E then gathers a log or stone, or sets the thing down, as built). Ok carries where it goes and words
-    /// for the prompt; a refusal carries the reason PlayerStore would answer.
+    /// chest first (when it fits); else into the pockets, anywhere (when they have room): a unit of food or seeds joins its stack, a unique
+    /// thing takes an entry of its own (decision 99); otherwise not this, and the words say why (the HUD's E then gathers a log or stone,
+    /// or sets the thing down, as built). Ok carries where it goes and words for the prompt; a refusal carries the reason PlayerStore would
+    /// answer (the pockets' when neither fits).
     /// </summary>
     public InventoryOutcome PlayerCanStore()
     {
@@ -69,17 +70,15 @@ public partial class CommandHost
         if (!_held.TryGetValue(PlayerAvatar, out var held)) return new(false, HoldSomething);
         var name = HeldName(PlayerAvatar);
         var kind = rules.KindOfAsset(held.Item.Asset.AssetId);
-        var why = "";
         if (PlayerAtCamp())
         {
             var chest = ChestContents;
             var filled = kind != null ? chest.WithUnits(kind.Id, chest.Units(kind.Id) + 1) : chest.WithThing(ThingFor(held.Item));
-            if (FitsWords(filled, rules, rules.Chest, pockets: false, kind) is not { } full) return new(true, $"Store {name} in the chest", "chest");
-            why = full;
+            if (FitsWords(filled, rules, rules.Chest, pockets: false, kind) == null) return new(true, $"Store {name} in the chest", "chest");
         }
-        if (kind == null) return new(false, why.Length > 0 ? why : ChestAtCamp);
         var pockets = PocketContents;
-        if (FitsWords(pockets.WithUnits(kind.Id, pockets.Units(kind.Id) + 1), rules, rules.Pockets, pockets: true, kind) is { } words) return new(false, words);
+        var into = kind != null ? pockets.WithUnits(kind.Id, pockets.Units(kind.Id) + 1) : pockets.WithThing(ThingFor(held.Item));
+        if (FitsWords(into, rules, rules.Pockets, pockets: true, kind) is { } words) return new(false, words);
         return new(true, $"Put {name} in your pockets", "pockets");
     }
 

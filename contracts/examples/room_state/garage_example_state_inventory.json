@@ -14,7 +14,7 @@
     "command_version": 1,
     "compiler_version": 1
   },
-  "store_revision": 4,
+  "store_revision": 5,
   "session": {
     "session_id": "5f2c9a7d41e08b36c0d1a2b3c4d5e6f7",
     "written_utc": "2026-10-06T00:04:00Z",
@@ -231,7 +231,7 @@
     "obj:paint_clutter": {
       "id": "obj:paint_clutter",
       "kind": "object",
-      "revision": 3,
+      "revision": 5,
       "removed": true,
       "transform": {
         "position_m": [
@@ -350,6 +350,31 @@
         "transient": false,
         "data": {
           "entry_id": "entry-fqkvcpytfsbmnq3ld5v75mizwy"
+        }
+      }
+    },
+    "player:local|store-0001": {
+      "fingerprint": "6666666666666666666666666666666666666666666666666666666666666666",
+      "result": {
+        "schema": "garage_game.result",
+        "version": 1,
+        "ok": true,
+        "op": "inventory.store",
+        "action_id": "store-0001",
+        "principal": "player:local",
+        "room_id": "garage_example",
+        "revision": 5,
+        "replayed": false,
+        "preview": false,
+        "at_utc": "2026-10-06T00:04:40Z",
+        "transient": false,
+        "affected": [
+          "obj:paint_clutter"
+        ],
+        "data": {
+          "item": "obj:paint_clutter",
+          "count": 1,
+          "to": "chest"
         }
       }
     }

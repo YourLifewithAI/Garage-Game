@@ -7,7 +7,8 @@ Kernel/CommandHostInventory.cs, its suite native_kernel_inventory):
   `from` are the player's alone, and with "Let the Gubble use the chest" off (the default; only the player's control turns it on)
   every store and take is refused at $.op; use and drop are refused outright;
 - with the switch on, the companion stores what its own avatar holds into the chest at a camp, and takes a thing back into its own
-  hands, never the player's; the receipts are transient with data; player.status shows the chest and capabilities.list the ops;
+  hands, never the player's; a store and a take are durable room changes with data (one revision each, as on the kernel since
+  25 October); player.status shows the chest and capabilities.list the ops;
 - test_kernel_alignment-style checks hold the mock's words and numbers to the kernel's.
 """
 from __future__ import annotations
@@ -86,15 +87,20 @@ class OnTheMock(unittest.TestCase):
         self.gubble_holds()
         revision = self.host.revision
         stored = self.send(COMPANION, "inventory.store", {"to": "chest"})
-        self.assertTrue(stored["ok"] and stored["transient"] and stored["data"] == {"item": "obj:doorstop", "count": 1, "to": "chest"}, stored)
-        self.assertEqual((self.host.revision, self.host.chest, self.host.holding.get(GUBBLE)), (revision, ["obj:doorstop"], None))
+        self.assertTrue(stored["ok"] and stored["transient"] is False and stored["data"] == {"item": "obj:doorstop", "count": 1, "to": "chest"}, stored)
+        self.assertEqual((self.host.revision, stored["revision"], self.host.chest, self.host.holding.get(GUBBLE)), (revision + 1, revision + 1, ["obj:doorstop"], None),
+                         "a durable room change, as the kernel's: one room revision")
+        self.assertEqual(self.host.entities["obj:doorstop"].revision, revision + 1)
+        replay = self.host.handle(COMPANION, command("inventory.store", {"to": "chest"}, f"inv-{self.n}"))
+        self.assertTrue(replay["replayed"] and replay["revision"] == revision + 1 and self.host.chest == ["obj:doorstop"], replay)
         listed = {item["id"] for item in self.ask(COMPANION, "entities.list", {})["data"]["items"]}
         self.assertNotIn("obj:doorstop", listed, "a thing in the chest is gone from the room")
         status = self.ask(COMPANION, "player.status", {})["data"]
         self.assertEqual(status["chest"]["entries"], [{"item": "obj:doorstop", "kind": "thing", "name": "Doorstop", "count": 1, "mass_kg": 0.3}])
         self.assertEqual(status["pockets"]["entries"], [])
         taken = self.send(COMPANION, "inventory.take", {"item": "obj:doorstop", "to": "hand"})
-        self.assertTrue(taken["ok"] and taken["transient"] and taken["data"] == {"item": "obj:doorstop", "count": 1, "to": "hand"}, taken)
+        self.assertTrue(taken["ok"] and taken["transient"] is False and taken["revision"] == revision + 2 and
+                        taken["data"] == {"item": "obj:doorstop", "count": 1, "to": "hand"}, taken)
         self.assertEqual((self.host.holding.get(GUBBLE), self.host.holding.get("avatar:player"), self.host.chest), ("obj:doorstop", None, []))
         self.assertEqual(self.host.entities["avatar:player"].position, start, "nothing the Gubble did moved the player")
         self.host.set_gubble_chest(False)
@@ -159,3 +165,11 @@ class TheKernelsWords(unittest.TestCase):
                 self.assertLess(body.index("RequireInventory(principal)"), body.index("Settle()"))
         only = source[source.index("private void CompanionChestOnly("):]
         self.assertLess(only.index("PocketsArePlayers"), only.index("GubbleChestOff"))
+
+    def test_the_same_ops_are_durable_on_both_hosts(self):
+        """A store, a take and a drop are durable room changes on the kernel (decided 25 October); a use stays transient: the mock agrees."""
+        host = (KERNEL / "CommandHost.cs").read_text(encoding="utf-8")
+        transient = set(re.findall(r'"([a-z_.]+)"', re.search(r"TransientOps = new\(\) \{([^}]*)\};", host).group(1)))
+        inventory = set(mock_inventory.INVENTORY_OPS)
+        self.assertEqual(transient & inventory, {"inventory.use"})
+        self.assertEqual(mock_host.TRANSIENT_OPS & inventory, transient & inventory)

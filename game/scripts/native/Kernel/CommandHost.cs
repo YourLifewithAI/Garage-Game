@@ -150,8 +150,8 @@ public partial class CommandHost : Node
     /// (kernel-host-gaps P8), and never a nature change, which is room state. Transient() refuses any other op.
     /// </summary>
     private static readonly HashSet<string> TransientOps = new() { "goal.set", "goal.stop", "effect.start", "effect.stop", "effect.adjust", "glow.configure", "entity.grab", "creation.activate", "world.set_physics", "world.set_mode", "wish.stop", "knack.set", "fractal.spend", "receipt.mark", "trust.reset",
-        // P-Inventory: what moved is saved by the host itself (the island save's nature and team block in one write, the team file's pockets), no room revision.
-        "inventory.store", "inventory.take", "inventory.use", "inventory.drop" };
+        // P-Inventory: a use changes only the pockets (the team file) and the body; a store, a take and a drop are durable room changes, as item.gather is.
+        "inventory.use" };
     /// <summary>contracts $defs/player_only_ops: refused from a companion with permission_denied, never held.</summary>
     private static readonly HashSet<string> PlayerOnlyOps = new() { "protect.unlock", "world.set_physics", "world.set_mode", "glow.configure", "wish.submit", "wish.stop", "item.pickup", "item.gather", "knack.set", "fractal.spend", "receipt.mark", "trust.reset", "inventory.use", "inventory.drop" };
     /// <summary>The mechanics round's player-only ops (contracts/README.md "Player-only operations"): the player's own, with no tool.</summary>

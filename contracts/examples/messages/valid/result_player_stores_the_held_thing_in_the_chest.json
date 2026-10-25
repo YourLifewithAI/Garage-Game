@@ -10,7 +10,7 @@
   "replayed": false,
   "preview": false,
   "at_utc": "2026-10-06T00:05:00Z",
-  "transient": true,
+  "transient": false,
   "affected": [
     "obj:paint_clutter"
   ],

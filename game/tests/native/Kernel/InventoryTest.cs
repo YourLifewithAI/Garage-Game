@@ -57,6 +57,8 @@ public partial class InventoryTest : Node3D
             await TestCompanionRefusals();
             await TestThingRoundTrip();
             await TestChestSavedAndReconciled();
+            await TestDurableAtRevisionZero();
+            await TestThingIntoPockets();
             await TestStacksAndCaps();
             await TestPocketsPerMode();
             await TestLossByMode();

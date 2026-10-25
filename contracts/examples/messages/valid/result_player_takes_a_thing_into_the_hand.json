@@ -6,11 +6,11 @@
   "action_id": "take-0001",
   "principal": "player:local",
   "room_id": "garage_example",
-  "revision": 5,
+  "revision": 9,
   "replayed": false,
   "preview": false,
   "at_utc": "2026-10-06T00:05:00Z",
-  "transient": true,
+  "transient": false,
   "affected": [
     "obj:paint_clutter"
   ],

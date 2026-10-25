@@ -2281,7 +2281,9 @@ class InventoryTests(unittest.TestCase):
     def setUp(self):
         self.defs = validate.load_strict(COMMAND_SCHEMA)["$defs"]
 
-    def test_the_four_ops_are_commands_whose_receipts_are_transient_with_data(self):
+    def test_the_four_ops_are_commands_with_data_and_only_a_use_is_transient(self):
+        """Decided 25 October: a store, a take and a drop change the island's room state (the chest, a thing held away), so they are
+        durable, one room revision each, as item.gather is; a use changes the pockets and the body only, and stays transient."""
         self.assertLessEqual(set(INVENTORY_OPS), set(self.defs["command_op"]["enum"]))
         results = {}
         for path in (EXAMPLES / "messages" / "valid").glob("result_*.json"):
@@ -2292,9 +2294,24 @@ class InventoryTests(unittest.TestCase):
         for op, documents in results.items():
             for document in documents:
                 with self.subTest(op=op, action=document["action_id"]):
-                    self.assertTrue(document["transient"], "what moved is saved by the host itself; the room revision does not move")
+                    self.assertEqual(document["transient"], op == "inventory.use")
                     self.assertEqual(set(document["data"]) - {"item", "count", "to", "healed_quarters"}, set())
         self.assertEqual(free_form_objects(self.defs["data"]["inventory"], "data/inventory", self.defs), [])
+        # The contract says so: a committed store, take or drop claiming to be transient is invalid, and a use claiming durability.
+        for name, op, transient in (("result_player_stores_the_held_thing_in_the_chest", "inventory.store", True),
+                                    ("result_player_takes_a_thing_into_the_hand", "inventory.take", True),
+                                    ("result_player_sets_a_thing_down", "inventory.drop", True),
+                                    ("result_player_eats_an_apple", "inventory.use", False)):
+            with self.subTest(claimed=name):
+                self.assertNotEqual(validate.schema_errors({**valid_example(name), "transient": transient}), [])
+        words = self.defs["result"]["properties"]["transient"]["description"]
+        self.assertIn("inventory.use", words)
+        self.assertIn("the inventory's store, take and drop", words)
+        # Room state keeps a durable inventory receipt with its data (the chest's paint clutter, stored at the state's revision).
+        state = validate.load_strict(EXAMPLES / "room_state" / "garage_example_state_inventory.json")
+        kept = state["receipts"]["player:local|store-0001"]["result"]
+        self.assertEqual((kept["op"], kept["transient"], kept["revision"], kept["data"]), ("inventory.store", False, state["store_revision"],
+                                                                                       {"item": "obj:paint_clutter", "count": 1, "to": "chest"}))
 
     def test_use_and_drop_are_the_players_and_store_and_take_keep_the_chests_one_path(self):
         only = set(self.defs["player_only_ops"]["enum"])
@@ -2314,7 +2331,13 @@ class InventoryTests(unittest.TestCase):
     @unittest.skipUnless((KERNEL / "CommandHost.cs").is_file(), "the kernel host is not in this checkout")
     def test_the_kernel_hosts_the_four_ops_as_the_contract_says(self):
         self.assertLessEqual(set(INVENTORY_OPS), kernel_set(KERNEL / "CommandHost.cs", "CommandOps"))
-        self.assertLessEqual(set(INVENTORY_OPS), kernel_set(KERNEL / "CommandHost.cs", "TransientOps"))
+        transient = kernel_set(KERNEL / "CommandHost.cs", "TransientOps")
+        self.assertIn("inventory.use", transient)
+        self.assertFalse({"inventory.store", "inventory.take", "inventory.drop"} & transient, "durable room changes, as item.gather")
+        self.assertLessEqual({"inventory.store", "inventory.take", "inventory.drop"}, kernel_set(KERNEL / "CommandHostRoomState.cs", "DurableOps"))
+        authority = (ROOT / "game" / "scripts" / "creation_authority.gd").read_text(encoding="utf-8")
+        nature_ops = set(re.findall(r'"([a-z_.]+)"', re.search(r"const NATURE_OPS := \[([^\]]*)\]", authority).group(1)))
+        self.assertLessEqual({"inventory.store", "inventory.take", "inventory.drop"}, nature_ops, "the authority keeps their receipts with data")
         player_only = kernel_set(KERNEL / "CommandHost.cs", "PlayerOnlyOps")
         self.assertLessEqual({"inventory.use", "inventory.drop"}, player_only)
         self.assertFalse({"inventory.store", "inventory.take"} & player_only)

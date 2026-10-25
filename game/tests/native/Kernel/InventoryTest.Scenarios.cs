@@ -93,9 +93,9 @@ public partial class InventoryTest
         Check(Ok(preview) && preview["preview"]!.GetValue<bool>() && preview["data"] == null && _host.HeldBy(PlayerAvatar) == "obj:cup", "a previewed store changes nothing");
         var store = Command("store-cup", "inventory.store", new JsonObject { ["to"] = "chest" });
         var stored = Send(store, Player);
-        Check(Ok(stored) && stored["transient"]!.GetValue<bool>() && stored["affected"]?[0]?.GetValue<string>() == "obj:cup" &&
-              Canonical(stored["data"]) == Canonical(new JsonObject { ["count"] = 1, ["item"] = "obj:cup", ["to"] = "chest" }) && _host.Revision == revision,
-            "the cup goes in the chest: a transient receipt naming it, with data, no room revision: " + Canonical(stored));
+        Check(Ok(stored) && stored["transient"]?.GetValue<bool>() == false && stored["affected"]?[0]?.GetValue<string>() == "obj:cup" &&
+              Canonical(stored["data"]) == Canonical(new JsonObject { ["count"] = 1, ["item"] = "obj:cup", ["to"] = "chest" }) && _host.Revision == revision + 1,
+            "the cup goes in the chest: a durable receipt naming it, with data, one room revision: " + Canonical(stored));
         Check(_host.HeldBy(PlayerAvatar) == null && !EntityIds().Contains("obj:cup") && _host.Nature.Objects["obj:cup"] is { Gathered: true, BurnedDown: true } &&
               _host.ChestEntries.Single() is { Item: "obj:cup", Kind: "thing", Name: "Cup", Count: 1 } && Math.Abs(_host.ChestMassKg - 0.05) < 1e-6,
             "the hands are empty, the room no longer lists it, the island holds it away (gathered), and the chest lists it by name and mass");
@@ -103,7 +103,7 @@ public partial class InventoryTest
         var saved = _host.TeamBlock()["camp"]?["chest"];
         Check(Canonical(saved) == Canonical(new JsonObject { ["things"] = new JsonArray("obj:cup") }), "the island save's camp block keeps the chest: " + Canonical(saved));
         var taken = Take(Player, "obj:cup", "hand");
-        Check(Ok(taken) && taken["transient"]!.GetValue<bool>() && _host.HeldBy(PlayerAvatar) == "obj:cup" && !_host.Nature.Objects.ContainsKey("obj:cup") && _host.ChestEntries.Count == 0,
+        Check(Ok(taken) && taken["transient"]?.GetValue<bool>() == false && _host.HeldBy(PlayerAvatar) == "obj:cup" && !_host.Nature.Objects.ContainsKey("obj:cup") && _host.ChestEntries.Count == 0,
             "taken back into the hand with the same id: the island holds it again and the chest is empty: " + Canonical(taken));
         Check(_host.TeamBlock()["camp"]?["chest"] == null, "an empty chest writes no key");
         var released = Send(Command(NextId("release"), "entity.release", new JsonObject()), Player);
@@ -121,13 +121,99 @@ public partial class InventoryTest
         var dropped = Drop(Player, "obj:cup");
         var cup = Send(Query("entity.inspect", new JsonObject { ["target"] = "obj:cup" }), Player)["data"]?["entity"];
         var at = cup?["position_m"] is JsonArray p ? new Vector3((float)p[0]!.GetValue<double>(), (float)p[1]!.GetValue<double>(), (float)p[2]!.GetValue<double>()) : Vector3.Inf;
-        Check(Ok(dropped) && dropped["transient"]!.GetValue<bool>() && Canonical(dropped["data"]) == Canonical(new JsonObject { ["count"] = 1, ["item"] = "obj:cup", ["to"] = "ground" }) &&
-              _host.PocketEntries.Count == 0 && cup != null && at.DistanceTo(_player.GlobalPosition) < 0.2f && Math.Abs(at.Y) < 0.003f && _host.Revision == revision + 1,
-            $"set down from the pockets before the player, on the floor ({at.X:0.000}, {at.Y:0.000}, {at.Z:0.000}), its pose a put-down's receipt: " + Canonical(dropped));
+        Check(Ok(dropped) && dropped["transient"]?.GetValue<bool>() == false && Canonical(dropped["data"]) == Canonical(new JsonObject { ["count"] = 1, ["item"] = "obj:cup", ["to"] = "ground" }) &&
+              _host.PocketEntries.Count == 0 && cup != null && at.DistanceTo(_player.GlobalPosition) < 0.2f && Math.Abs(at.Y) < 0.003f && _host.Revision == revision + 2 &&
+              dropped["revision"]?.GetValue<int>() == revision + 2,
+            $"set down from the pockets before the player, on the floor ({at.X:0.000}, {at.Y:0.000}, {at.Z:0.000}): its pose a put-down's receipt, then the drop's own: " + Canonical(dropped));
         await NewWorld("round-trip", keepFiles: true);
         var after = Send(Query("entity.inspect", new JsonObject { ["target"] = "obj:cup" }), Player)["data"]?["entity"]?["position_m"];
         Check(_host.PocketEntries.Count == 0 && after is JsonArray a && new Vector3((float)a[0]!.GetValue<double>(), (float)a[1]!.GetValue<double>(), (float)a[2]!.GetValue<double>()).DistanceTo(at) < 0.001f,
             "after a reload the cup is where it was set down, and the pockets are empty");
+    }
+
+    /// <summary>
+    /// A held unique thing goes straight from the hand into the pockets (decided 25 October from decision 99: "a unique thing takes a slot
+    /// of its own"), anywhere, under the pockets' entry and mass caps; E offers it away from a camp, the chest first at one. It keeps its id
+    /// and comes back with it; the chest route stays. A companion is never let near the pockets, the switch on or not.
+    /// </summary>
+    private async Task TestThingIntoPockets()
+    {
+        await NewWorld("thing-pockets");
+        Check(await PickUp("obj:cup", ByCup), "the player picks the cup up");
+        Check(_host.PlayerCanStore() is { Ok: true, To: "chest", Words: "Store Cup in the chest" }, "at the camp E still offers the chest first");
+        await Stand(_player, AwayFromCamp, "away from the camp, the cup in hand");
+        var can = _host.PlayerCanStore();
+        Check(can is { Ok: true, To: "pockets", Words: "Put Cup in your pockets" }, "away from a camp E offers the pockets: " + can.Words);
+        var revision = _host.Revision;
+        var preview = Store(Player, "pockets", preview: true);
+        Check(Ok(preview) && preview["data"] == null && _host.HeldBy(PlayerAvatar) == "obj:cup" && _host.Revision == revision, "a previewed store changes nothing");
+        var pocketed = Store(Player, "pockets", item: "obj:cup");
+        Check(Ok(pocketed) && pocketed["transient"]?.GetValue<bool>() == false && _host.Revision == revision + 1 && pocketed["affected"]?[0]?.GetValue<string>() == "obj:cup" &&
+              Canonical(pocketed["data"]) == Canonical(new JsonObject { ["count"] = 1, ["item"] = "obj:cup", ["to"] = "pockets" }),
+            "the cup goes straight into the pockets, away from any camp: a durable receipt, one room revision: " + Canonical(pocketed));
+        Check(_host.PocketEntries.Single() is { Item: "obj:cup", Kind: "thing", Name: "Cup", Count: 1, Here: true } && Math.Abs(_host.PocketMassKg - 0.05) < 1e-6 &&
+              _host.HeldBy(PlayerAvatar) == null && !EntityIds().Contains("obj:cup") && _host.Nature.Objects["obj:cup"].Gathered && _host.ChestEntries.Count == 0,
+            "it takes an entry of its own, the hands are empty, and the island holds it away");
+        var listed = TeamFile.Parse(File.ReadAllBytes(TeamPath("thing-pockets"))).PocketsOf("challenge").Things.Single();
+        Check(listed is { Id: "obj:cup", RoomId: "test_room", Name: "Cup" } && listed.ManifestPrefix == _room.ManifestSha256[..16], "the team file keeps it with its island");
+        Check(await PickUp("obj:doorstop", ByDoorstop), "the player picks up the doorstop (0.3 kg)");
+        await Stand(_player, AwayFromCamp, "away from the camp again");
+        var heavy = "That would be too heavy for your pockets: they hold 0.3 kg.";
+        Check(_host.PlayerCanStore() is { Ok: false } refused && refused.Words == heavy, "E says the doorstop would be too heavy for the pockets with the cup in them");
+        Check(Refused(Store(Player, "pockets"), "occupied", heavy, "$.args") && _host.HeldBy(PlayerAvatar) == "obj:doorstop" && EntityIds().Contains("obj:doorstop") &&
+              _host.PocketEntries.Count == 1, "the pockets' mass cap: occupied, and the doorstop stays in hand and in the room");
+        Check(Ok(Send(Command(NextId("release"), "entity.release", new JsonObject()), Player)), "the doorstop is set down");
+        await NewWorld("thing-pockets", keepFiles: true);
+        Check(_host.PocketEntries.Single().Item == "obj:cup" && !EntityIds().Contains("obj:cup"), "after a reload the cup is still in the pockets and away from the room");
+        await Stand(_player, AwayFromCamp, "away from the camp");
+        Check(Ok(Drop(Player, "obj:cup")) && EntityIds().Contains("obj:cup") && _host.PocketEntries.Count == 0, "and set down, it is back in the room with its own id");
+        Check(_host.SetGubbleChest(true) && Refused(Store(Companion, "pockets"), "permission_denied", CommandHost.PocketsArePlayers, "$.args.to"),
+            "with the chest switch on the Gubble still never puts anything in the pockets: refused before anything is looked up");
+    }
+
+    /// <summary>
+    /// The inventory's room changes are durable, as item.gather is: a store, a take and a drop are each a room revision with a durable
+    /// receipt that keeps its data (a drop's put-down pose is one more, under the host's own id); a use changes no room state and stays
+    /// transient. So a fresh island (revision 0) whose first change puts a thing in the chest exports a room state that imports (before:
+    /// the thing was a removed entity at revision 1 in a room state at revision 0, refused "A saved object revision names something not
+    /// in this room"), and the imported receipts replay.
+    /// </summary>
+    private async Task TestDurableAtRevisionZero()
+    {
+        await NewWorld("durable");
+        Check(_host.Revision == 0, "a fresh island is at revision 0");
+        Check(await PickUp("obj:cup", ByCup), "the player picks the cup up");
+        var store = Command("store-first", "inventory.store", new JsonObject { ["to"] = "chest" });
+        var stored = Send(store, Player);
+        Check(Ok(stored) && stored["transient"]?.GetValue<bool>() == false && stored["revision"]?.GetValue<int>() == 1 && _host.Revision == 1 &&
+              Canonical(stored["data"]) == Canonical(new JsonObject { ["count"] = 1, ["item"] = "obj:cup", ["to"] = "chest" }),
+            "the island's first change puts the cup in the chest: a durable receipt with its data, revision 1: " + Canonical(stored));
+        var lookup = Send(Query("receipt.lookup", new JsonObject { ["action_id"] = "store-first" }), Player);
+        Check(lookup["data"]?["receipt"]?["revision"]?.GetValue<int>() == 1 && Canonical(lookup["data"]?["receipt"]?["data"]) == Canonical(stored["data"]),
+            "receipt.lookup finds it with its data: " + Canonical(lookup["data"]));
+        var state = _host.ExportRoomState()!;
+        Check(state["store_revision"]?.GetValue<int>() == 1 && state["entities"]?["obj:cup"]?["revision"]?.GetValue<int>() == 1 &&
+              state["receipts"]?["player:local|store-first"]?["result"]?["data"] is JsonObject,
+            "room state is at revision 1, the cup a removed entity at revision 1, the receipt kept with its data");
+        var tampered = (JsonObject)state.DeepClone();
+        tampered["receipts"]!["player:local|store-first"]!["result"]!["data"]!["price"] = 1;
+        await NewWorld("durable-tampered");
+        var refused = _host.ImportRoomState(tampered);
+        Check(!refused.Ok && _host.Revision == 0, "a kept inventory receipt with data this host never writes is refused: " + refused.Message);
+        await NewWorld("durable-import");
+        var imported = _host.ImportRoomState((JsonObject)state.DeepClone());
+        Check(imported.Ok && _host.Revision == 1 && _host.ChestEntries.Single().Item == "obj:cup" && !EntityIds().Contains("obj:cup"),
+            "and it imports: the chest holds the cup, which is away from the room: " + imported.Message);
+        Check(Send(store, Player)["replayed"]?.GetValue<bool>() == true && _host.Revision == 1 && _host.ChestEntries.Count == 1, "the imported receipt replays and stores nothing twice");
+        var taken = Take(Player, "obj:cup", "hand");
+        Check(Ok(taken) && taken["transient"]?.GetValue<bool>() == false && _host.Revision == 2 && _host.HeldBy(PlayerAvatar) == "obj:cup",
+            "a take is a revision too: " + Canonical(taken));
+        Check(Ok(Send(Command(NextId("release"), "entity.release", new JsonObject()), Player)), "the cup is set down");
+        Check(await PickUp("obj:apple_1", ByApple1) && Store(Player, "pockets") is var pocketed && Ok(pocketed) && pocketed["transient"]?.GetValue<bool>() == false &&
+              _host.Revision == 4, "so is a store into the pockets (the windfall leaves the island)");
+        var harm = _host.ApplyPlayerDamage(20, PlayerDamageSource.Fire);
+        var eaten = Use(Player, "apple");
+        Check(harm != null && Ok(eaten) && eaten["transient"]?.GetValue<bool>() == true && _host.Revision == 4, "a use changes no room state: transient, no revision: " + Canonical(eaten));
     }
 
     /// <summary>
@@ -145,9 +231,6 @@ public partial class InventoryTest
         await NewWorld("chest", keepFiles: true);
         Check(_host.ChestEntries.Select(e => e.Item).SequenceEqual(new[] { "apple", "obj:cup" }) && !EntityIds().Contains("obj:cup") && !EntityIds().Contains("obj:apple_1"),
             "after a reload the chest holds the apple and the cup, and neither is in the room");
-        // The inventory's writes move no room revision: a put-down does, so room state's entity revisions fit its store revision (see the report).
-        Check(Ok(Send(Command(NextId("place"), "entity.place", new JsonObject { ["target"] = "obj:doorstop", ["placement"] = new JsonObject { ["position_m"] = new JsonArray(-0.3, 0.006, 0.45) } }), Player)),
-            "the doorstop is moved a little (a room revision)");
         var state = _host.ExportRoomState()!;
         Check(Canonical(state["extensions"]?["x_play_camp"]?["chest"]) == Canonical(new JsonObject { ["stacks"] = new JsonObject { ["apple"] = 1 }, ["things"] = new JsonArray("obj:cup") }) &&
               state["entities"]?["obj:cup"]?["removed"]?.GetValue<bool>() == true,
@@ -189,7 +272,8 @@ public partial class InventoryTest
         Check(Ok(Send(Command(NextId("release"), "entity.release", new JsonObject()), Player)), "the player sets the third apple down");
         Check(await PickUp("obj:pod", ByPod) && Ok(Store(Player, "pockets")) && _host.PocketEntries.Count == 2 && Units(_host.PocketEntries, "seed") == 1, "a seed pod is a second entry: seeds");
         Check(await PickUp("obj:cup", ByCup), "the cup in hand");
-        Check(Refused(Store(Player, "pockets"), "request_invalid", CommandHost.OnlyStacksFromHand, "$.args.to"), "a unique thing does not go from the hand into the pockets");
+        Check(Refused(Store(Player, "pockets"), "occupied", "Your pockets are full: they hold 2 things.", "$.args") && _host.HeldBy(PlayerAvatar) == "obj:cup",
+            "a unique thing would take an entry of its own, and the pockets are full: it stays in hand");
         Check(Ok(Store(Player, "chest")) && _host.ChestEntries.Count == 1, "it goes in the chest at the camp");
         Check(Refused(Take(Player, "obj:cup", "pockets"), "occupied", "Your pockets are full: they hold 2 things.", "$.args") && _host.ChestEntries.Count == 1,
             "the pockets' entries cap: occupied, and the cup stays in the chest");

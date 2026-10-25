@@ -175,8 +175,9 @@ LEAD_POPPED = "The bubble popped before it got there."
 LEAD_BLOCKED = "The bubble cannot get there from here."
 TRANSIENT_OPS = frozenset({"entity.grab", "creation.activate", "goal.set", "goal.stop", "effect.start", "effect.stop",
                            "world.set_physics", "world.set_mode", "glow.configure", "effect.adjust", "receipt.mark", "trust.reset",
-                           # P-Inventory (mock_inventory.py): what moved is the host's own write, no room revision, as on the kernel.
-                           "inventory.store", "inventory.take", "inventory.use", "inventory.drop"})
+                           # P-Inventory (mock_inventory.py): a use changes no room state; a store, a take and a drop are
+                           # durable room changes, as on the kernel (they are not listed here).
+                           "inventory.use"})
 # The mechanics round's player-only ops the mock hosts (M8's Trust, mock_trust.py); the rest answer as not available yet.
 MECHANICS_HOSTED = frozenset({"receipt.mark", "trust.reset"})
 # Durable, but they change no world state, so they do not move the room revision.

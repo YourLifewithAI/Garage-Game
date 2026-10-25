@@ -12,7 +12,8 @@ namespace GarageGame.Native.Kernel;
 
 /// <summary>
 /// The pockets and the chest (P-Inventory; docs/game/MECHANICS.md decisions 98 to 103, 108, 111 and 113; contracts: inventory.store,
-/// inventory.take, inventory.use and inventory.drop, all transient receipts with data and no price):
+/// inventory.take, inventory.use and inventory.drop, receipts with data and no price: a store, a take and a drop are durable room changes,
+/// as item.gather is, and a use is transient):
 /// <list type="bullet">
 /// <item><b>The pockets</b> are the team's, one set per mode (the team file's pockets; a fixture without a team keeps them for the
 /// session), carried everywhere: stacks of the rules pack's kinds up to each kind's size, and unique things, each a room object of one
@@ -26,11 +27,13 @@ namespace GarageGame.Native.Kernel;
 /// while the player's team setting "Let the Gubble use the chest" (gubble_chest, GubbleChestAllowed) is on, the companion may store what
 /// its own avatar holds and take a thing into its own hands, at a camp, never the player's hand or pockets; with it off every companion
 /// store or take is permission_denied at $.op, before anything is looked up. Nothing here moves an avatar.</item>
-/// <item><b>Saved by the host itself</b>, with no room revision (a transient receipt, as the player's settings and the vitals'
-/// changes are): a thing leaving or coming back to the island and the chest go in one write of the island save (its nature and team
-/// block together, the weather checkpoint's path); the pockets in the team file. Where two files change, what gains comes first and what
-/// gives second, and each read reconciles a thing with the island's room state (a thing the island holds is in no inventory), so a
-/// write lost between them can leave a thing in the world twice listed, never lost: the listing that the world disagrees with goes.</item>
+/// <item><b>Saved as a room revision</b> (decided 25 October: they change the island's room state, the chest and a thing held away):
+/// a store, a take or a drop is one durable receipt with its data, as item.gather's (CommitInventory): the island's nature (a thing away
+/// or back), its team block (the chest) and the receipt in one write of the island save, the revision moved; a drop's put-down pose is
+/// one more (an entity.place receipt under the host's own action id, first). The pockets are the team file's, written beside it; a use
+/// changes only the pockets and the body, so its receipt is transient. Where two files change, what gains comes first and what gives
+/// second, and each read reconciles a thing with the island's room state (a thing the island holds is in no inventory), so a write lost
+/// between them can leave a thing in the world twice listed, never lost: the listing that the world disagrees with goes.</item>
 /// <item><b>Loss</b> (decision 101): in Challenge and Live a knockout or the deep-water return empties the pockets' stacks, unique things
 /// stay, with a journal line in the game's words; Creative loses nothing, and the chest never spills.</item>
 /// </list>
@@ -43,7 +46,6 @@ public partial class CommandHost
     public const string ChestAtCamp = "The chest is at the camp: store and take things by a lit campfire.";
     public const string HoldSomething = "Hold something to put it away: pick it up first.";
     public const string NotWhatIsHeld = "That is not what is being held.";
-    public const string OnlyStacksFromHand = "Only food and seeds go in your pockets from your hand: store a thing like this in the chest, at a camp.";
     public const string NotInPockets = "That is not in your pockets.";
     public const string NotInChest = "That is not in the chest.";
     public const string StackToHand = "Food and seeds come out of the chest into your pockets.";
@@ -52,6 +54,9 @@ public partial class CommandHost
     public const string InventoryUnsaved = "That could not be saved, so nothing moved. Try again in a moment.";
     public const string PocketsWaitForTeam = "The team file could not be read, so the pockets wait for it.";
     public const string NotOnYourFeet = "Wait until you are back on your feet.";
+
+    /// <summary>The inventory's ops whose receipts are durable, kept with their data (room state's receipts; the authority's NATURE_OPS).</summary>
+    internal static readonly HashSet<string> InventoryDurableOps = new(StringComparer.Ordinal) { "inventory.store", "inventory.take", "inventory.drop" };
 
     private InventoryContents _chest = InventoryContents.Empty;
     private readonly Dictionary<string, InventoryContents> _pocketsUnfiled = new(StringComparer.Ordinal);
@@ -153,20 +158,20 @@ public partial class CommandHost
         var kind = rules.KindOfAsset(held.Item.Asset.AssetId);
         if (to == "pockets")
         {
-            if (kind == null) throw new Refusal("request_invalid", OnlyStacksFromHand, "$.args.to");
+            // Anywhere: a unit of a kind joins its stack; a unique thing takes an entry of its own (decision 99), under the pockets' caps.
             var pockets = PocketContents;
-            var next = pockets.WithUnits(kind.Id, pockets.Units(kind.Id) + 1);
+            var next = kind != null ? pockets.WithUnits(kind.Id, pockets.Units(kind.Id) + 1) : pockets.WithThing(ThingFor(held.Item));
             CheckFits(next, rules, rules.Pockets, pockets: true, kind);
             if (preview) return Previewed("inventory.store", principal, actionId, held.Target);
-            // The pockets gain the unit first, then the windfall leaves the island (a lost second write leaves a unit, never loses one).
+            // The pockets gain it first, then it leaves the island, a room revision (a lost second write leaves a unit, never loses one;
+            // a thing listed while the island still holds it is let go when read).
             SavePockets(next);
-            try { LeaveIsland(actor, held, null); }
+            try { return LeaveIsland(actor, held, _chest, principal, actionId, fingerprint, Moved(kind?.Id ?? held.Target, 1, "pockets")); }
             catch (Refusal)
             {
                 SavePockets(pockets, keepIfUnsaved: true);
                 throw;
             }
-            return Transient("inventory.store", principal, actionId, fingerprint, new JsonArray(held.Target), Moved(kind.Id, 1, "pockets"));
         }
         if (!AtCampFor(actor)) throw new Refusal("not_ready", ChestAtCamp, "$.args.to", retryable: true);
         var chest = ChestContents;
@@ -174,8 +179,7 @@ public partial class CommandHost
         CheckFits(filled, rules, rules.Chest, pockets: false, kind);
         if (preview) return Previewed("inventory.store", principal, actionId, held.Target);
         // The chest and the island in one write: the thing is away (gathered) and listed together, or neither.
-        LeaveIsland(actor, held, filled);
-        return Transient("inventory.store", principal, actionId, fingerprint, new JsonArray(held.Target), Moved(kind?.Id ?? held.Target, 1, "chest"));
+        return LeaveIsland(actor, held, filled, principal, actionId, fingerprint, Moved(kind?.Id ?? held.Target, 1, "chest"));
     }
 
     private JsonObject StoreFromPockets(JsonElement args, InventoryRules rules, string principal, string actionId, string fingerprint, bool preview)
@@ -193,15 +197,13 @@ public partial class CommandHost
         var filled = thing != null ? chest.WithThing(thing) : chest.WithUnits(item, chest.Units(item) + count);
         CheckFits(filled, rules, rules.Chest, pockets: false, kind);
         if (preview) return Previewed("inventory.store", principal, actionId, thing != null ? new[] { item } : Array.Empty<string>());
-        // The chest gains first, then the pockets give (a thing listed twice is settled by the world; never lost).
-        SaveChest(filled);
-        try { SavePockets(thing != null ? pockets.WithoutThing(item) : pockets.WithUnits(item, have - count)); }
-        catch (Refusal)
-        {
-            SaveChest(chest, quiet: true);
-            throw;
-        }
-        return Transient("inventory.store", principal, actionId, fingerprint, thing != null ? new JsonArray(item) : new JsonArray(), Moved(item, count, "chest"));
+        RequirePocketsFiled();
+        // The chest gains first, a room revision, then the pockets give: a pockets write lost now stands for the session (the next one
+        // keeps it), and a thing listed twice is settled by the world; never lost, and a committed receipt is never taken back.
+        var result = CommitInventory(Nature.Copy(), filled, "inventory.store", principal, actionId, fingerprint, thing != null ? new[] { item } : Array.Empty<string>(),
+            Moved(item, count, "chest"));
+        SavePockets(thing != null ? pockets.WithoutThing(item) : pockets.WithUnits(item, have - count), keepIfUnsaved: true);
+        return result;
     }
 
     private JsonObject InventoryTake(JsonElement args, string principal, string actionId, string fingerprint, bool preview)
@@ -225,14 +227,14 @@ public partial class CommandHost
             var next = pockets.WithUnits(item, pockets.Units(item) + count);
             CheckFits(next, rules, rules.Pockets, pockets: true, rules.Kind(item));
             if (preview) return Previewed("inventory.take", principal, actionId);
+            // The pockets gain first, then the chest gives, a room revision; a refused revision puts the pockets back.
             SavePockets(next);
-            try { SaveChest(chest.WithUnits(item, have - count)); }
+            try { return CommitInventory(Nature.Copy(), chest.WithUnits(item, have - count), "inventory.take", principal, actionId, fingerprint, Array.Empty<string>(), Moved(item, count, "pockets")); }
             catch (Refusal)
             {
                 SavePockets(pockets, keepIfUnsaved: true);
                 throw;
             }
-            return Transient("inventory.take", principal, actionId, fingerprint, new JsonArray(), Moved(item, count, "pockets"));
         }
         var room = Room.Objects.First(o => o.Id == item);
         if (to == "pockets")
@@ -241,13 +243,12 @@ public partial class CommandHost
             CheckFits(next, rules, rules.Pockets, pockets: true, null);
             if (preview) return Previewed("inventory.take", principal, actionId, item);
             SavePockets(next);
-            try { SaveChest(chest.WithoutThing(item)); }
+            try { return CommitInventory(Nature.Copy(), chest.WithoutThing(item), "inventory.take", principal, actionId, fingerprint, new[] { item }, Moved(item, 1, "pockets")); }
             catch (Refusal)
             {
                 SavePockets(pockets, keepIfUnsaved: true);
                 throw;
             }
-            return Transient("inventory.take", principal, actionId, fingerprint, new JsonArray(item), Moved(item, 1, "pockets"));
         }
         if (BodyOf(actor) is not { } body || !body.IsInsideTree()) throw new Refusal("not_ready", "That avatar is not in the room.", "$.args.to", retryable: true);
         if (_held.ContainsKey(actor)) throw new Refusal("target_busy", "This avatar is already holding something. Put it down first.", "$.args.to");
@@ -256,19 +257,12 @@ public partial class CommandHost
             throw new Refusal("target_too_heavy", $"That is too heavy to carry: {Kilograms(room.Asset.MassKg)} kg, and this avatar can manage {Kilograms(limit)} kg.", "$.args.item",
                 actual: JsonValue.Create(Kilograms(room.Asset.MassKg)), allowed: JsonValue.Create(Kilograms(limit)));
         if (preview) return Previewed("inventory.take", principal, actionId, item);
-        // Back on the island and out of the chest in one write, then in the hand (holding is never saved).
+        // Back on the island and out of the chest in one write, a room revision, then in the hand (holding is never saved).
         var candidate = Nature.Copy();
         candidate.Objects.Remove(item);
-        var before = _chest;
-        _chest = chest.WithoutThing(item);
-        try { SaveInventoryNature(candidate); }
-        catch (Refusal)
-        {
-            _chest = before;
-            throw;
-        }
+        var result = CommitInventory(candidate, chest.WithoutThing(item), "inventory.take", principal, actionId, fingerprint, new[] { item }, Moved(item, 1, "hand"));
         TakeHold(actor, body, room, PoseOf(room, ObjectPoses()));
-        return Transient("inventory.take", principal, actionId, fingerprint, new JsonArray(item), Moved(item, 1, "hand"));
+        return result;
     }
 
     /// <summary>
@@ -328,8 +322,8 @@ public partial class CommandHost
     /// <summary>
     /// inventory.drop (player-only): a unique thing from the pockets set on the ground before the player, on its own island, as a put-down
     /// with no placement settles it. Its pose is saved first as a put-down's is (an entity.place receipt under the host's own action id,
-    /// while the thing is still away), then it is back on the island with its id, then the pockets give it up. A stack's unit has no body
-    /// in the world yet (P-Food gives one): unsupported_capability.
+    /// while the thing is still away: a room revision), then it is back on the island with its id (the drop's own durable receipt, the
+    /// next revision), then the pockets give it up. A stack's unit has no body in the world yet (P-Food gives one): unsupported_capability.
     /// </summary>
     private JsonObject InventoryDrop(JsonElement args, string principal, string actionId, string fingerprint, bool preview)
     {
@@ -361,10 +355,10 @@ public partial class CommandHost
         Move(item, rest, PlayerPrincipal, placed, meta);
         var candidate = Nature.Copy();
         candidate.Objects.Remove(item);
-        SaveInventoryNature(candidate);
+        var result = CommitInventory(candidate, _chest, "inventory.drop", principal, actionId, fingerprint, new[] { item }, Moved(item, 1, "ground"));
         // The thing is back: a pockets write lost now leaves it listed, and the next read lets that listing go.
         SavePockets(pockets.WithoutThing(item), keepIfUnsaved: true);
-        return Transient("inventory.drop", principal, actionId, fingerprint, new JsonArray(item), Moved(item, 1, "ground"));
+        return result;
     }
 
     // ---- the checks ----
@@ -429,55 +423,78 @@ public partial class CommandHost
     // ---- the writes ----
 
     /// <summary>
-    /// A held thing leaves the island: into the chest (with the chest it fills, in the same write) or into the pockets as a unit (the pockets
-    /// already gained it). Gone as a gathered thing is, at the pose it was last put down; the hands are empty first, and a refused write
-    /// gives it back.
+    /// A held thing leaves the island, a room revision: into the chest (with the chest it fills, in the same write) or into the pockets (the
+    /// pockets already gained it; chest is the chest as it is). Gone as a gathered thing is, at the pose it was last put down; the hands are
+    /// empty first, and a refused write gives it back.
     /// </summary>
-    private void LeaveIsland(string actor, Held held, InventoryContents? chest)
+    private JsonObject LeaveIsland(string actor, Held held, InventoryContents chest, string principal, string actionId, string fingerprint, JsonObject data)
     {
         var (position, rotation) = PoseOf(held.Item, ObjectPoses(), carried: false);
         var candidate = Nature.Copy();
         candidate.Objects[held.Target] = new NatureObject { Id = held.Target, Burn = 1, Gathered = true, PositionM = position, Rotation = rotation };
         LetGo(actor);
-        var before = _chest;
-        if (chest != null) _chest = chest;
-        try { SaveInventoryNature(candidate); }
+        try { return CommitInventory(candidate, chest, "inventory.store", principal, actionId, fingerprint, new[] { held.Target }, data); }
         catch (Refusal)
         {
-            _chest = before;
             if (BodyOf(actor) is { } body) TakeHold(actor, body, held.Item, (held.RotationAtGrab, held.YawAtGrab));
             throw;
         }
     }
 
     /// <summary>
-    /// The island's nature and its team block (the chest with them) in one write of the island save, with no receipt and no room revision:
-    /// the weather checkpoint's path (CommandHostNature.SaveNature). Then the island is what was written.
+    /// One durable room revision for an inventory change, as item.gather's (CommandHostGather, through the authority's nature path): the
+    /// island's nature (a thing away or back), its team block with this chest, and the receipt with its data, in one atomic write of the
+    /// island save that moves the revision. The answer is the durable receipt, as every replay and room state's receipts will be. A refused
+    /// write changes nothing: the chest is put back and the refusal is the authority's.
     /// </summary>
-    private void SaveInventoryNature(NatureState candidate)
+    private JsonObject CommitInventory(NatureState candidate, InventoryContents chest, string op, string principal, string actionId, string fingerprint,
+        IEnumerable<string> affected, JsonObject data)
     {
         if (_natureUnavailable) throw new Refusal("not_ready", NatureNotice, retryable: true);
+        candidate.ChangedAt = Revision + 1;
         candidate.TrimUndo();
-        using var team = KernelJson.ToVariant(ExportTeam(_notes));
-        using var nature = KernelJson.ToVariant(NatureBlock.Pack(candidate));
-        if (!SavedOk(Authority.Call(KernelNames.SetNature, nature, team))) throw new Refusal("not_ready", IslandHeld ? TeamNotice : InventoryUnsaved, retryable: !IslandHeld);
+        var before = _chest;
+        _chest = chest;
+        var meta = new Godot.Collections.Dictionary { ["fingerprint"] = fingerprint, ["op"] = op, ["at_utc"] = Now() };
+        var request = new Godot.Collections.Dictionary
+        {
+            ["op"] = "nature", ["action_id"] = actionId, ["expected_revision"] = Revision, ["expected_permission_revision"] = PermissionRevision,
+            ["nature"] = KernelJson.ToVariant(NatureBlock.Pack(candidate)), ["team"] = KernelJson.ToVariant(ExportTeam(_notes)),
+            ["affected"] = new Godot.Collections.Array(affected.Select(id => (Variant)id)), ["data"] = KernelJson.ToVariant(data), ["undo"] = false,
+        };
+        var outcome = Authority.Call(KernelNames.Submit, principal, request, meta).AsGodotDictionary();
+        if (!outcome["ok"].AsBool())
+        {
+            _chest = before;
+            throw IslandHeld ? new Refusal("not_ready", TeamNotice) : Translate(outcome);
+        }
         PublishNature(candidate);
         _natureDirty = false;
         _natureClockMoved = false;
+        _natureSaveClock = 0;
         _teamDirty = false;
         _saveClock = 0;
-        _natureSaveClock = 0;
+        return Durable(Authority.Call(KernelNames.ReceiptFor, principal, actionId).AsGodotDictionary(), replayed: false);
     }
 
-    /// <summary>The chest alone (stacks, or a thing already away): the island save's team block. quiet: a step back that must not throw.</summary>
-    private void SaveChest(InventoryContents next, bool quiet = false)
+    /// <summary>Before a change whose pockets give after the room revision: the team file must be there to keep them (not a file that would not read).</summary>
+    private void RequirePocketsFiled()
     {
-        var before = _chest;
-        _chest = next;
-        SaveTeam();
-        if (!_teamDirty || quiet) return;
-        _chest = before;
-        throw new Refusal("not_ready", IslandHeld ? TeamNotice : InventoryUnsaved, retryable: !IslandHeld);
+        if (_teamStore != null && Team == null) throw new Refusal("not_ready", PocketsWaitForTeam, retryable: true);
+    }
+
+    /// <summary>
+    /// A durable inventory receipt's data as room state keeps it (CommandHostRoomState's receipts): this host's fields only, each of its
+    /// type and range ($defs/data/inventory: item, count, to; healed_quarters is a use's, which is transient). True when it is not.
+    /// </summary>
+    internal static bool InventoryDataProblem(JsonNode? node)
+    {
+        if (node is not JsonObject data || data.Count != 3 || data.Any(p => p.Key is not ("item" or "count" or "to"))) return true;
+        if (data["item"] is not JsonValue item || item.GetValueKind() != JsonValueKind.String || item.GetValue<string>() is not { Length: > 0 } named ||
+            !(named.StartsWith("obj:", StringComparison.Ordinal) ? InventoryContents.IsThingId(named) : InventoryContents.IsKindId(named))) return true;
+        if (data["count"] is not JsonValue count || count.GetValueKind() != JsonValueKind.Number || !count.TryGetValue<double>(out var units) || units != Math.Floor(units) ||
+            units < 0 || units > InventoryContents.MaxUnits) return true;
+        return data["to"] is not JsonValue to || to.GetValueKind() != JsonValueKind.String || to.GetValue<string>() is not ("chest" or "pockets" or "hand" or "ground");
     }
 
     /// <summary>

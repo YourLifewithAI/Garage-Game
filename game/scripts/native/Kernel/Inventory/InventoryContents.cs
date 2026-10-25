@@ -155,5 +155,9 @@ public sealed record InventoryContents(IReadOnlyDictionary<string, int> Stacks, 
     }
 
     /// <summary>A thing's name as it is kept: untrusted single-line display text, 1 to 80 code points, nothing hidden.</summary>
+    /// <summary>A kind's id as the pack names it (a lowercase token), and a unique thing's (a room object's id).</summary>
+    public static bool IsKindId(string id) => Token.IsMatch(id);
+    public static bool IsThingId(string id) => ObjectId.IsMatch(id);
+
     public static bool IsName(string text) => text.Length > 0 && KernelText.CodePoints(text).Length <= MaxNameLength && !KernelText.HasHidden(text);
 }
