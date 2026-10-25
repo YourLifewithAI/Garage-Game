@@ -202,6 +202,22 @@ public sealed class NaturePlant
 }
 
 /// <summary>
+/// What was picked from a plant that bears food (P-Food, decision 108; CommandHostFood): the spots picked since it last bore all of
+/// it, as bits (bit n is the plant's spot n, FoodLayout's order; the count picked is how many are set), and when the last was picked,
+/// in whole seconds of the island clock's UTC. Everything picked has grown back once FoodRules.RegrowH island hours have passed since
+/// then (derived from the clock, never saved). A plant with no record bears all its food. Not part of any undo step: a pick is never
+/// taken back. A Grow cast that grows the plant ripens it (the record goes), and so does the plant burning down (its food burns with
+/// it), so a replanted plant bears again.
+/// </summary>
+public sealed class NatureFood
+{
+    public string Id { get; set; } = "";
+    public int Picked { get; set; }
+    public long PickedS { get; set; }
+    public NatureFood Copy() => (NatureFood)MemberwiseClone();
+}
+
+/// <summary>
 /// A sprout (decision 104, Grow's seedless growth): a plant Grow grew on bare fertile soil, copying one of the island's grass or flower
 /// copies (Template, plant:&lt;set&gt;-&lt;row&gt;: its set's mesh, its size and its tint), rooted at PositionM and turned by a hash of its spot.
 /// It is a seedling from SownS on the island clock, growing through its phases to its natural size (Factor, derived, never saved); it
@@ -391,6 +407,8 @@ public sealed class NatureState
     /// an edit of the manifest. Not part of any undo step: a pickup is never taken back.
     /// </summary>
     public HashSet<string> FractalsPicked { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>What was picked from the plants that bear food (P-Food), by plant id: only plants picked and not grown back yet.</summary>
+    public Dictionary<string, NatureFood> Food { get; set; } = new(StringComparer.Ordinal);
 
     /// <summary>Today's wallet, for a pack without traits.wallet (or none loaded): 20 wood, 10 stone, 10 copper and 20 leaf.</summary>
     public static Dictionary<string, int> FreshWallet() => new(StringComparer.Ordinal) { ["wood"] = 20, ["stone"] = 10, ["copper"] = 10, ["leaf"] = 20 };
@@ -407,7 +425,7 @@ public sealed class NatureState
     /// Gubble walks, with no command.
     /// </summary>
     public bool Untouched(bool trailAllowed, IReadOnlyDictionary<string, int> startWallet) =>
-        Objects.Count == 0 && Plants.Count == 0 && Waterpads.Count == 0 && Sprouts.Count == 0 && Bridges.Count == 0 && Ivy.Count == 0 && Fire == null && Undo.Count == 0 && UndoneAt < 0 && ChangedAt == 0 && TrailEnabled && TrailPrincipal == "player" && FractalsPicked.Count == 0 &&
+        Objects.Count == 0 && Plants.Count == 0 && Waterpads.Count == 0 && Sprouts.Count == 0 && Bridges.Count == 0 && Ivy.Count == 0 && Fire == null && Undo.Count == 0 && UndoneAt < 0 && ChangedAt == 0 && TrailEnabled && TrailPrincipal == "player" && FractalsPicked.Count == 0 && Food.Count == 0 &&
         TrailRulesSha256.Length == 0 && Wallet.Count == startWallet.Count && startWallet.All(p => Wallet.GetValueOrDefault(p.Key, -1) == p.Value) &&
         (trailAllowed || Cells.Count == 0);
 
@@ -421,6 +439,7 @@ public sealed class NatureState
         Sprouts = Sprouts.Select(s => s.Copy()).ToList(), Bridges = Bridges.Select(b => b.Copy()).ToList(), Ivy = Ivy.Select(i => i.Copy()).ToList(),
         Wallet = new(Wallet, StringComparer.Ordinal), Fire = Fire?.Copy(), Undo = Undo.Select(s => s.Copy()).ToList(),
         UndoneAt = UndoneAt, UndoneTo = UndoneTo, FractalsPicked = new(FractalsPicked, StringComparer.Ordinal),
+        Food = Food.ToDictionary(p => p.Key, p => p.Value.Copy(), StringComparer.Ordinal),
     };
 
     /// <summary>The weather now: a function of the saved clock, so a reload resumes the same weather (with no offline catch-up).</summary>

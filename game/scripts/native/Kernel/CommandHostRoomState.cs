@@ -366,8 +366,8 @@ public partial class CommandHost
             : NatureOps.Contains(op) ? NatureDataProblem(op, result["data"])
             : InventoryDurableOps.Contains(op) ? InventoryDataProblem(result["data"])
             : result["data"] != null) return "its data";
-        if (op == "item.pickup" && (result["affected"] is not JsonArray { Count: 1 } picked || StrOf(picked[0]) is not { } fractal || !FractalId.IsMatch(fractal)))
-            return "a pickup that names no Fractal";
+        if (op == "item.pickup" && (result["affected"] is not JsonArray { Count: 1 } picked || StrOf(picked[0]) is not { } fractal || !(FractalId.IsMatch(fractal) || FoodSourceId.IsMatch(fractal))))
+            return "a pickup that names no Fractal or plant";
         if (op == "item.gather" && (result["affected"] is not JsonArray { Count: 1 } gathered || StrOf(gathered[0]) is not { } thing || !ObjectIdPattern.IsMatch(thing)))
             return "a gather that names no object";
         return null;
@@ -497,7 +497,9 @@ public partial class CommandHost
             if (op == "item.pickup")
             {
                 // As the host committed it (CommandHostFractals): the Fractal in the receipt's data, nothing the authority checks as an entity.
-                receipt["data"] = new JsonObject { ["fractal"] = result["affected"]![0]!.GetValue<string>() };
+                // P-Food: a pick of food names its plant ("food", CommandHostFood).
+                var picked = result["affected"]![0]!.GetValue<string>();
+                receipt["data"] = new JsonObject { [FoodSourceId.IsMatch(picked) ? "food" : "fractal"] = picked };
                 receipt["affected"] = new JsonArray();
             }
             // A gather's receipt names its object in affected, with empty data (CommandHostGather).

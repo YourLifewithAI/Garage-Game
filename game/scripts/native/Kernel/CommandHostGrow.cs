@@ -212,6 +212,8 @@ public partial class CommandHost
             record.Factor = Math.Min(cap, record.Factor + share);
             tall |= record.Factor >= cap - 1e-4f;
         }
+        // P-Food: a plant this cast grew ripens its food at once (CommandHostFood).
+        RipenFood(candidate, kept.Select(p => p.Id));
         // Green ash (decision 75): the ash in the circle greens at once; a burnt plant comes back only by replanting (CastReplant).
         GreenAsh(candidate, step, ash);
         data.Remove("cells");
@@ -377,6 +379,8 @@ public partial class CommandHost
         RefreshSeedlings();
         var unlocks = ApplySprouts() | ApplyBridges() | ApplyIvy();
         if (unlocks) _plantsVersion++;
+        // P-Food: the food view reads the plants' food again (CommandHostFood).
+        ApplyFood();
         var view = GetParent()?.GetNodeOrNull<PlantCopiesView>(CopiesPath);
         if (view == null || !IsInstanceValid(view))
         {
@@ -505,6 +509,8 @@ public partial class CommandHost
             // A replanted seedling that burns down is a burnt plant like any other: it can be replanted again (decision 105).
             burned.SownS = null;
             burned.Factor = 1;
+            // P-Food: its food burns with it, so a replanted plant bears everything again (CommandHostFood).
+            FoodBurnsWith(plant.Id);
             LeaveAsh(plant, step);
         }
         changed |= BurnWaterpads(rate, burning, step);

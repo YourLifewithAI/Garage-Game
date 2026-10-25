@@ -365,7 +365,7 @@ public partial class InventoryTest
         var hurt = Quarters;
         var writes = _vitals.Writes;
         var eaten = Use(Player, "apple");
-        Check(harm != null && hurt < max - 2 && Ok(eaten) && Quarters == hurt + 2 && Canonical(eaten["data"]) == Canonical(new JsonObject { ["count"] = 1, ["healed_quarters"] = 2, ["item"] = "apple" }) &&
+        Check(harm != null && hurt < max - 2 && Ok(eaten) && Quarters == hurt + 2 && Canonical(eaten["data"]) == Canonical(new JsonObject { ["count"] = 1, ["healed_quarters"] = 2, ["item"] = "apple", ["sound"] = "eat" }) &&
               Units(_host.PocketEntries, "apple") == 1 && _vitals.Writes > writes && VitalsRules.For(_host.Rules, _host.Mode).Quarters(_vitals.Saved.For("challenge")) == hurt + 2,
             $"just hurt ({hurt} of {max} quarters), an apple heals half a heart at once, with no unharmed wait, and the heal is saved: " + Canonical(eaten));
         Check(Refused(Use(Player, "seed"), "request_invalid", "Seeds have no use yet.", "$.args.item"), "seeds have no use yet");
@@ -376,7 +376,7 @@ public partial class InventoryTest
         Check(await PickUp("obj:apple_1", ByApple1) && Ok(Store(Player, "pockets")), "an apple in Creative's pockets");
         var health = _host.Vitals.Health;
         var creative = Use(Player, "apple");
-        Check(Ok(creative) && Canonical(creative["data"]) == Canonical(new JsonObject { ["count"] = 0, ["healed_quarters"] = 0, ["item"] = "apple" }) &&
+        Check(Ok(creative) && Canonical(creative["data"]) == Canonical(new JsonObject { ["count"] = 0, ["healed_quarters"] = 0, ["item"] = "apple", ["sound"] = "eat" }) &&
               Units(_host.PocketEntries, "apple") == 1 && _host.Vitals.Health == health,
             "in Creative eating changes nothing but the receipt (decision 108), and nothing is lost (decision 101)");
     }

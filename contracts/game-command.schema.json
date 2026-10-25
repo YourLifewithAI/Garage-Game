@@ -1107,7 +1107,7 @@
           "$ref": "common.schema.json#/$defs/principal_id"
         },
         "transient": {
-          "description": "True for commands that change no saved state: goals, stops (wish.stop among them), effects and their adjustments, a Bubble's cast (bubble_carry, bubble_boat, bubble_lift), grabs, activations, the world's physics, the player's own settings (the game mode, Glow's touch and sound, a knack, a receipt's mark and a Trust reset) and an inventory.use, which the player's profile and the team file keep, never the room. Their receipts live for the session only. Nature changes (Grow, Fire, repairs) and their room.undo, a Fractal's pickup, a gather and the inventory's store, take and drop (the chest and a thing held away are the island's room state) are durable.",
+          "description": "True for commands that change no saved state: goals, stops (wish.stop among them), effects and their adjustments, a Bubble's cast (bubble_carry, bubble_boat, bubble_lift), grabs, activations, the world's physics, the player's own settings (the game mode, Glow's touch and sound, a knack, a receipt's mark and a Trust reset) and an inventory.use, which the player's profile and the team file keep, never the room. Their receipts live for the session only. Nature changes (Grow, Fire, repairs) and their room.undo, a Fractal's pickup (or a plant's food picked), a gather and the inventory's store, take and drop (the chest and a thing held away are the island's room state) are durable.",
           "type": "boolean"
         }
       },
@@ -4019,7 +4019,7 @@
         }
       },
       "item.pickup": {
-        "description": "Pick up a Fractal within the player's reach: it leaves the island into the team's count for this mode (spent five at a time at a camp for a heart or the next stamina band). Player-only: the Gubble may find a Fractal and mark it on the minimap, never gather it. Durable (the Fractal is gone from this island save); no data, the Fractal is in affected. The torch round's items share the pickup rule (\"anyone\" for torches, \"player\" for Fractals). The kernel host picks one up (M1); the mock host, which places no Fractals, answers the player unsupported_capability.",
+        "description": "Pick up a Fractal within the player's reach: it leaves the island into the team's count for this mode (spent five at a time at a camp for a heart or the next stamina band). Player-only: the Gubble may find a Fractal and mark it on the minimap, never gather it. Durable (the Fractal is gone from this island save); no data, the Fractal is in affected. Since P-Food (25 October) the target may instead be a plant that bears food (the rules pack's food block; a plant: id of the room's copies): one unit of its food, the spot the player faces within reach (a canopy apple with a hop), goes into the pockets under their caps (occupied with the pockets' words when it would not fit, and nothing is picked); the plant's picked spots are the island's nature, everything picked grows back the pack's regrow_h island hours after its last pick. The same rules: player-only, durable, no data, the plant in affected. The torch round's items share the pickup rule (\"anyone\" for torches, \"player\" for Fractals). The kernel host picks one up (M1); the mock host, which places no Fractals, answers the player unsupported_capability.",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -4027,7 +4027,14 @@
         ],
         "properties": {
           "target": {
-            "$ref": "common.schema.json#/$defs/fractal_id"
+            "oneOf": [
+              {
+                "$ref": "common.schema.json#/$defs/fractal_id"
+              },
+              {
+                "$ref": "common.schema.json#/$defs/plant_id"
+              }
+            ]
           }
         }
       },
@@ -4189,7 +4196,7 @@
         }
       },
       "inventory.use": {
-        "description": "Use one unit of a stack in the pockets: a kind whose use heals (heal_quarters) heals at once, with no unharmed wait (decision 111); at full hearts the unit stays (not_ready); in Creative nothing changes but the receipt (decision 108: food heals nothing there, and nothing in the inventory is lost, decision 101). A kind with no use is request_invalid. Player-only. A transient receipt with data (count 0 when nothing was used): a use changes the pockets (the team file) and the body, never the room.",
+        "description": "Use one unit of a stack in the pockets: a kind whose use heals (heal_quarters) heals at once, with no unharmed wait (decision 111); at full hearts the unit stays (not_ready); in Creative nothing changes but the receipt (decision 108: food heals nothing there, and nothing in the inventory is lost, decision 101). Every unit eaten makes its sound (decision 108, Creative too): its receipt's data says so (sound eat). A kind with no use is request_invalid. Player-only. A transient receipt with data (count 0 when nothing was used): a use changes the pockets (the team file) and the body, never the room.",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -5674,7 +5681,7 @@
         }
       },
       "inventory": {
-        "description": "What an inventory command moved: the entry, how many units (0 when nothing moved: an inventory.use in Creative), where it went, and for inventory.use the quarters of a heart it healed.",
+        "description": "What an inventory command moved: the entry, how many units (0 when nothing moved: an inventory.use in Creative), where it went, and for inventory.use the quarters of a heart it healed and the sound it made (eat: the unit was eaten, the game's FoodSound hook fired; Creative heals nothing and keeps the sound, decision 108).",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -5702,12 +5709,17 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 120
+          },
+          "sound": {
+            "enum": [
+              "eat"
+            ]
           }
         }
       }
     },
     "player_only_ops": {
-      "description": "Ops a companion principal can never perform. The companion adapter must not expose them and the host refuses them from companion principals (permission_denied), never holding them for a click. Unlocking is always a direct player action, and so are the player's own settings (the world's physics, the game mode, Glow's touch and sound), the player's wishes (submitting, stopping and reading them), and since the mechanics round picking up a Fractal (item.pickup), gathering a held loose log or stone into the wallet (item.gather), choosing a knack (knack.set), spending Fractals at a camp (fractal.spend, the second contract round), marking a receipt yes or not that (receipt.mark) and resetting Trust (trust.reset), and since P-Inventory using a unit from the pockets (inventory.use) and setting a thing from them down (inventory.drop). inventory.store and inventory.take are the player's for the pockets and the hand too, but not listed here: the chest has a companion path behind the player's team setting gubble_chest (their args say how each is refused before anything is looked up).",
+      "description": "Ops a companion principal can never perform. The companion adapter must not expose them and the host refuses them from companion principals (permission_denied), never holding them for a click. Unlocking is always a direct player action, and so are the player's own settings (the world's physics, the game mode, Glow's touch and sound), the player's wishes (submitting, stopping and reading them), and since the mechanics round picking up a Fractal (item.pickup; since P-Food also a unit of food from a plant, into the pockets), gathering a held loose log or stone into the wallet (item.gather), choosing a knack (knack.set), spending Fractals at a camp (fractal.spend, the second contract round), marking a receipt yes or not that (receipt.mark) and resetting Trust (trust.reset), and since P-Inventory using a unit from the pockets (inventory.use) and setting a thing from them down (inventory.drop). inventory.store and inventory.take are the player's for the pockets and the hand too, but not listed here: the chest has a companion path behind the player's team setting gubble_chest (their args say how each is refused before anything is looked up).",
       "enum": [
         "protect.unlock",
         "world.set_physics",

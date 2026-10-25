@@ -284,7 +284,8 @@ public partial class CommandHost
         if (Mode == "creative")
         {
             if (preview) return Previewed("inventory.use", principal, actionId);
-            return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), Moved(item, 0, null, healed: 0));
+            // P-Food: eating makes its sound in Creative too (decision 108; CommandHostFood.Eaten).
+            return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), Eaten(item, Moved(item, 0, null, healed: 0)));
         }
         if (_playerVitalsUnavailable) throw new Refusal("not_ready", VitalsNotice, retryable: true);
         if (RecoveryPending || Vitals.Health <= 0) throw new Refusal("not_ready", NotOnYourFeet, "$.args.item", retryable: true);
@@ -300,7 +301,7 @@ public partial class CommandHost
         }
         _playerModes = saved;
         _vitalsDirty = false;
-        return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), Moved(item, 1, null, healed: quarters));
+        return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), Eaten(item, Moved(item, 1, null, healed: quarters)));
     }
 
     /// <summary>

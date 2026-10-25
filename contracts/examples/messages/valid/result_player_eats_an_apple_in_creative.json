@@ -14,6 +14,7 @@
   "data": {
     "item": "apple",
     "count": 0,
-    "healed_quarters": 0
+    "healed_quarters": 0,
+    "sound": "eat"
   }
 }
