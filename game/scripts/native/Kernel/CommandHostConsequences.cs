@@ -31,6 +31,12 @@ namespace GarageGame.Native.Kernel;
 /// - The fall after the Gubble's own pop (decision 96, the second playtest round): the Gubble popped the bubble holding the player by
 ///   its own action and the fall hurt them: one fact per pop, which costs Trust (NotePopFall). A pop at the time limit or by the
 ///   player's own cancel never writes one; nor does a fall that ends on a face the player grabbed.
+/// - The Gubble hears its consequences (decision 134, P-Round3): each consequence fact written here about the Gubble's own action (its
+///   fire burned the player, its fire burned a build, its lead carried the player into fire, its pop's fall hurt the player) is also a
+///   notice of kind "consequence" on the Gubble's next result, through the same path as every notice (DeliverNotices): the fact's line in
+///   the game's words and the Trust it moved, nothing else (no id, no file, no instruction; a name in the line is untrusted world text
+///   the team already knows, quoted as the journal quotes it). A fact updated in place updates its notice while unread. No request
+///   writes, asks for or carries one: only these host paths add it.
 /// </summary>
 public partial class CommandHost
 {
@@ -80,6 +86,54 @@ public partial class CommandHost
 
     /// <summary>The notices the Gubble has not read yet (tests and the HUD).</summary>
     public IReadOnlyList<JsonObject> UnreadNotices => _notices;
+
+    /// <summary>The kind of the notice that tells the Gubble a consequence fact about its own action (decision 134).</summary>
+    public const string ConsequenceNoticeKind = "consequence";
+    /// <summary>The unread consequence notice of each fact written about the Gubble's action, by the fact (an update in place updates it).</summary>
+    private readonly Dictionary<JsonObject, JsonObject> _factNotices = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>
+    /// Decision 134: a consequence fact just written about the Gubble's own action, also told to the Gubble on its next result (DeliverNotices):
+    /// the fact's line as the journal keeps it (the game's template, names quoted as world text) and the Trust it moved (trust_change, 0 or
+    /// less: 0 for a free action's, or where Trust does not count), when it was written. Only the host's consequence paths call this.
+    /// </summary>
+    private void TellGubble(JsonObject fact, int trustChange)
+    {
+        var notice = new JsonObject
+        {
+            ["kind"] = ConsequenceNoticeKind, ["line"] = fact["line"]?.GetValue<string>() ?? "", ["trust_change"] = Math.Min(0, trustChange),
+            ["at_utc"] = fact["at_utc"]?.GetValue<string>() ?? Now(),
+        };
+        _notices.Add(notice);
+        while (_notices.Count > MaxNotices) _notices.RemoveAt(0);
+        foreach (var gone in _factNotices.Where(p => !_notices.Contains(p.Value)).Select(p => p.Key).ToList()) _factNotices.Remove(gone);
+        _factNotices[fact] = notice;
+    }
+
+    /// <summary>A fact updated in place (the same fire burned more builds, or put the player down): its notice says so too while the Gubble has not read it.</summary>
+    private void RetellGubble(JsonObject fact)
+    {
+        if (!_factNotices.TryGetValue(fact, out var notice)) return;
+        if (!_notices.Contains(notice))
+        {
+            _factNotices.Remove(fact);
+            return;
+        }
+        notice["line"] = fact["line"]?.GetValue<string>() ?? "";
+        notice["at_utc"] = fact["at_utc"]?.GetValue<string>() ?? Now();
+    }
+
+    /// <summary>
+    /// A new consequence fact's Trust (NoteTrustConsequence, decision 69), and how much it moved Trust: the windows settled first, so the change
+    /// measured is the fact's own.
+    /// </summary>
+    private int MoveTrustFor(bool paid)
+    {
+        SettleTrust();
+        var before = TrustCount;
+        NoteTrustConsequence(paid);
+        return TrustCount - before;
+    }
 
     // ---- the guardrails ----
 
@@ -163,6 +217,7 @@ public partial class CommandHost
         }
         _notices.Clear();
         _openNotice = null;
+        _factNotices.Clear();
     }
 
     /// <summary>
@@ -177,6 +232,7 @@ public partial class CommandHost
             if (!harm.Recovered || _factRecovered) return;
             _factRecovered = true;
             _factEntry["line"] = KernelJson.DisplayText(ConsequenceLine(NearestKnownPlace(at), recovered: true), 200);
+            RetellGubble(_factEntry);
             SaveTeam();
             return;
         }
@@ -184,8 +240,9 @@ public partial class CommandHost
         _factRecovered = harm.Recovered;
         _factEntry = Fact("consequence", ConsequenceLine(NearestKnownPlace(at), harm.Recovered), CompanionPrincipal, fire.DirectedBy, null, null, at);
         AddHistory(_factEntry);
-        // M8: a new consequence fact costs Trust and spoils the open windows of clean initiative, when the fire was paid (decision 69).
-        NoteTrustConsequence(PaidFire(fire));
+        // M8: a new consequence fact costs Trust and spoils the open windows of clean initiative, when the fire was paid (decision 69);
+        // decision 134: and the Gubble hears it.
+        TellGubble(_factEntry, MoveTrustFor(PaidFire(fire)));
         SaveTeam();
     }
 
@@ -205,6 +262,7 @@ public partial class CommandHost
             _buildEntry["line"] = KernelJson.DisplayText(BuildBurntLine(_buildsBurnt[0]), 200);
             _buildEntry["at_utc"] = EntryTime();
             if (_buildEntry["subject"]?["entities"] is JsonArray named && named.Count < 8 && KnownToTeam(creation)) named.Add(creation);
+            RetellGubble(_buildEntry);
             SaveTeam();
             return;
         }
@@ -214,7 +272,7 @@ public partial class CommandHost
         var view = TeamView(creation);
         _buildEntry = Fact("consequence", BuildBurntLine(creation), CompanionPrincipal, fire.DirectedBy, view != null ? creation : null, view?.Name, view?.Pin ?? at);
         AddHistory(_buildEntry);
-        NoteTrustConsequence(PaidFire(fire));
+        TellGubble(_buildEntry, MoveTrustFor(PaidFire(fire)));
         SaveTeam();
     }
 
@@ -243,8 +301,9 @@ public partial class CommandHost
         lead.HarmNoted = true;
         var place = NearestKnownPlace(at);
         var directedBy = _trustLedger.Find(lead.ActionId)?.ApprovedBy ?? CompanionPrincipal;
-        AddHistory(Fact("consequence", LeadHarmPrefix + (place == null ? "" : " near " + Quoted(place)) + ".", CompanionPrincipal, directedBy, null, null, at));
-        NoteTrustConsequence(PaidCarry(lead));
+        var fact = Fact("consequence", LeadHarmPrefix + (place == null ? "" : " near " + Quoted(place)) + ".", CompanionPrincipal, directedBy, null, null, at);
+        AddHistory(fact);
+        TellGubble(fact, MoveTrustFor(PaidCarry(lead)));
         SaveTeam();
     }
 
@@ -279,8 +338,9 @@ public partial class CommandHost
         if (harm is not { } hurt) return;
         var place = NearestKnownPlace(at);
         var line = PopFallPrefix + (place == null ? "" : " near " + Quoted(place)) + (hurt.Recovered || hurt.After <= 0 ? " until you had to recover." : ".");
-        AddHistory(Fact("consequence", line, CompanionPrincipal, CompanionPrincipal, null, null, at));
-        NoteTrustConsequence(paid: true);
+        var fact = Fact("consequence", line, CompanionPrincipal, CompanionPrincipal, null, null, at);
+        AddHistory(fact);
+        TellGubble(fact, MoveTrustFor(paid: true));
         SaveTeam();
     }
 

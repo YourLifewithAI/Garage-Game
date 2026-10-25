@@ -569,6 +569,12 @@ class NatureMixin:
             parts.append(f"{units} {word}")
         return "nothing" if not parts else parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
 
+    def _repair_spent(self, cost: dict[str, int]) -> dict[str, int]:
+        """The kernel's RepairBill.Spent as data.spent (decision 131): each material's units by the pack's kind whose material it is."""
+        kinds = list((self.rules.inventory or {}).get("kinds", [])) if self.rules is not None else []
+        by_material = {kind["material"]: kind["id"] for kind in kinds if "material" in kind}
+        return {by_material[material]: units for material, units in sorted(cost.items()) if units > 0 and material in by_material}
+
     def _nature_untouched(self) -> bool:
         return (not self.burn_records and not self.plant_state and not self.sprouts and not self.bridges and self.fire is None and not self.undo_steps and self.undone_at < 0
                 and self.nature_changed_at == 0)
@@ -686,8 +692,10 @@ class NatureMixin:
             place = self._nearest_known_place(at)
             line = POP_FALL_PREFIX + ("" if place is None else " near " + self._quoted(place)) + \
                 (" until you had to recover." if recovered else ".")
-            self._add_history(self._fact("consequence", line, _COMPANION, _COMPANION, None, None, list(at)))
-            self._note_trust_consequence(True)
+            fact = self._fact("consequence", line, _COMPANION, _COMPANION, None, None, list(at))
+            self._add_history(fact)
+            # Decision 134: the Gubble hears it on its next result, with the Trust it moved.
+            self._tell_gubble(fact, self._move_trust_for(True))
             return True
 
     def _note_pop(self, held_player: bool, by_gubble: bool) -> None:
@@ -1168,7 +1176,8 @@ class NatureMixin:
         else every plant rooted in the circle that is not at its cap and no seedling still growing grows the pack's share of its natural
         size (twice while it rains), the ash there greens; where that finds nothing, sprouts on bare fertile ground, once open; each
         lock and every other "nothing to grow" refused before the price, in the kernel's order and words. The box world's plants bear
-        no food, so never the kernel's cast that only ripens a plant at its cap (decision 127)."""
+        no food, so never the kernel's cast that only ripens a plant at its cap (decision 127): its receipts count ripened_plants 0
+        (decision 133)."""
         center, radius = cast["center"], cast["radius"]
         if "end_m" in message["args"]:
             return self._cast_bridge(principal, message, apply, new_revision, ability, cast, preview,
@@ -1216,7 +1225,7 @@ class NatureMixin:
             raise HostError("invalid_args", GROW_TOO_MANY.format(most=MAX_GROWN_PLANTS), field_path="$.args.center_m")
         keyed = not principal.startswith("player:") and ability.tier == "keyed_yes"
         data = {"center_m": center, "radius_m": radius, "duration_s": cast["duration"], "cell_count": 0, "cells": [],
-                "cells_truncated": False, "grown_plants": len(kept), "requires_approval": keyed}
+                "cells_truncated": False, "grown_plants": len(kept), "ripened_plants": 0, "requires_approval": keyed}
         if preview:
             return {"data": data}
         if keyed and not self._approving:
@@ -1277,7 +1286,7 @@ class NatureMixin:
         kernel's CommitGrowKind)."""
         keyed = not principal.startswith("player:") and ability.tier == "keyed_yes"
         data = {"center_m": cast["center"], "radius_m": cast["radius"], "duration_s": cast["duration"], "cell_count": 0, "cells": [],
-                "cells_truncated": False, "grown_plants": grown, "requires_approval": keyed, "kind": kind, **(extra or {})}
+                "cells_truncated": False, "grown_plants": grown, "ripened_plants": 0, "requires_approval": keyed, "kind": kind, **(extra or {})}
         if preview:
             return {"data": data}
         if keyed and not self._approving:
@@ -1835,8 +1844,14 @@ class NatureMixin:
         if not free and any(self.wallet.get(material, 0) < units for material, units in record.repair_cost.items()):
             raise HostError("invalid_args", REPAIR_NO_MATERIALS.format(needs=self._repair_needs(record.repair_cost)), field_path="$.args.target")
         data = {"cost": {} if free else dict(sorted(record.repair_cost.items()))}
+        # Decision 131: what a paid repair spends, by kind, on its receipt (the preview's too: what it would spend), whoever repairs.
+        spent = {} if free else self._repair_spent(record.repair_cost)
+        if spent:
+            data["spent"] = spent
         if message.get("preview") is True:
             return {"affected": [target], "data": data}
+        # The Gubble's repair of a build the player made waits for the yes, as every change of what the player made does; a spend alone
+        # never asks (decision 131: the Gubble repairs without asking when a repair spends logs or stones, and the spend is shown).
         if not principal.startswith("player:") and entity.created_by == _PLAYER and not self._approving:
             return {"_ask": {"reason": REPAIR_HOLD.format(target=target), "touched": {target: entity.revision}, "bind_revision": True},
                     "affected": [target], "data": data}
@@ -2017,6 +2032,7 @@ class NatureMixin:
                 return
             self._builds_burnt.append(creation)
             self._build_entry["line"] = self._plain(self._build_burnt_line(self._builds_burnt[0]), 200)
+            self._retell_gubble(self._build_entry)
             return
         self._build_fire = fire.revision
         self._builds_burnt = [creation]
@@ -2028,7 +2044,7 @@ class NatureMixin:
                                        creation if view is not None else None, view[0] if view is not None else None,
                                        view[1] if view is not None else centre)
         self._add_history(self._build_entry)
-        self._note_trust_consequence(fire.paid)
+        self._tell_gubble(self._build_entry, self._move_trust_for(fire.paid))
 
     def _build_burnt_line(self, first: str) -> str:
         view = self._team_view(first)

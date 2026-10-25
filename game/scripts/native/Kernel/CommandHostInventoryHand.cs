@@ -24,9 +24,11 @@ public sealed record HandView(string Layer, int? Slot, string Holds, string? Ite
 /// slot (1 to 10, or none), kept per mode in the team file (TeamFile.Hands), so a reload keeps the hand. The kernel acts on the
 /// pockets' layer only: a stack's slot arms its unit (inventory.use and inventory.drop act on it when they name no item); a unique
 /// thing's slot takes it into the hand (inventory.take from the pockets, a durable receipt under the host's own action id, its slot
-/// reserved so it comes back there); and any other selection (another slot, none, the abilities' layer) first returns what the hands
+/// reserved so it comes back there); and any other choice on the pockets' layer (another slot, or none) first returns what the hands
 /// carry to the pockets (inventory.store into the pockets, to its own slot when it came from one, else the lowest free one), refused in
-/// the pockets' words when there is no room, and then nothing changes. The abilities' layer is the HUD's: the kernel only records it.
+/// the pockets' words when there is no room, and then nothing changes. Switching the layers never touches what the hands carry
+/// (decision 129): the abilities' layer in the hand, a choice within it, and the pockets brought back down at the slot they kept all leave
+/// it held, so casting with full hands is allowed. The abilities' layer is the HUD's: the kernel only records it.
 /// No companion command touches the selection or the hand (AGENTS.md: the player's avatar is the player's).
 /// </summary>
 public partial class CommandHost
@@ -109,11 +111,11 @@ public partial class CommandHost
         var pockets = rules != null ? PocketContents : InventoryContents.Empty;
         _held.TryGetValue(PlayerAvatar, out var held);
         var chosen = next.Layer == HandSelection.PocketsLayer ? next.Pockets : null;
-        // The thing already in the hand from the chosen slot stays; anything else the hands carry goes back to the pockets first.
-        // The thing already in the hand from the chosen slot stays, and so does whatever the hands carry while the choice moves within the magic
-        // layer (an ability key never puts away what they carry: the hotbar's change request, 25 October); anything else goes back to the pockets first.
-        var keeps = held != null && ((chosen is { } at && pockets.ReservationAt(at) == held.Target)
-                                     || (before.Layer == HandSelection.AbilitiesLayer && next.Layer == HandSelection.AbilitiesLayer));
+        // Decision 129: switching the bar's layers never touches what the hands carry, and casting with full hands is allowed. Only a choice on
+        // the pockets' layer does: another slot there (or none), or the pockets brought down at a slot other than the one they kept. The thing
+        // already in the hand from the chosen slot stays even then; anything else the hands carry goes back to the pockets first.
+        var choosesPockets = next.Layer == HandSelection.PocketsLayer && (before.Layer == HandSelection.PocketsLayer || next.Pockets != before.Pockets);
+        var keeps = held != null && (!choosesPockets || (chosen is { } at && pockets.ReservationAt(at) == held.Target));
         var bring = chosen is { } wanted && pockets.ItemAt(wanted) is { } there && there.StartsWith("obj:", StringComparison.Ordinal) ? pockets.Thing(there) : null;
         if (held != null && !keeps && rules != null)
         {

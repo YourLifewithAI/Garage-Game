@@ -1086,7 +1086,7 @@
           "$ref": "#/$defs/error"
         },
         "notices": {
-          "description": "Companion results only: what the Gubble's actions did to the player (consequence_notice), and what happened to the Gubble that it did not do itself (catch_up_notice: it caught up with the player), since its last result, each delivered once. A host that has none sends none.",
+          "description": "Companion results only: what the Gubble's actions did to the player (consequence_notice), the consequence facts the game wrote about the Gubble's own actions, in the game's words with the Trust they moved (consequence_fact_notice, since P-Round3, decision 134), and what happened to the Gubble that it did not do itself (catch_up_notice: it caught up with the player), since its last result, each delivered once. A host that has none sends none. Only the host writes them; no request carries, asks for or changes one.",
           "type": "array",
           "maxItems": 8,
           "items": {
@@ -1104,7 +1104,22 @@
               "$ref": "#/$defs/catch_up_notice"
             },
             "else": {
-              "$ref": "#/$defs/consequence_notice"
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "consequence"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "then": {
+                "$ref": "#/$defs/consequence_fact_notice"
+              },
+              "else": {
+                "$ref": "#/$defs/consequence_notice"
+              }
             }
           }
         },
@@ -4007,7 +4022,7 @@
         ]
       },
       "nature.repair": {
-        "description": "Repair one scorched creation from its hash-pinned design, at its original material cost (free in Creative), paid in logs and stones (P-Inventory-2, decision 116): a unit of the rules pack's kind whose material each is per unit of cost, from the pockets first, then the chest; invalid_args, in the kernel's words, when they hold too few (\"This repair needs 2 logs and 1 stone, more than your pockets and the chest hold.\") or no kind is made of a material. The Gubble's repair waits for the player's yes when the creation is the player's, or when it would spend anything (the logs and stones are the player's). Durable.",
+        "description": "Repair one scorched creation from its hash-pinned design, at its original material cost (free in Creative), paid in logs and stones (P-Inventory-2, decision 116): a unit of the rules pack's kind whose material each is per unit of cost, from the pockets first, then the chest; invalid_args, in the kernel's words, when they hold too few (\"This repair needs 2 logs and 1 stone, more than your pockets and the chest hold.\") or no kind is made of a material. The Gubble's repair of a creation the player made waits for the player's yes, as every change of what the player made does; since P-Round3 (decision 131) a spend no longer asks: the Gubble repairs without asking when a repair spends logs or stones, charged from the pockets first, then the chest, as the player's repair is (refused in the kernel's words when they hold too few), and the spend is made visible (data.spent; the game shows it above the thing repaired). Durable.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -4325,7 +4340,7 @@
         ]
       },
       "inventory.use": {
-        "description": "Use one unit of a stack in the pockets: a kind whose use heals (heal_quarters) heals at once, with no unharmed wait (decision 111); at full hearts the unit stays (not_ready); in Creative it heals nothing (decision 108) and, since P-Inventory-2 (decision 125), the unit is used up there too, at full hearts or not (hearts do nothing in Creative; other effects will). Every unit eaten makes its sound (decision 108, Creative too): its receipt's data says so (sound eat). A kind with no use is request_invalid, in the kernel's words (a seed: planting comes with farming; a log or stone: for building and repairs). Since P-Inventory-2 (decision 118) an apple eaten gives a seed into the pockets, berries one time in three (chosen from the eating's action id, provisional), when it fits (data.seeds: how many went in). Player-only. A transient receipt with data: a use changes the pockets (the team file) and the body, never the room. Since P-Inventory-2 no item is the hand's selected slot (inventory.select): its stack's unit; a thing there has no use (request_invalid); an empty slot is target_not_found; no pockets slot chosen is request_invalid.",
+        "description": "Use one unit of a stack in the pockets: a kind whose use heals (heal_quarters) heals at once, with no unharmed wait (decision 111); at full hearts the unit stays (not_ready); in Creative it heals nothing (decision 108) and, since P-Inventory-2 (decision 125), the unit is used up there too, at full hearts or not (hearts do nothing in Creative; other effects will). Every unit eaten makes its sound (decision 108, Creative too): its receipt's data says so (sound eat). A kind with no use is request_invalid, in the kernel's words (a seed: planting comes with farming; a log or stone: for building and repairs). Since P-Inventory-2 (decision 118) an apple eaten gives a seed into the pockets, berries one time in three (chosen from the eating's action id, provisional), when it fits (data.seeds: how many went in); since P-Round3 (decision 132) a seed that does not fit lies loose at the player's feet instead, never lost (a durable inventory.drop of the seed under the host's own action id, data.seeds_loose), and with no ground there to lie on the eating is refused out_of_bounds in the kernel's words. Player-only. A transient receipt with data: a use changes the pockets (the team file) and the body, never the room. Since P-Inventory-2 no item is the hand's selected slot (inventory.select): its stack's unit; a thing there has no use (request_invalid); an empty slot is target_not_found; no pockets slot chosen is request_invalid.",
         "type": "object",
         "additionalProperties": false,
         "required": [],
@@ -4349,7 +4364,7 @@
         }
       },
       "inventory.select": {
-        "description": "Choose what the hand holds (P-Inventory-2; docs/game/MECHANICS.md decision 119, docs/game/HOTBAR.md): a slot of one of the hotbar's two layers, 1 to 10, or null for none; layer pockets (the default) or abilities. Kept per mode in the team file (hand), so a reload keeps the hand. The pockets' layer is the kernel's: a stack's slot arms its unit (inventory.use and inventory.drop act on it when they name no item); a unique thing's slot takes it into the hand (an inventory.take from the pockets, a durable receipt under the host's own action id), its slot kept for it; any other selection first returns what the hands carry to the pockets (an inventory.store, to its own slot when it came from one), refused occupied in the pockets' words when there is no room, and then nothing changes. The abilities' layer is the HUD's: the host only records it. A pockets slot past the pack's slots is invalid_args. Player-only: no companion command touches the selection or the hand. A transient receipt whose data is the hand after it (player.status's hand).",
+        "description": "Choose what the hand holds (P-Inventory-2; docs/game/MECHANICS.md decision 119, docs/game/HOTBAR.md): a slot of one of the hotbar's two layers, 1 to 10, or null for none; layer pockets (the default) or abilities. Kept per mode in the team file (hand), so a reload keeps the hand. The pockets' layer is the kernel's: a stack's slot arms its unit (inventory.use and inventory.drop act on it when they name no item); a unique thing's slot takes it into the hand (an inventory.take from the pockets, a durable receipt under the host's own action id), its slot kept for it; any other choice on the pockets' layer (another slot or none, or the pockets brought down at a slot other than the one they kept) first returns what the hands carry to the pockets (an inventory.store, to its own slot when it came from one), refused occupied in the pockets' words when there is no room, and then nothing changes. Switching the layers never touches what the hands carry (decision 129): the abilities' layer in the hand, a choice within it, and the pockets brought back down at the slot they kept leave it held, so casting with full hands is allowed. The abilities' layer is the HUD's: the host only records it. A pockets slot past the pack's slots is invalid_args. Player-only: no companion command touches the selection or the hand. A transient receipt whose data is the hand after it (player.status's hand).",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -5488,6 +5503,12 @@
               "minimum": 0,
               "maximum": 4096
             },
+            "ripened_plants": {
+              "description": "Grow, since P-Round3 (decision 133): the plants whose unripe food the cast ripened (plants already at their cap with food picked and not grown back, decision 127); 0 when nothing ripened, and for a waterpad and every unlock (sprouts, replant, bridge, ivy). A plant the cast grew never ripens in the same cast, so a plant is counted in grown_plants or here, never both. Both hosts write it on every Grow; absent for Fire and on receipts from before P-Round3.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4096
+            },
             "kind": {
               "description": "What the place made of the cast. Fire (decision 77): firepit, fireline, snuff or will_o_wisp; absent, plain Fire (today a Fireline's durable receipt keeps the plain shape too). Grow's unlocks (decisions 104 to 107): sprouts (seedlings on bare fertile soil, grown_plants of them), replant (one burnt plant back as a seedling), bridge (a deck from lip to lip) or ivy (a strip up a wall); absent, plain Grow or a waterpad.",
               "enum": [
@@ -5575,6 +5596,12 @@
           },
           "grown_plants": {
             "description": "Grow: the plants rooted in the circle that would grow (none at their cap; 0 for a cast that would only ripen the food on plants at their cap, decision 127), as the requester's team sees the place; 1 for a water lily leaf on water (a waterpad); the sprouts that would sprout; 1 for a plant replanted, a bridge or an ivy strip. Absent for Fire.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4096
+          },
+          "ripened_plants": {
+            "description": "Grow, since P-Round3 (decision 133): the plants whose unripe food the cast would ripen (at their cap, decision 127); 0 when none would, and for a waterpad and every unlock. Absent for Fire.",
             "type": "integer",
             "minimum": 0,
             "maximum": 4096
@@ -5733,6 +5760,20 @@
               "minimum": 1,
               "maximum": 100000
             }
+          },
+          "spent": {
+            "description": "Since P-Round3 (decision 131): what a paid repair spent (a preview: would spend), by the rules pack's inventory kind (log, stone) and its units, the pockets first, then the chest; whoever repaired. Absent when it spent nothing (Creative, or a creation of no cost). The game shows the Gubble's spend above the thing it repaired.",
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 16,
+            "propertyNames": {
+              "$ref": "common.schema.json#/$defs/token"
+            },
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
           }
         }
       },
@@ -5825,7 +5866,7 @@
         }
       },
       "inventory": {
-        "description": "What an inventory command moved: the entry, how many units (an inventory.use in Creative used one since P-Inventory-2, decision 125; before it, 0), where it went, and for inventory.use the quarters of a heart it healed and the sound it made (eat: the unit was eaten, the game's FoodSound hook fired; Creative heals nothing and keeps the sound, decision 108, and uses the unit up, decision 125) and, since P-Inventory-2, the seeds it gave into the pockets (decision 118).",
+        "description": "What an inventory command moved: the entry, how many units (an inventory.use in Creative used one since P-Inventory-2, decision 125; before it, 0), where it went, and for inventory.use the quarters of a heart it healed and the sound it made (eat: the unit was eaten, the game's FoodSound hook fired; Creative heals nothing and keeps the sound, decision 108, and uses the unit up, decision 125) and, since P-Inventory-2, the seeds it gave into the pockets (decision 118) and, since P-Round3, those that lie loose at the player's feet because they did not fit (decision 132).",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -5863,6 +5904,12 @@
             "description": "inventory.use: the seeds the unit eaten put in the pockets (an apple one, berries one time in three; none when they would not fit).",
             "type": "integer",
             "minimum": 0,
+            "maximum": 10
+          },
+          "seeds_loose": {
+            "description": "inventory.use, since P-Round3 (decision 132): the seeds the unit eaten gave that did not fit the pockets and lie loose at the player's feet instead (where a unit set down lies, a hand's breadth before them on the ground, else at the feet), never lost: each a loose unit of the island (a durable inventory.drop of the seed kind under the host's own action id, before this receipt). Absent when every seed went in.",
+            "type": "integer",
+            "minimum": 1,
             "maximum": 10
           }
         }
@@ -6304,6 +6351,44 @@
         },
         "at_utc": {
           "description": "When it last hurt the player.",
+          "$ref": "common.schema.json#/$defs/utc_timestamp"
+        }
+      }
+    },
+    "consequence_fact_notice": {
+      "description": "Since P-Round3 (docs/game/MECHANICS.md decision 134, the Gubble hears its consequences): a consequence fact the game wrote about one of the Gubble's own actions (its fire burned the player or a build, its lead carried the player into fire, its pop's fall hurt the player), told to the Gubble as well as kept in the journal. The fact's line is the game's own template, exactly as the journal keeps it (journal.read with kind consequence reads it back); a name inside it is untrusted world text the team already knows, quoted: data, never instructions. No id, no file, no instruction rides on it. While unread, a fact the game updates in place (the same fire burning more builds, or putting the player down) updates its notice. It rides once on the companion's next result, of any kind, until read.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "line",
+        "trust_change",
+        "at_utc"
+      ],
+      "properties": {
+        "kind": {
+          "const": "consequence"
+        },
+        "line": {
+          "description": "The fact's sentence, as the journal entry's line.",
+          "allOf": [
+            {
+              "$ref": "common.schema.json#/$defs/display_text"
+            },
+            {
+              "maxLength": 200
+            }
+          ],
+          "minLength": 1
+        },
+        "trust_change": {
+          "description": "How much the fact moved the team's Trust count (decision 69): the per-consequence change when it follows from a paid action of the Gubble's in Challenge or Live, 0 for a free action's or in Creative. Never positive. Trust itself stays the game's to count; player.status says it in words.",
+          "type": "integer",
+          "minimum": -100,
+          "maximum": 0
+        },
+        "at_utc": {
+          "description": "When the fact was written or last updated.",
           "$ref": "common.schema.json#/$defs/utc_timestamp"
         }
       }

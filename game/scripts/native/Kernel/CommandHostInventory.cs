@@ -276,7 +276,9 @@ public partial class CommandHost
     /// inventory.use (player-only): one unit of a stack in the pockets. A kind whose use heals heals at once, its heal_quarters (decisions 92
     /// and 111: no unharmed wait); at full hearts the unit stays (not_ready). In Creative eating uses the unit up too (decision 125: hearts do
     /// nothing there, so nothing heals, at full hearts or not; the sound still plays, decision 108). The unit goes first, then the heal is
-    /// saved; a heal that cannot be saved puts the unit back. An apple eaten gives a seed, berries one time in three (decision 118).
+    /// saved; a heal that cannot be saved puts the unit back. An apple eaten gives a seed, berries one time in three (decision 118); one that
+    /// does not fit the pockets lies loose at the player's feet (decision 132: a durable inventory.drop of the seed under the host's own action
+    /// id before this transient receipt, whose data.seeds_loose says so).
     /// </summary>
     private JsonObject InventoryUse(JsonElement args, string principal, string actionId, string fingerprint, bool preview)
     {
@@ -290,14 +292,18 @@ public partial class CommandHost
         if (have == 0) throw new Refusal("target_not_found", NotInPockets, "$.args.item");
         var kind = rules.Kind(item);
         if (kind?.HealQuarters is not { } heal) throw new Refusal("request_invalid", NoUseWords(kind), "$.args.item");
+        // Decision 118: an apple eaten gives a seed, berries one time in three, into the pockets in the same write; decision 132: a seed that does
+        // not fit lies loose at the player's feet (checked before anything, so an eating that cannot set it down is refused, never the seed lost).
+        var (eaten, seeds, loose) = WithSeeds(pockets.WithUnits(item, have - 1), SeedsFromEating(item, actionId));
         if (Mode == "creative")
         {
+            var lies = loose > 0 ? SeedsCanLie() : default;
             if (preview) return Previewed("inventory.use", principal, actionId);
             // P-Food: eating makes its sound in Creative too (decision 108; CommandHostFood.Eaten); P-Inventory-2: and uses the unit up (decision 125).
-            var (used, seedsThere) = WithSeeds(pockets.WithUnits(item, have - 1), SeedsFromEating(item, actionId));
-            SavePockets(used);
+            DropSeedsLoose(lies, loose, fingerprint);
+            SavePockets(eaten);
             var creative = Eaten(item, Moved(item, 1, null, healed: 0));
-            creative["seeds"] = seedsThere;
+            SeedsSaid(creative, seeds, loose);
             return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), creative);
         }
         if (_playerVitalsUnavailable) throw new Refusal("not_ready", VitalsNotice, retryable: true);
@@ -305,9 +311,9 @@ public partial class CommandHost
         var vitals = Vitals;
         var (healed, quarters) = HealedBy(vitals, heal);
         if (quarters <= 0) throw new Refusal("not_ready", $"Your hearts are full: the {kind.Name} stays in your pockets.", "$.args.item", retryable: true);
+        var spot = loose > 0 ? SeedsCanLie() : default;
         if (preview) return Previewed("inventory.use", principal, actionId);
-        // P-Inventory-2 (decision 118): an apple eaten gives a seed, berries one time in three, into the pockets in the same write.
-        var (eaten, seeds) = WithSeeds(pockets.WithUnits(item, have - 1), SeedsFromEating(item, actionId));
+        DropSeedsLoose(spot, loose, fingerprint);
         SavePockets(eaten);
         if (TrySaveVitals(_playerModes.WithCurrent(healed)) is not { } saved)
         {
@@ -317,8 +323,15 @@ public partial class CommandHost
         _playerModes = saved;
         _vitalsDirty = false;
         var data = Eaten(item, Moved(item, 1, null, healed: quarters));
-        data["seeds"] = seeds;
+        SeedsSaid(data, seeds, loose);
         return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), data);
+    }
+
+    /// <summary>The use's receipt says what its seeds did: seeds, how many went into the pockets; seeds_loose, how many lie at the feet (decision 132).</summary>
+    private static void SeedsSaid(JsonObject data, int seeds, int loose)
+    {
+        data["seeds"] = seeds;
+        if (loose > 0) data["seeds_loose"] = loose;
     }
 
     /// <summary>
@@ -530,6 +543,7 @@ public partial class CommandHost
         var pockets = PocketContents;
         var chest = ChestContents;
         var need = new List<string>();
+        var spent = new List<SpentUnits>();
         var short_ = false;
         // In the pack's order of its kinds (a log before a stone), then any material no kind is made of.
         int Order(string material) => rules?.KindOfMaterial(material) is { } kind ? rules.Kinds.ToList().IndexOf(kind) : int.MaxValue;
@@ -542,16 +556,24 @@ public partial class CommandHost
             var fromPockets = Math.Min(units, pockets.Units(kind.Id));
             var fromChest = Math.Min(units - fromPockets, chest.Units(kind.Id));
             if (fromPockets + fromChest < units) short_ = true;
+            spent.Add(new SpentUnits(kind.Id, units, need[^1]));
             pockets = pockets.WithUnits(kind.Id, pockets.Units(kind.Id) - fromPockets);
             chest = chest.WithUnits(kind.Id, chest.Units(kind.Id) - fromChest);
         }
         var words = need.Count switch { 0 => "nothing", 1 => need[0], _ => string.Join(", ", need.Take(need.Count - 1)) + " and " + need[^1] };
         if (short_) throw new Refusal("invalid_args", $"This repair needs {words}, more than your pockets and the chest hold.", "$.args.target");
-        return new RepairBill(pockets, chest, words, !pockets.Same(PocketContents));
+        return new RepairBill(pockets, chest, words, !pockets.Same(PocketContents), spent);
     }
 
-    /// <summary>A repair's bill: the pockets and the chest after it, its cost in words ("2 logs and 1 stone"), and whether the pockets give.</summary>
-    private sealed record RepairBill(InventoryContents Pockets, InventoryContents Chest, string Words, bool FromPockets);
+    /// <summary>
+    /// A repair's bill: the pockets and the chest after it, its cost in words ("2 logs and 1 stone"), whether the pockets give, and what it
+    /// spends of each kind in the pack's order (the receipt's data.spent and the RepairSpent event, decision 131).
+    /// </summary>
+    private sealed record RepairBill(InventoryContents Pockets, InventoryContents Chest, string Words, bool FromPockets, IReadOnlyList<SpentUnits> Spent)
+    {
+        /// <summary>data.spent: each kind's units, by the pack's kind ids.</summary>
+        public JsonObject Data() => new(Spent.Select(s => KeyValuePair.Create(s.Kind, (JsonNode?)s.Count)));
+    }
 
     /// <summary>
     /// A paid repair, one durable room revision (the island's nature, its team block with the chest after it, and the receipt), then the
@@ -565,11 +587,12 @@ public partial class CommandHost
         return result;
     }
 
-    /// <summary>The Gubble's ask for a repair (it waits for the player's yes): the player's own creation, and what it would spend of the player's.</summary>
-    private static string RepairAsk(string id, bool players, RepairBill? bill) =>
-        bill == null ? $"The Gubble asks to repair {id}, which you made." :
-        players ? $"The Gubble asks to repair {id}, which you made, with {bill.Words} from your pockets and the chest." :
-        $"The Gubble asks to repair {id}, with {bill.Words} from your pockets and the chest.";
+    /// <summary>
+    /// The Gubble's ask for a repair of the player's own creation (it waits for the player's yes, as every change of what the player made
+    /// does), and what it would spend. A spend alone no longer asks (decision 131).
+    /// </summary>
+    private static string RepairAsk(string id, RepairBill? bill) =>
+        bill == null ? $"The Gubble asks to repair {id}, which you made." : $"The Gubble asks to repair {id}, which you made, with {bill.Words} from your pockets and the chest.";
 
     /// <summary>
     /// The retired wallet's counts become the chest's stacks (decision 116: "an older save's wallet counts become chest stacks on load"),

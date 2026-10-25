@@ -1134,6 +1134,8 @@ class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin, InventoryMixi
                     "internal_error", "The game could not handle that request.", retryable=True))
             finally:
                 self._view = None
+            # What the Gubble's actions did rides on its next result, whatever it asked (the kernel's DeliverNotices, decision 134).
+            result = self._deliver_notices(principal, result)
             problems = self.contracts.schema_errors(result)
             if problems:
                 log.error("mock host built an invalid result: %s", problems[:3])

@@ -173,6 +173,14 @@ EXPECTED_FAILURES = {
     "result_undo_of_nothing": "0 is less than the minimum of 1",
     # Consequences (the founder, 13 October): a fixed-form notice, at most 8, and what a preview and a stop say.
     "result_notice_of_another_kind": "'fire_hurt_gubble' is not one of ['fire_hurt_player']",
+    # The third round (decisions 129 to 135): a repair's spend names at least one kind, each with a unit or more.
+    "result_repair_spent_nothing": "should be non-empty",
+    "result_grow_ripened_fewer_than_none": "-1 is less than the minimum of 0",
+    "result_eaten_with_no_seed_loose": "0 is less than the minimum of 1",
+    "result_lesson_notice_naming_an_id": "('subject' was unexpected)",
+    "result_lesson_notice_raising_trust": "3 is greater than the maximum of 0",
+    "result_lesson_notice_without_its_line": "'line' is a required property",
+    "result_repair_spent_none_of_a_kind": "0 is less than the minimum of 1",
     "result_notice_past_full_health": "721 is greater than the maximum of 720",
     "result_notice_in_someones_words": "('message' was unexpected)",
     "result_nine_notices": "is too long",
@@ -2379,7 +2387,8 @@ class InventoryTests(unittest.TestCase):
             for document in documents:
                 with self.subTest(op=op, action=document["action_id"]):
                     self.assertEqual(document["transient"], op == "inventory.use")
-                    self.assertEqual(set(document["data"]) - {"item", "count", "to", "healed_quarters", "sound", "seeds"}, set())
+                    # P-Round3 (decision 132): a use's seed that did not fit lies loose (seeds_loose).
+                    self.assertEqual(set(document["data"]) - {"item", "count", "to", "healed_quarters", "sound", "seeds", "seeds_loose"}, set())
         self.assertEqual(free_form_objects(self.defs["data"]["inventory"], "data/inventory", self.defs), [])
         # The contract says so: a committed store, take or drop claiming to be transient is invalid, and a use claiming durability.
         for name, op, transient in (("result_player_stores_the_held_thing_in_the_chest", "inventory.store", True),

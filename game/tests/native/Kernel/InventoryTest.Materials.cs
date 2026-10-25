@@ -87,7 +87,7 @@ public partial class InventoryTest
     }
 
     /// <summary>A creation for the repair's cost: three wooden parts and one of stone (its quote is 3 wood and 1 stone).</summary>
-    private string BuildShed(double x, double z)
+    private string BuildShed(double x, double z, string principal = Player)
     {
         JsonObject Part(string id, double dx, double dz, string material) => new()
         {
@@ -100,7 +100,7 @@ public partial class InventoryTest
             ["nodes"] = new JsonArray(new JsonObject { ["id"] = "use", ["op"] = "interact", ["part_id"] = "a", ["params"] = new JsonObject() }),
             ["edges"] = new JsonArray(),
         };
-        var made = Send(Command(NextId("build"), "creation.place", new JsonObject { ["source"] = source, ["placement"] = new JsonObject { ["position_m"] = new JsonArray(x, 0, z) } }), Player);
+        var made = Send(Command(NextId("build"), "creation.place", new JsonObject { ["source"] = source, ["placement"] = new JsonObject { ["position_m"] = new JsonArray(x, 0, z) } }), principal);
         Check(Ok(made), "(the shed is built: " + Canonical(made["error"]) + ")");
         return made["created"]?[0]?.GetValue<string>() ?? "";
     }
@@ -137,12 +137,17 @@ public partial class InventoryTest
         await Stand(_player, ByLog(3), "beside the third log");
         Check(Ok(Gather(Player, "obj:log_3")) && Units(_host.PocketEntries, "log") == 2, "a third log: two in the pockets and one in the chest");
         var preview = Repair(Player, shed, preview: true);
-        Check(Ok(preview) && Units(_host.PocketEntries, "log") == 2 && _host.Nature.Objects.ContainsKey(shed), "a preview spends nothing");
+        var spent = new JsonObject { ["log"] = 3, ["stone"] = 1 };
+        Check(Ok(preview) && Units(_host.PocketEntries, "log") == 2 && _host.Nature.Objects.ContainsKey(shed) && Canonical(preview["data"]?["spent"]) == Canonical(spent),
+            "a preview spends nothing, and says what the repair would spend (data.spent): " + Canonical(preview["data"]));
         revision = _host.Revision;
+        var spends = 0;
+        _host.RepairSpent += _ => spends++;
         var repaired = Repair(Player, shed);
         Check(Ok(repaired) && repaired["transient"]?.GetValue<bool>() == false && _host.Revision == revision + 1 &&
-              Canonical(repaired["data"]) == Canonical(new JsonObject { ["cost"] = new JsonObject { ["stone"] = 1, ["wood"] = 3 } }) && !_host.Nature.Objects.ContainsKey(shed),
-            "the repair goes through: one durable revision, its cost in its data: " + Canonical(repaired));
+              Canonical(repaired["data"]) == Canonical(new JsonObject { ["cost"] = new JsonObject { ["stone"] = 1, ["wood"] = 3 }, ["spent"] = spent.DeepClone() }) && !_host.Nature.Objects.ContainsKey(shed),
+            "the repair goes through: one durable revision, its cost in its data and what it spent by kind (decision 131's data.spent): " + Canonical(repaired));
+        Check(spends == 0 && _host.LastRepairSpent == null, "the player's own repair raises no RepairSpent: the icon is the Gubble's spend shown (decision 131)");
         Check(Units(_host.PocketEntries, "log") == 0 && Units(_host.PocketEntries, "stone") == 0 && Units(_host.ChestEntries, "log") == 0 && _host.PocketEntries.Count == 0 && _host.ChestEntries.Count == 0,
             "it spent the pockets' two logs and their stone first, then the chest's log");
         await NewWorld("repair", keepFiles: true);
@@ -167,8 +172,11 @@ public partial class InventoryTest
         Check(Code(asked) == "approval_required" && reason == $"The Gubble asks to repair {hut}, which you made, with 3 logs and 1 stone from your pockets and the chest." &&
               Units(_host.PocketEntries, "log") == 3, "the Gubble's repair waits for the player's yes, saying what it would spend: " + reason + Canonical(asked["error"]));
         var yes = asked["approval_needed"]?["request_id"]?.GetValue<string>() is { } id ? _host.Approve(id) : new JsonObject();
-        Check(Ok(yes) && yes["approved_by"]?.GetValue<string>() == Player && Units(_host.PocketEntries, "log") == 0 && !_host.Nature.Objects.ContainsKey(hut),
-            "and the player's yes spends the pockets' logs and stone: " + Canonical(yes));
+        Check(Ok(yes) && yes["approved_by"]?.GetValue<string>() == Player && Units(_host.PocketEntries, "log") == 0 && !_host.Nature.Objects.ContainsKey(hut) &&
+              Canonical(yes["data"]?["spent"]) == Canonical(new JsonObject { ["log"] = 3, ["stone"] = 1 }) && _host.LastRepairSpent is { Thing: var repairedHut } && repairedHut == hut,
+            "and the player's yes spends the pockets' logs and stone, the spend shown (RepairSpent): " + Canonical(yes));
+
+        await TestGubbleRepairsWithoutAsking();
 
         await NewWorld("repair-creative", mode: "creative");
         _host.ConfigureNature();
@@ -176,6 +184,53 @@ public partial class InventoryTest
         _host.ScorchForTests(cabin);
         var free = Repair(Player, cabin);
         Check(Ok(free) && Canonical(free["data"]) == Canonical(new JsonObject { ["cost"] = new JsonObject() }), "Creative repairs for free, with nothing gathered: " + Canonical(free));
+    }
+
+    /// <summary>
+    /// Decision 131: the Gubble repairs without asking when a repair spends logs or stones (its own build: a build the player made still waits
+    /// for the yes, as every change of what the player made does), charged from the pockets first, then the chest, as the player's repair
+    /// is; refused in the kernel's words when the stacks cannot pay; its receipt carries what it spent (data.spent), and the host raises
+    /// RepairSpent (the thing, the point above it, the spend) for the HUD's icon.
+    /// </summary>
+    private async Task TestGubbleRepairsWithoutAsking()
+    {
+        await NewWorld("repair-gubble-own");
+        _host.ConfigureNature();
+        // The Gubble sees where it builds and what it repairs (a companion names what its team has perceived).
+        Check(_companion.TryTeleportTo(new Vector3(-1.65f, 0.01f, 0.8f)), "(the Gubble floats near the shed's spot)");
+        _companion.Rotation = new Vector3(0, Mathf.Pi, 0);
+        await Frames(4);
+        var shed = BuildShed(-1.75, 1.15, Companion);
+        Check(shed.Length > 0 && _host.Entities().Any(e => e["id"]?.GetValue<string>() == shed && e["provenance_kind"]?.GetValue<string>() == "ai_created"), "the Gubble builds a shed of its own: " + shed);
+        _host.ScorchForTests(shed);
+        var spends = new System.Collections.Generic.List<RepairSpentView>();
+        _host.RepairSpent += spends.Add;
+        var revision = _host.Revision;
+        var needs = "This repair needs 3 logs and 1 stone, more than your pockets and the chest hold.";
+        Check(Refused(Repair(Companion, shed), "invalid_args", needs, "$.args.target") && _host.PendingApprovals.Count == 0 && _host.Revision == revision && spends.Count == 0,
+            "with nothing gathered the Gubble's repair is refused in the kernel's words, with no ask and nothing spent");
+        await Stand(_player, ByLog(2), "beside the second log and the stone");
+        Check(Ok(Gather(Player, "obj:log_2")) && Ok(Gather(Player, "obj:stone_1")), "a log and the stone into the pockets");
+        await Stand(_player, ByLog(1), "beside the first log");
+        Check(Ok(Gather(Player, "obj:log_1")), "a second log");
+        await Stand(_player, AtCamp, "at the camp");
+        Check(Ok(Store(Player, "chest", from: "pockets", item: "log", count: 1)), "one log in the chest");
+        await Stand(_player, ByLog(3), "beside the third log");
+        Check(Ok(Gather(Player, "obj:log_3")) && Units(_host.PocketEntries, "log") == 2 && Units(_host.ChestEntries, "log") == 1 && Units(_host.PocketEntries, "stone") == 1,
+            "two logs and the stone in the pockets, one log in the chest");
+        revision = _host.Revision;
+        var repaired = Repair(Companion, shed);
+        var spent = new JsonObject { ["log"] = 3, ["stone"] = 1 };
+        Check(Ok(repaired) && repaired["approved_by"] == null && repaired["transient"]?.GetValue<bool>() == false && _host.Revision == revision + 1 && _host.PendingApprovals.Count == 0 &&
+              Canonical(repaired["data"]) == Canonical(new JsonObject { ["cost"] = new JsonObject { ["stone"] = 1, ["wood"] = 3 }, ["spent"] = spent }) && !_host.Nature.Objects.ContainsKey(shed),
+            "the Gubble's repair goes through without asking: one durable revision, its receipt saying what it spent: " + Canonical(repaired));
+        Check(Units(_host.PocketEntries, "log") == 0 && Units(_host.PocketEntries, "stone") == 0 && Units(_host.ChestEntries, "log") == 0,
+            "charged as the player's repair is: the pockets' two logs and their stone first, then the chest's log");
+        var shown = spends.SingleOrDefault();
+        Check(shown is { } view && view.Thing == shed && view.Spent.Select(u => (u.Kind, u.Count, u.Words)).SequenceEqual(new[] { ("log", 3, "3 logs"), ("stone", 1, "1 stone") }) &&
+              Mathf.Abs(view.At.X - (-1.69f)) < 0.1f && Mathf.Abs(view.At.Z - 1.21f) < 0.1f && view.At.Y > 0.1f && _host.LastRepairSpent == view,
+            $"the host raises RepairSpent once: the shed, the point above it ({shown?.At}), and what was spent in the pack's order: " +
+            string.Join(", ", shown?.Spent.Select(u => u.Words) ?? Array.Empty<string>()));
     }
 
     /// <summary>

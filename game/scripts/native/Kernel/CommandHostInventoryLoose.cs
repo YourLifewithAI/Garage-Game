@@ -23,7 +23,8 @@ internal readonly record struct LooseCandidate(string Kind, Aabb Box, string? Pl
 /// layout's windfall spots, which grow back with their plant); either is picked up again into its stack with F or E (inventory.take from
 /// the ground, the faced one of its kind within reach). Loose units burn in fire: a dropped one is gone, a windfall picked by the flames
 /// (it grows back with its plant). The look draws them with the food (FoodView). Seeds come from eating (an apple a seed, berries one
-/// time in three from the eating's action id, provisional) and from harvesting a farmable plant (FoodHarvested, a hook nothing calls yet).
+/// time in three from the eating's action id, provisional) and from harvesting a farmable plant (FoodHarvested, a hook nothing calls yet);
+/// a seed eating gives that does not fit the pockets lies loose at the player's feet (decision 132), never lost.
 /// </summary>
 public partial class CommandHost
 {
@@ -195,23 +196,74 @@ public partial class CommandHost
         _ => 0,
     };
 
-    /// <summary>The pockets with so many seeds more, when the pack has a seed kind and they fit (a seed that would not fit is not kept); and how many went in.</summary>
-    private (InventoryContents Pockets, int Seeds) WithSeeds(InventoryContents pockets, int seeds)
+    /// <summary>
+    /// What eating's seeds do to the pockets, when the pack has a seed kind: as many as fit go into the seeds' stack (Pockets after them,
+    /// Into how many); the rest (Loose) do not fit and lie loose at the player's feet (decision 132, DropSeedsLoose), never lost.
+    /// </summary>
+    private (InventoryContents Pockets, int Into, int Loose) WithSeeds(InventoryContents pockets, int seeds)
     {
-        if (seeds <= 0 || InventoryRules is not { } rules || rules.Kind(FoodLaws.SeedKind) is not { } seed) return (pockets, 0);
-        var next = pockets.WithUnits(seed.Id, pockets.Units(seed.Id) + seeds);
-        return FitsWords(next, rules, rules.Pockets, pockets: true, seed) == null ? (next, seeds) : (pockets, 0);
+        if (seeds <= 0 || InventoryRules is not { } rules || rules.Kind(FoodLaws.SeedKind) is not { } seed) return (pockets, 0, 0);
+        for (var into = seeds; into > 0; into--)
+        {
+            var next = pockets.WithUnits(seed.Id, pockets.Units(seed.Id) + into);
+            if (FitsWords(next, rules, rules.Pockets, pockets: true, seed) == null) return (next, into, seeds - into);
+        }
+        return (pockets, 0, seeds);
+    }
+
+    /// <summary>The words for a seed that lay loose because the pockets had no room for it (the HUD adds them to the eat notice).</summary>
+    public const string SeedLooseWords = "Your pockets had no room for its seed: it lies at your feet.";
+    /// <summary>Why eating is refused when its seed would not fit the pockets and has nowhere to lie (no ground at the feet, the player not in the room).</summary>
+    public const string SeedHasNoGround = "Your pockets have no room for its seed, and there is no ground here to set it down: make room in your pockets first.";
+
+    /// <summary>
+    /// Where a seed that does not fit lies (decision 132, "at the player's feet"): where a unit set down lies, a hand's breadth before them
+    /// on the ground (LooseSpot), else at the feet themselves; null when the player is not in the room or stands outside it.
+    /// </summary>
+    private Vector3? SeedSpot()
+    {
+        if (LooseSpot() is { } ahead) return ahead;
+        if (Player == null || !IsInstanceValid(Player) || !Player.IsInsideTree()) return null;
+        var feet = Player.GlobalPosition;
+        return Room.Bounds.Grow(0.01f).HasPoint(feet) ? feet : null;
+    }
+
+    /// <summary>
+    /// Before an eating whose seeds would not all fit is previewed or made (decision 132): they need a spot to lie and an island that can
+    /// save them, or the eating is refused, never the seed lost. Returns the spot.
+    /// </summary>
+    private Vector3 SeedsCanLie()
+    {
+        if (_natureUnavailable) throw new Refusal("not_ready", NatureNotice, retryable: true);
+        RequirePocketsFiled();
+        return SeedSpot() ?? throw new Refusal("out_of_bounds", SeedHasNoGround, "$.args.item", retryable: true);
+    }
+
+    /// <summary>
+    /// Decision 132: the seeds eating gave that the pockets could not take lie loose at the player's feet (SeedSpot), each by the loose-unit
+    /// path (NatureState.Drop: at most NatureState.MaxLoose on the island, the oldest going first), in one durable inventory.drop of the
+    /// seeds under the host's own action id (as a select's store or take), before the eating's own transient receipt: the island gains them
+    /// first, so a pockets or vitals write lost after it leaves a seed loose and the unit uneaten, never a seed lost.
+    /// </summary>
+    private void DropSeedsLoose(Vector3 spot, int seeds, string fingerprint)
+    {
+        if (seeds <= 0) return;
+        var candidate = Nature.Copy();
+        for (var i = 0; i < seeds; i++) candidate.Drop(new NatureLoose { Kind = FoodLaws.SeedKind, PositionM = spot });
+        var (inner, innerFingerprint) = InnerAction("inventory.drop", fingerprint);
+        CommitInventory(candidate, _chest, "inventory.drop", PlayerPrincipal, inner, innerFingerprint, Array.Empty<string>(), Moved(FoodLaws.SeedKind, seeds, "ground"));
     }
 
     /// <summary>
     /// The harvest of a farmable plant (decision 118: seeds come "from harvesting a farmable plant when farming exists"): a seed into the
-    /// pockets when they have room. The hook farming will call; nothing calls it yet. Returns the seeds that went in.
+    /// pockets when they have room. The hook farming will call; nothing calls it yet, and a seed that does not fit is not kept here: farming,
+    /// calling it from a command, should set it loose as eating does (decision 132, DropSeedsLoose). Returns the seeds that went in.
     /// </summary>
     internal int FoodHarvested(string plant)
     {
         if (InventoryRules == null || IslandHeld) return 0;
         var pockets = PocketContents;
-        var (next, seeds) = WithSeeds(pockets, FoodLaws.SeedsPerHarvest);
+        var (next, seeds, _) = WithSeeds(pockets, FoodLaws.SeedsPerHarvest);
         if (seeds > 0) SavePockets(next, keepIfUnsaved: true);
         return seeds;
     }

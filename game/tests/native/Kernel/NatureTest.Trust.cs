@@ -308,9 +308,18 @@ public partial class NatureTest
         var shed = Build("Challenge shed", 1.25, 1.3);
         var lit = Fire(Companion, spot, 0.3, 6, out _);
         Steps(6);
-        var facts = Send(Query("journal.read", new JsonObject { ["kind"] = "consequence" }), Companion)["data"]?["entries"]?.AsArray().OfType<JsonObject>()
+        var read = Send(Query("journal.read", new JsonObject { ["kind"] = "consequence" }), Companion);
+        var facts = read["data"]?["entries"]?.AsArray().OfType<JsonObject>()
             .Where(e => e["line"]!.GetValue<string>().StartsWith("The Gubble's fire burned your", StringComparison.Ordinal)).ToList() ?? new();
         var fact = facts.FirstOrDefault();
+        // Decision 134: the Gubble hears it, on this very result (its next), in the fact's own words with the Trust it moved.
+        var heard = Heard(read);
+        Check(heard.Count == 1 && heard[0]["line"]?.GetValue<string>() == fact?["line"]?.GetValue<string>() && heard[0]["trust_change"]?.GetValue<int>() == TrustLaws.PerConsequence &&
+              heard[0]["at_utc"]?.GetValue<string>() == fact?["at_utc"]?.GetValue<string>() && heard[0].Count == 4,
+            "the Gubble's next result carries a consequence notice: the fact's line exactly as the journal keeps it (updated in place while unread), and the Trust it moved: " +
+            Canonical(read["notices"]));
+        Check(Heard(Send(Query("player.status", new JsonObject()), Companion)).Count == 0 && Heard(Send(Query("player.status", new JsonObject()), Player)).Count == 0,
+            "the notice is delivered once, and only to the Gubble");
         var named = fact?["subject"]?["entities"]?.AsArray().Select(n => n!.GetValue<string>()).ToList() ?? new();
         Check(Ok(lit) && barn.Length > 0 && shed.Length > 0 && _host.Nature.Objects.TryGetValue(barn, out var burnt) && burnt.Burn > 0 && facts.Count == 1 &&
             fact!["actor"]?.GetValue<string>() == Companion && fact["pin_m"] != null && named.Contains(barn) && named.Contains(shed) &&
@@ -344,6 +353,9 @@ public partial class NatureTest
         var glowed = GubbleGlows();
         var lit = Fire(Companion, PlayerSpot(), 0.25, 6, out _);
         Steps(2);
+        var told = Heard(Send(Query("player.status", new JsonObject()), Companion)).FirstOrDefault();
+        Check(told?["line"]?.GetValue<string>().StartsWith("The Gubble's fire burned you", StringComparison.Ordinal) == true && told["trust_change"]?.GetValue<int>() == 0,
+            "the Gubble hears its free fire's harm too, with no Trust moved (trust_change 0): " + Canonical(told));
         var hurt = Lessons().Any(l => l.StartsWith("The Gubble's fire burned you", StringComparison.Ordinal));
         var afterHarm = _host.TrustCount;
         Later(61);

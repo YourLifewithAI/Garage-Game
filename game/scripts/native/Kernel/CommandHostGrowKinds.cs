@@ -212,7 +212,7 @@ public partial class CommandHost
 
     /// <summary>
     /// One of Grow's unlocks committed (or previewed, or held for a keyed pack's yes) as one room revision, priced as any Grow: the
-    /// candidate's change, the receipt in the kernel's words (data.kind, grown_plants: what grew), and what the cast showed counted
+    /// candidate's change, the receipt in the kernel's words (data.kind, grown_plants: what grew; ripened_plants 0: an unlock ripens nothing), and what the cast showed counted
     /// toward Grow's expertise and hints (RecordGrowCast).
     /// </summary>
     private JsonObject CommitGrowKind(JsonElement root, IslandAbility ability, Cast cast, string kind, int grown, string holdWords, Action<JsonObject>? describe,
@@ -222,7 +222,7 @@ public partial class CommandHost
         var data = new JsonObject
         {
             ["center_m"] = KernelJson.Vector(cast.Center), ["radius_m"] = KernelJson.Num(cast.Radius), ["duration_s"] = KernelJson.Num(cast.Duration),
-            ["cell_count"] = 0, ["cells"] = new JsonArray(), ["cells_truncated"] = false, ["grown_plants"] = grown, ["requires_approval"] = keyed, ["kind"] = kind,
+            ["cell_count"] = 0, ["cells"] = new JsonArray(), ["cells_truncated"] = false, ["grown_plants"] = grown, ["ripened_plants"] = 0, ["requires_approval"] = keyed, ["kind"] = kind,
         };
         describe?.Invoke(data);
         if (preview) return NaturePreviewed("nature.cast", principal, action, data, Array.Empty<string>());

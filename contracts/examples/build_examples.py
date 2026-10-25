@@ -711,6 +711,8 @@ CONSEQUENCE = {"kind": "fire_hurt_player", "fire_revision": 7, "health_before": 
 CATCH_UP = {"kind": "caught_up", "from_m": [-18.9, 0.92, 4.59], "to_m": [18.66, 1.03, 1.8], "distance_m": 37.65, "at_utc": "2026-10-06T00:05:10Z"}
 LESSON = fact(opaque("entry-", "the gubble's fire burned the player"), "consequence", "2026-10-06T00:04:50Z", 7,
               'The Gubble\'s fire burned you near "Pine shelving".', "companion:local", "companion:local", pin=[-0.1, 0.0, -1.9])
+# P-Round3 (decision 134): the same lesson told to the Gubble on its next result, with the Trust it moved.
+LESSON_NOTICE = {"kind": "consequence", "line": LESSON["line"], "trust_change": -3, "at_utc": LESSON["at_utc"]}
 
 
 def placed(cast: dict) -> dict:
@@ -1489,6 +1491,54 @@ def food_round(at: str) -> dict:
     }
 
 
+def round_three(at: str) -> dict:
+    """The founder's third round (MECHANICS.md decisions 129 to 135): a seed that does not fit the pockets lies loose at the player's
+    feet, the use's receipt saying so (seeds_loose, decision 132); the Gubble's repair that spends logs or stones goes through without
+    asking, its receipt saying what it spent (data.spent, by kind; decision 131); Grow's receipts count what ripened (ripened_plants,
+    decision 133): a cast at an orchard's cap that only ripens, previewed and committed; the Gubble hears its consequences (decision
+    134): the lesson the game wrote about its fire, beside the fixed-form notice, on its next result."""
+    orchard = {"capability": "grow", "center_m": [0.9, 0.0, 1.1], "radius_m": 0.6, "duration_s": 1}
+    status = {"mode": "challenge", "health": 64.0, "max_health": 100, "stamina": 0.35, "max_stamina": 0.65, "completed_climbs": 2,
+              "recoveries": 0, "consequences": True}
+    return {
+        "result_player_eats_an_apple_its_seed_loose": result("inventory.use", "use-0010", "player:local", 15, at, transient=True,
+                                                             data={"item": "apple", "count": 1, "healed_quarters": 2, "sound": "eat",
+                                                                   "seeds": 0, "seeds_loose": 1}),
+        "result_player_status_with_a_lesson_notice": {**answer("player.status", "q-0040", "companion:local", 7, at, status),
+                                                      "notices": [CONSEQUENCE, LESSON_NOTICE]},
+        "command_grow_ripens_an_orchard_preview": command("nature.cast", "grow-0010", orchard, preview=True),
+        "result_grow_ripens_an_orchard_preview": {**result("nature.cast", "grow-0010", "companion:local", 15, at), "preview": True,
+                                                  "data": {**placed(orchard), "cell_count": 0, "cells": [], "cells_truncated": False,
+                                                           "grown_plants": 0, "ripened_plants": 3, "requires_approval": False}},
+        "command_grow_ripens_an_orchard": command("nature.cast", "grow-0010", orchard),
+        "result_grow_ripens_an_orchard": result("nature.cast", "grow-0010", "companion:local", 16, at, transient=False,
+                                                data={**placed(orchard), "cell_count": 0, "requires_approval": False, "started_cells": 0,
+                                                      "grown_plants": 0, "ripened_plants": 3}),
+        "command_gubble_repairs_its_scorched_shed": command("nature.repair", "repair-0010", {"target": "creation:00000003"}),
+        "result_gubble_repairs_its_scorched_shed": result("nature.repair", "repair-0010", "companion:local", 15, at, transient=False,
+                                                          affected=["creation:00000003"],
+                                                          data={"cost": {"stone": 1, "wood": 2}, "spent": {"log": 2, "stone": 1}}),
+    }
+
+
+def round_three_refused(at: str) -> dict:
+    """What the third round's messages refuse, each for one reason (EXPECTED_FAILURES)."""
+    valid = round_three(at)
+    repaired = valid["result_gubble_repairs_its_scorched_shed"]
+    ripened = valid["result_grow_ripens_an_orchard"]
+    eaten = valid["result_player_eats_an_apple_its_seed_loose"]
+    told = valid["result_player_status_with_a_lesson_notice"]
+    return {
+        "result_eaten_with_no_seed_loose": {**eaten, "data": {**eaten["data"], "seeds_loose": 0}},
+        "result_lesson_notice_naming_an_id": {**told, "notices": [{**LESSON_NOTICE, "subject": "creation:00000001"}]},
+        "result_lesson_notice_raising_trust": {**told, "notices": [{**LESSON_NOTICE, "trust_change": 3}]},
+        "result_lesson_notice_without_its_line": {**told, "notices": [{k: v for k, v in LESSON_NOTICE.items() if k != "line"}]},
+        "result_grow_ripened_fewer_than_none": {**ripened, "data": {**ripened["data"], "ripened_plants": -1}},
+        "result_repair_spent_nothing": {**repaired, "data": {**repaired["data"], "spent": {}}},
+        "result_repair_spent_none_of_a_kind": {**repaired, "data": {**repaired["data"], "spent": {"log": 0}}},
+    }
+
+
 def food_round_refused(at: str) -> dict:
     """What food's messages refuse, each for one reason (EXPECTED_FAILURES)."""
     picked = food_round(at)["result_player_picks_an_apple"]
@@ -1743,6 +1793,7 @@ def build_messages(out: Path) -> None:
     valid.update(grow_unlocks(at))
     valid.update(inventory_round(at))
     valid.update(food_round(at))
+    valid.update(round_three(at))
     # The 10x world (S2): observe sees the whole island unless a radius narrows it, and a plant copy is an entity.
     valid["query_observe_everything_in_sight"] = query("observe", "q-0030", {"actor": "avatar:companion"})
     valid["query_observe_across_the_island"] = query("observe", "q-0031", {"actor": "avatar:companion", "radius_m": 150})
@@ -1832,6 +1883,7 @@ def build_messages(out: Path) -> None:
     invalid.update(grow_unlocks_refused(at))
     invalid.update(inventory_round_refused(at))
     invalid.update(food_round_refused(at))
+    invalid.update(round_three_refused(at))
     # The 10x world (S2): a radius past 150 m, and a second spelling of one plant copy.
     invalid["query_observe_past_150_m"] = query("observe", "q-0033", {"actor": "avatar:companion", "radius_m": 151})
     invalid["command_go_to_a_tree_spelt_with_a_leading_zero"] = command("goal.set", "go-to-tree-0001", {
