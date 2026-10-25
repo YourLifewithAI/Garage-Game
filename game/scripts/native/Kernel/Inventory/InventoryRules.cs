@@ -17,8 +17,26 @@ public sealed record InventoryKind(string Id, string Name, string Plural, double
     public string Words(int count) => count == 1 ? Name : Plural;
 }
 
-/// <summary>The pockets' or the chest's caps: at most this many entries (stacks and things) and this mass.</summary>
-public sealed record InventoryCaps(int Entries, double MassKg);
+/// <summary>
+/// The pockets' or the chest's caps (decision 120: counts, not weights): at most this many slots, each a stack (up to its kind's stack) or a
+/// unique thing. Masses stay data (a kind's mass_kg, a thing's asset), never a limit.
+/// </summary>
+public sealed record InventoryCaps(int Entries);
+
+/// <summary>The inventory's words for a count: "ten" up to twenty, digits above (the refusals' "Your pockets are full: ten things.").</summary>
+public static class InventoryWords
+{
+    private static readonly string[] Small =
+    {
+        "no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+        "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty",
+    };
+
+    public static string Number(int count) => count >= 0 && count < Small.Length ? Small[count] : count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>"ten things", "one thing".</summary>
+    public static string Things(int count) => Number(count) + (count == 1 ? " thing" : " things");
+}
 
 /// <summary>The pack's inventory block: the kinds, the pockets' caps (carried everywhere, per team and mode) and the chest's (one per island save).</summary>
 public sealed record InventoryRules(IReadOnlyList<InventoryKind> Kinds, InventoryCaps Pockets, InventoryCaps Chest)
@@ -85,17 +103,18 @@ public sealed partial class IslandRules
         Expect(kinds.Select(k => k.Id).Distinct(StringComparer.Ordinal).Count() == kinds.Count, at + ": an inventory kind appears more than once.");
         var units = kinds.SelectMany(k => k.Assets).ToList();
         Expect(units.Distinct(StringComparer.Ordinal).Count() == units.Count, at + ": an asset is a unit of more than one inventory kind.");
-        return new InventoryRules(kinds, Caps(block, "pockets", at, 16, 10), Caps(block, "chest", at, 64, 50));
+        return new InventoryRules(kinds, Caps(block, "pockets", at, 16), Caps(block, "chest", at, 64));
     }
 
-    private static InventoryCaps Caps(JsonElement block, string name, string at, int maxEntries, double maxMass)
+    /// <summary>The pockets' or the chest's slots (decision 120: a count; a pack before it that names a mass cap is refused, as any unknown field).</summary>
+    private static InventoryCaps Caps(JsonElement block, string name, string at, int maxEntries)
     {
         var caps = block.GetProperty(name);
         var where = $"{at}.{name}";
         Expect(caps.ValueKind == JsonValueKind.Object, where + " must be an object.");
-        Fields(caps, where, new[] { "entries", "mass_kg" }, new[] { "entries", "mass_kg" });
+        Fields(caps, where, new[] { "entries" }, new[] { "entries" });
         var entries = Int(caps, "entries", where);
         Expect(entries >= 1 && entries <= maxEntries, $"{where}.entries must be an integer from 1 to {maxEntries}.");
-        return new InventoryCaps(entries, Positive(caps, "mass_kg", where, maxMass));
+        return new InventoryCaps(entries);
     }
 }

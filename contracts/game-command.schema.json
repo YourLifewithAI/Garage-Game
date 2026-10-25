@@ -4113,7 +4113,7 @@
         "properties": {}
       },
       "inventory.store": {
-        "description": "Put something away. From the hand (the default): what the actor holds into the chest, at a camp (a lit campfire or the starting one), or into the pockets, anywhere: a held stackable (a room object of a kind that names its asset) as a unit of its stack, a unique thing as an entry of its own (decision 99). From the pockets: a stack or a thing into the chest, at a camp. A unique thing keeps its id: its entity stays in room state as removed (marked gathered in the kernel's nature block) until it comes out. Caps: the pack's entries and mass for the pockets and the chest, and a stack's own size (occupied past any). The pockets and the hand are the player's alone: a companion naming the pockets is refused permission_denied before anything is looked up. The chest alone has a companion path: while the player's team setting \"Let the Gubble use the chest\" (gubble_chest) is on, the companion may store what its own avatar holds, at a camp; with it off every companion store is permission_denied at $.op before anything is looked up. No price. A durable receipt with data, one room revision, as item.gather's: the chest and a thing held away are the island's room state (the island save's nature, its team block and the receipt in one write; the team file's pockets beside it).",
+        "description": "Put something away. From the hand (the default): what the actor holds into the chest, at a camp (a lit campfire or the starting one), or into the pockets, anywhere: a held stackable (a room object of a kind that names its asset) as a unit of its stack, a unique thing as an entry of its own (decision 99). From the pockets: a stack or a thing into the chest, at a camp. A unique thing keeps its id: its entity stays in room state as removed (marked gathered in the kernel's nature block) until it comes out. Caps are counts (decision 120): the pack's slots for the pockets and the chest, and a stack's own size (occupied past either). The pockets and the hand are the player's alone: a companion naming the pockets is refused permission_denied before anything is looked up. The chest alone has a companion path: while the player's team setting \"Let the Gubble use the chest\" (gubble_chest) is on, the companion may store what its own avatar holds, at a camp; with it off every companion store is permission_denied at $.op before anything is looked up. No price. A durable receipt with data, one room revision, as item.gather's: the chest and a thing held away are the island's room state (the island save's nature, its team block and the receipt in one write; the team file's pockets beside it).",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -6253,14 +6253,12 @@
       }
     },
     "inventory_status": {
-      "description": "The pockets or the chest as player.status shows them (read-only): the entries, oldest first, and the caps the rules pack sets.",
+      "description": "The pockets or the chest as player.status shows them (read-only): the entries, in slot order for the pockets, oldest first for the chest, and the slots the rules pack sets (decision 120: counts, not weights).",
       "type": "object",
       "additionalProperties": false,
       "required": [
         "entries",
-        "max_entries",
-        "mass_kg",
-        "max_mass_kg"
+        "max_entries"
       ],
       "properties": {
         "entries": {
@@ -6274,16 +6272,6 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 64
-        },
-        "mass_kg": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 50
-        },
-        "max_mass_kg": {
-          "type": "number",
-          "exclusiveMinimum": 0,
-          "maximum": 50
         }
       }
     }

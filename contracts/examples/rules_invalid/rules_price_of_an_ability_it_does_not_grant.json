@@ -495,7 +495,7 @@
         "name": "Apple",
         "plural": "Apples",
         "mass_kg": 0.02,
-        "stack": 20,
+        "stack": 99,
         "use": {
           "heal_quarters": 2
         }
@@ -504,7 +504,7 @@
         "id": "berries",
         "name": "Berries",
         "mass_kg": 0.005,
-        "stack": 50,
+        "stack": 99,
         "use": {
           "heal_quarters": 1
         }
@@ -514,16 +514,14 @@
         "name": "Seed",
         "plural": "Seeds",
         "mass_kg": 0.001,
-        "stack": 100
+        "stack": 99
       }
     ],
     "pockets": {
-      "entries": 6,
-      "mass_kg": 0.3
+      "entries": 10
     },
     "chest": {
-      "entries": 12,
-      "mass_kg": 2
+      "entries": 20
     }
   },
   "food": {

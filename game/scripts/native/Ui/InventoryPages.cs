@@ -31,15 +31,15 @@ public static class InventoryPages
     /// <summary>A mass as the game says it: the host's rounding, no trailing zeros ("0.3", "0.06").</summary>
     public static string Kg(double kg) => kg.ToString("0.###", CultureInfo.InvariantCulture);
 
-    /// <summary>"3 of 6 things · 0.06 of 0.3 kg": what a store holds against its caps.</summary>
-    public static string CapsWords(int entries, InventoryCaps caps, double massKg) =>
-        $"{entries} of {caps.Entries} {(caps.Entries == 1 ? "thing" : "things")} · {Kg(massKg)} of {Kg(caps.MassKg)} kg";
+    /// <summary>"3 of 10 things": what a store holds against its slots (decision 120: counts, not weights).</summary>
+    public static string CapsWords(int entries, InventoryCaps caps) =>
+        $"{entries} of {caps.Entries} {(caps.Entries == 1 ? "thing" : "things")}";
 
     public static string PocketsCaps(CommandHost host) =>
-        host.PocketCaps is { } caps ? CapsWords(host.PocketEntries.Count, caps, host.PocketMassKg) : "";
+        host.PocketCaps is { } caps ? CapsWords(host.PocketEntries.Count, caps) : "";
 
     public static string ChestCaps(CommandHost host) =>
-        host.ChestCaps is { } caps ? CapsWords(host.ChestEntries.Count, caps, host.ChestMassKg) : "";
+        host.ChestCaps is { } caps ? CapsWords(host.ChestEntries.Count, caps) : "";
 
     /// <summary>What a heal of so many quarters of a heart is, in words ("half a heart"), in the island's word for hearts.</summary>
     public static string Heal(CommandHost host, int quarters)

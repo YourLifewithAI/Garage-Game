@@ -30,10 +30,9 @@ public partial class CommandHost
     /// <summary>The chest's entries now (the island's one chest, whichever campfire is near).</summary>
     public IReadOnlyList<InventoryEntryView> ChestEntries => Views(ChestContents, pockets: false);
 
+    /// <summary>The pockets' and the chest's slots (decision 120: counts; masses are each entry's data, never a cap).</summary>
     public InventoryCaps? PocketCaps => InventoryRules?.Pockets;
     public InventoryCaps? ChestCaps => InventoryRules?.Chest;
-    public double PocketMassKg => Math.Round(PocketContents.MassKg(InventoryRules), 4);
-    public double ChestMassKg => Math.Round(ChestContents.MassKg(InventoryRules), 4);
 
     /// <summary>Whether the chest is within reach now: the player stands at a camp (any lit campfire, or the starting one).</summary>
     public bool ChestReachable => HasInventory && PlayerAtCamp();
@@ -150,11 +149,11 @@ public partial class CommandHost
     private void AddInventoryStatus(JsonObject data)
     {
         if (InventoryRules is not { } rules) return;
-        data["pockets"] = InventoryStatus(PocketEntries, rules.Pockets, PocketMassKg, pockets: true);
-        data["chest"] = InventoryStatus(ChestEntries, rules.Chest, ChestMassKg, pockets: false);
+        data["pockets"] = InventoryStatus(PocketEntries, rules.Pockets, pockets: true);
+        data["chest"] = InventoryStatus(ChestEntries, rules.Chest, pockets: false);
     }
 
-    private static JsonObject InventoryStatus(IReadOnlyList<InventoryEntryView> entries, InventoryCaps caps, double mass, bool pockets) => new()
+    private static JsonObject InventoryStatus(IReadOnlyList<InventoryEntryView> entries, InventoryCaps caps, bool pockets) => new()
     {
         ["entries"] = new JsonArray(entries.Take(64).Select(e =>
         {
@@ -163,7 +162,7 @@ public partial class CommandHost
             if (pockets && e.Kind == "thing") entry["here"] = e.Here;
             return (JsonNode?)entry;
         }).ToArray()),
-        ["max_entries"] = caps.Entries, ["mass_kg"] = Math.Clamp(mass, 0, 50), ["max_mass_kg"] = caps.MassKg,
+        ["max_entries"] = caps.Entries,
     };
 
     /// <summary>

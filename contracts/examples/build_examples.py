@@ -1033,14 +1033,14 @@ MECHANICS = {
             ("strong_arm", "gather_speed", "factor", [1.1, 1.15, 1.2], False))],
     },
     "fractals": {"budget_min": 25, "budget_max": 30, "reachable_first_run": 15, "per_heart": 5, "per_band": 5, "typed": False},
-    # P-Inventory (decisions 98 to 103, 92's food): apples and berries stack and heal at once, seeds are reserved with no use yet; the
-    # pockets' caps are provisional, the chest's the proposal's (docs/game/INVENTORY.md). Nothing yields a kind yet: P-Food places them.
+    # P-Inventory (decisions 98 to 103, 92's food): apples and berries stack and heal at once, seeds are reserved with no use yet. Since
+    # P-Inventory-2 (decision 120) the caps are counts: every stack to 99, the pockets' ten slots and the chest's twenty, masses data only.
     "inventory": {
-        "kinds": [{"id": "apple", "name": "Apple", "plural": "Apples", "mass_kg": 0.02, "stack": 20, "use": {"heal_quarters": 2}},
-                  {"id": "berries", "name": "Berries", "mass_kg": 0.005, "stack": 50, "use": {"heal_quarters": 1}},
-                  {"id": "seed", "name": "Seed", "plural": "Seeds", "mass_kg": 0.001, "stack": 100}],
-        "pockets": {"entries": 6, "mass_kg": 0.3},
-        "chest": {"entries": 12, "mass_kg": 2},
+        "kinds": [{"id": "apple", "name": "Apple", "plural": "Apples", "mass_kg": 0.02, "stack": 99, "use": {"heal_quarters": 2}},
+                  {"id": "berries", "name": "Berries", "mass_kg": 0.005, "stack": 99, "use": {"heal_quarters": 1}},
+                  {"id": "seed", "name": "Seed", "plural": "Seeds", "mass_kg": 0.001, "stack": 99}],
+        "pockets": {"entries": 10},
+        "chest": {"entries": 20},
     },
     # P-Food (decisions 92, 98 and 108; D1): apples on one broadleaf in three (two to four windfalls at the trunk's foot, one or two in the
     # canopy reached with a hop), a cluster of berries on one shrub and one heather clump in four, everything picked back in a day.
@@ -1358,10 +1358,10 @@ def inventory_round(at: str) -> dict:
     pockets = {"entries": [{"item": "apple", "kind": "stack", "name": "Apples", "count": 3, "mass_kg": 0.06, "heal_quarters": 2},
                            {"item": "seed", "kind": "stack", "name": "Seeds", "count": 4, "mass_kg": 0.004},
                            {"item": "obj:cup", "kind": "thing", "name": "Cup", "count": 1, "mass_kg": 0.05, "here": False}],
-               "max_entries": 6, "mass_kg": 0.114, "max_mass_kg": 0.3}
+               "max_entries": 10}
     chest = {"entries": [{"item": THING, "kind": "thing", "name": "Paint clutter", "count": 1, "mass_kg": 0.25},
                          {"item": "berries", "kind": "stack", "name": "Berries", "count": 12, "mass_kg": 0.06, "heal_quarters": 1}],
-             "max_entries": 12, "mass_kg": 0.31, "max_mass_kg": 2}
+             "max_entries": 20}
     status = {"mode": "challenge", "health": 70.0, "max_health": 100, "stamina": 0.4, "max_stamina": 0.4, "completed_climbs": 0,
               "recoveries": 0, "consequences": True, "hearts": {"quarters": 14, "max_quarters": 20}, "pockets": pockets, "chest": chest}
     return {
@@ -1436,7 +1436,7 @@ def food_round(at: str) -> dict:
                                                  note="Player-only: E facing the windfall; one unit into the pockets."),
         "result_player_picks_an_apple": result("item.pickup", "pick-0001", "player:local", 14, at, transient=False, affected=[APPLE_TREE]),
         "result_pockets_too_full_to_pick": refused("item.pickup", "pick-0002", "player:local", "occupied",
-                                                   "Your pockets are full: they hold 6 things.", "$.args"),
+                                                   "Your pockets are full: ten things.", "$.args"),
         "result_canopy_apple_needs_a_hop": refused("item.pickup", "pick-0003", "player:local", "out_of_bounds",
                                                    "That is out of reach: hop for it.", "$.args.target", retryable=True),
         "result_tree_picked_bare": refused("item.pickup", "pick-0004", "player:local", "not_ready",

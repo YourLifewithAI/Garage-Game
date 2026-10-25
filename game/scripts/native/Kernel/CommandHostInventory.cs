@@ -18,7 +18,7 @@ namespace GarageGame.Native.Kernel;
 /// <item><b>The pockets</b> are the team's, one set per mode (the team file's pockets; a fixture without a team keeps them for the
 /// session), carried everywhere: stacks of the rules pack's kinds up to each kind's size, and unique things, each a room object of one
 /// island that stays in that island's room state as removed (the nature block's gathered mark, as a gathered log does) and comes out
-/// there alone, with its own id. The pack's caps bound the entries and the mass.</item>
+/// there alone, with its own id. The pack's caps are counts (decision 120): the slots, and each kind's stack.</item>
 /// <item><b>The chest</b> is the island save's, one per island (decision 102), in its team block's camp block (room state's
 /// x_play_camp.chest), reachable at any lit campfire or the starting one (PlayerAtCamp). It never spills; the Creative copy into Challenge
 /// starts empty (Ui/Menu/MenuSaves.cs Strip).</item>
@@ -400,18 +400,21 @@ public partial class CommandHost
         return units;
     }
 
-    /// <summary>The caps a change must keep: a stack's own size, the entries and the mass (occupied past any).</summary>
+    /// <summary>
+    /// The caps a change must keep (decision 120: counts, not weights): a stack's own size, then the slots (occupied past either, in the
+    /// kernel's words: "A stack holds at most 99 Apples.", "Your pockets are full: ten things.", "The chest is full: twenty things.").
+    /// </summary>
     private static void CheckFits(InventoryContents next, InventoryRules rules, InventoryCaps caps, bool pockets, InventoryKind? kind)
     {
         if (kind != null && next.Units(kind.Id) > kind.Stack)
-            throw new Refusal("occupied", $"A stack holds at most {kind.Stack} {kind.Words(kind.Stack)}.", "$.args", allowed: JsonValue.Create(kind.Stack));
+            throw new Refusal("occupied", StackFullWords(kind), "$.args", allowed: JsonValue.Create(kind.Stack));
         if (next.Entries > caps.Entries)
-            throw new Refusal("occupied", pockets ? $"Your pockets are full: they hold {caps.Entries} things." : $"The chest is full: it holds {caps.Entries} things.", "$.args",
-                allowed: JsonValue.Create(caps.Entries));
-        if (next.MassKg(rules) > caps.MassKg + 1e-9)
-            throw new Refusal("occupied", pockets ? $"That would be too heavy for your pockets: they hold {Kilograms((float)caps.MassKg)} kg." :
-                $"That would be too heavy for the chest: it holds {Kilograms((float)caps.MassKg)} kg.", "$.args", allowed: JsonValue.Create(Math.Round(caps.MassKg, 3)));
+            throw new Refusal("occupied", pockets ? PocketsFullWords(caps) : ChestFullWords(caps), "$.args", allowed: JsonValue.Create(caps.Entries));
     }
+
+    public static string StackFullWords(InventoryKind kind) => $"A stack holds at most {kind.Stack} {kind.Words(kind.Stack)}.";
+    public static string PocketsFullWords(InventoryCaps caps) => $"Your pockets are full: {InventoryWords.Things(caps.Entries)}.";
+    public static string ChestFullWords(InventoryCaps caps) => $"The chest is full: {InventoryWords.Things(caps.Entries)}.";
 
     private static JsonObject Moved(string item, int count, string? to, int? healed = null)
     {

@@ -2420,7 +2420,11 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(kinds["berries"]["use"], {"heal_quarters": 1}, "berries a quarter")
         self.assertNotIn("use", kinds["seed"], "seeds are reserved, with no use yet")
         self.assertFalse(any("assets" in kind for kind in v5["kinds"]), "no room asset is a loose unit yet: P-Food's food grows on the plants (the food block)")
-        self.assertEqual((v5["pockets"], v5["chest"]), ({"entries": 6, "mass_kg": 0.3}, {"entries": 12, "mass_kg": 2}))
+        # Decision 120: counts, not weights: the pockets' ten slots (the hotbar's), the chest's twenty, every stack to 99, no mass cap.
+        self.assertEqual((v5["pockets"], v5["chest"]), ({"entries": 10}, {"entries": 20}))
+        self.assertTrue(all(kind["stack"] == 99 for kind in v5["kinds"]))
+        caps = schema["$defs"]["inventory"]["properties"]
+        self.assertEqual((set(caps["pockets"]["properties"]), set(caps["chest"]["properties"])), ({"entries"}, {"entries"}), "no mass cap anywhere")
 
 
 class FoodTests(unittest.TestCase):

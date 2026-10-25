@@ -1482,7 +1482,7 @@
       }
     },
     "inventory": {
-      "description": "The pockets and the chest (P-Inventory; docs/game/MECHANICS.md decisions 98 to 103): the kinds that stack, the pockets' caps (carried everywhere, per team and mode) and the chest's (one per island save, shared by every campsite). A unique thing (a loose room object of no kind) takes an entry of its own and counts its asset's mass. Every number is provisional. Absent: no pockets and no chest, today's behaviour.",
+      "description": "The pockets and the chest (P-Inventory; docs/game/MECHANICS.md decisions 98 to 103 and 120): the kinds that stack, the pockets' slots (carried everywhere, per team and mode; the hotbar's ten, decision 119) and the chest's (one per island save, shared by every campsite). Caps are counts, never weights (decision 120): a stack holds up to its kind's stack (99 in storybook_wild v5), a unique thing (a loose room object of no kind) takes a slot of its own, and masses stay data. Every number is provisional. Absent: no pockets and no chest, today's behaviour.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1500,44 +1500,32 @@
           }
         },
         "pockets": {
-          "description": "The pockets: at most this many entries and this mass (provisional: 6 and 0.3 kg).",
+          "description": "The pockets: at most this many slots, each a stack or a unique thing (decision 120: ten, the hotbar's).",
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "entries",
-            "mass_kg"
+            "entries"
           ],
           "properties": {
             "entries": {
               "type": "integer",
               "minimum": 1,
               "maximum": 16
-            },
-            "mass_kg": {
-              "type": "number",
-              "exclusiveMinimum": 0,
-              "maximum": 10
             }
           }
         },
         "chest": {
-          "description": "The chest: at most this many entries and this mass (the proposal's 12 and 2 kg, the Gubble's own carry limit).",
+          "description": "The chest: at most this many slots (decision 120: twenty).",
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "entries",
-            "mass_kg"
+            "entries"
           ],
           "properties": {
             "entries": {
               "type": "integer",
               "minimum": 1,
               "maximum": 64
-            },
-            "mass_kg": {
-              "type": "number",
-              "exclusiveMinimum": 0,
-              "maximum": 50
             }
           }
         }
@@ -1587,7 +1575,8 @@
         "stack": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 1000
+          "maximum": 1000,
+          "description": "The most units in one stack (decision 120: 99; 999 later if needed)."
         },
         "use": {
           "type": "object",

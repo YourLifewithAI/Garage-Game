@@ -231,7 +231,7 @@ public partial class FoodTest
         await Face(byBerries, berries, "facing the shrub's berries");
         var revision = _host.Revision;
         var faced = _host.PlayerCanPick();
-        const string full = "Your pockets are full: they hold 1 things.";
+        const string full = "Your pockets are full: one thing.";
         Check(!faced.Ok && faced.Words == full && faced.Source == Shrub && faced.Kind == "berries", $"E says the pockets are full: \"{faced.Words}\"");
         var refused = Dumped(_host.PlayerPick());
         Check(Refused(refused, "occupied", full, "$.args") && _host.Revision == revision && _host.FoodLeft(Shrub).Count == 1 && Units("berries") == 0 && Units("apple") == 1,
