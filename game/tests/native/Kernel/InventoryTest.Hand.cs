@@ -100,6 +100,9 @@ public partial class InventoryTest
             "with no slot chosen, a use or a drop that names nothing says to choose one");
         Check(Ok(Select(Player, 4)) && Refused(UseSelected(), "target_not_found", CommandHost.EmptySlot, "$.args.item") && Refused(DropSelected(), "target_not_found", CommandHost.EmptySlot, "$.args.item"),
             "an empty slot is empty");
+        Check(Ok(_host.PlayerSelect(4)) && Refused(_host.PlayerUseSelected(), "target_not_found", CommandHost.EmptySlot, "$.args.item") &&
+              Refused(_host.PlayerDropSelected(), "target_not_found", CommandHost.EmptySlot, "$.args.item"),
+            "the HUD's calls say the same: PlayerSelect, PlayerUseSelected, PlayerDropSelected");
         Check(Ok(Select(Player, 5, "abilities")) && Refused(UseSelected(), "request_invalid", CommandHost.ChooseAPocketSlot, "$.args.item"), "an ability's slot is the HUD's to cast, not a use");
         Check(Refused(Select(Player, 11, contractValid: false), "request_invalid", "slot is a whole number from 1 to 10, or null for none.", "$.args.slot") &&
               Refused(Select(Player, 1, "wheel", contractValid: false), "request_invalid", "layer is pockets or abilities.", "$.args.layer"), "a slot past ten, or a layer the bar has not, is invalid");

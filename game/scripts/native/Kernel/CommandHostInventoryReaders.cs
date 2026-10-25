@@ -147,6 +147,12 @@ public partial class CommandHost
     /// <summary>A thing from the pockets set down before the player (its pose is a put-down's receipt: a full ledger is compacted first, as the hand keys do).</summary>
     public JsonObject PlayerDrop(string item) => PlayerSandbox("inventory.drop", new JsonObject { ["item"] = item });
 
+    /// <summary>The hotbar's use (P-Inventory-2): inventory.use naming no item, the hand's selected slot's unit.</summary>
+    public JsonObject PlayerUseSelected(bool preview = false) => PlayerCommand("inventory.use", new JsonObject(), preview);
+
+    /// <summary>The hotbar's drop (P-Inventory-2): inventory.drop naming no item, the selected slot's unit, or the thing it took into the hand.</summary>
+    public JsonObject PlayerDropSelected() => PlayerSandbox("inventory.drop", new JsonObject());
+
     // ---- the readers on the command surface ----
 
     /// <summary>player.status's pockets and chest (read-only; names untrusted display text), when the pack has an inventory block.</summary>
