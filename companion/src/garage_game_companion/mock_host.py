@@ -2601,10 +2601,13 @@ class MockHost(JournalMixin, TrustMixin, NatureMixin, EnergyMixin, InventoryMixi
 
     def _form_bubble(self, capability: str, principal: str, action_id: str, target: str | None, centre: list[float], radius: float,
                      expires_at: float) -> MockBubble:
-        """A new bubble; one at a time, so whatever bubble was there pops first (the kernel's FormBubble: the Gubble's recast is
-        its own pop). A bubble cast on a fire teaches Snuff (decision 79; mock_nature.py)."""
+        """A new bubble; one at a time, so whatever bubble was there pops first (the kernel's FormBubble and RecastEnd: the Gubble's
+        own recast is its own pop, one the player said yes to the player's, decision 115). A bubble cast on a fire teaches Snuff
+        (decision 79; mock_nature.py)."""
+        gubble = not principal.startswith("player:")
+        approved = gubble and self._approving
         for old in list(self.bubbles.values()):
-            self._end_bubble(old, "popped", by_gubble=not principal.startswith("player:"))
+            self._end_bubble(old, "popped_by_player" if approved else "popped", by_gubble=gubble and not approved)
         bubble_id = "effect:" + "".join(secrets.choice(EFFECT_ID_ALPHABET) for _ in range(EFFECT_ID_LENGTH))
         bubble = MockBubble(bubble_id, capability, principal, action_id, target, centre, radius, expires_at,
                             holding=target is not None, carried=target is not None)

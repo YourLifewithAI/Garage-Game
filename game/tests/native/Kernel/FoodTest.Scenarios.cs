@@ -344,23 +344,42 @@ public partial class FoodTest
         _host.ClockRecord = null;
     }
 
-    /// <summary>A Grow cast that grows a plant ripens its food at once, and the food hangs on the grown tree.</summary>
+    /// <summary>
+    /// Decision 127, as the founder refined it (P-Nature-2): a Grow cast grows a plant first, up to its cap, and ripens its food only once
+    /// it is at its cap; the food hangs on the grown tree.
+    /// </summary>
     private async Task TestGrowRipens()
     {
         await NewWorld("ripen", mode: "creative");
         await PickWindfall(0);
         await PickWindfall(1);
-        Check(_host.FoodLeft(TreeA).Count == Layout(TreeA)!.Spots.Count - 2, "two apples picked");
+        var spots = Layout(TreeA)!.Spots.Count;
+        Check(_host.FoodLeft(TreeA).Count == spots - 2, "two apples picked");
         _companion.GlobalPosition = TreeAAt + new Vector3(-0.6f, 0.01f, 0.3f);
         Check(_player.TryTeleportTo(_room.SpawnFor("player").PositionM), "the player steps back to the spawn");
         await Frames(4);
-        var grow = GrowCast(Player, TreeAAt + new Vector3(-0.2f, 0.01f, 0), 0.5);
+        var at = TreeAAt + new Vector3(-0.2f, 0.01f, 0);
+        var grow = GrowCast(Player, at, 0.5);
         var factor = _host.Nature.Plants.GetValueOrDefault(TreeA)?.Factor ?? 1;
+        Check(Ok(grow) && factor > 1 && _host.Nature.Food.ContainsKey(TreeA) && _host.FoodLeft(TreeA).Count == spots - 2,
+            $"Grow grows the tree below its cap ({factor:0.00}) and leaves its food unripe: " + Canonical(grow["error"]));
+        // On to its cap, its food unripe all the way; the cast at the cap ripens it and grows nothing.
+        var stillUnripe = true;
+        var casts = 1;
+        JsonObject ripen;
+        do
+        {
+            stillUnripe &= _host.FoodLeft(TreeA).Count == spots - 2 && _host.Nature.Food.ContainsKey(TreeA);
+            ripen = GrowCast(Player, at, 0.5);
+            casts++;
+        } while (Ok(ripen) && ripen["data"]?["grown_plants"]?.GetValue<int>() == 1 && casts < 8);
+        factor = _host.Nature.Plants.GetValueOrDefault(TreeA)?.Factor ?? 1;
         var canopy = Spots(TreeA, FoodPlace.Canopy)[0];
         var hung = Layout(TreeA)!.At(canopy, factor);
-        Check(Ok(grow) && factor > 1 && !_host.Nature.Food.ContainsKey(TreeA) && _host.FoodLeft(TreeA).Count == Layout(TreeA)!.Spots.Count &&
+        Check(stillUnripe && Ok(ripen) && ripen["data"]?["grown_plants"]?.GetValue<int>() == 0 && !_host.Nature.Food.ContainsKey(TreeA) && _host.FoodLeft(TreeA).Count == spots &&
               _host.FoodSpotsNear(TreeAAt, 1).Any(s => s.PositionM.DistanceTo(hung) < 1e-4f && s.Look == FoodView.Look.Apple),
-            $"Grow grows the tree ({factor:0.00}) and ripens its food at once; its canopy apple hangs on the grown crown at {hung.Y:0.000} m: " + Canonical(grow["error"]));
+            $"grown to its cap ({factor:0.00}) in {casts - 1} casts with its food unripe, the cast at the cap ripens it; its canopy apple hangs on the grown crown at {hung.Y:0.000} m: " +
+            Canonical(ripen["error"] ?? ripen["data"]));
         Check(_host.FoodLeft(TreeB).Count == Layout(TreeB)!.Spots.Count && !_host.Nature.Food.ContainsKey(Shrub), "nothing else changed");
     }
 
