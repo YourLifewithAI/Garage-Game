@@ -56,6 +56,8 @@ public partial class RoomHud
         ReleasePause();
         // The hotbar's ear on the host's commands (RoomHud.Hotbar.cs).
         StopListeningForTheBar();
+        // And its ear on the Gubble's repairs (RoomHud.Repair.cs).
+        StopListeningForRepairs();
     }
 
     /// <summary>"Show numbers on the meters" as the profile says: off unless the player turned it on.</summary>

@@ -715,6 +715,10 @@ public partial class RoomHud : CanvasLayer
         var noticeStart = PromptCost.Begin();
         UpdateNotice(delta);
         PromptCost.End(noticeStart, PromptCost.Piece.Notice);
+        // The Gubble's repair spent logs or stones: a card over the thing for about three seconds (RoomHud.Repair.cs).
+        var repairStart = PromptCost.Begin();
+        TickRepairIcons(delta);
+        PromptCost.End(repairStart, PromptCost.Piece.Repair);
         UpdateFocus(delta);
         // Fractals are collected by walking into them (RoomHud.Pickup.cs).
         UpdatePickup(delta);

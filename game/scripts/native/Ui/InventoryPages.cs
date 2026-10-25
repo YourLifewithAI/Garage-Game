@@ -261,6 +261,7 @@ public static class InventoryPages
         lines.Add(new(JournalInk.Heading, "The chest"));
         lines.Add(new(JournalInk.Faint, ChestCaps(host)));
         lines.Add(new(JournalInk.Faint, GubbleChestWords(host)));
+        lines.Add(new(JournalInk.Faint, GubbleRepairWords));
         if (!reachable) lines.Add(new(JournalInk.Text, CommandHost.ChestAtCamp));
         var chest = host.ChestEntries;
         if (chest.Count == 0) lines.Add(new(JournalInk.Text, "The chest is empty."));
@@ -297,6 +298,12 @@ public static class InventoryPages
         }
         return lines;
     }
+
+    /// <summary>
+    /// What the camp's Inventory page and the Magic panel's Repair section say of the Gubble repairing (decision 131): it pays as the player's own
+    /// repair does, and the card over the thing shows what it spent. They say nothing of asking: the kernel's own card carries any ask.
+    /// </summary>
+    public const string GubbleRepairWords = "When the Gubble repairs something it made, it pays the same logs and stones, your pockets first and then the chest, and a small card over the thing shows what it spent.";
 
     /// <summary>The Gubble's chest switch as read-only words: it is the player's setting (decision 100), changed in the settings and never here.</summary>
     public static string GubbleChestWords(CommandHost host) => host.GubbleChestAllowed

@@ -40,7 +40,7 @@ public partial class PlayHudTest
     private CommandHost _ih = null!;
     private RoomHud _ihud = null!;
 
-    /// <summary>The test room with a broadleaf tree and a shrub, and on the rug two windfall apples, a seed pod, a cup, a brick of 0.29 kg and a pebble (the apples and the pod are units of their kinds once the pack says so; the pebble, of stone, is a stone).</summary>
+    /// <summary>The test room with a broadleaf tree and a shrub, and on the rug two windfall apples, a seed pod, a cup, a brick of 0.29 kg and two pebbles (the second for the repair's stone in Challenge; the apples and the pod are units of their kinds once the pack says so; the pebble, of stone, is a stone).</summary>
     private static string InventoryHudRoom()
     {
         IslandFixture.Row Bush(Vector3 at, float top, uint seed) => new(at.X, 0, at.Z, 0, new Vector3(1, top / 0.13f, 1), new Color(0.8f, 0.9f, 0.7f), top, 0, 0, seed);
@@ -76,7 +76,7 @@ public partial class PlayHudTest
             File.WriteAllBytes(Path.Combine(target, relative), bytes);
             files.Add(new JsonObject { ["path"] = relative, ["sha256"] = CanonicalJson.Sha256Hex(bytes), ["bytes"] = bytes.Length });
         }
-        foreach (var (id, asset, x, z) in new[] { ("obj:apple_1", "windfall_apple", 0.3, 0.35), ("obj:apple_2", "windfall_apple", 0.3, 0.45), ("obj:pod", "seed_pod", 0.3, 0.65), ("obj:cup", "cup_proxy", -0.2, 0.75), ("obj:brick", "brick_proxy", 0.0, 0.95), ("obj:pebble", "pebble_proxy", 0.7, 0.4) })
+        foreach (var (id, asset, x, z) in new[] { ("obj:apple_1", "windfall_apple", 0.3, 0.35), ("obj:apple_2", "windfall_apple", 0.3, 0.45), ("obj:pod", "seed_pod", 0.3, 0.65), ("obj:cup", "cup_proxy", -0.2, 0.75), ("obj:brick", "brick_proxy", 0.0, 0.95), ("obj:pebble", "pebble_proxy", 0.7, 0.4), ("obj:pebble_2", "pebble_proxy", -0.75, 0.45) })
             objects.Add(new JsonObject
             {
                 ["id"] = id, ["asset"] = $"objects/{asset}/asset.json",
@@ -129,6 +129,8 @@ public partial class PlayHudTest
             await InvCost();
             await InvCampPage();
             await InvSettingsSwitch();
+            // The Gubble's repair and the card that shows its spend (PlayHudTest.Repair.cs): last, in Challenge, then back to Creative.
+            await InvRepairIcon();
         }
         finally
         {

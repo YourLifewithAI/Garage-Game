@@ -59,6 +59,8 @@ public partial class RoomHud
         _fireWords.Name = "FireWords"; page.AddChild(_fireWords);
         MagicHeading(page, "REPAIR & UNDO");
         _natureMaterials = WrapMagicLabel(""); page.AddChild(_natureMaterials);
+        // The Gubble's own repairs (decision 131): what it pays, and the card that shows it.
+        var gubbleRepair = WrapMagicLabel(Ui.InventoryPages.GubbleRepairWords); gubbleRepair.Name = "GubbleRepairWords"; page.AddChild(gubbleRepair);
         _repairChoice = new OptionButton { Name = "RepairChoice" };
         _repairChoice.ItemSelected += _ => RefreshRepairCost();
         page.AddChild(_repairChoice);
