@@ -276,7 +276,9 @@ public partial class CommandHost
     /// inventory.use (player-only): one unit of a stack in the pockets. A kind whose use heals heals at once, its heal_quarters (decisions 92
     /// and 111: no unharmed wait); at full hearts the unit stays (not_ready). In Creative eating uses the unit up too (decision 125: hearts do
     /// nothing there, so nothing heals, at full hearts or not; the sound still plays, decision 108). The unit goes first, then the heal is
-    /// saved; a heal that cannot be saved puts the unit back. An apple eaten gives a seed, berries one time in three (decision 118).
+    /// saved; a heal that cannot be saved puts the unit back. An apple eaten gives a seed, berries one time in three (decision 118); one that
+    /// does not fit the pockets lies loose at the player's feet (decision 132: a durable inventory.drop of the seed under the host's own action
+    /// id before this transient receipt, whose data.seeds_loose says so).
     /// </summary>
     private JsonObject InventoryUse(JsonElement args, string principal, string actionId, string fingerprint, bool preview)
     {
@@ -290,14 +292,18 @@ public partial class CommandHost
         if (have == 0) throw new Refusal("target_not_found", NotInPockets, "$.args.item");
         var kind = rules.Kind(item);
         if (kind?.HealQuarters is not { } heal) throw new Refusal("request_invalid", NoUseWords(kind), "$.args.item");
+        // Decision 118: an apple eaten gives a seed, berries one time in three, into the pockets in the same write; decision 132: a seed that does
+        // not fit lies loose at the player's feet (checked before anything, so an eating that cannot set it down is refused, never the seed lost).
+        var (eaten, seeds, loose) = WithSeeds(pockets.WithUnits(item, have - 1), SeedsFromEating(item, actionId));
         if (Mode == "creative")
         {
+            var lies = loose > 0 ? SeedsCanLie() : default;
             if (preview) return Previewed("inventory.use", principal, actionId);
             // P-Food: eating makes its sound in Creative too (decision 108; CommandHostFood.Eaten); P-Inventory-2: and uses the unit up (decision 125).
-            var (used, seedsThere) = WithSeeds(pockets.WithUnits(item, have - 1), SeedsFromEating(item, actionId));
-            SavePockets(used);
+            DropSeedsLoose(lies, loose, fingerprint);
+            SavePockets(eaten);
             var creative = Eaten(item, Moved(item, 1, null, healed: 0));
-            creative["seeds"] = seedsThere;
+            SeedsSaid(creative, seeds, loose);
             return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), creative);
         }
         if (_playerVitalsUnavailable) throw new Refusal("not_ready", VitalsNotice, retryable: true);
@@ -305,9 +311,9 @@ public partial class CommandHost
         var vitals = Vitals;
         var (healed, quarters) = HealedBy(vitals, heal);
         if (quarters <= 0) throw new Refusal("not_ready", $"Your hearts are full: the {kind.Name} stays in your pockets.", "$.args.item", retryable: true);
+        var spot = loose > 0 ? SeedsCanLie() : default;
         if (preview) return Previewed("inventory.use", principal, actionId);
-        // P-Inventory-2 (decision 118): an apple eaten gives a seed, berries one time in three, into the pockets in the same write.
-        var (eaten, seeds) = WithSeeds(pockets.WithUnits(item, have - 1), SeedsFromEating(item, actionId));
+        DropSeedsLoose(spot, loose, fingerprint);
         SavePockets(eaten);
         if (TrySaveVitals(_playerModes.WithCurrent(healed)) is not { } saved)
         {
@@ -317,8 +323,15 @@ public partial class CommandHost
         _playerModes = saved;
         _vitalsDirty = false;
         var data = Eaten(item, Moved(item, 1, null, healed: quarters));
-        data["seeds"] = seeds;
+        SeedsSaid(data, seeds, loose);
         return Transient("inventory.use", principal, actionId, fingerprint, new JsonArray(), data);
+    }
+
+    /// <summary>The use's receipt says what its seeds did: seeds, how many went into the pockets; seeds_loose, how many lie at the feet (decision 132).</summary>
+    private static void SeedsSaid(JsonObject data, int seeds, int loose)
+    {
+        data["seeds"] = seeds;
+        if (loose > 0) data["seeds_loose"] = loose;
     }
 
     /// <summary>

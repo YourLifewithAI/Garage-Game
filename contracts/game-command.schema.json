@@ -4325,7 +4325,7 @@
         ]
       },
       "inventory.use": {
-        "description": "Use one unit of a stack in the pockets: a kind whose use heals (heal_quarters) heals at once, with no unharmed wait (decision 111); at full hearts the unit stays (not_ready); in Creative it heals nothing (decision 108) and, since P-Inventory-2 (decision 125), the unit is used up there too, at full hearts or not (hearts do nothing in Creative; other effects will). Every unit eaten makes its sound (decision 108, Creative too): its receipt's data says so (sound eat). A kind with no use is request_invalid, in the kernel's words (a seed: planting comes with farming; a log or stone: for building and repairs). Since P-Inventory-2 (decision 118) an apple eaten gives a seed into the pockets, berries one time in three (chosen from the eating's action id, provisional), when it fits (data.seeds: how many went in). Player-only. A transient receipt with data: a use changes the pockets (the team file) and the body, never the room. Since P-Inventory-2 no item is the hand's selected slot (inventory.select): its stack's unit; a thing there has no use (request_invalid); an empty slot is target_not_found; no pockets slot chosen is request_invalid.",
+        "description": "Use one unit of a stack in the pockets: a kind whose use heals (heal_quarters) heals at once, with no unharmed wait (decision 111); at full hearts the unit stays (not_ready); in Creative it heals nothing (decision 108) and, since P-Inventory-2 (decision 125), the unit is used up there too, at full hearts or not (hearts do nothing in Creative; other effects will). Every unit eaten makes its sound (decision 108, Creative too): its receipt's data says so (sound eat). A kind with no use is request_invalid, in the kernel's words (a seed: planting comes with farming; a log or stone: for building and repairs). Since P-Inventory-2 (decision 118) an apple eaten gives a seed into the pockets, berries one time in three (chosen from the eating's action id, provisional), when it fits (data.seeds: how many went in); since P-Round3 (decision 132) a seed that does not fit lies loose at the player's feet instead, never lost (a durable inventory.drop of the seed under the host's own action id, data.seeds_loose), and with no ground there to lie on the eating is refused out_of_bounds in the kernel's words. Player-only. A transient receipt with data: a use changes the pockets (the team file) and the body, never the room. Since P-Inventory-2 no item is the hand's selected slot (inventory.select): its stack's unit; a thing there has no use (request_invalid); an empty slot is target_not_found; no pockets slot chosen is request_invalid.",
         "type": "object",
         "additionalProperties": false,
         "required": [],
@@ -5825,7 +5825,7 @@
         }
       },
       "inventory": {
-        "description": "What an inventory command moved: the entry, how many units (an inventory.use in Creative used one since P-Inventory-2, decision 125; before it, 0), where it went, and for inventory.use the quarters of a heart it healed and the sound it made (eat: the unit was eaten, the game's FoodSound hook fired; Creative heals nothing and keeps the sound, decision 108, and uses the unit up, decision 125) and, since P-Inventory-2, the seeds it gave into the pockets (decision 118).",
+        "description": "What an inventory command moved: the entry, how many units (an inventory.use in Creative used one since P-Inventory-2, decision 125; before it, 0), where it went, and for inventory.use the quarters of a heart it healed and the sound it made (eat: the unit was eaten, the game's FoodSound hook fired; Creative heals nothing and keeps the sound, decision 108, and uses the unit up, decision 125) and, since P-Inventory-2, the seeds it gave into the pockets (decision 118) and, since P-Round3, those that lie loose at the player's feet because they did not fit (decision 132).",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -5863,6 +5863,12 @@
             "description": "inventory.use: the seeds the unit eaten put in the pockets (an apple one, berries one time in three; none when they would not fit).",
             "type": "integer",
             "minimum": 0,
+            "maximum": 10
+          },
+          "seeds_loose": {
+            "description": "inventory.use, since P-Round3 (decision 132): the seeds the unit eaten gave that did not fit the pockets and lie loose at the player's feet instead (where a unit set down lies, a hand's breadth before them on the ground, else at the feet), never lost: each a loose unit of the island (a durable inventory.drop of the seed kind under the host's own action id, before this receipt). Absent when every seed went in.",
+            "type": "integer",
+            "minimum": 1,
             "maximum": 10
           }
         }

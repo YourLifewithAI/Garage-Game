@@ -86,6 +86,52 @@ public partial class FoodTest
         Check(!_host.ImportRoomState(tampered).Ok && _host.Revision == 0, "a loose unit outside the room is refused");
     }
 
+    /// <summary>
+    /// Decision 132: a seed eating gives that does not fit the pockets lies loose at the player's feet (where a unit set down lies), never lost:
+    /// a durable inventory.drop of the seed under the host's own action id, and the use's transient receipt says so (seeds_loose).
+    /// </summary>
+    private async Task TestSeedDropsLoose()
+    {
+        await NewWorld("seed-loose", editPack: p => p["inventory"]!["pockets"]!["entries"] = 1);
+        await PickWindfall(0);
+        await PickWindfall(1);
+        Check(Units("apple") == 2 && _host.PocketEntries.Count == 1, "two apples fill the pockets' one slot");
+        await Face(OpenGround, OpenGround + Vector3.Forward, "on open ground");
+        _host.ApplyPlayerDamage(20, PlayerDamageSource.Fire);
+        var revision = _host.Revision;
+        var preview = Send(Command(NextId("use"), "inventory.use", new JsonObject { ["item"] = "apple" }, preview: true), Player);
+        Check(Ok(preview) && _host.Revision == revision && _host.LooseUnits.Count == 0 && Units("apple") == 2, "a preview of the eating sets no seed down: " + Canonical(preview));
+        var eaten = Use(Player, "apple");
+        var feet = _player.GlobalPosition;
+        var lies = _host.LooseUnits.FirstOrDefault();
+        var ahead = new Vector2(lies.At.X - feet.X, lies.At.Z - feet.Z).Length();
+        Check(Ok(eaten) && eaten["transient"]?.GetValue<bool>() == true && Units("apple") == 1 && Units("seed") == 0 &&
+              Canonical(eaten["data"]) == Canonical(new JsonObject { ["count"] = 1, ["healed_quarters"] = 2, ["item"] = "apple", ["seeds"] = 0, ["seeds_loose"] = 1, ["sound"] = "eat" }) &&
+              _host.LooseUnits.Count == 1 && lies.Kind == "seed" && ahead <= _player.BodyRadiusM + FoodLaws.LooseAheadM + 0.005f && Mathf.Abs(lies.At.Y - feet.Y) < 0.02f,
+            $"the apple's seed does not fit, so it lies loose at the player's feet ({ahead:0.000} m ahead), and the use's receipt says so (seeds_loose): " + Canonical(eaten));
+        var state = _host.ExportRoomState()!;
+        var drop = state["receipts"]!.AsObject().Select(p => p.Value!["result"]!).FirstOrDefault(r => r["op"]?.GetValue<string>() == "inventory.drop");
+        Check(_host.Revision == revision + 1 && drop is JsonObject && drop["transient"]?.GetValue<bool>() == false &&
+              Canonical(drop["data"]) == Canonical(new JsonObject { ["count"] = 1, ["item"] = "seed", ["to"] = "ground" }) && state["extensions"]?["x_play_nature"]?["loose"] is JsonArray { Count: 1 },
+            "one durable revision: the seed's own inventory.drop under the host's action id, the island keeping it loose: " + Canonical(drop));
+        Check(Refused(TakeFromGround(Player, "seed"), "occupied", "Your pockets are full: one thing.", "$.args") && _host.LooseUnits.Count == 1,
+            "with the pockets still full, picking it up is refused in their words and it stays where it lies");
+        _host.ApplyPlayerDamage(20, PlayerDamageSource.Fire);
+        var last = Use(Player, "apple");
+        Check(Ok(last) && last["data"]?["seeds"]?.GetValue<int>() == 1 && last["data"]?["seeds_loose"] == null && Units("seed") == 1 && _host.LooseUnits.Count == 1,
+            "the last apple eaten frees the slot, so its seed goes into the pockets as before (no seeds_loose)");
+        Check(Ok(TakeFromGround(Player, "seed")) && Units("seed") == 2 && _host.LooseUnits.Count == 0, "and the loose one is picked up again into the seeds' stack");
+        // Creative eats as well (decision 125): the seed that does not fit lies loose there too.
+        await NewWorld("seed-loose-creative", mode: "creative", editPack: p => p["inventory"]!["pockets"]!["entries"] = 1);
+        await PickWindfall(0);
+        await PickWindfall(1);
+        await Face(OpenGround, OpenGround + Vector3.Forward, "on open ground, in Creative");
+        var creative = Use(Player, "apple");
+        Check(Ok(creative) && creative["data"]?["seeds_loose"]?.GetValue<int>() == 1 && creative["data"]?["seeds"]?.GetValue<int>() == 0 && _host.LooseUnits.Count == 1 &&
+              _host.LooseUnits[0].Kind == "seed" && Units("apple") == 1,
+            "in Creative the apple's seed lies loose at the feet too: " + Canonical(creative));
+    }
+
     /// <summary>At most 256 loose units an island, the oldest going first; a block past the cap is refused.</summary>
     private void TestLooseCap()
     {

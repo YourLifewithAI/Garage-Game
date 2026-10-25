@@ -85,6 +85,7 @@ public partial class FoodTest : Node3D
             await TestLooseDropAndPickUp();
             TestLooseCap();
             await TestLooseBurns();
+            await TestSeedDropsLoose();
             TestSeedRule();
             await FreeWorld();
             OS.RemoveLogger(_errors);
