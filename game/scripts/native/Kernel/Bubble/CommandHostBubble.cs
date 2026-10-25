@@ -113,7 +113,7 @@ public partial class CommandHost
 
     /// <summary>
     /// The time the Bubbles key names (PlayerEffect), as the nature.cast controls name theirs (BubbleCastArgs): where the place makes a
-    /// boat (water away from the player's feet, PlaceTheBubble's rule) the boat's BubbleLaws.BoatDurationDefaultS, anywhere else a
+    /// boat (water away from the player's feet, PlaceTheBubble's rule) the boat's BubbleLaws.BoatDurationDefaultS (20 s, decision 112), anywhere else a
     /// bubble's CarryDurationDefaultS (8 s, decision 95), never past the island's duration_max_s. Before decision 95 the key sent the
     /// pack's duration_default_s (20 s in v5) for every bubble, the boat's too; the pack's default no longer decides a bubble's time.
     /// </summary>
