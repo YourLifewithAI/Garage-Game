@@ -1126,6 +1126,23 @@ def _check_mechanics(pack: dict, label: str) -> list[str]:
         assets = [asset for kind in inventory["kinds"] for asset in kind.get("assets", [])]
         for name in sorted({a for a in assets if assets.count(a) > 1}):
             problems.append(f"{label}: asset {name!r} is a unit of more than one inventory kind")
+    # P-Food (25 October): each source's kind one of the inventory's, each species once, each range least to most, 1 to 8 units a plant.
+    food = pack.get("food")
+    if food is not None:
+        kinds = {kind["id"] for kind in (inventory or {}).get("kinds", [])}
+        species = [source["species"] for source in food["sources"]]
+        for name in sorted({s for s in species if species.count(s) > 1}):
+            problems.append(f"{label}: food species {name!r} has more than one source")
+        for index, source in enumerate(food["sources"]):
+            where = f"{label}: food.sources[{index}]"
+            if source["kind"] not in kinds:
+                problems.append(f"{where} bears {source['kind']!r}, which is no inventory kind of this pack")
+            ranges = {place: source.get(place, [0, 0]) for place in ("windfalls", "canopy", "clusters")}
+            for place, (least, most) in ranges.items():
+                if least > most:
+                    problems.append(f"{where}.{place}'s least {least} is above its most {most}")
+            if not 1 <= sum(most for _, most in ranges.values()) <= 8:
+                problems.append(f"{where} bears {sum(most for _, most in ranges.values())} units at most; a plant bears 1 to 8")
     return problems
 
 

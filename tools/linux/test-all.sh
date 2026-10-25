@@ -158,6 +158,12 @@ run native_kernel_inventory "NATIVE_KERNEL_INVENTORY: [0-9]+/[0-9]+ checks passe
 if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" -I contracts/validate.py "$INVENTORY_DUMP"/*.json > "$LOG/inventory_messages.log" 2>&1); then
   echo "PASS inventory messages validate: $(tail -1 "$LOG/inventory_messages.log")"
 else cat "$LOG/inventory_messages.log"; failed=1; fi
+FOOD_DUMP="$LOG/food_messages"; rm -rf "$FOOD_DUMP"
+run native_kernel_food "NATIVE_KERNEL_FOOD: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native/Kernel/native_kernel_food.tscn -- --landscape="$LR" --dump="$FOOD_DUMP"
+if grep -q "FOOD_GARAGE skipped" "$LOG/native_kernel_food.out"; then echo "FAIL native_kernel_food skipped its garage checks"; failed=1; fi
+if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" -I contracts/validate.py "$FOOD_DUMP"/*.json > "$LOG/food_messages.log" 2>&1); then
+  echo "PASS food messages validate: $(tail -1 "$LOG/food_messages.log")"
+else cat "$LOG/food_messages.log"; failed=1; fi
 echo "== kernel canonical JSON (Python reference)"
 if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" tools/kernel/canonical_json.py --check game/tests/fixtures/kernel > "$LOG/canonical.log" 2>&1 \
     && "$LINUX/contracts-venv/bin/python" -m unittest discover -s tools/kernel >> "$LOG/canonical.log" 2>&1); then

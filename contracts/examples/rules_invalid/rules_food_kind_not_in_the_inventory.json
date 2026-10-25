@@ -1,0 +1,561 @@
+{
+  "schema": "garage_game.island_rules",
+  "version": 1,
+  "rules_id": "mechanics_example",
+  "rules_version": 1,
+  "display_name": "Mechanics (example pack)",
+  "description": "The mechanics round's blocks with the design's starting numbers.",
+  "status": "draft",
+  "magic_word": "magic",
+  "abilities": [
+    {
+      "capability": "glow",
+      "category": "light",
+      "primitive": "light.emit",
+      "display_name": "Glow",
+      "cast_by": [
+        "player",
+        "companion"
+      ],
+      "tier": "auto",
+      "targets": [
+        "self",
+        "point"
+      ],
+      "reach_m": 2.0,
+      "params": {
+        "intensity": {
+          "min": 0.2,
+          "max": 1.0,
+          "default": 0.6
+        }
+      },
+      "area_radius_default_m": 0.6,
+      "area_radius_max_m": 1.5,
+      "duration_default_s": 300,
+      "duration_max_s": 600,
+      "max_active": 5
+    },
+    {
+      "capability": "bubbles",
+      "category": "float",
+      "primitive": "particles.float",
+      "display_name": "Bubbles",
+      "cast_by": [
+        "player",
+        "companion"
+      ],
+      "tier": "auto",
+      "targets": [
+        "self",
+        "point"
+      ],
+      "reach_m": 2.0,
+      "params": {
+        "intensity": {
+          "min": 0.2,
+          "max": 1.0,
+          "default": 0.6
+        }
+      },
+      "area_radius_default_m": 0.5,
+      "area_radius_max_m": 1.0,
+      "duration_default_s": 20,
+      "duration_max_s": 60,
+      "max_active": 2
+    },
+    {
+      "capability": "fireworks",
+      "category": "burst",
+      "primitive": "particles.burst",
+      "display_name": "Fireworks",
+      "cast_by": [
+        "player",
+        "companion"
+      ],
+      "tier": "auto",
+      "targets": [
+        "self",
+        "point"
+      ],
+      "reach_m": 4.0,
+      "params": {
+        "intensity": {
+          "min": 0.3,
+          "max": 1.0,
+          "default": 0.8
+        }
+      },
+      "area_radius_default_m": 1.0,
+      "area_radius_max_m": 2.0,
+      "duration_default_s": 4,
+      "duration_max_s": 6,
+      "max_active": 3
+    },
+    {
+      "capability": "grow",
+      "category": "growth",
+      "primitive": "growth.grow",
+      "display_name": "Grow",
+      "cast_by": [
+        "player",
+        "companion"
+      ],
+      "tier": "auto_undo",
+      "targets": [
+        "point"
+      ],
+      "reach_m": 2.0,
+      "params": {
+        "intensity": {
+          "min": 0.1,
+          "max": 0.5,
+          "default": 0.25
+        }
+      },
+      "area_radius_default_m": 0.5,
+      "area_radius_max_m": 1.0,
+      "duration_default_s": 1,
+      "duration_max_s": 600,
+      "max_active": 1
+    },
+    {
+      "capability": "fire",
+      "category": "fire",
+      "primitive": "element.ignite",
+      "display_name": "Fire",
+      "cast_by": [
+        "player",
+        "companion"
+      ],
+      "tier": "preview_commit",
+      "targets": [
+        "point"
+      ],
+      "reach_m": 2.0,
+      "params": {
+        "intensity": {
+          "min": 0.2,
+          "max": 1.0,
+          "default": 0.6
+        }
+      },
+      "area_radius_default_m": 1.5,
+      "area_radius_max_m": 1.5,
+      "duration_default_s": 30,
+      "duration_max_s": 60,
+      "max_active": 1
+    }
+  ],
+  "traits": {
+    "hearts": {
+      "health_per_quarter": 5,
+      "start_hearts": 5,
+      "cap_hearts": 30,
+      "heal_quarter_every_s": 2.5,
+      "heal_after_unharmed_s": 10,
+      "heal_outside_camp": false,
+      "camp_heal_quarter_every_s": 1,
+      "camp_heal_after_unharmed_s": 2,
+      "heal_while_closed": false
+    },
+    "harm": {
+      "fire_quarters_per_s": 1
+    },
+    "stamina": {
+      "start_m": 0.4,
+      "band_m": 0.4,
+      "bands": 10,
+      "bands_per_bar": 5,
+      "running_m_per_s": 0.02,
+      "refill_m_per_s": 0.1,
+      "deep_water_m_per_s": 0.02,
+      "dive_m_per_s": 0.04,
+      "climb_m_per_bar_m": 1.5,
+      "holding_m_per_s": 0,
+      "ivy_climb_factor": 0.25,
+      "empty_no_run_until_fraction": 1
+    },
+    "pips": {
+      "start": 8,
+      "expertise_per_pip": 5,
+      "ceiling": 40,
+      "refill_near_every_s": 5,
+      "refill_near_within_m": 2,
+      "refill_far_every_s": 15,
+      "camp_fraction": 0.5
+    },
+    "wallet": {
+      "start": {
+        "wood": 0,
+        "stone": 0,
+        "copper": 0,
+        "leaf": 0
+      }
+    },
+    "growth": {
+      "seedling_phase_h": 1,
+      "seedling_phases": 3
+    }
+  },
+  "cost": {
+    "prices": {
+      "glow": {
+        "ordered": 2,
+        "own_idea_factor": 0.5
+      },
+      "bubbles": {
+        "ordered": 2,
+        "own_idea_factor": 0.5
+      },
+      "fireworks": {
+        "ordered": 2,
+        "own_idea_factor": 0.5
+      },
+      "grow": {
+        "ordered": 4,
+        "own_idea_factor": 0.5
+      },
+      "fire": {
+        "ordered": 2,
+        "own_idea_factor": 0.5
+      },
+      "bubble_carry": {
+        "ordered": 4,
+        "own_idea_factor": 0.5
+      },
+      "bubble_boat": {
+        "ordered": 4,
+        "own_idea_factor": 0.5
+      },
+      "bubble_lift": {
+        "ordered": 6,
+        "own_idea_factor": 0.5
+      },
+      "fireline": {
+        "ordered": 8,
+        "own_idea_factor": 0.5
+      },
+      "snuff": {
+        "ordered": 2,
+        "own_idea_factor": 0.5
+      },
+      "will_o_wisp": {
+        "ordered": 4,
+        "own_idea_factor": 0.5
+      }
+    },
+    "torch_fire": 0
+  },
+  "modes": {
+    "rows": [
+      {
+        "mode": "creative",
+        "available": true,
+        "damage_multiplier": 0,
+        "refill_multiplier": 1,
+        "consequences": false,
+        "undo": true,
+        "shadow_pool": true,
+        "torch_self_ignite": false
+      },
+      {
+        "mode": "challenge",
+        "difficulty": "gentle",
+        "available": true,
+        "damage_multiplier": 0.5,
+        "refill_multiplier": 1.5,
+        "consequences": true,
+        "undo": false,
+        "shadow_pool": false,
+        "torch_self_ignite": false
+      },
+      {
+        "mode": "challenge",
+        "difficulty": "standard",
+        "available": true,
+        "damage_multiplier": 1,
+        "refill_multiplier": 1,
+        "consequences": true,
+        "undo": false,
+        "shadow_pool": false,
+        "torch_self_ignite": false
+      },
+      {
+        "mode": "challenge",
+        "difficulty": "brave",
+        "available": true,
+        "damage_multiplier": 1.5,
+        "refill_multiplier": 0.75,
+        "consequences": true,
+        "undo": false,
+        "shadow_pool": false,
+        "torch_self_ignite": false
+      },
+      {
+        "mode": "live",
+        "variant": "cooperative",
+        "available": false,
+        "damage_multiplier": 1,
+        "refill_multiplier": 1,
+        "consequences": true,
+        "undo": false,
+        "shadow_pool": false,
+        "torch_self_ignite": true
+      },
+      {
+        "mode": "live",
+        "variant": "competitive",
+        "available": false,
+        "damage_multiplier": 1,
+        "refill_multiplier": 1,
+        "consequences": true,
+        "undo": false,
+        "shadow_pool": false,
+        "torch_self_ignite": true
+      }
+    ]
+  },
+  "names": {
+    "hearts": "Hearts",
+    "stamina": "Stamina bar",
+    "pips": "Pips",
+    "fractals": "Fractals",
+    "expertise": "Expertise",
+    "camp": "Camp",
+    "trust": "Trust",
+    "knacks": {
+      "quick_feet": "Quick feet",
+      "high_hop": "High hop",
+      "big_bar": "Big bar",
+      "steady_climber": "Steady climber",
+      "strong_swimmer": "Strong swimmer",
+      "long_breath": "Long breath",
+      "big_heart": "Big heart",
+      "cat_feet": "Cat feet",
+      "handy": "Handy",
+      "green_thumb": "Green thumb",
+      "strong_arm": "Strong arm"
+    }
+  },
+  "knacks": {
+    "slots": [
+      {
+        "slot": 1,
+        "opens": "creation"
+      },
+      {
+        "slot": 2,
+        "opens": "first_summit"
+      },
+      {
+        "slot": 3,
+        "opens": "second_island_summit"
+      }
+    ],
+    "table": [
+      {
+        "knack": "quick_feet",
+        "moves": "walk_run_speed",
+        "unit": "factor",
+        "ranks": [
+          1.1,
+          1.15,
+          1.2
+        ],
+        "available": true
+      },
+      {
+        "knack": "high_hop",
+        "moves": "hop_height",
+        "unit": "factor",
+        "ranks": [
+          1.1,
+          1.15,
+          1.2
+        ],
+        "available": true
+      },
+      {
+        "knack": "big_bar",
+        "moves": "stamina_per_bar",
+        "unit": "factor",
+        "ranks": [
+          1.1,
+          1.15,
+          1.2
+        ],
+        "available": true
+      },
+      {
+        "knack": "steady_climber",
+        "moves": "climb_per_stamina",
+        "unit": "factor",
+        "ranks": [
+          1.1,
+          1.15,
+          1.2
+        ],
+        "available": true
+      },
+      {
+        "knack": "strong_swimmer",
+        "moves": "swim",
+        "unit": "factor",
+        "ranks": [
+          1.1,
+          1.15,
+          1.2
+        ],
+        "available": true
+      },
+      {
+        "knack": "long_breath",
+        "moves": "breath",
+        "unit": "factor",
+        "ranks": [
+          0.9,
+          0.85,
+          0.8
+        ],
+        "available": true
+      },
+      {
+        "knack": "big_heart",
+        "moves": "health_per_quarter",
+        "unit": "factor",
+        "ranks": [
+          1.1,
+          1.2
+        ],
+        "available": true
+      },
+      {
+        "knack": "cat_feet",
+        "moves": "safe_drop",
+        "unit": "m",
+        "ranks": [
+          0.45,
+          0.6,
+          0.75
+        ],
+        "available": true
+      },
+      {
+        "knack": "handy",
+        "moves": "build_time",
+        "unit": "factor",
+        "ranks": [
+          0.9,
+          0.85,
+          0.8
+        ],
+        "available": false
+      },
+      {
+        "knack": "green_thumb",
+        "moves": "plant_growth",
+        "unit": "factor",
+        "ranks": [
+          1.1,
+          1.15,
+          1.2
+        ],
+        "available": false
+      },
+      {
+        "knack": "strong_arm",
+        "moves": "gather_speed",
+        "unit": "factor",
+        "ranks": [
+          1.1,
+          1.15,
+          1.2
+        ],
+        "available": false
+      }
+    ]
+  },
+  "fractals": {
+    "budget_min": 25,
+    "budget_max": 30,
+    "reachable_first_run": 15,
+    "per_heart": 5,
+    "per_band": 5,
+    "typed": false
+  },
+  "inventory": {
+    "kinds": [
+      {
+        "id": "apple",
+        "name": "Apple",
+        "plural": "Apples",
+        "mass_kg": 0.02,
+        "stack": 20,
+        "use": {
+          "heal_quarters": 2
+        }
+      },
+      {
+        "id": "berries",
+        "name": "Berries",
+        "mass_kg": 0.005,
+        "stack": 50,
+        "use": {
+          "heal_quarters": 1
+        }
+      },
+      {
+        "id": "seed",
+        "name": "Seed",
+        "plural": "Seeds",
+        "mass_kg": 0.001,
+        "stack": 100
+      }
+    ],
+    "pockets": {
+      "entries": 6,
+      "mass_kg": 0.3
+    },
+    "chest": {
+      "entries": 12,
+      "mass_kg": 2
+    }
+  },
+  "food": {
+    "regrow_h": 24,
+    "sources": [
+      {
+        "kind": "pear",
+        "species": "broadleaf",
+        "one_in": 3,
+        "windfalls": [
+          2,
+          4
+        ],
+        "canopy": [
+          1,
+          2
+        ]
+      },
+      {
+        "kind": "berries",
+        "species": "shrub",
+        "one_in": 4,
+        "clusters": [
+          1,
+          1
+        ]
+      },
+      {
+        "kind": "berries",
+        "species": "heather",
+        "one_in": 4,
+        "clusters": [
+          1,
+          1
+        ]
+      }
+    ]
+  }
+}

@@ -1121,6 +1121,10 @@ INVALID_PACKS = {
     "rules_food_without_an_inventory": lambda p: p.pop("inventory"),
     "rules_food_on_one_in_none": lambda p: p["food"]["sources"][0].update(one_in=0),
     "rules_food_count_past_eight": lambda p: p["food"]["sources"][1].update(clusters=[1, 9]),
+    "rules_food_kind_not_in_the_inventory": lambda p: p["food"]["sources"][0].update(kind="pear"),
+    "rules_food_species_twice": lambda p: p["food"]["sources"].append(dict(p["food"]["sources"][0])),
+    "rules_food_range_upside_down": lambda p: p["food"]["sources"][0].update(windfalls=[4, 2]),
+    "rules_food_bearing_nothing": lambda p: p["food"]["sources"][1].update(clusters=[0, 0]),
 }
 
 

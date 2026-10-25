@@ -1811,6 +1811,10 @@ RULES_FAILURES = {
     "rules_food_without_an_inventory": "'inventory' is a dependency of 'food'",
     "rules_food_on_one_in_none": "$.food.sources[0].one_in: 0 is less than the minimum of 1",
     "rules_food_count_past_eight": "$.food.sources[1].clusters[1]: 9 is greater than the maximum of 8",
+    "rules_food_kind_not_in_the_inventory": "food.sources[0] bears 'pear', which is no inventory kind of this pack",
+    "rules_food_species_twice": "food species 'broadleaf' has more than one source",
+    "rules_food_range_upside_down": "food.sources[0].windfalls's least 4 is above its most 2",
+    "rules_food_bearing_nothing": "food.sources[1] bears 0 units at most; a plant bears 1 to 8",
 }
 # Each invalid team document (examples/teams_invalid) and the reason it must fail.
 TEAM_FAILURES = {
