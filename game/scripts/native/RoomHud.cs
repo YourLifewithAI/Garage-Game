@@ -963,7 +963,7 @@ public partial class RoomHud : CanvasLayer
             else if (PlayerControls.Hit(press, Act.Interact)) Interact();
             // Z, Fire's camp's own key this round (decision 90): sit down by a lit campfire to rest, and stand again (RoomHud.Camp.cs).
             else if (PlayerControls.Hit(press, Act.Rest)) RestKey();
-            // The look drag arms on the press; a click that never moves does nothing.
+            // The look drag arms on the press; a click that never moves is the hotbar's (a slot chosen, or the armed unit used: RoomHud.Hotbar.cs).
             else if (PlayerControls.Hit(press, Act.LookDrag))
             {
                 if (DragTurnsView && !_wheel.Held) _drag.Press(Pointer());
