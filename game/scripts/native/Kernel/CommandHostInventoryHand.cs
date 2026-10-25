@@ -110,7 +110,10 @@ public partial class CommandHost
         _held.TryGetValue(PlayerAvatar, out var held);
         var chosen = next.Layer == HandSelection.PocketsLayer ? next.Pockets : null;
         // The thing already in the hand from the chosen slot stays; anything else the hands carry goes back to the pockets first.
-        var keeps = held != null && chosen is { } at && pockets.ReservationAt(at) == held.Target;
+        // The thing already in the hand from the chosen slot stays, and so does whatever the hands carry while the choice moves within the magic
+        // layer (an ability key never puts away what they carry: the hotbar's change request, 25 October); anything else goes back to the pockets first.
+        var keeps = held != null && ((chosen is { } at && pockets.ReservationAt(at) == held.Target)
+                                     || (before.Layer == HandSelection.AbilitiesLayer && next.Layer == HandSelection.AbilitiesLayer));
         var bring = chosen is { } wanted && pockets.ItemAt(wanted) is { } there && there.StartsWith("obj:", StringComparison.Ordinal) ? pockets.Thing(there) : null;
         if (held != null && !keeps && rules != null)
         {

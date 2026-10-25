@@ -42,8 +42,8 @@ public partial class InventoryTest
     private async Task TestHandSelection()
     {
         await NewWorld("hand");
-        Check(Canonical(HandOf(Status())) == Canonical(HandJson("pockets", null, "nothing")) && _host.Hand is { Layer: "pockets", Slot: null, Holds: "nothing" },
-            "a new team's hand holds nothing: no slot chosen on either layer: " + Canonical(HandOf(Status())));
+        Check(Canonical(HandOf(Status())) == Canonical(HandJson("abilities", null, "nothing")) && _host.Hand is { Layer: "abilities", Slot: null, Holds: "nothing" },
+            "a new team's hand holds nothing and shows the magic layer: no slot chosen on either layer: " + Canonical(HandOf(Status())));
         Check(Refused(Select(Companion, 1), "permission_denied", "Only the player can do that, directly in the game.", "$.op"),
             "the companion never touches the selection: refused at $.op before anything is looked up");
         Check(await PickUp("obj:apple_1", ByApple1) && Ok(Store(Player, "pockets")) && await PickUp("obj:apple_2", ByApple2) && Ok(Store(Player, "pockets")) &&

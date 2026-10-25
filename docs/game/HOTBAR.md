@@ -12,7 +12,7 @@
 
 - **A pocket slot selected is in the hand.** A stack's unit is armed: **E** or the left button uses it (food is eaten, `inventory.use`; a seed is planted when planting exists; a log or stone is set down, `inventory.drop`), and the count on the slot falls. A unique thing is taken into the hand from the pockets (`inventory.take` to the hand) and behaves as a thing picked up with F: E sets it down or stores it, F drops it. Selecting another slot returns a held unique thing to its pocket slot.
 - **Picking up** with F or E fills the pockets as today (a stack if the kind stacks, a slot if unique), so what is picked lands on the bar at once.
-- **An ability selected is armed.** The number keys do what they did on the wheel: a tap casts at the aim where the ability casts on a tap today (Glow, Fire on 6 since decision 83), a hold shows the ghost and the release casts for the ones that preview (Bubbles, Fireworks, Build), key 2's sweep is still the bridge. The wheel's padlock and lock words move onto the slot. The right button's hold still opens the wheel for one round (decision 128); the smart ask's tap is unchanged.
+- **An ability selected is armed.** The number keys do what they did on the wheel: every key casts exactly as it did (Glow, Bubbles, Fireworks and Build on the press, Fire on 6 on the click since decision 83, key 2's tap on release and its sweep as the bridge); a hold that shows a ghost before casting is not built for any key and would be new work. The wheel's padlock and lock words move onto the slot. The right button's hold still opens the wheel for one round (decision 128); the smart ask's tap is unchanged.
 
 ## What the kernel adds
 

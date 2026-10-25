@@ -307,12 +307,13 @@ public sealed record HandSelection(string Layer, int? Pockets, int? Abilities)
     public const string PocketsLayer = "pockets", AbilitiesLayer = "abilities";
     public const int MaxSlot = 10;
 
-    public static HandSelection None { get; } = new(PocketsLayer, null, null);
+    /// <summary>A hand never chosen: the magic layer is down, as the HUD reads it (the hotbar's change request, 25 October), nothing in either layer.</summary>
+    public static HandSelection None { get; } = new(AbilitiesLayer, null, null);
 
     /// <summary>The selected slot of the layer in the hand, or null.</summary>
     public int? Slot => Layer == AbilitiesLayer ? Abilities : Pockets;
 
-    public bool IsNone => Layer == PocketsLayer && Pockets == null && Abilities == null;
+    public bool IsNone => Layer == AbilitiesLayer && Pockets == null && Abilities == null;
 
     public bool Valid => Layer is PocketsLayer or AbilitiesLayer && Pockets is null or >= 1 and <= MaxSlot && Abilities is null or >= 1 and <= MaxSlot;
 
