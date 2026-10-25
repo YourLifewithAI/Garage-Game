@@ -80,10 +80,22 @@ public partial class InventoryTest
         Check(Ok(back) && _host.HeldBy(PlayerAvatar) == null && !EntityIds().Contains("obj:cup") && _host.Revision == revision + 1 &&
               _host.PocketEntries.Select(e => (e.Item, e.Slot)).SequenceEqual(new[] { ("apple", 1), ("obj:cup", 2), ("seed", 3) }) && _host.Hand.Holds == "unit",
             "selecting another slot returns the cup to its own slot (one durable revision, a store into the pockets) and arms the apple (the eaten one's seed in slot 3)");
-        Check(Ok(Select(Player, 2)) && Ok(Select(Player, 3, "abilities")) && _host.HeldBy(PlayerAvatar) == null && _host.PocketEntries.Any(e => e.Item == "obj:cup") &&
-              Canonical(HandOf(Status())) == Canonical(HandJson("abilities", 3, "ability", pockets: 2, abilities: 3)),
-            "the abilities' layer in the hand returns the cup too, and keeps the pockets' slot for when the layer comes back: " + Canonical(HandOf(Status())));
-        Check(Ok(Select(Player, null)) && _host.Hand is { Layer: "pockets", Slot: null, Holds: "nothing", AbilitiesSlot: 3 }, "no slot on the pockets' layer: the hand holds nothing");
+        // Decision 129: switching the bar's layers never touches what the hands carry; casting with full hands is allowed.
+        Check(Ok(Select(Player, 2)) && _host.HeldBy(PlayerAvatar) == "obj:cup", "(the cup in the hand again)");
+        revision = _host.Revision;
+        Check(Ok(Select(Player, 3, "abilities")) && _host.HeldBy(PlayerAvatar) == "obj:cup" && _host.PocketEntries.All(e => e.Item != "obj:cup") && _host.Revision == revision &&
+              Canonical(HandOf(Status())) == Canonical(HandJson("abilities", 3, "ability", pockets: 2, abilities: 3, carrying: "obj:cup")),
+            "the abilities' layer in the hand keeps the cup in it (decision 129: no store, no revision), and keeps the pockets' slot for when the layer comes back: " + Canonical(HandOf(Status())));
+        Check(Ok(Select(Player, 5, "abilities")) && _host.HeldBy(PlayerAvatar) == "obj:cup" && _host.Revision == revision, "a choice within the magic layer keeps it too");
+        var cast = _host.PlayerEffect("glow");
+        Check(Ok(cast) && _host.HeldBy(PlayerAvatar) == "obj:cup", "casting with full hands is allowed: Glow lights, the cup stays in the hand: " + Canonical(cast["error"]));
+        Check(Ok(Select(Player, 2)) && _host.HeldBy(PlayerAvatar) == "obj:cup" && _host.Revision == revision && _host.Hand is { Layer: "pockets", Slot: 2, Holds: "thing", Item: "obj:cup" },
+            "the pockets brought back down at the slot they kept (Tab) keep it as well: it is that slot's thing, in the hand: " + _host.Hand);
+        Check(Ok(Select(Player, 3, "abilities")) && Ok(Select(Player, 1)) && _host.HeldBy(PlayerAvatar) == null && _host.Revision == revision + 1 &&
+              _host.PocketEntries.Single(e => e.Item == "obj:cup").Slot == 2 && _host.Hand is { Layer: "pockets", Slot: 1, Holds: "unit", Item: "apple" },
+            "only choosing a different pocket slot returns it (the pockets brought down at slot 1 from the strip): back in slot 2, the apple armed");
+        Check(Ok(Select(Player, 3, "abilities")) && Ok(Select(Player, null)) && _host.Hand is { Layer: "pockets", Slot: null, Holds: "nothing", AbilitiesSlot: 3 },
+            "no slot on the pockets' layer: the hand holds nothing");
         Check(Ok(Select(Player, 2)) && _host.HeldBy(PlayerAvatar) == "obj:cup", "(the cup in the hand)");
         await NewWorld("hand", keepFiles: true);
         Check(_host.HandNow == new HandSelection("pockets", 2, 3) && _host.HeldBy(PlayerAvatar) == null && EntityIds().Contains("obj:cup") && _host.PocketEntries.All(e => e.Item != "obj:cup") &&
@@ -135,5 +147,12 @@ public partial class InventoryTest
         var full = Select(Player, null);
         Check(Refused(full, "occupied", "Your pockets are full: one thing.", "$.args") && _host.HeldBy(PlayerAvatar) == "obj:cup" && _host.HandNow == new HandSelection("pockets", 1, null),
             "moving the hand on would put the carried cup in the pockets; there is no room, so it is refused in their words and nothing changes");
+        // Decision 129: the layers switch with full pockets and full hands alike (the hotbar's open question: the magic side no longer waits).
+        Check(Ok(Select(Player, 2, "abilities")) && _host.HeldBy(PlayerAvatar) == "obj:cup" && _host.Hand is { Layer: "abilities", Holds: "ability", Carrying: "obj:cup" },
+            "Tab to the magic layer while carrying the cup with full pockets: allowed, the cup still carried: " + _host.Hand);
+        Check(Ok(Select(Player, 1)) && _host.HeldBy(PlayerAvatar) == "obj:cup" && _host.Hand is { Layer: "pockets", Slot: 1, Holds: "unit", Item: "apple", Carrying: "obj:cup" },
+            "and back to the pockets at the slot they kept: the apple armed, the cup still carried (never stored by a switch): " + _host.Hand);
+        Check(Refused(Select(Player, 1), "occupied", "Your pockets are full: one thing.", "$.args") && _host.HeldBy(PlayerAvatar) == "obj:cup",
+            "choosing a pocket slot on the pockets' layer still stores a carried thing first, as before: with no room, refused");
     }
 }

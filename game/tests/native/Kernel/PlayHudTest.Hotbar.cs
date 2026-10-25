@@ -346,9 +346,13 @@ public partial class PlayHudTest
             "1 on the magic side with the brick in the hands: the brick stays held (the key records no selection while they carry something)");
         hud._UnhandledInput(Press(Key.X));
         hud.AimRayForTests = null;
-        // Tab brings the pockets down through the kernel's select, which puts what the hands carry into the pockets first (P-Inventory-2).
+        // Tab brings the pockets down through the kernel's select, which never touches what the hands carry (decision 129); a pocket slot
+        // chosen then puts the carried brick into the pockets first (the kernel's rule for a choice on the pockets' layer).
         await InvKey(Key.Tab);
+        Check(hud.BarLayerShown == HandSelection.PocketsLayer && host.HeldBy(player) == "obj:brick" && host.PocketEntries.All(e => e.Item != "obj:brick"),
+            "Tab to the pockets keeps the carried brick in the hands (decision 129: switching the layers never touches what they carry)");
+        await InvKey(InvBarKey(host.HandNow.Pockets ?? 1));
         Check(hud.BarLayerShown == HandSelection.PocketsLayer && host.HeldBy(player) == null && host.PocketEntries.Any(e => e.Item == "obj:brick"),
-            "Tab to the pockets puts the carried brick into them first, the kernel's rule for any selection (a question for the founder)");
+            "a pocket slot's key then puts the carried brick into the pockets first, the kernel's rule for a choice on the pockets' layer");
     }
 }
