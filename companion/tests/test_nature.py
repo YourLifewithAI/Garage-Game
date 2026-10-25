@@ -397,6 +397,100 @@ class Grow(NatureCase):
         self.assertEqual(refusal(effect)[:2], ("unsupported_capability", "$.args.capability"))
 
 
+class GrowUnlocks(NatureCase):
+    """Grow's three unlocks (decisions 76 and 104 to 107) on the mock, in the kernel's words: each locked before the team's Grow
+    expertise count opens it; replanting and sprouts growing through their phases on the host's clock; the bridge's checks over the
+    box world's floor. The box world has no faces, so never ivy (the kernel's NatureTest.GrowUnlocks climbs it)."""
+
+    def grass_floor(self) -> None:
+        """The box world's floor made grass: fertile ground, as an island's soil is (the test room's floor is wood)."""
+        self.host.entities["shell:floor"].materials = ["grass"]
+
+    def test_each_unlock_is_refused_before_its_count_whoever_asks(self):
+        host = self.host
+        host.add_plant("plant:daisies-0", [1.4, 0.0, 1.2], 0.1, "herb")
+        far = [5.0, 0.0, 1.0]
+        for principal in (PLAYER, COMPANION):
+            with self.subTest(principal=principal):
+                self.assertEqual(refusal(self.send(principal, "nature.cast", {**self.grow(ON_THE_FLOOR), "end_m": far})),
+                                 ("permission_denied", "$.args.end_m", m.BRIDGE_LOCKED), "a drag before three, before every other check")
+                self.assertEqual(refusal(self.send(principal, "nature.cast", self.grow(ON_THE_FLOOR, 0.1))),
+                                 ("invalid_args", "$.args.center_m", m.GROW_NO_PLANT), "the wooden floor is not fertile: nothing grows there")
+        host.plant_state["plant:daisies-0"] = m.PlantState(burn=1.0)
+        self.assertEqual(refusal(self.send(PLAYER, "nature.cast", self.grow([1.4, 0.0, 1.2], 0.05))),
+                         ("permission_denied", "$.args.center_m", m.REPLANT_LOCKED))
+        self.grass_floor()
+        revision = host.revision
+        self.assertEqual(refusal(self.send(COMPANION, "nature.cast", self.grow(ON_THE_FLOOR, 0.1))),
+                         ("permission_denied", "$.args.center_m", m.SPROUTS_LOCKED))
+        host.learn_grow(1)
+        self.assertEqual(refusal(self.send(PLAYER, "nature.cast", self.grow(ON_THE_FLOOR, 0.1)))[0], "permission_denied", "one is not two")
+        self.assertEqual(host.grow_locked_kinds(), [m.KIND_SPROUTS, m.KIND_REPLANT, m.KIND_BRIDGE, m.KIND_IVY])
+        self.assertEqual((host.revision, host.sprouts), (revision, []), "refused before the price: nothing changed")
+
+    def test_a_burnt_plant_is_replanted_as_a_seedling_growing_in_phases(self):
+        host = self.host
+        host.add_plant("plant:oak-0", [1.4, 0.0, 1.2], 1.0, "broadleaf", "tree")
+        host.add_plant("plant:oak-1", [1.5, 0.0, 1.2], 1.0, "broadleaf", "tree")
+        for plant in ("plant:oak-0", "plant:oak-1"):
+            host.plant_state[plant] = m.PlantState(burn=1.0)
+        host.learn_grow(2)
+        self.assertEqual(host.grow_locked_kinds(), [m.KIND_BRIDGE, m.KIND_IVY])
+        host.move_avatar("avatar:player", [1.4, 0.0, 1.2])
+        here = self.grow([1.38, 0.0, 1.2], 0.2)
+        self.assertEqual(refusal(self.send(PLAYER, "nature.cast", here)), ("target_busy", "$.args.center_m", m.REPLANT_STANDING))
+        host.move_avatar("avatar:player", SPAWN)
+        self.assertEqual(self.send(COMPANION, "nature.cast", here, preview=True)["data"]["kind"], m.KIND_REPLANT)
+        replanted = self.send(COMPANION, "nature.cast", here)
+        self.assertEqual((refusal(replanted), replanted["data"].get("kind"), replanted["data"]["grown_plants"]), ("ok", None, 1),
+                         "its durable receipt keeps the plain Grow shape, as the kernel's")
+        self.assertEqual((host.plant_factor("plant:oak-0"), host.plant_factor("plant:oak-1")), (0.5, 0.0), "one plant: the nearest burnt one")
+        phases = [host.plant_factor("plant:oak-0")]
+        for _hour in range(3):
+            self.later(3600)
+            phases.append(round(host.plant_factor("plant:oak-0"), 4))
+        self.assertEqual(phases, [0.5, 0.6667, 0.8333, 1.0])
+        self.assertEqual(refusal(self.send(COMPANION, "nature.cast", self.grow([1.4, 0.0, 1.2], 0.05))), "ok")
+        self.assertEqual((host.plant_factor("plant:oak-0"), host.plant_state["plant:oak-0"].sown), (1.25, None), "grown on, a plant like any other")
+
+    def test_sprouts_on_bare_fertile_ground(self):
+        host = self.host
+        self.grass_floor()
+        host.add_plant("plant:grass-0", [1.4, 0.0, 1.3], 0.13)
+        host.add_plant("plant:daisies-0", [1.5, 0.0, 1.3], 0.1, "herb")
+        host.add_plant("plant:oak-0", [0.2, 0.0, 1.3], 1.0, "broadleaf", "tree")
+        host.learn_grow(2)
+        here = self.grow([1.0, 0.0, 0.9], 0.5)
+        preview = self.send(PLAYER, "nature.cast", here, preview=True)
+        self.assertEqual((preview["data"]["kind"], preview["data"]["grown_plants"], host.sprouts), (m.KIND_SPROUTS, 12, []))
+        sprouted = self.send(PLAYER, "nature.cast", here)
+        self.assertEqual((refusal(sprouted), sprouted["data"]["grown_plants"], len(host.sprouts)), ("ok", 12, 12))
+        self.assertEqual({s.template for s in host.sprouts} <= {"plant:grass-0", "plant:daisies-0"}, True, "never a tree")
+        self.assertTrue(all(s.factor == 0.5 for s in host.sprouts))
+        casts = [12]
+        while True:
+            more = self.send(PLAYER, "nature.cast", here)
+            if not more["ok"]:
+                break
+            casts.append(more["data"]["grown_plants"])
+        self.assertEqual((refusal(more), sum(casts)), (("invalid_args", "$.args.center_m", m.SPROUTS_GROUND_FULL), len(host.sprouts)))
+        self.assertTrue(self.send(PLAYER, "room.undo", {"to_revision": host.revision - 1}, expected_revision=host.revision)["ok"])
+        self.assertEqual(len(host.sprouts), sum(casts) - casts[-1], "Creative's undo takes the last cast's sprouts back")
+        self.later(3 * 3600)
+        self.send(PLAYER, "nature.cast", self.grow([1.0, 0.0, 0.9], 0.01), preview=True)
+        self.assertTrue(all(s.factor == 1.0 for s in host.sprouts), "three hours on, at their natural size")
+
+    def test_a_bridge_needs_a_gap_the_box_world_does_not_have(self):
+        self.host.learn_grow(3)
+        start = [0.2, 0.0, 1.0]
+        self.assertEqual(refusal(self.send(PLAYER, "nature.cast", {**self.grow(start), "end_m": [1.5, 0.0, 1.0]})),
+                         ("invalid_args", "$.args.end_m", m.BRIDGE_TOO_LONG.format(most="1.2")))
+        self.assertEqual(refusal(self.send(PLAYER, "nature.cast", {**self.grow(start), "end_m": [0.4, 0.0, 1.0]})),
+                         ("invalid_args", "$.args.end_m", m.BRIDGE_TOO_SHORT.format(least="0.4")))
+        self.assertEqual(refusal(self.send(PLAYER, "nature.cast", {**self.grow(start), "end_m": [1.2, 0.0, 1.0]})),
+                         ("invalid_args", "$.args.end_m", m.BRIDGE_NO_GAP), "the floor is under the whole deck")
+
+
 class ThePrice(NatureCase):
     def test_the_price_follows_the_principal_never_a_field(self):
         """Outside Creative a cast pays the pack's price by its principal, once, at commit: the player's order the ordered price, the

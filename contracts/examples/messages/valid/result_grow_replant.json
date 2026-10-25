@@ -1,0 +1,27 @@
+{
+  "schema": "garage_game.result",
+  "version": 1,
+  "ok": true,
+  "op": "nature.cast",
+  "action_id": "replant-0001",
+  "principal": "companion:local",
+  "room_id": "garage_example",
+  "revision": 12,
+  "replayed": false,
+  "preview": false,
+  "at_utc": "2026-10-06T00:05:00Z",
+  "transient": false,
+  "data": {
+    "center_m": [
+      0.4,
+      0.0,
+      0.6
+    ],
+    "radius_m": 0.5,
+    "duration_s": 1,
+    "cell_count": 0,
+    "requires_approval": false,
+    "started_cells": 0,
+    "grown_plants": 1
+  }
+}

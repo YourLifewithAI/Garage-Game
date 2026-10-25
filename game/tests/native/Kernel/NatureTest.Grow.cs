@@ -72,9 +72,12 @@ public partial class NatureTest
     {
         await NewWorld(SavePath("grow-cast"));
         var revision = _host.Revision;
+        // Bare ground that is not fertile (stone, a build): nothing grows there. Bare fertile soil is seedless growth's (NatureTest.GrowUnlocks).
+        _host.NatureSampleForTests = (x, z) => Soil(x, z) is { } cell ? new NatureCell { X = cell.X, Z = cell.Z, Y = cell.Y, Surface = "shell:floor", Material = "stone", Fertile = false } : null;
         var bare = Send(Command(NextId("grow-bare"), "nature.cast", Cast("grow", new Vector3(-0.5f, 0.01f, 0.3f), 0.3, 1)), Player);
+        _host.NatureSampleForTests = Soil;
         Check(Code(bare) == "invalid_args" && (bare["error"]?["message"]?.GetValue<string>() ?? "").Contains("no plant", StringComparison.Ordinal) && _host.Revision == revision,
-            "Grow where no plant grows is refused before any price, with the reason: " + bare["error"]?["message"]);
+            "Grow where no plant grows (bare stone) is refused before any price, with the reason: " + bare["error"]?["message"]);
         var preview = Send(Command(NextId("grow-preview"), "nature.cast", Cast("grow", NearGubble, 0.15, 1), preview: true), Player);
         Check(Ok(preview) && preview["data"]?["grown_plants"]?.GetValue<int>() == 3 && preview["data"]?["cell_count"]?.GetValue<int>() == 0 && _host.Nature.Plants.Count == 0,
             "a preview says how many plants would grow (the three tufts rooted in the circle) and changes nothing: " + Canonical(preview["data"]));

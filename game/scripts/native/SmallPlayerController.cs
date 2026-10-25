@@ -1764,7 +1764,9 @@ public partial class SmallPlayerController : CharacterBody3D
         }
         // The grip fails when the bar is empty (the ledger's gate) or the climb cannot be paid for: the body falls from where it is.
         var budgetRise = (_pullPhase > 0 ? PullOverSpeedMps : Mathf.Max(0, control.Y) * ClimbSpeedMps) * dt;
-        if (_gate.Empty || (ClimbBudget != null && !ClimbBudget(dt, budgetRise)))
+        // Wall ivy (decision 107): on a strip the climb pays the strip's share of the bar (a quarter, provisional), full again off it.
+        var ivy = IvyView.ClimbFactorAt(this, GlobalPosition, BodyHeightM, BodyRadiusM);
+        if (_gate.Empty || (ClimbBudget != null && !ClimbBudget(dt * ivy, budgetRise * ivy)))
         {
             GripFailures++;
             LetGo(kick: false);

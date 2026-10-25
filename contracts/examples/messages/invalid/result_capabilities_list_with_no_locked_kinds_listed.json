@@ -1,0 +1,33 @@
+{
+  "schema": "garage_game.result",
+  "version": 1,
+  "ok": true,
+  "op": "capabilities.list",
+  "query_id": "q-0040",
+  "principal": "companion:local",
+  "room_id": "garage_example",
+  "revision": 14,
+  "replayed": false,
+  "preview": false,
+  "data": {
+    "items": [
+      {
+        "capability": "grow",
+        "category": "growth",
+        "params": {
+          "intensity": {
+            "min": 0.1,
+            "max": 0.5
+          }
+        },
+        "area_radius_max_m": 1.0,
+        "duration_max_s": 600,
+        "command_op": "nature.cast",
+        "max_active": 1,
+        "reach_m": 2.0,
+        "locked_kinds": []
+      }
+    ]
+  },
+  "at_utc": "2026-10-06T00:05:00Z"
+}

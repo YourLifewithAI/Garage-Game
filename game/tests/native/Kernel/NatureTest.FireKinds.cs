@@ -172,12 +172,17 @@ public partial class NatureTest
         Check(Ok(undo) && _host.Nature.Fire == null && !_host.Nature.Cells.Values.Any(cell => cell.BurningS > 0), "Creative's undo takes the whole line back as one step");
         var tooLong = Send(Command(NextId("line-long"), "nature.cast", LineArgs(start, start + new Vector3(3.2f, 0, 0)), preview: true), Player);
         var far = Send(Command(NextId("line-far"), "nature.cast", LineArgs(b, new Vector3(2.9f, 0.01f, 1.0f)), preview: true), Player);
+        var boat = Send(Command(NextId("line-boat"), "nature.cast", new JsonObject
+        {
+            ["capability"] = "bubble_boat", ["center_m"] = new JsonArray(b.X, b.Y, b.Z), ["radius_m"] = 0.15, ["duration_s"] = 1, ["end_m"] = new JsonArray(c.X, c.Y, c.Z),
+        }, preview: true), Player, contractValid: false);
+        // Grow names an end too since decision 106: its drag is a bridge, refused before three Grow expertise (NatureTest.GrowUnlocks).
         var grow = Send(Command(NextId("line-grow"), "nature.cast", new JsonObject
         {
             ["capability"] = "grow", ["center_m"] = new JsonArray(b.X, b.Y, b.Z), ["radius_m"] = 0.15, ["duration_s"] = 1, ["end_m"] = new JsonArray(c.X, c.Y, c.Z),
-        }, preview: true), Player, contractValid: false);
-        Check(Code(tooLong) == "invalid_args" && Code(far) == "out_of_bounds" && Code(grow) == "request_invalid",
-            "a line longer than 3 m is refused, one whose end is beyond the Gubble's reach waits for it to come closer, and only Fire names an end");
+        }, preview: true), Player);
+        Check(Code(tooLong) == "invalid_args" && Code(far) == "out_of_bounds" && Code(boat) == "request_invalid" && Code(grow) == "permission_denied",
+            "a line longer than 3 m is refused, one whose end is beyond the Gubble's reach waits for it to come closer, and only Fire and Grow name an end (Grow's a bridge, locked here)");
         // The Gubble's Fireline keeps every Fire guardrail: the player's switch, one fire of its own, and the wait after its last; X stops
         // the Gubble and puts no fire out (decision 82), so the line burns out first.
         _host.SetGubbleFire(false);

@@ -1,0 +1,33 @@
+{
+  "schema": "garage_game.result",
+  "version": 1,
+  "ok": true,
+  "op": "nature.cast",
+  "action_id": "bridge-0001",
+  "principal": "player:local",
+  "room_id": "garage_example",
+  "revision": 12,
+  "replayed": false,
+  "preview": true,
+  "at_utc": "2026-10-06T00:05:00Z",
+  "data": {
+    "center_m": [
+      -1.3,
+      0.2,
+      0.9
+    ],
+    "radius_m": 0.5,
+    "duration_s": 1,
+    "cell_count": 0,
+    "cells": [],
+    "cells_truncated": false,
+    "grown_plants": 1,
+    "requires_approval": false,
+    "kind": "vines",
+    "end_m": [
+      -0.1,
+      0.2,
+      0.9
+    ]
+  }
+}
