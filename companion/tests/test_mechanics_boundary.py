@@ -61,6 +61,16 @@ class OnTheMock(unittest.TestCase):
         reset = self.send(PLAYER, "trust.reset", {})
         self.assertTrue(reset["ok"] and reset["transient"] and "data" not in reset, reset)
 
+    def test_the_companion_never_picks_food_and_the_mock_places_none(self):
+        """P-Food (decisions 98, 108 and 113): item.pickup naming a plant is the player's alone, refused before anything is looked up, the
+        same answer for a tree that bears, a tuft that does not or no plant at all; the mock places no food, so the player's pick answers
+        not available yet, in the kernel's words."""
+        answers = {refusal(self.send(COMPANION, "item.pickup", {"target": plant})) for plant in ("plant:broadleaf-3", "plant:grass-0", "plant:broadleaf-99999")}
+        self.assertEqual(answers, {("permission_denied", "$.op", "Only the player can do that, directly in the game.")})
+        self.assertEqual(refusal(self.send(PLAYER, "item.pickup", {"target": "plant:broadleaf-3"})), ("unsupported_capability", "$.op", mock_host.MECHANICS_NOT_YET))
+        # A pick names a Fractal or a plant, never a thing: the contract refuses it before either host looks.
+        self.assertEqual(refusal(self.send(PLAYER, "item.pickup", {"target": "obj:book"}))[1], "$.args.target")
+
     def test_a_difficulty_is_chosen_at_the_menu_and_the_mode_alone_still_changes_today(self):
         self.assertEqual(refusal(self.send(PLAYER, "world.set_mode", {"mode": "challenge", "difficulty": "brave"})),
                          ("unsupported_capability", "$.op", mock_host.DIFFICULTY_NOT_YET))
