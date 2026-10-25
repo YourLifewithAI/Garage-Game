@@ -683,7 +683,7 @@
       }
     },
     "growth": {
-      "description": "Grow's seedlings (docs/game/MECHANICS.md decision 104): a sprout on bare soil and a replanted plant start at half their natural size and reach it through seedling_phases phases of seedling_phase_h game hours each, on the island's clock (x_clock's day scale; the machine's own clock without one), so a reload continues them. Absent: the host's own provisional numbers (3 phases of one game hour).",
+      "description": "Grow's seedlings (docs/game/MECHANICS.md decision 104): a sprout on bare soil and a replanted plant start at half their natural size and reach it through seedling_phases phases of seedling_phase_h game hours of daylight each, on the island's clock (x_clock's day scale and hour; the machine's own clock without one): only its hours from 06:00 to 18:00 count (decision 122), so a night cast grows from sunrise, and a reload continues them, the hours the game was closed counted as any (decision 121). Absent: the host's own provisional numbers (3 phases of one game hour).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -692,7 +692,7 @@
       ],
       "properties": {
         "seedling_phase_h": {
-          "description": "Game hours a phase lasts (1, provisional).",
+          "description": "Game hours of daylight a phase lasts (1, provisional).",
           "type": "number",
           "exclusiveMinimum": 0,
           "maximum": 24

@@ -56,6 +56,8 @@ public partial class NatureTest
         await TestSprouts();
         await TestSproutsFill();
         await TestReplant();
+        // Decisions 121 and 122 (NatureTest.GrowDaylight.cs): the seedlings grow in the island clock's daylight, the game open or closed.
+        await TestSeedlingsInDaylight();
         await TestBridge();
         await TestIvy();
     }
@@ -110,6 +112,8 @@ public partial class NatureTest
     /// <summary>Item 2: seedless growth (decision 104).</summary>
     private async Task TestSprouts()
     {
+        // Sown at 08:00 on the island clock: the four hours below are daylight (decision 122; NatureTest.GrowDaylight has the night).
+        _now = NextUtcHour(_now, 8);
         var sownAt = _now;
         await NewWorld(SavePath("unlocks-sprouts"));
         _host.LearnGrowForTests(2);
@@ -176,7 +180,7 @@ public partial class NatureTest
             }
         }
         Check(phases.Zip(new[] { 0.5f, 2f / 3, 5f / 6, 1f, 1f }).All(p => Math.Abs(p.First - p.Second) < 1e-4f) && SproutsShown!.Drawn.All(d => d.Place.Basis.Scale.Y > 0.6f),
-            "a sprout grows in three phases, one an in-game hour, from half its size to its natural size, and stays there: " + string.Join(", ", phases.Select(f => f.ToString("0.000"))));
+            "a sprout sown in daylight grows in three phases, one an in-game hour, from half its size to its natural size, and stays there: " + string.Join(", ", phases.Select(f => f.ToString("0.000"))));
         await FreeWorld();
     }
 }
@@ -237,6 +241,8 @@ public partial class NatureTest
     /// <summary>Item 3: replanting (decision 105). A burnt tree comes back at half size, climbed again, growing through its phases.</summary>
     private async Task TestReplant()
     {
+        // Sown at 08:00 on the island clock, so its three phases are daylight hours (decision 122).
+        _now = NextUtcHour(_now, 8);
         var sownAt = _now;
         await NewWorld(SavePath("unlocks-replant"));
         await Frames(2);

@@ -480,6 +480,27 @@ class GrowUnlocks(NatureCase):
         self.send(PLAYER, "nature.cast", self.grow([1.0, 0.0, 0.9], 0.01), preview=True)
         self.assertTrue(all(s.factor == 1.0 for s in host.sprouts), "three hours on, at their natural size")
 
+    def test_a_night_cast_sprouts_at_once_and_grows_from_sunrise(self):
+        """Decision 122: a sprout's cast never fails for light, and the seedlings' phases count only daylight (the kernel's
+        GrowKindLaws.DaylightHours, 06:00 to 18:00), so a night cast grows from sunrise; on while nobody looks (decision 121)."""
+        host = self.host
+        self.grass_floor()
+        host.add_plant("plant:grass-0", [1.4, 0.0, 1.3], 0.13)
+        host.learn_grow(2)
+        self.assertEqual([round(m.daylight_hours(*c), 6) for c in ((12, 3), (17, 3), (22, 9), (5.5, 1), (18, 12), (0, 48), (23, 32))],
+                         [3, 1, 1, 0.5, 0, 24, 13])
+        hour = self.clock.now() / 3600.0 % 24
+        self.later((22 - hour) % 24 * 3600)  # 22:00 on the mock's clock (UTC)
+        sprouted = self.send(PLAYER, "nature.cast", self.grow([1.0, 0.0, 0.9], 0.5))
+        self.assertEqual((refusal(sprouted), sprouted["data"]["kind"], len(host.sprouts)), ("ok", m.KIND_SPROUTS, 12), "never refused for light")
+        sown = host.sprouts[0].sown
+        sizes = []
+        for hours in (1, 8 - 1 / 60, 9 + 1 / 3600, 10 + 1 / 3600, 11 + 1 / 3600):
+            self.clock.t = sown + hours * 3600
+            self.send(PLAYER, "nature.cast", self.grow([1.0, 0.0, 0.9], 0.01), preview=True)
+            sizes.append(round(host.sprouts[0].factor, 4))
+        self.assertEqual(sizes, [0.5, 0.5, 0.6667, 0.8333, 1.0], "half size through the night, a phase an hour from 06:00, natural at 09:00")
+
     def test_a_bridge_needs_a_gap_the_box_world_does_not_have(self):
         self.host.learn_grow(3)
         start = [0.2, 0.0, 1.0]

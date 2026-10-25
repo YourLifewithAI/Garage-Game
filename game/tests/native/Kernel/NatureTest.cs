@@ -130,6 +130,8 @@ public partial class NatureTest : Node3D
         _companion.Stay();
         _host = CommandHost.Create(_world, room, _player, _companion, null, savePath);
         _host.Clock = () => _now;
+        // The machine's own clock read in UTC on every machine: a seedling's daylight (decision 122) is the island clock's hour.
+        _host.MachineZone = TimeZoneInfo.Utc;
         _host.TeamSightIntervalS = 0;
         _host.SetProcess(false);
         _host.SetPhysicsProcess(false);

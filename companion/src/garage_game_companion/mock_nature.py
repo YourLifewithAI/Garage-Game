@@ -24,8 +24,9 @@ What the mock keeps (room state, in memory with the room; the kernel saves it wi
 - **Grow's unlocks** (decisions 76 and 104 to 107, CommandHostGrowKinds.cs and its siblings): the team's Grow expertise count opens
   seedless growth and replanting at two, the bridge at three and ivy at five, each refused permission_denied before it in the kernel's
   words and order. Sprouts on bare fertile ground (a shell part of grass or soil) copy the nearest grass and flower plants on the
-  kernel's lattice; replanting returns the nearest burnt plant that seeds as a seedling; both grow through three phases of an hour on
-  the host's clock (the mock has no island clock record: one game hour a real hour). A bridge is dragged from lip to lip over the box
+  kernel's lattice; replanting returns the nearest burnt plant that seeds as a seedling; both grow through three phases of an hour of
+  daylight on the host's clock (decision 122: only the hours from 06:00 to 18:00 count, so a night cast grows from sunrise; the mock has
+  no island clock record: one game hour a real hour, its hour of day in UTC). A bridge is dragged from lip to lip over the box
   world's floors (a walkable top at each end, level, 0.4 to 1.2 m, nothing standable within 0.15 m under the deck between them,
   nothing in the way). The box world has no faces to climb, so never ivy (the kernel finds a wall by the room's physics), as never a
   waterpad. Sprouts and bridges burn as plants and are undone as the kernel's are.
@@ -147,7 +148,10 @@ KIND_SPROUTS, KIND_REPLANT, KIND_BRIDGE, KIND_IVY = "sprouts", "replant", "bridg
 SEEDLESS_AT, BRIDGE_AT, IVY_AT = 2, 3, 5  # GrowKindLaws.SeedlessAt, BridgeAt, IvyAt: the team's Grow expertise count
 SEEDLING_START = 0.5  # GrowKindLaws.SeedlingStart
 SEEDLING_PHASES = 3  # GrowKindLaws.SeedlingPhases
-SEEDLING_PHASE_H = 1.0  # GrowKindLaws.SeedlingPhaseH (game hours; the mock's game hour is a real hour)
+SEEDLING_PHASE_H = 1.0  # GrowKindLaws.SeedlingPhaseH (game hours of daylight; the mock's game hour is a real hour)
+# GrowKindLaws.DaylightFrom and DaylightUntil (decision 122): the island day's daylight as fractions of its day, 06:00 to 18:00; a
+# seedling's phases count only those hours. The mock has no island clock record: its hour of day is its clock's, in UTC.
+DAYLIGHT_FROM, DAYLIGHT_UNTIL = 0.25, 0.75
 SPROUTS_PER_CAST = 12  # GrowKindLaws.SproutsPerCast
 SPROUT_APART_M = 0.15  # GrowKindLaws.SproutApartM
 SPROUT_LATTICE_M = 0.18  # GrowKindLaws.SproutLatticeM
@@ -279,6 +283,19 @@ def weather_at(weather_s: float) -> tuple[float, list[float], str]:
     wind = [math.cos(direction) * speed, 0.0, math.sin(direction) * speed]
     pattern = "rain" if rain > WEATHER_RAIN01 else "showers" if rain > WEATHER_SHOWERS01 else "fair"
     return rain, wind, pattern
+
+
+def daylight_hours(from_hour: float, span_h: float) -> float:
+    """The hours of daylight in a span of span_h hours from an hour of the day (GrowKindLaws.DaylightHours, decision 122): only those
+    from DAYLIGHT_FROM to DAYLIGHT_UNTIL of each day count, so a whole day counts 12 and a night none."""
+    day, light = 24.0, (DAYLIGHT_UNTIL - DAYLIGHT_FROM) * 24.0
+
+    def since(hours: float) -> float:
+        days = math.floor(hours / day)
+        return days * light + min(max(hours - days * day - DAYLIGHT_FROM * day, 0.0), light)
+
+    start = from_hour - math.floor(from_hour / day) * day
+    return max(0.0, since(start + max(0.0, span_h)) - since(start))
 
 
 def _r(value: float) -> float:
@@ -1133,7 +1150,8 @@ class NatureMixin:
         no water and no faces, so never a waterpad nor ivy; on burnt ground the nearest burnt plant that seeds replanted, once open;
         else every plant rooted in the circle that is not at its cap and no seedling still growing grows the pack's share of its natural
         size (twice while it rains), the ash there greens; where that finds nothing, sprouts on bare fertile ground, once open; each
-        lock and every other "nothing to grow" refused before the price, in the kernel's order and words."""
+        lock and every other "nothing to grow" refused before the price, in the kernel's order and words. The box world's plants bear
+        no food, so never the kernel's cast that only ripens a plant at its cap (decision 127)."""
         center, radius = cast["center"], cast["radius"]
         if "end_m" in message["args"]:
             return self._cast_bridge(principal, message, apply, new_revision, ability, cast, preview,
@@ -1222,8 +1240,10 @@ class NatureMixin:
     # ------------------------------------------------------------------ Grow's unlocks
 
     def _seedling_factor(self, sown: float) -> float:
-        """A seedling's factor now (GrowKindLaws.SeedlingFactor of its phase): a third of the way to natural a game hour."""
-        phase = min(SEEDLING_PHASES, math.floor(max(0.0, self.clock.now() - sown) / 3600.0 / SEEDLING_PHASE_H + 1e-9))
+        """A seedling's factor now (GrowKindLaws.SeedlingFactor of its phase): a third of the way to natural a game hour of daylight
+        (decision 122: the kernel's SeedlingDaylightH, from the hour of day it was sown, in UTC on the mock's clock)."""
+        daylight = daylight_hours(sown / 3600.0 % 24, max(0.0, self.clock.now() - sown) / 3600.0)
+        phase = min(SEEDLING_PHASES, math.floor(daylight / SEEDLING_PHASE_H + 1e-9))
         return 1.0 if phase >= SEEDLING_PHASES else SEEDLING_START + (1 - SEEDLING_START) * phase / SEEDLING_PHASES
 
     def _refresh_seedlings(self) -> None:

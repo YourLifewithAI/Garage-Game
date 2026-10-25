@@ -65,6 +65,8 @@ public partial class NatureTest
         await TestGrownStay();
         await TestGrownTreeClimbed();
         await TestPlantsBurn();
+        // Decision 127, refined (NatureTest.GrowRipens.cs): a plant grows to its cap first, then a cast ripens its food.
+        await TestGrowRipensAtTheCap();
     }
 
     /// <summary>Item 2: the cast, its cap, and the casts refused before the price.</summary>

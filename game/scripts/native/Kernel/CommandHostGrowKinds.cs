@@ -33,25 +33,47 @@ public static class GrowKindLaws
     // ---- the gate (decision 76): the team's Grow expertise count ----
     public const int SeedlessAt = 2, BridgeAt = 3, IvyAt = 5;
 
-    // ---- seedlings (decision 104): half size, natural through phases on the island clock ----
+    // ---- seedlings (decisions 104, 121 and 122): half size, natural through phases of the island clock's daylight ----
     /// <summary>A sprout or a replanted plant starts at this factor of its natural size...</summary>
     public const float SeedlingStart = 0.5f;
     /// <summary>...and reaches it through this many phases (provisional, a pack value to be)...</summary>
     public const int SeedlingPhases = 3;
-    /// <summary>...each this many game hours of the island clock (one: provisional, a pack value to be). A reload continues them.</summary>
+    /// <summary>...each this many game hours of the island clock's daylight (one: provisional, a pack value to be). A reload continues them.</summary>
     public const double SeedlingPhaseH = 1;
     /// <summary>A saved sowing time is at most this (about the year 5138): anything later is no time.</summary>
     public const long MaxSownS = 100_000_000_000;
+    /// <summary>
+    /// The island clock's daylight, as fractions of its day (decision 122: growth advances only in daylight): from DaylightFrom (06:00,
+    /// the hour the game day starts, WorldTime.DefaultDawnH) until DaylightUntil (18:00), half the day. A seedling's phases count only the
+    /// island hours whose day fraction lies in it, so a night cast grows from sunrise. Provisional: the look's own sunrise follows the
+    /// season and the room's latitude, which the kernel does not read; this fixed day is the kernel's.
+    /// </summary>
+    public const double DaylightFrom = 0.25, DaylightUntil = 0.75;
+    /// <summary>The machine's own clock is read as standard time, as the shipped presets read it for the sun (real_clock_daylight_saving).</summary>
+    public const bool RealClockStandardTime = true;
 
     /// <summary>A seedling's factor in a phase of phases: SeedlingStart, then an equal step toward natural a phase, natural after the last.</summary>
     public static float SeedlingFactor(int phase, int phases = SeedlingPhases) =>
         phase >= phases ? 1f : SeedlingStart + (1 - SeedlingStart) * Math.Max(0, phase) / phases;
 
-    /// <summary>The phase a seedling sown at sownS is in at nowS on a clock of dayScale game days a real day (0 to phases), phaseH game hours each.</summary>
-    public static int SeedlingPhase(long sownS, long nowS, int dayScale, double phaseH = SeedlingPhaseH, int phases = SeedlingPhases)
+    /// <summary>The phase a seedling is in after daylightH game hours of daylight (0 to phases), phaseH daylight hours each.</summary>
+    public static int SeedlingPhase(double daylightH, double phaseH = SeedlingPhaseH, int phases = SeedlingPhases) =>
+        (int)Math.Min(phases, Math.Floor(Math.Max(0, daylightH) / phaseH + 1e-9));
+
+    /// <summary>
+    /// The island hours of daylight in a span of spanH game hours that starts at fromHour (the island's hour of day, 0 to 24): the closed
+    /// form of DaylightFrom to DaylightUntil each island day, so a whole day away counts its 12 daylight hours and a night counts none.
+    /// </summary>
+    public static double DaylightHours(double fromHour, double spanH)
     {
-        var hours = Math.Max(0, nowS - sownS) / 3600.0 * Math.Max(1, dayScale);
-        return (int)Math.Min(phases, Math.Floor(hours / phaseH + 1e-9));
+        const double day = 24, light = (DaylightUntil - DaylightFrom) * day;
+        static double Since(double hours)
+        {
+            var days = Math.Floor(hours / day);
+            return days * light + Math.Clamp(hours - days * day - DaylightFrom * day, 0, light);
+        }
+        var start = fromHour - Math.Floor(fromHour / day) * day;
+        return Math.Max(0, Since(start + Math.Max(0, spanH)) - Since(start));
     }
 
     // ---- sprouts (decision 104) ----
@@ -107,7 +129,9 @@ public static class GrowKindLaws
 /// nature.cast with capability grow, where the place decides as for Fire (decision 77) and the team's Grow expertise count opens each:
 /// <list type="bullet">
 /// <item><b>Seedless growth</b> at two (104, CommandHostGrowSprouts): Grow on bare fertile soil with no plant to grow makes up to 12
-/// sprouts copying the nearest grass and flower sets; each a seedling at half size growing in phases on the island clock.</item>
+/// sprouts copying the nearest grass and flower sets; each a seedling at half size growing in phases of the island clock's daylight
+/// (122: the cast never fails for light, the seed locks its spot at any hour and a night cast grows from sunrise; 121: on while the
+/// game is closed).</item>
 /// <item><b>Replanting</b> at two too (105, CommandHostGrowReplant): Grow on burnt ground returns the nearest burnt plant of a set that
 /// seeds as a seedling, its burn cleared; a tree regains its climb.</item>
 /// <item><b>The bridge</b> at three (106, CommandHostGrowBridge): a drag (end_m) from lip to lip grows a level deck over a true void,
@@ -217,29 +241,67 @@ public partial class CommandHost
         return result;
     }
 
-    // ---- the seedlings' clock (decision 104) ----
+    // ---- the seedlings' clock (decisions 104, 121 and 122) ----
 
     private JsonObject? _dayScaleOf;
     private int _dayScale = 1;
+    private global::GarageGame.Native.Look.WorldClock? _islandClock;
+    /// <summary>The island's hour of day at each sowing time seen (the sprouts of one cast share one), for the record and the zone it was read with.</summary>
+    private readonly Dictionary<long, double> _sownHours = new();
+    private (JsonObject? Record, TimeZoneInfo Zone)? _sownHoursOf;
+
+    /// <summary>
+    /// The machine's time zone, for an island on the machine's own clock (no x_clock record, or day_scale 1 with no phase): the zone the
+    /// look reads the sun in. Tests pin it, so a seedling's daylight is the same on every machine.
+    /// </summary>
+    internal TimeZoneInfo MachineZone { get; set; } = TimeZoneInfo.Local;
 
     /// <summary>The island clock's game days a real day (MECHANICS.md section 9: its x_clock record; 1 for the machine's own clock).</summary>
     private int GrowDayScale()
     {
         if (ReferenceEquals(_dayScaleOf, ClockRecord)) return _dayScale;
         _dayScaleOf = ClockRecord;
-        _dayScale = ClockRecord != null && global::GarageGame.Native.Look.WorldClock.FromNode(ClockRecord, out var problem) is { } clock && problem.Length == 0 && !clock.IsRealClock ? clock.DayScale : 1;
+        _islandClock = ClockRecord != null && global::GarageGame.Native.Look.WorldClock.FromNode(ClockRecord, out var problem) is { } clock && problem.Length == 0 ? clock : null;
+        _dayScale = _islandClock is { IsRealClock: false } ? _islandClock.DayScale : 1;
         return _dayScale;
     }
 
     /// <summary>Now on the island clock, in whole seconds of UTC (the host's clock, which tests move): when a seedling is sown.</summary>
     private long SownNowS() => (long)Math.Floor((Clock().ToUniversalTime() - DateTime.UnixEpoch).TotalSeconds);
 
-    /// <summary>The factor a seedling sown at sownS has now: its phase on the island clock, so a reload continues it.</summary>
+    /// <summary>
+    /// The island's hour of day (0 to 24) at a moment in whole seconds of UTC: the one reading the look's sun has too (WorldTime, with
+    /// the island's x_clock record, or the machine's zone read as standard time).
+    /// </summary>
+    private double IslandHourAt(long utcS)
+    {
+        GrowDayScale();
+        if (_sownHoursOf is not { } of || !ReferenceEquals(of.Record, ClockRecord) || !ReferenceEquals(of.Zone, MachineZone) || _sownHours.Count >= 4096)
+        {
+            _sownHours.Clear();
+            _sownHoursOf = (ClockRecord, MachineZone);
+        }
+        if (_sownHours.TryGetValue(utcS, out var hour)) return hour;
+        var basis = new global::GarageGame.Native.Look.WorldBasis(MachineZone, GrowKindLaws.RealClockStandardTime);
+        hour = global::GarageGame.Native.Look.WorldTime.At(DateTime.UnixEpoch.AddSeconds(Math.Clamp(utcS, 0, GrowKindLaws.MaxSownS)), _islandClock, basis).Hour;
+        _sownHours[utcS] = hour;
+        return hour;
+    }
+
+    /// <summary>
+    /// The island hours of daylight a seedling sown at sownS has had by now (decisions 121 and 122): from the island's hour at its sowing,
+    /// the island hours since (the real time since, times the clock's day scale), counting only the daylight in them. Derived from the
+    /// sowing and now alone, so the time the game was closed counts its daylight exactly as the time it was open.
+    /// </summary>
+    private double SeedlingDaylightH(long sownS) =>
+        GrowKindLaws.DaylightHours(IslandHourAt(sownS), Math.Max(0, SownNowS() - sownS) / 3600.0 * Math.Max(1, GrowDayScale()));
+
+    /// <summary>The factor a seedling sown at sownS has now: its phase of the island clock's daylight, so a reload continues it.</summary>
     private float SeedlingFactorNow(long sownS)
     {
         var growth = Rules?.Traits?.Growth;
         var phases = growth?.SeedlingPhases ?? GrowKindLaws.SeedlingPhases;
-        return GrowKindLaws.SeedlingFactor(GrowKindLaws.SeedlingPhase(sownS, SownNowS(), GrowDayScale(), growth?.SeedlingPhaseH ?? GrowKindLaws.SeedlingPhaseH, phases), phases);
+        return GrowKindLaws.SeedlingFactor(GrowKindLaws.SeedlingPhase(SeedlingDaylightH(sownS), growth?.SeedlingPhaseH ?? GrowKindLaws.SeedlingPhaseH, phases), phases);
     }
 
     /// <summary>The share of the bar a climb on ivy pays: the pack's traits.stamina.ivy_climb_factor, else the local default (decision 107).</summary>
