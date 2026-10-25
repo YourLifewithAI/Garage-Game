@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Godot;
 using GarageGame.Native.Kernel;
 using GarageGame.Native.Look;
+using GarageGame.Native.Ui;
 
 namespace GarageGame.Native;
 
@@ -107,6 +108,9 @@ public partial class RoomHud
         var later = Enumerable.Range(0, Act.GubbleSlots.Length).Where(i => SlotAbility(i) == null).Select(i => K(Act.GubbleSlots[i])).ToArray();
         var parts = new System.Collections.Generic.List<string>();
         if (known.Length > 0) parts.Add($"{string.Join(", ", known)} where you point (it comes closer first if it must; at the sky, on itself)");
+        // Grow's drag (decision 106): once three of Grow's expertise are found, holding its key and sweeping the aim from lip to lip is a bridge.
+        if (SlotAbility(GubbleMagic.GrowSlot) != null && Host?.BridgeUnlocked == true)
+            parts.Add($"hold {K(Act.GubbleSlot2)} and sweep the aim from lip to lip across a gap for a bridge of plants");
         // Fire's key (decisions 77, 82 and 83): a tap lights it at once, a drag is a Fireline once learned; it burns until it burns out or is Snuffed.
         if (SlotAbility(GubbleMagic.FireSlot) != null && SlotLockedWords(GubbleMagic.FireSlot) == null)
             parts.Add($"{K(Act.GubbleSlot6)} lights {SlotName(GubbleMagic.FireSlot)} where you point, at once (it burns until it burns out, or Snuff puts it out)" +
@@ -283,7 +287,9 @@ public partial class RoomHud
                 _ => $"{wedge.Icon}\n{wedge.Name}",
             },
             // Fire until the first rest (decision 77): its lock mark and the reason.
-            SlotLockedWords);
+            SlotLockedWords,
+            // Grow stays bright and works; its unlocks still locked are a note under its name (RoomHud.GrowDrag.cs).
+            slot => slot == GubbleMagic.GrowSlot && Host is { } growHost ? GrowLocks.WedgeNote(growHost) : null);
         // What each ability costs the player: the ordered price in dots, or "needs N" while the pool is short of it.
         _wheel.SetPrices(WheelPrice);
         _wheel.Begin(AimScreenPoint());
@@ -314,7 +320,7 @@ public partial class RoomHud
     {
         // A release the window never sees (it lost focus) must not leave the game paused under the wheel, or a drag held.
         if (what == NotificationApplicationFocusOut && _wheel != null && _wheel.Held) CancelAsk();
-        if (what == NotificationApplicationFocusOut) { EndDrag(); _fireKeyStart = null; }
+        if (what == NotificationApplicationFocusOut) { EndDrag(); _fireKeyStart = null; _growKeyStart = null; }
     }
 
     /// <summary>The smart ask's rule, carried out.</summary>
@@ -412,9 +418,18 @@ public partial class RoomHud
             else if (point is { } fireAt) LightWheelFire(fireAt);
             return;
         }
+        if (ability.Capability == "grow")
+        {
+            // After the Gubble came closer for a bridge: the drag's line (RoomHud.GrowDrag.cs).
+            var line = _castAfterLine;
+            _castAfterLine = null;
+            if (line is { } drag) { CastBridge(drag.Start, drag.End); return; }
+        }
         if (ability.Capability == "grow" && point == null) { _cue.Shrug(GubbleMagic.SlotIcons[slot], "choose a spot to grow"); return; }
         var result = ability.Capability == "grow" ? host.PlayerNatureCast("grow", point!.Value) : host.PlayerEffect(ability.Capability, point);
         if (!Answer(result, wiggle: false)) return;
+        // What the place made of a tap of Grow, when it was one of the unlocks (the receipt's kind).
+        if (ability.Capability == "grow" && GrowLocks.DoneWords(result["data"]?["kind"]?.GetValue<string>()) is { } made) _noticeText = made;
         // The look's spark leaves the Gubble now (StartGlow, inside the cast): the gesture starts with it.
         Companion.CastGesture(point, ability.Category);
         if (ability.Category == "light") UsedGlow();

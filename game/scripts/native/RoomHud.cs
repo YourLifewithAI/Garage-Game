@@ -310,7 +310,7 @@ public partial class RoomHud : CanvasLayer
         AddKeyLine(_keyHelp, () => MoveKeys, "MoveKeys");
         AddKeyLine(_keyHelp, () => $"Climb: keep walking into a steep face, {K(Act.MoveForward)} up, {K(Act.MoveBack)} down, {K(Act.MoveLeft)}/{K(Act.MoveRight)} across, {K(Act.Jump)} lets go · Swim: deep water floats you, {K(Act.Jump)} leaps · Dive: hold {K(Act.MoveDive)}, {K(Act.Jump)} rises, {K(Act.MoveForward)} swims the way you look, let go to drift up");
         AddKeyLine(_keyHelp, () => $"{K(Act.ViewEye)} first person · {K(Act.ViewShoulder)} third person: {PlayerControls.ZoomLabel()} zooms out to look around, and zoomed out {PlayerControls.DragLabel()} orbits and {PlayerControls.MoveLabel()} follows the view");
-        AddKeyLine(_keyHelp, () => $"{K(Act.ViewObserve)} observe (a very tight tilt-shift view, best zoomed out) · {K(Act.HudCustomize)} settings · {K(Act.HudMagic)} the Gubble's magic · {K(Act.Journal)} journal ({K(Act.MouseRelease)} closes any; with nothing open, {K(Act.MouseRelease)} is the menu: save, load, settings, the main menu)", "PanelKeys");
+        AddKeyLine(_keyHelp, () => $"{K(Act.ViewObserve)} observe (a very tight tilt-shift view, best zoomed out) · {K(Act.HudCustomize)} settings · {K(Act.HudMagic)} the Gubble's magic · {K(Act.PocketsPanel)} your pockets (eat, or set a thing down) · {K(Act.Journal)} journal ({K(Act.MouseRelease)} closes any; with nothing open, {K(Act.MouseRelease)} is the menu: save, load, settings, the main menu)", "PanelKeys");
         // The window (RoomHud.Screen.cs): the key, and what the game remembers for the next launch.
         AddKeyLine(_keyHelp, ScreenKeysLine, "ScreenKeys");
         AddKeyLine(_keyHelp, () => $"Walk into a {MeterWords.One(Host, "fractals")} to collect it · {K(Act.Hands)} pick up what you face · {K(Act.Hands)} again sets it down in front of you, or on top of what you face (the box, the book) · {K(Act.Push)} push what you face 10 cm");
@@ -339,6 +339,8 @@ public partial class RoomHud : CanvasLayer
         BuildMagicPanel(actions, _statusLines, theme);
         // The camp's screen, where the Magic panel opens, under the journal (RoomHud.CampScreen.cs).
         BuildCampScreen(theme);
+        // The pockets panel (Tab), on the left like the Magic panel, under the journal (RoomHud.Pockets.cs).
+        BuildPocketsPanel(theme);
         // The settings read last in the status lines, under the mode line the Magic panel's builder added (RoomHud.Screen.cs).
         BuildSettingsLine(_statusLines);
         // The journal last: the book opens over everything else on screen (RoomHud.Journal.cs). Then the eye icon above its dock,
@@ -402,8 +404,8 @@ public partial class RoomHud : CanvasLayer
     private (int Map, bool Help, string Name, string Home, object? Rules, int Pool, int Beat, int Settings) KeyTextInputs() =>
         (PlayerControls.MapVersion, _keyHelp.Visible, Companion.CompanionName, Player.HomeName, Host?.Rules, PoolHint() | FireKeyBits(), PlaytestBeat(), SettingsBits());
 
-    /// <summary>What Fire's key words depend on (RoomHud.FireWheel.cs): whether Fire, and Fireline, are learned.</summary>
-    private int FireKeyBits() => Host is not { } host ? 0 : (host.FireLearned ? 1 << 28 : 0) | (host.FirelineLearned ? 1 << 29 : 0);
+    /// <summary>What Fire's and Grow's key words depend on (RoomHud.FireWheel.cs, RoomHud.GrowDrag.cs): whether Fire, and Fireline, are learned, and whether the bridge is open.</summary>
+    private int FireKeyBits() => Host is not { } host ? 0 : (host.FireLearned ? 1 << 28 : 0) | (host.FirelineLearned ? 1 << 29 : 0) | (host.BridgeUnlocked ? 1 << 27 : 0);
 
     private (int Map, bool Help, string Name, string Home, object? Rules, int Pool, int Beat, int Settings)? _keyTextsAsOf;
 
@@ -673,6 +675,9 @@ public partial class RoomHud : CanvasLayer
         _wheel.Tick(delta);
         if (GubblePaused) return;
         TickMagicPanel(delta);
+        var pocketsStart = PromptCost.Begin();
+        TickPockets(delta);
+        PromptCost.End(pocketsStart, PromptCost.Piece.Pockets);
         TickFireFlash(delta);
         TickGubbleView();
         if (ViewMode >= 2 || Orbiting) PlaceDioramaRig(snap: false, (float)delta);
@@ -849,8 +854,10 @@ public partial class RoomHud : CanvasLayer
                 return;
             }
         }
-        // Key 6 coming up ends its tap or drag, which lights Fire at once (RoomHud.FireWheel.cs).
+        // Key 6 coming up ends its tap or drag, which lights Fire at once (RoomHud.FireWheel.cs); key 2 coming up ends its tap or its
+        // drag from lip to lip, which casts Grow (RoomHud.GrowDrag.cs).
         if (_fireKeyStart != null && PlayerControls.Released(press, Act.GubbleSlot6)) { FireKeyUp(); GetViewport().SetInputAsHandled(); return; }
+        if (_growKeyStart != null && PlayerControls.Released(press, Act.GubbleSlot2)) { GrowKeyUp(); GetViewport().SetInputAsHandled(); return; }
         // The ask button held: the mouse is the wheel's (a flick picks a wedge), and its release is the tap or the choice.
         if (_wheel.Held)
         {
@@ -902,6 +909,8 @@ public partial class RoomHud : CanvasLayer
             if (PlayerControls.Hit(press, Act.HudCustomize)) ToggleSettings();
             // M opens and closes the Magic panel (it was only a button inside the H help), from the game or the settings panel.
             else if (PlayerControls.Hit(press, Act.HudMagic)) ToggleMagicPanel();
+            // Tab opens and closes the pockets panel (RoomHud.Pockets.cs), from the game or the settings panel.
+            else if (PlayerControls.Hit(press, Act.PocketsPanel)) TogglePocketsPanel();
             if (ReadingPanelOpen) return;
             // One key does one thing, the first below that it is (Shift+T is the season before it is a T).
             if (PlayerControls.Hit(press, Act.HudHelp))
@@ -934,6 +943,7 @@ public partial class RoomHud : CanvasLayer
             {
                 // 6 is Fire: its press starts a tap or a drag, its release lights it (RoomHud.FireWheel.cs).
                 if (slot == GubbleMagic.FireSlot) FireKeyDown();
+                else if (slot == GubbleMagic.GrowSlot) GrowKeyDown();
                 else CastSlot(slot, AimNow());
             }
             // Hand keys: pick up, put down and push, as commands from the player.

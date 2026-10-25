@@ -591,9 +591,14 @@ public partial class PlayHudTest
             }), CommandHost.PlayerPrincipal);
             Check(grab["ok"]?.GetValue<bool>() == true && host.HeldBy(CommandHost.PlayerAvatar) == "obj:log", "the player picks the log up");
             await Frames(40);
+            // By the campfire the chest comes first (decision 113); the wallet is where a log is banked away from a camp.
+            Check(hud.Interaction.Kind == RoomHud.InteractKind.Store && hud.Interaction.Words == "E: store Log in the chest" && hud.InteractPrompt.Visible,
+                "holding the log at the camp, E's prompt says it stores it in the chest first (the hands first): " + hud.Interaction.Words);
+            Check(world.Player.TryTeleportTo(spawnAt + new Vector3(-0.9f, 0, 0)), "(the player carries the log a few steps from the camp)");
+            await Frames(40);
             Check(hud.Interaction.Kind == RoomHud.InteractKind.Gather && hud.Interaction.Words.StartsWith("E: gather ", StringComparison.Ordinal) && hud.Interaction.Words.EndsWith(" into your wallet", StringComparison.Ordinal) &&
                   hud.InteractPrompt.Visible && hud.InteractPrompt.Text == hud.Interaction.Words,
-                "holding the log, E's prompt says it gathers it (the hands first, by the campfire too): " + hud.Interaction.Words);
+                "away from a camp, E's prompt says it gathers it into the wallet (the hands first; a log is the wallet's, not the pockets'): " + hud.Interaction.Words);
             revision = host.Revision;
             hud._UnhandledInput(Press(Key.E));
             await Frames(2);

@@ -81,6 +81,8 @@ public static class Act
     public static readonly StringName HudMagic = "hud_magic";
     /// <summary>The journal, the leather book at the lower right: opens it at its index, and closes it again.</summary>
     public static readonly StringName Journal = "journal";
+    /// <summary>Tab: the pockets panel (what the pockets hold, with Eat and Drop for each; RoomHud.Pockets.cs), opened and closed again.</summary>
+    public static readonly StringName PocketsPanel = "pockets_panel";
     /// <summary>The eye icon above the journal: look through the Gubble's eyes, and back to the player's own.</summary>
     public static readonly StringName GubbleEyes = "gubble_eyes";
     /// <summary>Esc: first lets go of what is going on (a panel, the journal, the Gubble's eyes, the wheel, a drag, a chosen bubble), then opens the menu (decisions 81 and 97). (Its map name is from when it freed the captured mouse.)</summary>
@@ -144,8 +146,9 @@ public static class PlayerControls
             InputMap.ActionAddEvent(Act.Rest, new InputEventKey { PhysicalKeycode = Key.Z });
             changed = true;
         }
-        // Fire on the wheel (decision 77): 6, and the Magic panel's key, M, until project.godot carries the packet's two actions.
-        foreach (var (action, key) in new[] { (Act.GubbleSlot6, Key.Key6), (Act.HudMagic, Key.M) })
+        // Fire on the wheel (decision 77): 6, and the Magic panel's key, M, until project.godot carries the packet's two actions;
+        // the pockets panel's Tab likewise (a fixture whose input map was built without project.godot's).
+        foreach (var (action, key) in new[] { (Act.GubbleSlot6, Key.Key6), (Act.HudMagic, Key.M), (Act.PocketsPanel, Key.Tab) })
         {
             if (InputMap.HasAction(action)) continue;
             InputMap.AddAction(action, 0.2f);
@@ -178,6 +181,7 @@ public static class PlayerControls
         new(Act.HudHelp, ControlContext.Always),
         new(Act.HudCustomize, ControlContext.Always | ControlContext.Customize),
         new(Act.HudMagic, ControlContext.Always | ControlContext.Customize),
+        new(Act.PocketsPanel, ControlContext.Always | ControlContext.Customize),
         new(Act.Journal, ControlContext.Always | ControlContext.Customize | ControlContext.Reading),
         new(Act.GubbleEyes, ControlContext.Always | ControlContext.Customize | ControlContext.Looking),
         new(Act.MouseRelease, ControlContext.Always | ControlContext.Customize | ControlContext.Reading | ControlContext.Looking),

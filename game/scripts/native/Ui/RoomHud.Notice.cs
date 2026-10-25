@@ -126,9 +126,9 @@ public partial class RoomHud
         var screen = GetViewport().GetVisibleRect().Size;
         var size = _noticeCard.GetCombinedMinimumSize();
         _noticeCard.Size = size;
-        // Clear of a panel open on the left (the camp, the Magic panel, the settings): the card stands to its right.
+        // Clear of a panel open on the left (the camp, the Magic panel, the pockets, the settings): the card stands to its right.
         var leftClear = 0f;
-        foreach (var panel in new Control[] { _campScreen, _magicPanel, _settings })
+        foreach (var panel in new Control[] { _campScreen, _magicPanel, _pocketsPanel, _settings })
             if (panel is { Visible: true }) leftClear = Mathf.Max(leftClear, panel.GetGlobalRect().End.X + 16);
         _noticeCard.Position = NoticePlace(AimScreenPoint(), size, screen, leftClear);
     }

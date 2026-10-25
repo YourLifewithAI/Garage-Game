@@ -22,7 +22,7 @@ public partial class RoomHud
     public bool MagicPanelOpen => _magicPanel != null && _magicPanel.Visible;
     public bool ChoosingMagicSpot => _pickingMagicSpot;
     public string MagicMessage => _magicMessageText;
-    private bool ReadingPanelOpen => SettingsOpen || JournalOpen || MagicPanelOpen || GubbleViewOpen;
+    private bool ReadingPanelOpen => SettingsOpen || JournalOpen || MagicPanelOpen || PocketsPanelOpen || GubbleViewOpen;
 
     private void BuildMagicPanel(Node actions, Node statusColumn, Theme theme)
     {
@@ -78,6 +78,7 @@ public partial class RoomHud
         {
             CloseJournalNow();
             if (SettingsOpen) ToggleSettings();
+            if (PocketsPanelOpen) SetPocketsPanelOpen(false);
             _pickingMagicSpot = false;
         }
         _magicPanel.Visible = open;
@@ -132,6 +133,8 @@ public partial class RoomHud
                 "approval_required" => "This needs your confirmation. Review the approval card to finish.",
                 "out_of_bounds" => "That spot is out of reach. Bring the Gubble closer and try again.",
                 "target_not_found" => "The Gubble cannot see or find that spot now. Choose another spot.",
+                // Grow's unlocks not yet found are refused permission_denied in the host's own words (decision 76): those words are the answer.
+                "permission_denied" when GrowLocks.IsLockWords(result["error"]?["message"]?.GetValue<string>()) => result["error"]!["message"]!.GetValue<string>(),
                 "target_protected" or "permission_denied" => "That place is protected, or this action is not allowed.",
                 "budget_exceeded" => "There is no room for another effect yet. Stop one and try again.",
                 "revision_conflict" or "approval_mismatch" => "Something changed. Choose the spot and preview it again.",

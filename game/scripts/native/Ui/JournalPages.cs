@@ -249,6 +249,12 @@ public static class JournalPages
             yield return Title(name);
             foreach (var (id, title) in entries)
                 if (record?.Has(id) == true) yield return Text(title);
+            // What Grow's expertise has opened (decision 76): the unlocks found, by name.
+            if (ability == ExpertiseLists.Grow && GrowLocks.FoundNames(host).ToList() is { Count: > 0 } found)
+            {
+                yield return Faint("What they opened");
+                foreach (var found1 in found) yield return Text(found1);
+            }
             if (!final) continue;
             foreach (var _ in entries.Where(e => record?.Has(e.Id) != true)) yield return new JournalLine(JournalInk.Smudge, Smudge);
             foreach (var (hint, discovery, words) in ability == ExpertiseLists.Fire ? FireHints : GrowHints)

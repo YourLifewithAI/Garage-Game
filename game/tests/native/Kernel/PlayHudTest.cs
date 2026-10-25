@@ -131,12 +131,16 @@ public partial class PlayHudTest : Node
             await TestCampHud();
             // E, the one interaction key, and its prompt (PlayHudTest.Interact.cs).
             await TestInteractKey();
+            // The inventory and food HUD pass (PlayHudTest.Inventory.cs): E's order, the Tab panel, the camp's Inventory page, the chest switch.
+            await TestInventoryHud();
             // The camp's screen: sitting opens it (PlayHudTest.CampScreen.cs).
             await TestCampScreen();
             // The Fire behaviours packet (PlayHudTest.FireBehaviours.cs): Fractals collected by touch, the Magic panel's key, Fire on the wheel.
             await TestFractalTouch();
             await TestMagicKey();
             await TestFireWheel();
+            // Grow's drag from lip to lip and its locks (PlayHudTest.GrowDrag.cs).
+            await TestGrowDragAndLocks();
             // The playtest record's keys (PlayHudTest.Playtest.cs).
             await TestPlaytestKeys();
 
@@ -199,6 +203,8 @@ public partial class PlayHudTest : Node
         ("gubble_slot_4", Key.Key4, false), ("gubble_slot_5", Key.Key5, false),
         // Fire on the wheel (decision 77): 6; and the Magic panel's own key, M (it was only a button inside H).
         ("gubble_slot_6", Key.Key6, false), ("hud_magic", Key.M, false),
+        // The pockets panel (inventory HUD pass): Tab, which nothing was bound to.
+        ("pockets_panel", Key.Tab, false),
         ("hands", Key.F, false), ("push", Key.V, false), ("item_gather", Key.E, false),
         // Fire's camp: sit down by a lit campfire (decision 70).
         ("rest", Key.Z, false),
@@ -378,11 +384,11 @@ public partial class PlayHudTest : Node
             {
                 "H keys",
                 // E first (decision 86: the help names it first).
-                "E uses what is in front of you: sits you by a lit campfire and stands you up again, picks up a fractal or a thing, sets down what you hold, gathers a log or stone you hold into your wallet · Z sits you by the fire too, this round (moving stands you up)",
+                "E uses what is in front of you: sits you by a lit campfire and stands you up again, picks up a fractal or a thing, picks food into your pockets, puts what you hold away (in the chest at a camp, else in your pockets), gathers a log or stone you hold into your wallet, sets down anything else you hold · Z sits you by the fire too, this round (moving stands you up)",
                 $"WASD move · Shift run · Space jump · B back to {home} · R recover · drag to look around",
                 "Climb: keep walking into a steep face, W up, S down, A/D across, Space lets go · Swim: deep water floats you, Space leaps · Dive: hold Ctrl, Space rises, W swims the way you look, let go to drift up",
                 "F1 first person · F2 third person: wheel zooms out to look around, and zoomed out drag orbits and WASD follows the view",
-                "O observe (a very tight tilt-shift view, best zoomed out) · C settings · M the Gubble's magic · J journal (Esc closes any; with nothing open, Esc is the menu: save, load, settings, the main menu)",
+                "O observe (a very tight tilt-shift view, best zoomed out) · C settings · M the Gubble's magic · Tab your pockets (eat, or set a thing down) · J journal (Esc closes any; with nothing open, Esc is the menu: save, load, settings, the main menu)",
                 "F11 full screen on or off (kept for your next launch)",
                 "Walk into a fractal to collect it · F pick up what you face · F again sets it down in front of you, or on top of what you face (the box, the book) · V push what you face 10 cm",
                 "The Gubble, your companion:",
@@ -583,8 +589,10 @@ public partial class PlayHudTest : Node
         await Face(player, Vector3.Right);
         Check(Entity(host, "obj:doorstop")["held_by"]?.GetValue<string>() == CommandHost.PlayerAvatar, "still holding it on arrival");
         await Frames(40);
-        Check(_hud.FocusTarget?.GetMeta("entity_id", "").AsString() == "obj:box" && _hud.FocusTag.Text == "E: set Doorstop on Cardboard box" && _hud.Interaction.Kind == RoomHud.InteractKind.SetOn,
-            $"carrying it, facing the box, the box is lit, where F would set it: \"{_hud.FocusTag.Text}\" on {_hud.FocusTarget?.GetMeta("entity_id", "")}");
+        // The doorstop (0.3 kg) fits the pockets, so E would put it away (the inventory first, decision 113); F still sets it on the box,
+        // and the tag, no longer E's, says so in the hands' own words.
+        Check(_hud.FocusTarget?.GetMeta("entity_id", "").AsString() == "obj:box" && _hud.FocusTag.Text == "F set Doorstop on Cardboard box" && _hud.Interaction.Kind == RoomHud.InteractKind.Pocket,
+            $"carrying it, facing the box, the box is lit, where F would set it: \"{_hud.FocusTag.Text}\" on {_hud.FocusTarget?.GetMeta("entity_id", "")} (E: {_hud.Interaction.Words})");
         _hud._UnhandledInput(Press(Key.F));
         await Frames(2);
         var onBox = Entity(host, "obj:doorstop");
@@ -938,6 +946,7 @@ public partial class PlayHudTest : Node
             "Glow is up (the pack's light ability, its display_name), then clockwise Stay, Fetch lower left, Come left: " + string.Join(" | ", labels).Replace("\n", " "));
         Check(labels[1] == "✸\n4 Fireworks" && labels[8] == "○\n3 Bubbles" && _hud.Wheel.WedgeLabels[1].Modulate.A == 1f && _hud.Wheel.WedgeLabels[8].Modulate.A == 1f,
             "Fireworks (upper right) and Bubbles (upper left) are the island's now, bright in their fixed places: " + labels[1].Replace("\n", " ") + " | " + labels[8].Replace("\n", " "));
+        // (Grow works from the start, so its wedge is bright and plain; with unlocks still to find it carries a padlock and a hover note, PlayHudTest.GrowDrag.cs.)
         Check(labels[2].StartsWith("♨\n6 Fire", StringComparison.Ordinal) && labels[4] == "✿\n2 Grow" && _hud.Wheel.WedgeLabels[4].Modulate.A == 1f,
             "Fire is the ninth wedge just after Fireworks (decision 77), and Grow is in its fixed growth wedge: " + labels[2].Replace("\n", " "));
         Check(new[] { 5 }.All(i => labels[i] == $"{GubbleMagic.Wedges[i].Icon}\n{GubbleMagic.Wedges[i].Slot + 1} {GubbleMagic.Wedges[i].Name}\n{GubbleWheel.LackingWords}" &&
