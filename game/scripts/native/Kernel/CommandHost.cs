@@ -973,9 +973,8 @@ public partial class CommandHost : Node
                 stopped++;
             }
         var data = new JsonObject { ["effects_stopped"] = stopped };
-        // Decision 82: nothing but burning out or Snuff ends a fire, so no stop puts one out (the player's X, the Gubble's own stop); the
-        // oldest Will-o'-wisp still goes with the Gubble's other effects (decision 80: it is no fire, CommandHostFireKinds).
-        if (whose != PlayerPrincipal) RemoveOldestWisp();
+        // Decision 82: nothing but burning out or Snuff ends a fire, so no stop puts one out (the player's X, the Gubble's own stop); and
+        // a Will-o'-wisp is not a fire either (decision 109): no stop removes one, which lasts its 5 minutes or gives way to a fourth.
         return Transient("goal.stop", principal, actionId, fingerprint, affected, data);
     }
 

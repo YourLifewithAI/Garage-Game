@@ -59,7 +59,7 @@ public static class FireKindLaws
     public const float WispAboveWaterM = 0.15f;
     public const float WispDriftM = 0.25f;
     public const float WispDriftPeriodS = 40f;
-    /// <summary>It lasts this long (decision 80: 5 minutes), at most MaxWisps at a time (decision 80: three), the oldest going first.</summary>
+    /// <summary>It lasts this long (decision 80: 5 minutes), at most MaxWisps at a time (decision 80: three), a fourth replacing the oldest; no stop removes one (decision 109).</summary>
     public const double WispLifeS = 300;
     public const int MaxWisps = 3;
     /// <summary>Water under the cast's point: its surface at most WispWaterAboveM above the point or WispWaterBelowM under it, at least WispMinDepthM deep.</summary>
@@ -92,8 +92,9 @@ public sealed class Wisp
 /// change like X's, kept by the nature save, with a transient receipt. Learned by rain on a fire the Gubble started, or a bubble cast on
 /// a fire (StepFireKinds). Priced as "snuff".</item>
 /// <item><b>Will-o'-wisp</b> (80): Fire cast on water makes a cold flame hovering over it, drifting slowly (the look's), a light at night;
-/// it burns nothing and is not the Gubble's one fire; it lasts 5 minutes, at most three (the oldest goes), is never saved (transient, like
-/// a bubble), and X removes the oldest. The first one teaches it. Priced as "will_o_wisp".</item>
+/// it burns nothing and is not the Gubble's one fire; it lasts 5 minutes, at most three (a fourth replaces the oldest), and is never saved
+/// (transient, like a bubble). A wisp is not a fire (decision 109): no stop removes it, X included (X removed the oldest until 25
+/// October). The first one teaches it. Priced as "will_o_wisp".</item>
 /// </list>
 /// Every Fire kind is previewed first and committed as exactly that preview (the preview's kind and outline are what the HUD shows); since
 /// decision 83 the player's are both in one click, back to back (PlayerFireLight), while the Gubble's stay its own two commands. The
@@ -397,7 +398,7 @@ public partial class CommandHost
 
     /// <summary>
     /// A Will-o'-wisp: Fire cast on water makes a cold flame WispAboveWaterM over the water at the point; it burns nothing and is no fire
-    /// (the one-fire rule and the Gubble's guardrails pass it by), lasts WispLifeS and is one of at most MaxWisps (the oldest goes). It is
+    /// (the one-fire rule and the Gubble's guardrails pass it by), lasts WispLifeS and is one of at most MaxWisps (a fourth replaces the oldest). It is
     /// never saved: a transient receipt names its effect: id, as a bubble's does. The first one teaches the expertise.
     /// </summary>
     private JsonObject CastWisp(JsonElement root, IslandAbility ability, Cast cast, string principal, string action, string fingerprint, bool preview, string? approvedBy)
@@ -441,15 +442,6 @@ public partial class CommandHost
         data["started_cells"] = 0;
         data["wisp"] = wisp.Id;
         return FireTransient(principal, action, fingerprint, data, wisp.Id, approvedBy);
-    }
-
-    /// <summary>X (the player's stop of the Gubble, and the Gubble's own): the oldest wisp goes, whoever cast it. Returns whether one did.</summary>
-    internal bool RemoveOldestWisp()
-    {
-        if (_wisps.Count == 0) return false;
-        _wisps.RemoveAt(0);
-        WispsChanged?.Invoke();
-        return true;
     }
 
     // ---- each nature step ----

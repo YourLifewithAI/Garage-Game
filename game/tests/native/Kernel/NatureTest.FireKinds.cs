@@ -11,8 +11,9 @@ namespace GarageGame.Tests.Kernel;
 /// Fire's behaviours (MECHANICS.md decisions 77 to 80) through the command path, in the test room: Fireline learned by three Fire casts
 /// along one line and then cast as a drag (the whole line at once, one undo step, Fire's guardrails), Snuff learned by rain on the Gubble's
 /// fire or a bubble cast on a fire and then cast on something burning (everything in 1.5 m out, campfires too, the ground damp for 30 s,
-/// the Gubble's Snuff of a lit campfire held for the player), and the Will-o'-wisp on water (transient, three at most, X removes the
-/// oldest, not the Gubble's one fire). Each kind teaches its expertise once; every committed Fire cast counts toward Fire's hints.
+/// the Gubble's Snuff of a lit campfire held for the player), and the Will-o'-wisp on water (transient, three at most, the fourth
+/// replacing the oldest; no fire, so X leaves it, decision 109; not the Gubble's one fire). Each kind teaches its expertise once; every
+/// committed Fire cast counts toward Fire's hints.
 /// </summary>
 public partial class NatureTest
 {
@@ -282,7 +283,10 @@ public partial class NatureTest
         Check(!before && Ok(bubble) && FireKnows(ExpertiseLists.Snuff), "a Bubble cast on a fire teaches Snuff: " + Canonical(bubble["error"]));
     }
 
-    /// <summary>Decision 80: Fire on water makes a Will-o'-wisp: transient, three at most, X removes the oldest, not the Gubble's one fire.</summary>
+    /// <summary>
+    /// Decision 80: Fire on water makes a Will-o'-wisp: transient, three at most (the fourth replacing the oldest), not the Gubble's one
+    /// fire. Decision 109: a wisp is not a fire, so no stop removes it (X removed the oldest until 25 October).
+    /// </summary>
     private async Task TestWisp()
     {
         await FireKindsWorld("fire-kinds-wisp");
@@ -310,8 +314,14 @@ public partial class NatureTest
         var fourth = Fire(Player, on + new Vector3(0.2f, 0, 0.2f), 0.3, 30, out _);
         Check(Ok(third) && Ok(fourth) && _host.Wisps.Count == FireKindLaws.MaxWisps && _host.Wisps.All(w => w.Id != first!.Id),
             "three at most: the fourth removes the oldest (the Gubble's wisp burns nothing, so the player's fire switch does not stop it)");
-        Send(Command(NextId("x"), "goal.stop", new JsonObject { ["actor"] = CommandHost.CompanionAvatarId }), Player);
-        Check(_host.Wisps.Count == FireKindLaws.MaxWisps - 1, "X removes the oldest wisp");
+        // Decision 109: X naming the Gubble, X with no actor, the Gubble's own stop and an effect.stop naming one all leave every wisp.
+        var three = _host.Wisps.Select(w => w.Id).ToList();
+        var xGubble = Send(Command(NextId("x"), "goal.stop", new JsonObject { ["actor"] = CommandHost.CompanionAvatarId }), Player);
+        var xAll = Send(Command(NextId("x"), "goal.stop", new JsonObject()), Player);
+        var ownStop = Send(Command(NextId("stop"), "goal.stop", new JsonObject()), Companion);
+        var byId = Send(Command(NextId("stop"), "effect.stop", new JsonObject { ["effect"] = three[0] }), Player);
+        Check(Ok(xGubble) && Ok(xAll) && Ok(ownStop) && Ok(byId) && _host.Wisps.Select(w => w.Id).SequenceEqual(three),
+            $"a wisp is not a fire (decision 109): X (naming the Gubble or not), the Gubble's own stop and effect.stop leave all three ({_host.Wisps.Count} left)");
         _now += TimeSpan.FromSeconds(FireKindLaws.WispLifeS + 1);
         Steps(1);
         Check(_host.Wisps.Count == 0, $"each lasts {FireKindLaws.WispLifeS / 60:0} minutes");
