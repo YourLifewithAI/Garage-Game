@@ -87,6 +87,8 @@ public partial class PlantCopiesView : Node3D
     /// CharacterBody3D in the world), so the Gubble's eyes see the copies round it wherever it walks.
     /// </summary>
     public Func<IEnumerable<Vector3>>? ExtraFoci { get; set; }
+    /// <summary>The food on the copies (P-Food, FoodView): drawn round this view's first focus, fed by the command host.</summary>
+    public FoodView Food { get; private set; } = null!;
 
     private sealed class SetView
     {
@@ -165,8 +167,15 @@ public partial class PlantCopiesView : Node3D
         foreach (var draw in view._draws) view._drawAt[(draw.Set, draw.Tile)] = draw;
         view._factors = view._sets.Select(_ => new Dictionary<int, float>()).ToArray();
         for (var s = 0; s < view._sets.Length; s++) view._setIndex[view._sets[s].Set] = s;
+        // P-Food: the food the plants bear, drawn round the copies' own first focus (the camera, else an avatar, else the spawn).
+        view.Food = FoodView.Create();
+        view.Food.Focus = view.FoodFocus;
+        view.AddChild(view.Food);
         return view;
     }
+
+    /// <summary>The first focus the copies are drawn round (the camera, else an avatar, else the player's spawn): where the food is drawn.</summary>
+    private Vector3 FoodFocus() => _foci.Count > 0 ? _foci[0] : _room.SpawnFor("player").PositionM;
 
     public override void _Ready()
     {

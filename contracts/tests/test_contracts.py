@@ -58,6 +58,10 @@ LOCKED_RULES: dict[str, str] = {}
 
 # Each invalid example and the reason it must fail.
 EXPECTED_FAILURES = {
+    # P-Food (25 October): item.pickup names a Fractal or a plant, never a thing; a pick keeps no data; eating makes one sound.
+    "command_pick_a_thing": "'obj:paint_clutter' is not valid under any of the given schemas",
+    "result_pick_with_data": "False schema does not allow {'item': 'apple'",
+    "result_eaten_with_a_tune": "'crunch' is not one of ['eat']",
     # P-Inventory (25 October): the four commands' shapes, the data a receipt keeps, and the readers' closed entries.
     "command_store_from_the_pockets_without_an_item": "'item' is a required property",
     "command_store_from_the_pockets_into_the_pockets": "$.args.to: 'chest' was expected",
@@ -1769,7 +1773,7 @@ class IslandRulesTests(unittest.TestCase):
 
 MECHANICS_TRANSIENT = {"knack.set", "receipt.mark", "trust.reset", "fractal.spend"}
 MECHANICS_DURABLE = {"item.pickup", "item.gather"}
-MECHANICS_BLOCKS = ("traits", "cost", "modes", "names", "knacks", "fractals", "inventory")
+MECHANICS_BLOCKS = ("traits", "cost", "modes", "names", "knacks", "fractals", "inventory", "food")
 STORYBOOK_WILD_V5 = RULES / "storybook_wild" / "v5.json"
 MECHANICS_EXAMPLE = EXAMPLES / "rules" / "mechanics_example.json"
 LEDGER = EXAMPLES / "ledger" / "stamina_ledger.json"
@@ -1803,6 +1807,10 @@ RULES_FAILURES = {
     "rules_inventory_kind_twice": "inventory kind 'apple' appears more than once",
     "rules_inventory_asset_of_two_kinds": "asset 'windfall_apple' is a unit of more than one inventory kind",
     "rules_inventory_pockets_past_sixteen": "$.inventory.pockets.entries: 17 is greater than the maximum of 16",
+    # P-Food (25 October).
+    "rules_food_without_an_inventory": "'inventory' is a dependency of 'food'",
+    "rules_food_on_one_in_none": "$.food.sources[0].one_in: 0 is less than the minimum of 1",
+    "rules_food_count_past_eight": "$.food.sources[1].clusters[1]: 9 is greater than the maximum of 8",
 }
 # Each invalid team document (examples/teams_invalid) and the reason it must fail.
 TEAM_FAILURES = {
@@ -2320,7 +2328,7 @@ class InventoryTests(unittest.TestCase):
             for document in documents:
                 with self.subTest(op=op, action=document["action_id"]):
                     self.assertEqual(document["transient"], op == "inventory.use")
-                    self.assertEqual(set(document["data"]) - {"item", "count", "to", "healed_quarters"}, set())
+                    self.assertEqual(set(document["data"]) - {"item", "count", "to", "healed_quarters", "sound"}, set())
         self.assertEqual(free_form_objects(self.defs["data"]["inventory"], "data/inventory", self.defs), [])
         # The contract says so: a committed store, take or drop claiming to be transient is invalid, and a use claiming durability.
         for name, op, transient in (("result_player_stores_the_held_thing_in_the_chest", "inventory.store", True),
@@ -2407,8 +2415,68 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(kinds["apple"]["use"], {"heal_quarters": 2}, "an apple heals half a heart (decision 92)")
         self.assertEqual(kinds["berries"]["use"], {"heal_quarters": 1}, "berries a quarter")
         self.assertNotIn("use", kinds["seed"], "seeds are reserved, with no use yet")
-        self.assertFalse(any("assets" in kind for kind in v5["kinds"]), "nothing yields a kind yet: P-Food places them")
+        self.assertFalse(any("assets" in kind for kind in v5["kinds"]), "no room asset is a loose unit yet: P-Food's food grows on the plants (the food block)")
         self.assertEqual((v5["pockets"], v5["chest"]), ({"entries": 6, "mass_kg": 0.3}, {"entries": 12, "mass_kg": 2}))
+
+
+class FoodTests(unittest.TestCase):
+    """P-Food (decisions 92, 98, 108, 111 and 113): food picked from a plant with item.pickup, eaten with its sound, the pack's food block."""
+
+    def setUp(self):
+        self.defs = validate.load_strict(COMMAND_SCHEMA)["$defs"]
+        self.common = validate.load_strict(CONTRACTS / "common.schema.json")["$defs"]
+
+    def test_item_pickup_names_a_fractal_or_a_plant_and_stays_the_players(self):
+        target = self.defs["args"]["item.pickup"]["properties"]["target"]
+        self.assertEqual(target, {"oneOf": [{"$ref": "common.schema.json#/$defs/fractal_id"}, {"$ref": "common.schema.json#/$defs/plant_id"}]})
+        self.assertIn("item.pickup", self.defs["player_only_ops"]["enum"])
+        pick = valid_example("command_player_picks_an_apple")
+        self.assertEqual(validate.schema_errors(pick), [])
+        for spelling in ("plant:broadleaf-03", "obj:apple", "avatar:player", "plant:Broadleaf-3"):
+            with self.subTest(target=spelling):
+                self.assertTrue(validate.schema_errors({**pick, "args": {"target": spelling}}))
+        self.assertEqual(validate.schema_errors(valid_example("command_player_picks_up_a_fractal")), [], "a Fractal's pickup is as it was")
+
+    def test_a_pick_is_durable_with_no_data_and_names_its_plant(self):
+        picked = valid_example("result_player_picks_an_apple")
+        self.assertEqual((picked["transient"], picked["affected"], "data" in picked), (False, ["plant:broadleaf-3"], False))
+        self.assertIn("plant", self.defs["args"]["item.pickup"]["description"])
+        self.assertIn("pockets", self.defs["args"]["item.pickup"]["description"])
+        for name, code in (("result_pockets_too_full_to_pick", "occupied"), ("result_canopy_apple_needs_a_hop", "out_of_bounds"),
+                           ("result_tree_picked_bare", "not_ready"), ("result_companion_pick_refused", "permission_denied")):
+            with self.subTest(refusal=name):
+                self.assertEqual(valid_example(name)["error"]["code"], code)
+
+    def test_eating_says_its_sound(self):
+        self.assertEqual(self.defs["data"]["inventory"]["properties"]["sound"], {"enum": ["eat"]})
+        for name in ("result_player_eats_an_apple", "result_player_eats_an_apple_in_creative"):
+            with self.subTest(example=name):
+                self.assertEqual(valid_example(name)["data"]["sound"], "eat")
+        self.assertEqual(valid_example("result_player_eats_an_apple_in_creative")["data"]["healed_quarters"], 0, "Creative heals nothing and keeps the sound")
+
+    def test_the_food_block_needs_the_inventory_and_v5_carries_d1s_numbers(self):
+        schema = validate.load_strict(CONTRACTS / "island-rules.schema.json")
+        self.assertNotIn("food", schema["required"])
+        self.assertEqual(schema["dependentRequired"], {"food": ["inventory"]})
+        self.assertEqual(free_form_objects(schema["$defs"]["food"], "food", schema["$defs"]), [])
+        food = validate.load_strict(STORYBOOK_WILD_V5)["food"]
+        sources = {source["species"]: source for source in food["sources"]}
+        self.assertEqual(food["regrow_h"], 24, "a day away restocks everything")
+        self.assertEqual(sources["broadleaf"], {"kind": "apple", "species": "broadleaf", "one_in": 3, "windfalls": [2, 4], "canopy": [1, 2]})
+        self.assertEqual({sources[s]["one_in"] for s in ("shrub", "heather")}, {4})
+        self.assertEqual({tuple(sources[s]["clusters"]) for s in ("shrub", "heather")}, {(1, 1)})
+        kinds = {kind["id"] for kind in validate.load_strict(STORYBOOK_WILD_V5)["inventory"]["kinds"]}
+        self.assertLessEqual({source["kind"] for source in food["sources"]}, kinds)
+
+    @unittest.skipUnless((KERNEL / "CommandHost.cs").is_file(), "the kernel host is not in this checkout")
+    def test_the_kernel_hosts_food_as_the_contract_says(self):
+        host = (KERNEL / "CommandHost.cs").read_text(encoding="utf-8")
+        self.assertIn('"item.pickup" => PickUp(', host)
+        food = (KERNEL / "CommandHostFood.cs").read_text(encoding="utf-8")
+        pattern = re.search(r'Regex FoodSourceId = new\(@"\\A(.+)\\z", RegexOptions\.Compiled\);', food).group(1)
+        self.assertEqual(pattern, self.common["plant_id"]["pattern"].removeprefix("^").removesuffix("$"))
+        self.assertIn('FoodSoundEat = "eat"', food)
+        self.assertIn("FoodSourceId.IsMatch(", (KERNEL / "CommandHostRoomState.cs").read_text(encoding="utf-8"), "room state keeps a pick naming its plant")
 
 
 class PlaytestRecordTests(unittest.TestCase):

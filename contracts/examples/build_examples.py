@@ -1042,6 +1042,14 @@ MECHANICS = {
         "pockets": {"entries": 6, "mass_kg": 0.3},
         "chest": {"entries": 12, "mass_kg": 2},
     },
+    # P-Food (decisions 92, 98 and 108; D1): apples on one broadleaf in three (two to four windfalls at the trunk's foot, one or two in the
+    # canopy reached with a hop), a cluster of berries on one shrub and one heather clump in four, everything picked back in a day.
+    "food": {
+        "regrow_h": 24,
+        "sources": [{"kind": "apple", "species": "broadleaf", "one_in": 3, "windfalls": [2, 4], "canopy": [1, 2]},
+                    {"kind": "berries", "species": "shrub", "one_in": 4, "clusters": [1, 1]},
+                    {"kind": "berries", "species": "heather", "one_in": 4, "clusters": [1, 1]}],
+    },
 }
 
 
@@ -1109,6 +1117,10 @@ INVALID_PACKS = {
     "rules_inventory_kind_twice": lambda p: p["inventory"]["kinds"].append(dict(p["inventory"]["kinds"][0])),
     "rules_inventory_asset_of_two_kinds": lambda p: [kind.update(assets=["windfall_apple"]) for kind in p["inventory"]["kinds"][:2]],
     "rules_inventory_pockets_past_sixteen": lambda p: p["inventory"]["pockets"].update(entries=17),
+    # P-Food (25 October): food is picked into the pockets, so it needs the inventory; one in none; a count past a plant's eight spots.
+    "rules_food_without_an_inventory": lambda p: p.pop("inventory"),
+    "rules_food_on_one_in_none": lambda p: p["food"]["sources"][0].update(one_in=0),
+    "rules_food_count_past_eight": lambda p: p["food"]["sources"][1].update(clusters=[1, 9]),
 }
 
 
@@ -1373,10 +1385,11 @@ def inventory_round(at: str) -> dict:
                                                                data={"item": "berries", "count": 5, "to": "pockets"}),
         # An apple eaten heals half a heart at once (decisions 92 and 111); at full hearts it stays in the pockets.
         "command_player_eats_an_apple": command("inventory.use", "use-0001", {"item": "apple"}, note="Player-only."),
+        # Every unit eaten makes its sound (P-Food, decision 108): the receipt says so, in Creative too, where it heals nothing.
         "result_player_eats_an_apple": result("inventory.use", "use-0001", "player:local", 5, at, transient=True,
-                                              data={"item": "apple", "count": 1, "healed_quarters": 2}),
+                                              data={"item": "apple", "count": 1, "healed_quarters": 2, "sound": "eat"}),
         "result_player_eats_an_apple_in_creative": result("inventory.use", "use-0002", "player:local", 5, at, transient=True,
-                                                          data={"item": "apple", "count": 0, "healed_quarters": 0}),
+                                                          data={"item": "apple", "count": 0, "healed_quarters": 0, "sound": "eat"}),
         "result_apple_at_full_hearts": refused("inventory.use", "use-0003", "player:local", "not_ready",
                                                "Your hearts are full: the Apple stays in your pockets.", "$.args.item", retryable=True),
         "command_player_sets_a_thing_down": command("inventory.drop", "drop-0001", {"item": THING}, note="Player-only."),
@@ -1402,6 +1415,41 @@ def inventory_round(at: str) -> dict:
             "next_cursor": "1", "inventory": {"gubble_chest": True, "ops": [
                 {"op": "inventory.store", "player_only": False}, {"op": "inventory.take", "player_only": False},
                 {"op": "inventory.use", "player_only": True}, {"op": "inventory.drop", "player_only": True}]}}),
+    }
+
+
+# P-Food (25 October): a unit of food picked from a plant into the pockets with item.pickup, as a Fractal is picked up.
+APPLE_TREE = "plant:broadleaf-3"
+
+
+def food_round(at: str) -> dict:
+    """The pick (player-only, durable, no data, the plant in affected) and its refusals: full pockets, a canopy apple out of reach
+    without a hop, a tree picked bare, the companion."""
+    refused = lambda op, action_id, principal, code, message, path, retryable=False: {  # noqa: E731
+        **result(op, action_id, principal, 14, at), "ok": False, "error": {"code": code, "message": message, "field_path": path, "retryable": retryable}}
+    return {
+        "command_player_picks_an_apple": command("item.pickup", "pick-0001", {"target": APPLE_TREE},
+                                                 note="Player-only: E facing the windfall; one unit into the pockets."),
+        "result_player_picks_an_apple": result("item.pickup", "pick-0001", "player:local", 14, at, transient=False, affected=[APPLE_TREE]),
+        "result_pockets_too_full_to_pick": refused("item.pickup", "pick-0002", "player:local", "occupied",
+                                                   "Your pockets are full: they hold 6 things.", "$.args"),
+        "result_canopy_apple_needs_a_hop": refused("item.pickup", "pick-0003", "player:local", "out_of_bounds",
+                                                   "That is out of reach: hop for it.", "$.args.target", retryable=True),
+        "result_tree_picked_bare": refused("item.pickup", "pick-0004", "player:local", "not_ready",
+                                           "Everything on it has been picked: it grows back within a day.", "$.args.target", retryable=True),
+        "result_companion_pick_refused": refused("item.pickup", "pick-0005", "companion:local", "permission_denied",
+                                                 "Only the player can do that, directly in the game.", "$.op"),
+    }
+
+
+def food_round_refused(at: str) -> dict:
+    """What food's messages refuse, each for one reason (EXPECTED_FAILURES)."""
+    picked = food_round(at)["result_player_picks_an_apple"]
+    eaten = inventory_round(at)["result_player_eats_an_apple"]
+    return {
+        "command_pick_a_thing": command("item.pickup", "pick-0009", {"target": "obj:paint_clutter"}),
+        "result_pick_with_data": {**picked, "data": {"item": "apple", "count": 1, "to": "pockets"}},
+        "result_eaten_with_a_tune": {**eaten, "data": {**eaten["data"], "sound": "crunch"}},
     }
 
 
@@ -1635,6 +1683,7 @@ def build_messages(out: Path) -> None:
     valid.update(fire_behaviours(at))
     valid.update(grow_unlocks(at))
     valid.update(inventory_round(at))
+    valid.update(food_round(at))
     # The 10x world (S2): observe sees the whole island unless a radius narrows it, and a plant copy is an entity.
     valid["query_observe_everything_in_sight"] = query("observe", "q-0030", {"actor": "avatar:companion"})
     valid["query_observe_across_the_island"] = query("observe", "q-0031", {"actor": "avatar:companion", "radius_m": 150})
@@ -1723,6 +1772,7 @@ def build_messages(out: Path) -> None:
     invalid.update(fire_behaviours_refused(at))
     invalid.update(grow_unlocks_refused(at))
     invalid.update(inventory_round_refused(at))
+    invalid.update(food_round_refused(at))
     # The 10x world (S2): a radius past 150 m, and a second spelling of one plant copy.
     invalid["query_observe_past_150_m"] = query("observe", "q-0033", {"actor": "avatar:companion", "radius_m": 151})
     invalid["command_go_to_a_tree_spelt_with_a_leading_zero"] = command("goal.set", "go-to-tree-0001", {

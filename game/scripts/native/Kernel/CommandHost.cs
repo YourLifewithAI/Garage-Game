@@ -703,7 +703,8 @@ public partial class CommandHost : Node
                 "entity.place" => PlaceObject(args, principal, actionId, meta, preview),
                 "entity.push" => PushObject(args, principal, actionId, meta, preview),
                 "journal.note" => Note(args, principal, actionId, meta, preview),
-                "item.pickup" => PickUpFractal(args, principal, actionId, fingerprint, preview),
+                // A Fractal, or since P-Food a plant's food into the pockets (CommandHostFood.PickUp).
+                "item.pickup" => PickUp(args, principal, actionId, fingerprint, preview),
                 "item.gather" => GatherHeld(args, principal, actionId, fingerprint, preview),
                 "knack.set" => SetKnack(args, principal, actionId, fingerprint, preview),
                 "fractal.spend" => SpendFractals(args, principal, actionId, fingerprint, preview),
@@ -1146,7 +1147,9 @@ public partial class CommandHost : Node
         // fractal: namespace), which the result carries in affected, with no data (contracts: item.pickup).
         if (meta["op"].AsString() == "item.pickup")
         {
-            if (receipt.ContainsKey("data") && receipt["data"].AsGodotDictionary() is { } kept && kept.TryGetValue("fractal", out var fractal) && fractal.AsString() is { Length: > 0 } id)
+            // P-Food: a pick of food names its plant the same way ("food").
+            if (receipt.ContainsKey("data") && receipt["data"].AsGodotDictionary() is { } kept && (kept.TryGetValue("fractal", out var fractal) || kept.TryGetValue("food", out fractal)) &&
+                fractal.AsString() is { Length: > 0 } id)
                 result["affected"] = new JsonArray(id);
         }
         // A gather is kept the same way, with nothing in its data: the object is in affected (contracts: item.gather).
@@ -2545,8 +2548,8 @@ public partial class CommandHost : Node
         if (op == "world.set_mode" && args.TryGetProperty("difficulty", out _) &&
             (Str(args, "difficulty") is not ("gentle" or "standard" or "brave") || Str(args, "mode") != "challenge"))
             throw new Refusal("request_invalid", "A difficulty is gentle, standard or brave, and only for challenge.", "$.args.difficulty");
-        if (op == "item.pickup" && (Str(args, "target") is not { } fractal || !FractalId.IsMatch(fractal)))
-            throw new Refusal("request_invalid", "item.pickup names a Fractal.", "$.args.target");
+        if (op == "item.pickup" && (Str(args, "target") is not { } fractal || !(FractalId.IsMatch(fractal) || FoodSourceId.IsMatch(fractal))))
+            throw new Refusal("request_invalid", "item.pickup names a Fractal, or a plant to pick food from.", "$.args.target");
         if (op == "item.gather" && (Str(args, "target") is not { } gathered || !ObjectIdPattern.IsMatch(gathered)))
             throw new Refusal("request_invalid", "item.gather names the room object the player is holding.", "$.args.target");
         if (op == "knack.set" && (args.GetProperty("slot") is var slot && (slot.ValueKind != JsonValueKind.Number || !IsIntegerLiteral(slot) || slot.GetDouble() is < 1 or > 3)))

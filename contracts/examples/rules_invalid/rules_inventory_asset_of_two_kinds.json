@@ -527,5 +527,41 @@
       "entries": 12,
       "mass_kg": 2
     }
+  },
+  "food": {
+    "regrow_h": 24,
+    "sources": [
+      {
+        "kind": "apple",
+        "species": "broadleaf",
+        "one_in": 3,
+        "windfalls": [
+          2,
+          4
+        ],
+        "canopy": [
+          1,
+          2
+        ]
+      },
+      {
+        "kind": "berries",
+        "species": "shrub",
+        "one_in": 4,
+        "clusters": [
+          1,
+          1
+        ]
+      },
+      {
+        "kind": "berries",
+        "species": "heather",
+        "one_in": 4,
+        "clusters": [
+          1,
+          1
+        ]
+      }
+    ]
   }
 }

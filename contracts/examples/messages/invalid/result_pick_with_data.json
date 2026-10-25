@@ -1,0 +1,22 @@
+{
+  "schema": "garage_game.result",
+  "version": 1,
+  "ok": true,
+  "op": "item.pickup",
+  "action_id": "pick-0001",
+  "principal": "player:local",
+  "room_id": "garage_example",
+  "revision": 14,
+  "replayed": false,
+  "preview": false,
+  "at_utc": "2026-10-06T00:05:00Z",
+  "transient": false,
+  "affected": [
+    "plant:broadleaf-3"
+  ],
+  "data": {
+    "item": "apple",
+    "count": 1,
+    "to": "pockets"
+  }
+}

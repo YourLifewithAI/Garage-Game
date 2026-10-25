@@ -38,6 +38,9 @@ namespace GarageGame.Native.Kernel;
 ///   deck's height, the void's span along it and its burn; at most NatureState.MaxBridges) and "ivy" (each its id, ivy:n, its base on
 ///   the face, the face's normal, the ledge it reaches if any and its burn; at most NatureState.MaxIvy). A replanted plant keeps when
 ///   it was sown ("sown_s", no factor: a seedling's size is its phase on the island clock, never saved).
+/// - What was picked from the plants that bear food (P-Food, "food", absent while nothing is): by plant id, sorted, each the spots
+///   picked as bits ("picked", 1 to 255) and when the last was picked ("picked_s", whole seconds of the island clock's UTC), at most
+///   FoodLaws.MaxFoodPlants, each a plant of this room's copies (never a stone). No undo step remembers them: a pick is never taken back.
 /// </summary>
 public static class NatureBlock
 {
@@ -121,6 +124,10 @@ public static class NatureBlock
         // The Fractals picked up on this island (item.pickup), sorted; absent while none is (every earlier block reads as none).
         if (state.FractalsPicked.Count > 0)
             block["fractals"] = new JsonArray(state.FractalsPicked.OrderBy(id => id, StringComparer.Ordinal).Select(id => (JsonNode?)id).ToArray());
+        // P-Food: what was picked from the plants that bear food, by id; absent while nothing is (every earlier block reads as none).
+        if (state.Food.Count > 0)
+            block["food"] = new JsonObject(state.Food.OrderBy(p => p.Key, StringComparer.Ordinal)
+                .Select(p => KeyValuePair.Create(p.Key, (JsonNode?)new JsonObject { ["picked"] = p.Value.Picked, ["picked_s"] = p.Value.PickedS })));
         var resting = state.Cells.Values.Where(c => c.RestS > 0).OrderBy(c => c.X).ThenBy(c => c.Z).ToList();
         if (resting.Count > 0)
         {
@@ -346,6 +353,9 @@ public static class NatureBlock
         }
         if (block["fractals"] is JsonArray picked)
             foreach (var id in picked) state.FractalsPicked.Add(id!.GetValue<string>());
+        if (block["food"] is JsonObject food)
+            foreach (var (id, record) in food)
+                state.Food[id] = new NatureFood { Id = id, Picked = Int(record!["picked"]), PickedS = Long(record["picked_s"]) };
         if (block["plants"] is JsonObject plants)
             foreach (var (id, plant) in ReadPlants(plants)) state.Plants[id] = plant!;
         if (block["waterpads"] is JsonArray pads) state.Waterpads = ReadWaterpads(pads);
@@ -446,9 +456,10 @@ public static class NatureBlock
     {
         if (Normalized(node) is not { } block) return "not an object";
         var required = new[] { "format", "cell_m", "weather_s", "changed_at", "trail", "names", "cells", "objects", "wallet", "undo" };
-        if (block.Any(p => !required.Contains(p.Key) && p.Key is not ("fire" or "undone" or "rest" or "fractals" or "plants" or "waterpads" or "sprouts" or "bridges" or "ivy")) ||
+        if (block.Any(p => !required.Contains(p.Key) && p.Key is not ("fire" or "undone" or "rest" or "fractals" or "plants" or "waterpads" or "sprouts" or "bridges" or "ivy" or "food")) ||
             required.Any(k => !block.ContainsKey(k))) return "its fields";
         if (block["fractals"] is { } fractals && FractalsProblem(fractals)) return "its Fractals picked up";
+        if (block["food"] is { } food && FoodProblem(food, room) is { } foodWhy) return "its food picked: " + foodWhy;
         if (block["plants"] is { } plants && PlantsProblem(plants, room, absentAllowed: false) is { } plantsWhy) return "its plants: " + plantsWhy;
         if (block["waterpads"] is { } pads && WaterpadsProblem(pads, room, emptyAllowed: false) is { } padsWhy) return "its waterpads: " + padsWhy;
         if (UnlocksProblem(block, room, emptyAllowed: false) is { } unlocksWhy) return "its " + unlocksWhy;
@@ -762,6 +773,25 @@ public static class NatureBlock
             previous = text;
         }
         return false;
+    }
+
+    /// <summary>
+    /// What was picked from the plants that bear food (P-Food): 1 to FoodLaws.MaxFoodPlants ids of one spelling, each a plant or tree of
+    /// this room's copies (with a room), each holding exactly the spots picked (1 to 255, one bit a spot) and when ("picked_s", whole
+    /// seconds, at most GrowKindLaws.MaxSownS).
+    /// </summary>
+    private static string? FoodProblem(JsonNode node, RoomData? room)
+    {
+        if (node is not JsonObject food || food.Count is < 1 or > FoodLaws.MaxFoodPlants) return "not 1 to the most the island keeps";
+        foreach (var (id, value) in food)
+        {
+            if (!PlantIdPattern.IsMatch(id)) return "an id";
+            if (room != null && (room.Copies is not { } copies || !copies.TryResolve(id, out var set, out _) || set.Kind == PlantKind.Stone)) return "a plant not in this room";
+            if (value is not JsonObject record || record.Count != 2 || !record.ContainsKey("picked") || !record.ContainsKey("picked_s")) return "a plant's fields";
+            if (!Whole(record["picked"], (1 << FoodLaws.MaxSpots) - 1) || record["picked"]!.GetValue<double>() < 1) return "the spots picked";
+            if (!Whole(record["picked_s"], GrowKindLaws.MaxSownS)) return "when it was picked";
+        }
+        return null;
     }
 
     private static bool WalletProblem(JsonNode? node) =>

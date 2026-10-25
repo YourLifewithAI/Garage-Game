@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.garage-game.invalid/v1/island-rules.schema.json",
   "title": "EnFractal island rules",
-  "description": "An island's own laws as data: the abilities the island grants, each carried out by one engine primitive, with its bounds, who may cast it, what it may target and its safety tier. Written by the integrator and by theme packs through contract rounds; read by the host's rules loader, the mock host and later the HUD. Stored as game/rules/<rules_id>/v<rules_version>.json (loaded as res://rules/<rules_id>/v<rules_version>.json). A seed or draft version may be edited in place; once a version is candidate or approved, or anything pins it, its file never changes and a change means a new version file. A pack can only narrow the engine's limits: each primitive's outer limits are the if/then rules under $defs/ability, and an ability's bounds must sit inside them. A command must then sit inside the ability's bounds. contracts/validate.py checks what a schema cannot: unique capabilities and categories, each default inside its range, and each default radius and duration at most its maximum. Since the mechanics round (M0, 14 October 2026) a pack may also carry six optional blocks, the design's numbers as data (docs/game/MECHANICS.md): traits (hearts, harm, the stamina bar, connection energy, the wallet), cost (each ability's price in pips), modes (one row per mode and difficulty), names (what the screen calls things), knacks and fractals. Each is optional and so is each part of it: an absent block or part keeps today's behaviour, so a pack without them plays exactly as before. contracts/validate.py also checks the blocks against each other: prices name the pack's abilities, the most health and stamina a pack allows fit the command contract's bounds, knacks stay within a fifth and upside, and the mode rows are unique. Since P-Inventory (25 October) a seventh optional block, inventory: the kinds that stack and the caps of the pockets and the chest; validate.py checks each kind's id once and each asset in one kind at most.",
+  "description": "An island's own laws as data: the abilities the island grants, each carried out by one engine primitive, with its bounds, who may cast it, what it may target and its safety tier. Written by the integrator and by theme packs through contract rounds; read by the host's rules loader, the mock host and later the HUD. Stored as game/rules/<rules_id>/v<rules_version>.json (loaded as res://rules/<rules_id>/v<rules_version>.json). A seed or draft version may be edited in place; once a version is candidate or approved, or anything pins it, its file never changes and a change means a new version file. A pack can only narrow the engine's limits: each primitive's outer limits are the if/then rules under $defs/ability, and an ability's bounds must sit inside them. A command must then sit inside the ability's bounds. contracts/validate.py checks what a schema cannot: unique capabilities and categories, each default inside its range, and each default radius and duration at most its maximum. Since the mechanics round (M0, 14 October 2026) a pack may also carry six optional blocks, the design's numbers as data (docs/game/MECHANICS.md): traits (hearts, harm, the stamina bar, connection energy, the wallet), cost (each ability's price in pips), modes (one row per mode and difficulty), names (what the screen calls things), knacks and fractals. Each is optional and so is each part of it: an absent block or part keeps today's behaviour, so a pack without them plays exactly as before. contracts/validate.py also checks the blocks against each other: prices name the pack's abilities, the most health and stamina a pack allows fit the command contract's bounds, knacks stay within a fifth and upside, and the mode rows are unique. Since P-Inventory (25 October) a seventh optional block, inventory: the kinds that stack and the caps of the pockets and the chest; validate.py checks each kind's id once and each asset in one kind at most. Since P-Food (25 October) an eighth, food, beside the inventory it picks into: which species bear which kind and where (windfalls, canopy, clusters), one copy in its one_in, and the island hours everything picked takes to grow back.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -107,6 +107,9 @@
     },
     "inventory": {
       "$ref": "#/$defs/inventory"
+    },
+    "food": {
+      "$ref": "#/$defs/food"
     }
   },
   "$defs": {
@@ -1610,6 +1613,78 @@
           }
         }
       }
+    },
+    "food": {
+      "description": "Food on the island's plants (P-Food; docs/game/MECHANICS.md decisions 92, 98 and 108, D1 in docs/runs/RUN-2-PLAYTEST-ROUND-2.md): the sources, one per species, each the inventory kind it bears; and regrow_h, the island hours (the clock's x_clock day scale) after a plant's last pick until everything picked from it is back (24: a day away restocks the island). Which copies bear and where on them is the kernel's, from each copy's plant: id alone, the same on every load, with no manifest field (a later x_food can replace it). Needs the inventory block: food is picked into the pockets. The kernel also refuses a source whose kind is not an inventory kind, a species named twice, a range whose least is above its most, and a source that can bear nothing or more than 8. Every number is provisional. Absent: no plant bears food.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sources",
+        "regrow_h"
+      ],
+      "properties": {
+        "regrow_h": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 720
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/food_source"
+          }
+        }
+      }
+    },
+    "food_source": {
+      "description": "One species' food: the inventory kind it bears, one copy of the species in one_in bearing (chosen from the copy's id), and how many units in each place, each a range [least, most] (absent: none). windfalls lie on the ground round the stem's foot; canopy apples hang under a tree's lowest crown caps, reached with a hop (a tree only); clusters sit on the plant's side at the player's height. storybook_wild v5: apples on one broadleaf in three (2 to 4 windfalls, 1 or 2 in the canopy), a cluster of berries on one shrub in four and one heather clump in four.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "species",
+        "one_in"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "common.schema.json#/$defs/token"
+        },
+        "species": {
+          "$ref": "common.schema.json#/$defs/token"
+        },
+        "one_in": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "windfalls": {
+          "$ref": "#/$defs/food_count"
+        },
+        "canopy": {
+          "$ref": "#/$defs/food_count"
+        },
+        "clusters": {
+          "$ref": "#/$defs/food_count"
+        }
+      }
+    },
+    "food_count": {
+      "description": "[least, most] units, each 0 to 8 (the kernel refuses a least above its most).",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 8
+      }
     }
+  },
+  "dependentRequired": {
+    "food": [
+      "inventory"
+    ]
   }
 }
