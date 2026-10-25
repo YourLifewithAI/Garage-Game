@@ -390,8 +390,9 @@ public partial class PlayHudTest
         var screen = hud.CampScreen;
         await InvStand(InvAtCamp);
         var seeds = InvUnits("seed");
-        Check(host.ChestEntries.Count == 3 && host.PocketEntries.Select(e => e.Item).Order().SequenceEqual(new[] { "berries", "seed", "stone" }) && seeds >= 2 && host.HeldBy(CommandHost.PlayerAvatar) == null,
-            $"(the chest holds the cup, an apple and the doorstop; Creative's pockets berries, {seeds} seeds and a stone, the apple eaten; the hands are empty)");
+        Check(host.ChestEntries.Count == 3 && host.PocketEntries.Select(e => e.Item).Order(StringComparer.Ordinal).SequenceEqual(new[] { "berries", "obj:brick", "seed", "stone" }) && seeds >= 2 &&
+              host.HeldBy(CommandHost.PlayerAvatar) == null,
+            $"(the chest holds the cup, an apple and the doorstop; Creative's pockets berries, the brick, {seeds} seeds and a stone, the apples eaten; the hands are empty)");
         // The bar's selection: the berries' slot chosen (a unit armed). At the camp E still sits you down first.
         if (hud.BarLayerShown != HandSelection.PocketsLayer) await InvKey(Key.Tab);
         var berrySlot = host.PocketEntries.First(e => e.Item == "berries").Slot;
@@ -405,7 +406,7 @@ public partial class PlayHudTest
         Check(page.Contains("The chest\n3 of 20 things", StringComparison.Ordinal) && page.Contains("Cup · 0.05 kg", StringComparison.Ordinal) &&
               page.Contains("Apple ×1 · 0.02 kg · heals half a heart each", StringComparison.Ordinal) && page.Contains("Doorstop · 0.3 kg", StringComparison.Ordinal) &&
               // The pockets in slot order (P-Inventory-2: the hotbar's), each with its slot on the bar, and the bar's selection (the hotbar packet).
-              page.Contains($"Your pockets\n3 of 10 things\nOn the bar: slot {berrySlot}, Berries ×1, one ready to use.\n", StringComparison.Ordinal) &&
+              page.Contains($"Your pockets\n4 of 10 things\nOn the bar: slot {berrySlot}, Berries ×1, one ready to use.\n", StringComparison.Ordinal) &&
               page.Contains($"{berrySlot} · Berries ×1 · 0.005 kg · heals a quarter of a heart each · chosen", StringComparison.Ordinal) &&
               page.Contains($"{seedSlot} · Seeds ×{seeds} · ", StringComparison.Ordinal) && !page.Contains($"{seedSlot} · Seeds ×{seeds} · {InventoryPages.Kg(seeds * 0.001)} kg · chosen", StringComparison.Ordinal),
             "the Inventory page lists the chest's entries with their masses and caps, and the pockets beside it, by slot, with the bar's choice: " + page.Replace("\n", " | "));
@@ -438,7 +439,7 @@ public partial class PlayHudTest
         Check(InvUnits("apple") == 1 && host.ChestEntries.All(e => e.Item != "apple") && hud.CampFoot == "Took 1 Apple into your pockets.", "Take puts the chest's apple into the pockets: " + hud.CampFoot);
         var lines = hud.CampPageText;
         var bySlot = host.PocketEntries.OrderBy(e => e.Slot).Select(e => lines.IndexOf($"\n{e.Slot} · {e.Name}", lines.IndexOf("Your pockets", StringComparison.Ordinal), StringComparison.Ordinal)).ToArray();
-        Check(lines.Contains("Your pockets\n4 of 10 things", StringComparison.Ordinal) && bySlot.Length == 4 && bySlot.All(i => i > 0) && bySlot.SequenceEqual(bySlot.Order()) &&
+        Check(lines.Contains("Your pockets\n5 of 10 things", StringComparison.Ordinal) && bySlot.Length == 5 && bySlot.All(i => i > 0) && bySlot.SequenceEqual(bySlot.Order()) &&
               host.PocketEntries.First(e => e.Item == "apple").Slot == Enumerable.Range(1, 10).First(n => host.PocketEntries.All(e => e.Item == "apple" || e.Slot != n)),
             "and the pockets' lines follow, in slot order, the apple in the first free slot: " + hud.CampPageText.Replace("\n", " | "));
         // Store from the pockets: all of a stack, or one.

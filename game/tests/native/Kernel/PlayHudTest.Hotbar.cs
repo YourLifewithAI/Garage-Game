@@ -335,7 +335,20 @@ public partial class PlayHudTest
         Check(hud.BarLayerShown == HandSelection.AbilitiesLayer && host.HandNow is { Layer: HandSelection.AbilitiesLayer, Abilities: 4, Pockets: 7 } && bar.StripChosen == 7,
             "a click on the strip's fourth slot brings the magic down with Fireworks chosen; the pockets keep slot 7");
         hud.PointerForTests = null;
+        // An ability's key never puts away what the hands carry: the brick picked up again on the magic side, 1 casts, the brick stays held.
+        var player = CommandHost.PlayerAvatar;
+        var brick = host.ObjectNodeOf("obj:brick")?.GlobalPosition ?? InvAway;
+        Check(await InvCarry("obj:brick", new Vector3(brick.X, 0, brick.Z) + new Vector3(0, 0, 0.06f), InvAway), "(the player picks the brick up again, the magic side down)");
+        var abilities = host.HandNow.Abilities;
+        hud.AimRayForTests = Down(InvAway + new Vector3(0.05f, 0, 0.05f));
+        await InvKey(Key.Key1);
+        Check(host.HeldBy(player) == "obj:brick" && host.HandNow is { Layer: HandSelection.AbilitiesLayer } && host.HandNow.Abilities == abilities,
+            "1 on the magic side with the brick in the hands: the brick stays held (the key records no selection while they carry something)");
+        hud._UnhandledInput(Press(Key.X));
+        hud.AimRayForTests = null;
+        // Tab brings the pockets down through the kernel's select, which puts what the hands carry into the pockets first (P-Inventory-2).
         await InvKey(Key.Tab);
-        Check(hud.BarLayerShown == HandSelection.PocketsLayer, "(Tab: the pockets down again)");
+        Check(hud.BarLayerShown == HandSelection.PocketsLayer && host.HeldBy(player) == null && host.PocketEntries.Any(e => e.Item == "obj:brick"),
+            "Tab to the pockets puts the carried brick into them first, the kernel's rule for any selection (a question for the founder)");
     }
 }
