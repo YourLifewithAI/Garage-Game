@@ -72,3 +72,13 @@ Written as guesses the next play can check; the packets are in [RUN-2-PLAYTEST-R
 - **Refused previews are counted as refusals.** `CommandHost.RaiseHandled` (`CommandHost.cs` near line 424) takes `preview` from the result, and a refused result carries none, so the recorder writes a refused lead preview as a refused command. The fix is in the host's event (take the flag from the command), with the reader unchanged; P0 has it.
 - **The worst frame's split exceeds the frame:** process 1148.5 ms and physics 1678.7 ms inside a 941.6 ms frame; the recorder's `longest_process_ms` and `longest_physics_ms` cannot both be that frame's parts. A recorder or reader finding for a Sonnet round.
 - **`frames` and `grab_ms`** are newer recorder fields the reader should learn to print.
+
+## Addendum: the second play that afternoon (record `20261017-141154-landscape_garage_nominal`, debriefed 8 November)
+
+The founder played again from 14:11 to 14:27 at the same build, while this debrief was being written. Nobody read the record at the time. The founder confirmed on 8 November that he played it himself; he gave no notes, and his notes above may cover both plays.
+
+- **The play.** 15.2 minutes, a clean quit, no marks, 2 refusals, both shown on screen: `energy_exhausted` at 10:45 (`0067-refusal.jpg`) and Grow's "There is no plant to grow there" at 11:11 (`0070-refusal.jpg`). The Gubble was within 2 m for 65% of the time, and the companion was offline throughout.
+- **The first five minutes were play.** Swimming and diving (1 min 24 s in all; the deep-water hint showed). "Out of breath: you are back on the shore" twice (1:41 and 3:21, the fade home). Hearts lost in the water and on a climb (down to 3.25 at 4:56), then healed by themselves within seconds, which was the rule before decision 84.
+- **The last ten minutes were a tool check, not play.** He cycled the physics presets (`room_real`, `room_floaty`, `room_tuned`) twenty times with `world.set_physics`, stepped the time 23 times, and asked the Gubble 29 times. Standing was 66% of the play.
+- **The frames.** The freeze after the island appears was 552.4 ms at 0:15 (collections 226/23/8, pausing 343.1 ms). 169 of 179 windows had a frame over 33.3 ms, and the median window's longest frame is 41 ms. That is the same steady hitch the 25 October play shows ([2026-10-25-landscape_my_garage.md](2026-10-25-landscape_my_garage.md)).
+- **Nothing new to change.** Round 2 (decisions 81 to 97) already covers what this play touched. Its frames add to L2's evidence.

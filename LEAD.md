@@ -86,4 +86,16 @@ If the gate says move, items 4 to 10 become port stages, and the Godot game stay
 
 ## Done
 
-(Nothing yet.)
+- **Item 1, the two unread plays debriefed (8 November).**
+  - [2026-10-25-landscape_my_garage.md](docs/runs/playtests/2026-10-25-landscape_my_garage.md), plus an addendum to the 17 October debrief and two rows in the index.
+  - **What the 25 October play found:**
+    - the freeze after the intro is now 1.3 s on the real garage;
+    - every apple picked costs a 60 to 73 ms hitch;
+    - a steady 40 to 60 ms hitch shows in most windows;
+    - two falls cost 3.5 and 2.5 of 5 hearts;
+    - a lift ran out of pips mid-air without warning;
+    - E says nothing about eating when no pocket slot is chosen;
+    - the reader's height bands are wrong on an island.
+  - **Kept:** food healed 3.75 hearts, and every refusal was shown on screen.
+  - **Ben's questions are in the debrief:** fall damage, how dark the night is, and anything he remembers.
+  - These feed items 4 to 6.
