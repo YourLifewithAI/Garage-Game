@@ -10,12 +10,22 @@ Point an MCP client at it with the play-only profile (`python -m garage_game_com
 --isolated gives the game a fresh, temporary user folder (its saves and its session file), as the companion suite
 does; without it the game uses the player's own user folder, exactly as the game itself would.
 
+Another host of the same game (the Unreal slice, the standalone host) runs in Godot's place when GARAGE_GAME_HOST names
+its executable. GARAGE_GAME_HOST_ARGS, a JSON array of strings, holds the host's own arguments; the launcher passes them
+first, then the switches it gives Godot after `--` (--companion-quit-file, --companion-parent-pid, --room), then the
+caller's extra arguments, and starts the host in the repository's root with the same user folder. A relative
+GARAGE_GAME_HOST is taken from the caller's folder. --window then only lets the host open a console window: whether it
+draws is up to its own arguments. The host keeps the process contract (docs/companion/HOST-CONFORMANCE.md, section A):
+its session file at Godot's path under that folder, the ready line, the state lines and nothing on stderr. Without
+GARAGE_GAME_HOST, Godot runs exactly as before.
+
 The suite uses `RealGame` directly (companion/tests/test_real_host.py). This module only launches the game; the
 MCP server never imports it.
 """
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -36,8 +46,42 @@ class GameNotAvailable(RuntimeError):
     """This checkout cannot run the game: no Godot .NET, no .NET runtime, or the C# project is not built."""
 
 
+class HostMisconfigured(RuntimeError):
+    """GARAGE_GAME_HOST or GARAGE_GAME_HOST_ARGS is set but unusable. Not a GameNotAvailable: a suite pointed at a host
+    fails loudly rather than skipping."""
+
+
+def host_override() -> tuple[Path, list[str]] | None:
+    """The host GARAGE_GAME_HOST names and the arguments GARAGE_GAME_HOST_ARGS gives it, or None (Godot)."""
+    host = os.environ.get("GARAGE_GAME_HOST", "")
+    raw = os.environ.get("GARAGE_GAME_HOST_ARGS", "")
+    if not host:
+        if raw:
+            raise HostMisconfigured("GARAGE_GAME_HOST_ARGS is set but GARAGE_GAME_HOST is not")
+        return None
+    # Absolute, from the caller's folder: the host starts in the repository's root, where a relative path would point
+    # elsewhere. Not resolved: a symlinked launcher (a venv's python) must keep its own name.
+    path = Path(os.path.abspath(host))
+    if not path.is_file():
+        raise HostMisconfigured(f"GARAGE_GAME_HOST names no file: {host}")
+    arguments: object = []
+    if raw:
+        try:
+            arguments = json.loads(raw)
+        except ValueError as error:
+            raise HostMisconfigured(f"GARAGE_GAME_HOST_ARGS is not JSON: {error}") from None
+    if not isinstance(arguments, list) or not all(isinstance(a, str) for a in arguments):
+        raise HostMisconfigured("GARAGE_GAME_HOST_ARGS must be a JSON array of strings")
+    return path, list(arguments)
+
+
 def toolchain(repo: Path = DEFAULT_REPO_ROOT) -> tuple[Path, Path]:
-    """The pinned Godot .NET executable and the .NET folder for DOTNET_ROOT, as the runners find them."""
+    """The pinned Godot .NET executable and the .NET folder for DOTNET_ROOT, as the runners find them; or, when
+    GARAGE_GAME_HOST names another host, that host and its folder (no Godot or .NET is needed then, and the folder is
+    not a .NET root: the launcher sets DOTNET_ROOT for Godot only)."""
+    host = host_override()
+    if host is not None:
+        return host[0], host[0].parent
     project = repo / "game"
     match = _ENGINE_VERSION.search((project / "GarageGame.csproj").read_text(encoding="utf-8"))
     if match is None:
@@ -74,7 +118,7 @@ def session_file_under(user_root: Path) -> Path:
 
 
 class RealGame:
-    """The room with the companion link, in its own Godot process. A context manager.
+    """The room with the companion link, in its own Godot process (or GARAGE_GAME_HOST's). A context manager.
 
     `lines` collects the game's output (its stdout and stderr, each line prefixed "out: " or "err: "). Nothing
     about the token is ever printed by the game.
@@ -87,6 +131,8 @@ class RealGame:
         windows of the game share the player's. expect_link: start() waits for the room with the link on; False
         accepts a room that runs without it (`link` then says which)."""
         self.engine, self.dotnet_root = toolchain(repo)
+        host = host_override()
+        self.host_args: list[str] | None = None if host is None else host[1]  # None: Godot
         self.repo = repo
         self.room = room
         self.isolated = isolated or user_root is not None
@@ -117,11 +163,12 @@ class RealGame:
 
     def start(self) -> None:
         env = dict(os.environ)
-        env["DOTNET_ROOT"] = str(self.dotnet_root)
-        env["PATH"] = str(self.dotnet_root) + os.pathsep + env.get("PATH", "")
-        env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
-        env["DOTNET_NOLOGO"] = "1"
-        env.setdefault("GODOT_SILENCE_ROOT_WARNING", "1")
+        if self.host_args is None:
+            env["DOTNET_ROOT"] = str(self.dotnet_root)
+            env["PATH"] = str(self.dotnet_root) + os.pathsep + env.get("PATH", "")
+            env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+            env["DOTNET_NOLOGO"] = "1"
+            env.setdefault("GODOT_SILENCE_ROOT_WARNING", "1")
         if self.isolated:
             root = self.shared_root or Path(tempfile.mkdtemp(prefix="garage-game-real-game-"))
             self._user_root = None if self.shared_root else root
@@ -136,16 +183,21 @@ class RealGame:
             self.session_path = session_file_under(base)
             self.quit_file = Path(tempfile.gettempdir()) / f"garage-game-real-game-quit-{os.getpid()}"
             self.quit_file.unlink(missing_ok=True)
-        arguments = [str(self.engine)]
-        if not self.window:
-            arguments.append("--headless")
-        arguments += ["--path", str(self.repo / "game"), "--max-fps", "60", SCENE, "--",
-                      f"--companion-quit-file={self.quit_file}", f"--companion-parent-pid={os.getpid()}"]
+        switches = [f"--companion-quit-file={self.quit_file}", f"--companion-parent-pid={os.getpid()}"]
+        if self.host_args is None:
+            arguments = [str(self.engine)]
+            if not self.window:
+                arguments.append("--headless")
+            arguments += ["--path", str(self.repo / "game"), "--max-fps", "60", SCENE, "--", *switches]
+            cwd = self.repo / "game"
+        else:
+            arguments = [str(self.engine), *self.host_args, *switches]
+            cwd = self.repo
         if self.room:
             arguments.append(f"--room={self.room}")
         arguments += self.extra_args
         flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" and not self.window else 0
-        self._process = subprocess.Popen(arguments, cwd=str(self.repo / "game"), env=env, stdin=subprocess.DEVNULL,
+        self._process = subprocess.Popen(arguments, cwd=str(cwd), env=env, stdin=subprocess.DEVNULL,
                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=flags)
         for stream, prefix in ((self._process.stdout, "out: "), (self._process.stderr, "err: ")):
             thread = threading.Thread(target=self._pump, args=(stream, prefix), daemon=True)
@@ -260,7 +312,7 @@ def main(argv: list[str] | None = None) -> int:
     options = parser.parse_args(argv)
     try:
         game = RealGame(room=options.room, isolated=options.isolated, window=options.window)
-    except GameNotAvailable as error:
+    except (GameNotAvailable, HostMisconfigured) as error:
         print(f"cannot run the game: {error}", file=sys.stderr)
         return 2
     with game:
