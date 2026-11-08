@@ -873,6 +873,16 @@ The founder's Windows session (Opus, in the idle worktree `C:\dev\EnFractal-run2
 - **The rest of the checklist:** the merge with `main` is clean and the merged tree equals the head's; the privacy scan of the added files found no secrets, photos, saves, capture or real-room data, the only binaries the synthetic `contracts/examples` island's GLBs. The repository has no GitHub checks, so these local runs are the evidence. **Merged** by the founder the same evening, 22:49 UTC, as `cd2675e` on main.
 - **The Linux suite on `94da603`:** not rerun in full. On Linux the two paths already agree, so the fix changes nothing there; the cloud session started the rerun and stopped it at the founder's word to close the session, with the C# build, the import and the kernel scenes through the Bubble (196/196) passed. The record continues on the laptop.
 
+## The lead session (8 November, DiamondAge)
+
+The Garage Game's lead session, started by the Orchestrator, keeps one ranked backlog for the game and the Unreal slice in [LEAD.md](../../LEAD.md). The order there replaces "The next session" below where they differ.
+- **The two unread plays are debriefed:** [2026-10-25-landscape_my_garage.md](playtests/2026-10-25-landscape_my_garage.md), plus an addendum to the 17 October debrief.
+- **The Unreal slice's stage 3** is built, reviewed and green on `claude/stage-3-wiring` in `C:\dev\Garage-Unreal`, not yet pushed. Its status page has the tests and the measurements beside Godot's.
+- **`f429366`: the companion's `RealGame` starts another host when `GARAGE_GAME_HOST` names one.** This is how the slice runs the unchanged `test_real_host.py`. Without the variable, Godot's launch is exactly as before.
+  - Here, `test_real_game_host` passes 7 tests and the companion suite ran 868 tests OK (skipped=1) against the Godot game.
+  - Godot reaches the test room in 2.0 s headless (a median of 3), against the Unreal slice's 9.0 s.
+- **What the AI's play of the slice showed about Godot:** three small findings, now in LEAD.md item 6. A push's answer doesn't say how far the thing moved; `come` answers before arrival; and `SandboxPhysics.cs:24`'s "both avatars" doesn't match the Gubble's collision layer.
+
 ## The next session
 
 0. **Main is caught up** with `run2/integration` as of 25 October (16 October: pull requests #15 and #16; 24 October: [#18](https://github.com/YourLifewithAI/Garage-Game/pull/18), main at `adb8407`; 25 October: [#19](https://github.com/YourLifewithAI/Garage-Game/pull/19), merged by the founder at 22:49 UTC with both Windows runners and the Linux suite green on its tip, main at `cd2675e`). The founder asked the integrator to keep it so: at each milestone (a wave or a review round done, both Windows runners and the Linux suite green on the exact commit), open a pull request from a snapshot branch, post a review comment (scope, tests, no secrets, real-room data, saves or EXIF), then merge it with `gh pr merge --merge`. Never push to main directly.
