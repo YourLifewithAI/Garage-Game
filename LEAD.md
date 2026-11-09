@@ -13,7 +13,7 @@ Kept by the Garage Game's lead session (started by Wren, 8 November 2026). One r
 - **Two plays recorded and never debriefed.** Both are in the game's user folder on this laptop:
   - `20261017-141154-landscape_garage_nominal`: 15 minutes on the stand-in garage, build `bb9f47f`.
   - `20261025-180114-landscape_my_garage`: 11 minutes on the real garage, build `94da603`. This is the newest build, played an hour after #19 merged, and the only play of the hotbar, pockets, food and Grow's unlocks.
-- **The Unreal slice** (`C:\dev\Garage-Unreal`, private repository `YourLifewithAI/Garage-Unreal`). Ben started it on 31 October, after the look test in which the kids chose the Unreal views, "to decide whether the game moves". Stages 0 to 2 are merged (pull requests #1 to #6, the last at 22:31 on 31 October). Stage 3 is built, reviewed and green, and waits on Ben's merge as [pull request #7](https://github.com/YourLifewithAI/Garage-Unreal/pull/7) (item 2); stage 4, the kids' gate, waits on it.
+- **The Unreal slice** (`C:\dev\Garage-Unreal`, private repository `YourLifewithAI/Garage-Unreal`). Ben started it on 31 October, after the look test in which the kids chose the Unreal views, "to decide whether the game moves". Stages 0 to 2 are merged (pull requests #1 to #6, the last at 22:31 on 31 October). Stage 3 is merged too ([pull request #7](https://github.com/YourLifewithAI/Garage-Unreal/pull/7), `8869523`, on 8 November; item 2), so stage 4, the kids' gate, is next.
 - **Sound.** The game has two synthesized chimes (Glow and the expertise card) and nothing else. There's no music, no footsteps, no fire, no rain, and no eating sound (the `FoodSound` hook waits for one).
 
 ## The order
@@ -51,7 +51,7 @@ Kept by the Garage Game's lead session (started by Wren, 8 November 2026). One r
   - **Carried forward, not fixed:** the slice's drop and place still differ from Godot, as its push did. The Gubble blocks the player's drop, and the player can place a thing inside their own body. It's a small port for the slice's next round, or for the gate if Ben sees it in play.
   - **The Gubble is see-through (8 November, evening),** as the kids asked: the Garage Game's soap bubble ported to the slice's import, and Nanite turned off for its mesh, since Nanite doesn't draw see-through materials. A window still shows the room through its body. The slice's status page has the detail.
 - **Left for Ben:**
-  - the merge of [#7](https://github.com/YourLifewithAI/Garage-Unreal/pull/7), his click (pushed and opened on his yes, 8 November);
+  - ~~the merge of [#7](https://github.com/YourLifewithAI/Garage-Unreal/pull/7)~~: merged by the lead on Ben's "Go ahead and merge", typed in the lead's session on 8 November, as `8869523`, with the branch kept. `main`'s tree is the tested branch's, so the green run on `d546edf` stands for it;
   - a windowed look if he has time, since nobody has played the slice's keys on a screen yet.
 
 ### 3. The kids' gate
