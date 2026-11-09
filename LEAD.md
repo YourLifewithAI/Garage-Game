@@ -4,6 +4,8 @@ Kept by the Garage Game's lead session (started by Wren, 8 November 2026). One r
 
 **Ben's answers (8 November, 11:36, relayed by Wren):** the order as ranked; go on the Unreal slice's stage 3 with its roadmap's defaults; the kids play on DiamondAge (this laptop); Ben himself played both unread plays; yes to merging #20 and closing #17 and #12. Auto mode refused the lead those GitHub writes on the relay; Ben then gave his sign-off in the lead's session that evening, and the lead did them (H2).
 
+**Ben's answers (8 November, 17:59, relayed by Wren):** the Garage Game is a fun project now, behind the dental office and Life with AI. Finish what's in flight (the kids' gate on DiamondAge), then pause: no new work until he says. The kids wanted the Gubble see-through, so it's made see-through before their gate. His five-minute look at the slice may or may not happen first; the gate doesn't wait on it. Yes to pushing the three branches, given in his own words in this session when he gives them.
+
 ## Where things stand (8 November 2026)
 
 - **The Godot game.** `main` is at `f7af65f`: pull request #19's code (merged by Ben on 25 October, with both Windows runners and the Linux suite green) plus #20's two docs-only commits, merged on 8 November. Nothing has been built since 25 October.
@@ -47,10 +49,10 @@ Kept by the Garage Game's lead session (started by Wren, 8 November 2026). One r
     - launch to ready 9.0 s, against Godot's 2.0 s.
   - **The upstream launcher patch** is committed here (`f429366`).
   - **Carried forward, not fixed:** the slice's drop and place still differ from Godot, as its push did. The Gubble blocks the player's drop, and the player can place a thing inside their own body. It's a small port for the slice's next round, or for the gate if Ben sees it in play.
+  - **The Gubble is see-through (8 November, evening),** as the kids asked: the Garage Game's soap bubble ported to the slice's import, and Nanite turned off for its mesh, since Nanite doesn't draw see-through materials. A window still shows the room through its body. The slice's status page has the detail.
 - **Left for Ben:**
   - a sign-off to push the branch and open its pull request, then the merge (his click);
-  - whether the Gubble's opaque white body (not its see-through bubble) is fine for the gate;
-  - a windowed look, since nobody has played the slice's keys on a screen yet.
+  - a windowed look if he has time, since nobody has played the slice's keys on a screen yet.
 
 ### 3. The kids' gate
 
@@ -59,6 +61,8 @@ Kept by the Garage Game's lead session (started by Wren, 8 November 2026). One r
 - **Ben:** the play itself. Only Ben passes a gate.
 
 ### Then, while the Godot game is the one the kids play
+
+**Paused after item 3** (Ben, 8 November): nothing below starts until he says.
 
 If the gate says move, items 4 to 10 become port stages, and the Godot game stays playable as it is.
 
