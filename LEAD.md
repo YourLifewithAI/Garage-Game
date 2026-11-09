@@ -4,7 +4,7 @@ Kept by the Garage Game's lead session (started by Wren, 8 November 2026). One r
 
 **Ben's answers (8 November, 11:36, relayed by Wren):** the order as ranked; go on the Unreal slice's stage 3 with its roadmap's defaults; the kids play on DiamondAge (this laptop); Ben himself played both unread plays; yes to merging #20 and closing #17 and #12. Auto mode refused the lead those GitHub writes on the relay; Ben then gave his sign-off in the lead's session that evening, and the lead did them (H2).
 
-**Ben's answers (8 November, 17:59, relayed by Wren):** the Garage Game is a fun project now, behind the dental office and Life with AI. Finish what's in flight (the kids' gate on DiamondAge), then pause: no new work until he says. The kids wanted the Gubble see-through, so it's made see-through before their gate. His five-minute look at the slice may or may not happen first; the gate doesn't wait on it. Yes to pushing the three branches, given in his own words in this session when he gives them.
+**Ben's answers (8 November, 17:59, relayed by Wren):** the Garage Game is a fun project now, behind the dental office and Life with AI. Finish what's in flight (the kids' gate on DiamondAge), then pause: no new work until he says. The kids wanted the Gubble see-through, so it's made see-through before their gate. His five-minute look at the slice may or may not happen first; the gate doesn't wait on it. Yes to pushing the three branches, which he then typed in the lead's session ("Yes, push all three"): `run2/integration` here at `0f9d541`, the slice's `main` at `b5edf01`, and `claude/stage-3-wiring` with its pull request, [Garage-Unreal#7](https://github.com/YourLifewithAI/Garage-Unreal/pull/7).
 
 ## Where things stand (8 November 2026)
 
@@ -13,7 +13,7 @@ Kept by the Garage Game's lead session (started by Wren, 8 November 2026). One r
 - **Two plays recorded and never debriefed.** Both are in the game's user folder on this laptop:
   - `20261017-141154-landscape_garage_nominal`: 15 minutes on the stand-in garage, build `bb9f47f`.
   - `20261025-180114-landscape_my_garage`: 11 minutes on the real garage, build `94da603`. This is the newest build, played an hour after #19 merged, and the only play of the hotbar, pockets, food and Grow's unlocks.
-- **The Unreal slice** (`C:\dev\Garage-Unreal`, private repository `YourLifewithAI/Garage-Unreal`). Ben started it on 31 October, after the look test in which the kids chose the Unreal views, "to decide whether the game moves". Stages 0 to 2 are merged (pull requests #1 to #6, the last at 22:31 on 31 October). Stage 3 is built, reviewed and green on a local branch (item 2); stage 4, the kids' gate, waits on it.
+- **The Unreal slice** (`C:\dev\Garage-Unreal`, private repository `YourLifewithAI/Garage-Unreal`). Ben started it on 31 October, after the look test in which the kids chose the Unreal views, "to decide whether the game moves". Stages 0 to 2 are merged (pull requests #1 to #6, the last at 22:31 on 31 October). Stage 3 is built, reviewed and green, and waits on Ben's merge as [pull request #7](https://github.com/YourLifewithAI/Garage-Unreal/pull/7) (item 2); stage 4, the kids' gate, waits on it.
 - **Sound.** The game has two synthesized chimes (Glow and the expertise card) and nothing else. There's no music, no footsteps, no fire, no rain, and no eating sound (the `FoodSound` hook waits for one).
 
 ## The order
@@ -38,7 +38,7 @@ Kept by the Garage Game's lead session (started by Wren, 8 November 2026). One r
 - **Why:** this is the open fork in the road. Ben started the slice to answer whether the game moves engines, and it stopped two-thirds built. Items 4 to 10 are worth more or less depending on that answer.
 - **Done when:** `tools/test-all.ps1` is green with stage 3, `run-room.ps1` plays the slice, the measurements are in its status page, and the pull request is reviewed. Merging stays Ben's click, as in stages 1 and 2.
 - **Ben:** a go-ahead; the roadmap's six questions (the recommendations stand unless you change them); and a read of Lane B's scale verdict (#5) before wiring. All given on 8 November (the roadmap's answers; real scale stands).
-- **Where it is (8 November, evening).** Built on `claude/stage-3-wiring` in `C:\dev\Garage-Unreal\.cache\stage3`, not pushed. The slice's status page has the detail.
+- **Where it is (8 November, evening).** Built on `claude/stage-3-wiring` in `C:\dev\Garage-Unreal\.cache\stage3`, pushed on Ben's yes as [pull request #7](https://github.com/YourLifewithAI/Garage-Unreal/pull/7) into the slice's `main`. The repository runs no CI; the pass line is in the pull request. The slice's status page has the detail.
   - **Built:** the composition root (the kernel, the room, potato_man, the Gubble and the link in one game), the host's process contract, and the player's E, V and G keys through the one command path.
   - **Tests:** `tools/test-all.ps1` green, and `test_real_host.py`'s 41 pass against Unreal with the file unchanged, plus the lock suite's 6.
   - **Review:** a fresh Opus reviewer found no blockers and two majors, both fixed and rechecked.
@@ -51,7 +51,7 @@ Kept by the Garage Game's lead session (started by Wren, 8 November 2026). One r
   - **Carried forward, not fixed:** the slice's drop and place still differ from Godot, as its push did. The Gubble blocks the player's drop, and the player can place a thing inside their own body. It's a small port for the slice's next round, or for the gate if Ben sees it in play.
   - **The Gubble is see-through (8 November, evening),** as the kids asked: the Garage Game's soap bubble ported to the slice's import, and Nanite turned off for its mesh, since Nanite doesn't draw see-through materials. A window still shows the room through its body. The slice's status page has the detail.
 - **Left for Ben:**
-  - a sign-off to push the branch and open its pull request, then the merge (his click);
+  - the merge of [#7](https://github.com/YourLifewithAI/Garage-Unreal/pull/7), his click (pushed and opened on his yes, 8 November);
   - a windowed look if he has time, since nobody has played the slice's keys on a screen yet.
 
 ### 3. The kids' gate
