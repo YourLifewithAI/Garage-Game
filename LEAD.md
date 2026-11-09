@@ -2,11 +2,11 @@
 
 Kept by the Garage Game's lead session (started by Wren, 8 November 2026). One ranked list for the whole game: the Godot game in this folder and the Unreal slice in `C:\dev\Garage-Unreal`. [docs/runs/RUN-2-STATUS.md](docs/runs/RUN-2-STATUS.md) stays the detailed record ("The next session" and each round's questions); this file sets the order and points there for detail. Work runs one item at a time, top down.
 
-**Ben's answers (8 November, 11:36, relayed by Wren):** the order as ranked; go on the Unreal slice's stage 3 with its roadmap's defaults; the kids play on DiamondAge (this laptop); Ben himself played both unread plays; yes to merging #20 and closing #17 and #12. Auto mode refused the lead those GitHub writes, so they're Ben's clicks (H2).
+**Ben's answers (8 November, 11:36, relayed by Wren):** the order as ranked; go on the Unreal slice's stage 3 with its roadmap's defaults; the kids play on DiamondAge (this laptop); Ben himself played both unread plays; yes to merging #20 and closing #17 and #12. Auto mode refused the lead those GitHub writes on the relay; Ben then gave his sign-off in the lead's session that evening, and the lead did them (H2).
 
 ## Where things stand (8 November 2026)
 
-- **The Godot game.** `main` is at `cd2675e` (pull request #19, merged by Ben on 25 October, with both Windows runners and the Linux suite green). The local `run2/integration` is at `94da603`, two docs-only commits behind GitHub's (`99d42e2`). Nothing has been built since 25 October.
+- **The Godot game.** `main` is at `f7af65f`: pull request #19's code (merged by Ben on 25 October, with both Windows runners and the Linux suite green) plus #20's two docs-only commits, merged on 8 November. Nothing has been built since 25 October.
 - **Built and never seen on a screen.** The 24 and 25 October rounds built the Esc menu, the camp screen, the pockets and chest, food, the hotbar, Grow's unlocks (sprouts, replanting, the bridge, ivy) and the repair card. They were tested headless only. Each packet's "first look" list is in the status page.
 - **Two plays recorded and never debriefed.** Both are in the game's user folder on this laptop:
   - `20261017-141154-landscape_garage_nominal`: 15 minutes on the stand-in garage, build `bb9f47f`.
@@ -85,11 +85,11 @@ If the gate says move, items 4 to 10 become port stages, and the Godot game stay
 ## Housekeeping (small; mostly Ben's hand)
 
 - **H1.** ~~Fast-forward the local `run2/integration` to GitHub's~~: done 8 November (`99d42e2`).
-- **H2.** Ben said yes (8 November). Auto mode refused the lead every GitHub write, so these are Ben's clicks:
-  - [#20](https://github.com/YourLifewithAI/Garage-Game/pull/20): mark it ready for review, then merge with a merge commit (docs only, two files, no secrets or real-room data);
-  - [#17](https://github.com/YourLifewithAI/Garage-Game/pull/17): close (the planetoid direction belongs to the EnFractal repository);
-  - [#12](https://github.com/YourLifewithAI/Garage-Game/pull/12): close (superseded by `docs/magic/README.md`).
-  - Keep the branches.
+- **H2.** ~~Merge #20, close #17 and #12~~: done 8 November, on Ben's sign-off typed in the lead's session.
+  - [#20](https://github.com/YourLifewithAI/Garage-Game/pull/20): marked ready and merged with a merge commit (`f7af65f`);
+  - [#17](https://github.com/YourLifewithAI/Garage-Game/pull/17): closed (the planetoid direction belongs to the EnFractal repository);
+  - [#12](https://github.com/YourLifewithAI/Garage-Game/pull/12): closed (superseded by `docs/magic/README.md`).
+  - All three branches are kept on GitHub.
 - **H3.** About 80 finished worktrees under `C:\dev\EnFractal-run1`, `-run2` and `-codex`, and their merged branches. Removing them is deletion, so Ben runs the script himself (`.cache\scratch-integrator\remove-finished-worktrees.ps1`). The lead can first bring its list up to date.
 - **H4.** Rename leftovers:
   - the worktree folders are still named `EnFractal-*`;
