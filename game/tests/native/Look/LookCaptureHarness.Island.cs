@@ -38,7 +38,8 @@ public partial class LookCaptureHarness
                 // it where the bodies are), once, so later camera lookups never hold the whole land again.
                 TerrainCollision.EnsureAll(_world, holdS: 0.5);
                 var space = _world.GetWorld3D().DirectSpaceState;
-                _derived = IslandCameras.Derive(_world.Room, IslandCameras.RayGround(space, _world.Room.Bounds), IslandCameras.RaySky(space), _deriveNotes);
+                _derived = IslandCameras.Derive(_world.Room, IslandCameras.RayGround(space, _world.Room.Bounds), IslandCameras.RaySky(space), _deriveNotes,
+                    IslandCameras.RayFooting(space, _world.Player.FloorMaxAngle));
                 foreach (var note in _deriveNotes) GD.Print("LOOK_CAPTURE derive: " + note);
             }
             var derived = _derived;
