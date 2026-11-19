@@ -22,7 +22,7 @@ The handoff page for [RUN-3.md](RUN-3.md), the story run. An integrating session
   |---|---|---|---|
   | `sound` | The buses, one director, 28 sounds made in code | Sonnet, reviewed by a fresh Opus | **Merged** (`1ce6be8`), both runners green on the merge |
   | `look-perf` | L-perf | Opus | **Merged** (`a7b6cf5`), both runners green. Partial: no frame time won |
-  | `contracts` | The story pack contract (on the integrator's behalf) | Opus, reviewed twice by a fresh Opus | **Not merged.** See "The story contract" below |
+  | `contracts` | The story pack contract (on the integrator's behalf) | Opus, reviewed twice by a fresh Opus | **Merged** (`f47b74b`) after three rounds: contract tests 182, the shipped files validate, both runners green on the merge. See "The story contract" below |
 
 - **Sound, as merged.** The director attaches in `RoomWorld._Ready` after the command host; `project.godot` names the bus layout; `native_audio.tscn` is in both runner lists (392 checks). A headless run starts no audio. `capture-look.ps1` passes `--audio-driver Dummy`, so captures are silent; one single-view capture with sound attached ran clean (the hamlet 7.9 / 11.0 ms, as before).
   - **Open:** a windowed game quit while sounds play can still print Godot's "ObjectDB instances were leaked at exit" (a race in the audio server; the headless switch hides it from the tests and does not remove it).
@@ -39,8 +39,8 @@ The handoff page for [RUN-3.md](RUN-3.md), the story run. An integrating session
     - the apple-picking hitch was not reproduced; `-Sweep` still fails with the island cameras;
     - check whether sound's start adds to the first view's worst frame (86 ms with the hamlet first, against 65 to 67 ms at the spawn before sound).
 - **The summit has nothing to see.** The true summit view is a wide, flat, pale tabletop, with none of the island below in the frame. Nobody has checked that this spot is the island's `x_summit`. The ending rests on this place: Q3 checks the route and the spot, and the look and the plant kit make it worth reaching.
-- **A crash under load, not ours to chase yet.** The room runner's character steps crashed at exit three times in the `contracts` worktree (a .NET finalizer crash, "Leaked unsafe reference", GLTF) while four suites shared the machine. The same steps pass alone, and the integrator's five room-runner passes never showed it. Stagger the lanes' final runner passes.
-- **Not started:** Q1 (waits for the contract) and L-air (waits for L-perf round 2).
+- **A crash under load, not ours to chase yet.** The room runner's character steps crashed at exit three times in the `contracts` worktree (a .NET finalizer crash, "Leaked unsafe reference", GLTF) while four suites shared the machine. In the third round the look-characters step crashed there twice run alone as well. The integrator's six room-runner passes never showed it, the last of them on the contract merge with no lane running (`NATIVE_LOOK_CHARACTERS` 309/309). Unexplained: it has only ever appeared in that one worktree. Stagger the lanes' final runner passes, and if it shows in another worktree, diagnose it before anything else.
+- **Not started:** Q1 (the contract is in, so nothing blocks it) and L-air (waits for L-perf round 2).
 - **Both Windows runners on the base: green.**
   - The room runner passed on `8c20e90`.
   - The engine runner first failed one check there, and stopped before its later suites: the play HUD's "noon is the brightest" reads the real date, and on 18 November the late-afternoon step reads 0.96 against noon's 0.89. Main fails the same way on this date. Fixed in the test (`1cb4ded`); the engine runner then passed on `1cb4ded` with no failing check (companion 868 tests, playtest reader 98).
@@ -49,16 +49,7 @@ The handoff page for [RUN-3.md](RUN-3.md), the story run. An integrating session
 
 ### The story contract
 
-**State at 22:35 on 18 November: not merged.** `run3/contracts` holds round 1 (`9414dc6`) and the first fix round (`0decccc`), which merged cleanly into the integration tree and passed both runners there before the review's blockers kept it out. A short third round was running for the re-review's findings:
-- a step whose condition needs a topic the step never opens;
-- digits in titles, names and lines (and Unicode digits);
-- the save's room against the pack's `room_id`;
-- quest facts against progress;
-- `fractals_spent` against the island's budget;
-- a `"` inside quoted text;
-- where the two summit effects may sit.
-
-If a newer commit is on the branch, its body holds the lane's report; if not, that list is what is left.
+**Merged on 18 November (`f47b74b`).** Three rounds on `run3/contracts`: round 1 (`9414dc6`), the first fix round (`0decccc`) and a short third round (`8ce8427`) for the re-review's seven findings. Nothing from the reviews is left open except Q1's attribution question below. Each lane commit's body holds that round's report.
 
 - **What it is** (`contracts/island-story.schema.json`, `check_story` and its companions in `contracts/validate.py`, `game/stories/example/v1.json`): a pack at `game/stories/<id>/v<N>.json` names its island (`room_id`) and its rules pack. Chapters hold quests, quests hold steps; a step has a journal line, one condition from a closed list of nine, an optional lead and beats. Rewards are a keepsake or a lead to a Fractal the island already has. Quest state is room state's `extensions.x_story`; the journal has three quest kinds.
 - **Round 1 passed its own tests and was still broken.** The reviewer wrote packs that validated and could never be finished, and showed that the Gubble's own Fire could satisfy "a campfire lit". The fix rounds closed both blockers.
@@ -76,8 +67,8 @@ If a newer commit is on the branch, its body holds the lane's report; if not, th
 
 ## The next session, in order
 
-0. Read this page. `run3/integration` is pushed; the lane branches are local only.
-1. **The story contract:** finish what "The story contract" above says is left, then merge it: the contract tests (`python -m unittest discover -s contracts/tests` from the repository's root, with `.cache\contracts-venv`), `validate.py` over the shipped rooms, presets, rules and stories, and both Windows runners on the merge.
+0. Read this page. `run3/integration` is pushed with all three lanes merged; the lane branches are local only. Both Windows runners were green on every merge, the last on `f47b74b`.
+1. **The story contract is merged.** To recheck it: the contract tests (`python -m unittest discover -s contracts/tests` from the repository's root, with `.cache\contracts-venv`) and `validate.py` over the shipped rooms, presets, rules and stories.
 2. **Q1, the quest ledger** (Opus), on the merged contract, starting with the attribution question above.
 3. **L-perf round 2** (Opus, the GPU lane), then **L-air**. Show the founder the 30 m and 40 m pair first.
 4. **Sound's small follow-ups** above, by the integrator or a short Sonnet round.
