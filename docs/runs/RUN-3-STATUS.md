@@ -8,6 +8,29 @@ The handoff page for [RUN-3.md](RUN-3.md), the story run. An integrating session
 - **Why the run moves to the laptop** (the founder's word): the container has four cores and no GPU. Software OpenGL draws the test room's HUD in 69 to 83 s and the 10x island in 9 minutes, in the Compatibility renderer, which is not the look. The real Forward+ renderer starts on a software Vulkan driver but had written no frame after five minutes. Look, sound, windowed captures, frame times and the Windows runners all need the founder's machine.
 - **Left in the container, unused and never committed:** the software Vulkan driver unpacked in `.cache/linux/lavapipe`.
 
+## The first laptop session (18 November, DiamondAge)
+
+- **Step 0, done.** `tools/check-run1-readiness.ps1`: every lane ready, nothing to bootstrap. The checkout is `C:\dev\Garage-Game`.
+- **The branch.** `run3/integration`, cut from the handoff (`f58f429`) with `run2/integration` merged in (`d7b4170`): LEAD.md, the two debriefs and the companion's `GARAGE_GAME_HOST` switch had never reached main. Not pushed yet.
+- **Step 1, done.** The "before" sets are in [docs/look/reviews/run3/](../look/reviews/run3/README.md) (`8c20e90`): the island cameras by day, at dusk and at night, with frame times. Shown to the founder as three contact sheets.
+  - Over the provisional budget: the spawn view (18.1 ms p95, worst frame 65 to 67 ms) and the far Fractal view (19.6 ms p95).
+  - The summit camera could not place the player, so there is no picture from the top yet; `-Sweep` fails with the island cameras. Both are in L-perf's packet.
+- **Step 2, done.** The opening commit is `496ad80`: OWNERSHIP.md's Run 3 section (with a narrow grant for L-perf), AGENTS.md's worktree line and LEAD.md's note.
+- **Step 3, batch 1 dispatched,** each in `C:\dev\Garage-Game-run3\<lane>` on `run3/<lane>`, with `.cache\dotnet`, `.cache\godot` and `.cache\contracts-venv` linked to the integrator's:
+
+  | Worktree | Packet | Model | State |
+  |---|---|---|---|
+  | `contracts` | The story pack contract, its examples, the save's story block, an example pack (on the integrator's behalf) | Opus | Running |
+  | `sound` | The bus, the director, a first set of sounds made in code, WAV previews for the founder's ears | Sonnet | Running |
+  | `look-perf` | L-perf: the freeze, the hitches, the two views over budget, the summit camera | Opus | Running (the only GPU lane) |
+
+- **Not started:** Q1 (waits for the contract to merge) and L-air (waits for L-perf).
+- **Both Windows runners on the base: green.**
+  - The room runner passed on `8c20e90`.
+  - The engine runner first failed one check there, and stopped before its later suites: the play HUD's "noon is the brightest" reads the real date, and on 18 November the late-afternoon step reads 0.96 against noon's 0.89. Main fails the same way on this date. Fixed in the test (`1cb4ded`); the engine runner then passed on `1cb4ded` with no failing check (companion 868 tests, playtest reader 98).
+  - The three lanes were told to merge `1cb4ded` before their final runner pass.
+  - **For L-air:** the day's light keys sit at fixed hours and peak after noon, so they do not follow the day's length. In winter the brightest light comes under two hours before sunset.
+
 ## For the session on the laptop, in order
 
 0. **Start.** Fetch and check out `claude/sweet-newton-y33w6t`. Read the pages above. Run `tools/check-run1-readiness.ps1` and the bootstrap if the machine needs it. On a machine not yet renamed, read `C:\dev\EnFractal` for `C:\dev\Garage-Game` (AGENTS.md). Check for a `Garage Game*` window before any render.
