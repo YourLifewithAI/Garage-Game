@@ -191,6 +191,8 @@ public partial class RoomWorld : Node3D
             // appearance profile the HUD read first. A fixture's room has no team file and keeps the profile's, as before.
             if (team.GameBoot && commandHost.Team is { } teamFile) hud.UseTeam(teamFile);
             commandHost.ConfigureNature();
+            // Run 3's Sound lane: ambience and effects made in code. It must follow the command host it listens to.
+            Audio.AudioDirector.Attach(this);
             // Fire's camp (decision 49): the two bodies where this mode's island save last saw them, else at the starting campfire.
             commandHost.PlaceAtStartSpot();
             // The island's clock record once the save is read (M6): none, the machine's clock, as before.

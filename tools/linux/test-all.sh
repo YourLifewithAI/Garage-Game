@@ -101,6 +101,7 @@ run native_characters "NATIVE_CHARACTERS: [0-9]+/[0-9]+ checks passed" --headles
 run native_body_knacks "NATIVE_BODY_KNACKS: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native_body_knacks.tscn
 run native_kernel_bubble "NATIVE_KERNEL_BUBBLE: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native_kernel_bubble.tscn
 run native_playtest "NATIVE_KERNEL_PLAYTEST: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native_playtest.tscn
+run native_audio "NATIVE_KERNEL_AUDIO: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native_audio.tscn
 run native_body_knacks_boot "NATIVE_BODY_KNACKS_BOOT: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native_body_knacks.tscn -- --boot-room --knack=quick_feet:3 --knack=cat_feet:2
 run native_team_saves "NATIVE_TEAM_SAVES: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native_team_saves.tscn
 run native_menu "NATIVE_MENU: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native/Menu/native_menu.tscn
