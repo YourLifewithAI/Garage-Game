@@ -343,7 +343,7 @@
       }
     },
     "extensions": {
-      "description": "Experiments (common.schema.json). The kernel host writes its own blocks here under x_play_: among them x_play_nature, the island's nature (the ground's cells, what fire did to each object and creation, the trail, the weather clock and the latest nature changes' undo steps), checked whole before anything is restored. Other readers ignore them. Since P-Inventory-2 x_play_nature writes no wallet (decision 116: logs and stones are stacks); an older one is read and its counts become the chest's stacks on load; it keeps loose, the units set down on the island (decision 118: each a kind and its bottom centre in the room, at most 256, the oldest going first). Since the mechanics round two keys are typed here: x_clock, the island's clock, and x_team, whose save this is and how it plays (written by the teams packet, M3, and the clock's, M6); and since P-Inventory x_play_camp's chest, the island's one chest.",
+      "description": "Experiments (common.schema.json). The kernel host writes its own blocks here under x_play_: among them x_play_nature, the island's nature (the ground's cells, what fire did to each object and creation, the trail, the weather clock and the latest nature changes' undo steps), checked whole before anything is restored. Other readers ignore them. Since P-Inventory-2 x_play_nature writes no wallet (decision 116: logs and stones are stacks); an older one is read and its counts become the chest's stacks on load; it keeps loose, the units set down on the island (decision 118: each a kind and its bottom centre in the room, at most 256, the oldest going first). Since the mechanics round two keys are typed here: x_clock, the island's clock, and x_team, whose save this is and how it plays (written by the teams packet, M3, and the clock's, M6); and since P-Inventory x_play_camp's chest, the island's one chest; and since Run 3's story round x_story, the island's quests (contracts/island-story.schema.json): absent, no story has started.",
       "$ref": "common.schema.json#/$defs/extensions",
       "properties": {
         "x_clock": {
@@ -354,6 +354,9 @@
         },
         "x_play_camp": {
           "$ref": "#/$defs/x_play_camp"
+        },
+        "x_story": {
+          "$ref": "#/$defs/x_story"
         }
       }
     }
@@ -799,6 +802,96 @@
           "else": {
             "properties": {
               "difficulty": false
+            }
+          }
+        }
+      ]
+    },
+    "x_story": {
+      "description": "The island's story in this save (Run 3's story round; docs/runs/RUN-3.md section 3): the story pack it is played against and each quest that has started, keyed by the pack's quest id. Written only by the host's quest ledger, from facts the kernel verified; no request writes it, and nothing a companion sends can advance it (the companion reads quests through the journal, as the player does). A quest not listed has not started. Absent: a save from before the story round, or an island whose story has not started; read as no story started. contracts/validate.py checks the revisions against the store and, when the pack is in game/stories, every quest and step against it. Fallbacks: a save naming a pack or version the game does not have keeps the block untouched and inert (validate.py refuses it, since it cannot check it); an unknown quest or step id is refused by validate.py and left untouched by the game. validate.py also checks order: a quest started only after the quests its start waits on were done, a step passed only after the quests it waits on were done, and every quest fact in the journal against the block and the pack (its story and version, a started quest, its step, a done quest's quest_done, and a pin only the lead the pack gives that step).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "story_id",
+        "story_version",
+        "quests"
+      ],
+      "properties": {
+        "story_id": {
+          "$ref": "common.schema.json#/$defs/token"
+        },
+        "story_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "quests": {
+          "type": "object",
+          "maxProperties": 64,
+          "propertyNames": {
+            "$ref": "common.schema.json#/$defs/token"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/story_quest"
+          }
+        }
+      }
+    },
+    "story_quest": {
+      "description": "One started quest: active at its current step (the next not done), or done. No counter of Fractals, no score: the conditions read facts the kernel already keeps.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "started_revision"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "active",
+            "done"
+          ]
+        },
+        "step": {
+          "description": "Active only, and required there: the id of the quest's current step.",
+          "$ref": "common.schema.json#/$defs/token"
+        },
+        "started_revision": {
+          "description": "The room revision when the quest started.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "done_revision": {
+          "description": "Done only, and required there.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "active"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "step"
+            ],
+            "properties": {
+              "done_revision": false
+            }
+          },
+          "else": {
+            "required": [
+              "done_revision"
+            ],
+            "properties": {
+              "step": false
             }
           }
         }

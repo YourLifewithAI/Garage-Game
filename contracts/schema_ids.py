@@ -68,22 +68,27 @@ GENERATOR = ("garage-game-roomscan", "enfractal-roomscan")  # a captured room's 
 GLB_PART_KEYS = ("garage_game_part", "enfractal_part")  # a character GLB node's extras key
 GLB_MATERIAL_KEYS = ("garage_game_material", "enfractal_material")  # a character GLB material's extras key
 
-_BY_ID = {spelling: kind for kind, pair in IDS.items() for spelling in pair}
+# Kinds first written after the rename, which no file ever wrote with the old spelling: one id, and readers accept only it.
+NEW_ONLY: dict[str, str] = {
+    "island_story": "garage_game.island_story",
+}
+
+_BY_ID = {spelling: kind for kind, pair in IDS.items() for spelling in pair} | {new: kind for kind, new in NEW_ONLY.items()}
 
 
 def id_of(kind: str) -> str:
     """The id a writer writes for `kind` (a KeyError for a kind the table does not have)."""
-    return IDS[kind][0]
+    return NEW_ONLY[kind] if kind in NEW_ONLY else IDS[kind][0]
 
 
 def ids_of(kind: str) -> tuple[str, str]:
-    """Both spellings a reader accepts for `kind`, the new one first."""
-    return IDS[kind]
+    """Both spellings a reader accepts for `kind`, the new one first (only the new one for a NEW_ONLY kind)."""
+    return (NEW_ONLY[kind],) if kind in NEW_ONLY else IDS[kind]
 
 
 def is_schema(value: object, kind: str) -> bool:
     """Whether `value` names `kind` in either spelling. A kind the table does not have is a KeyError, never False."""
-    return isinstance(value, str) and value in IDS[kind]
+    return isinstance(value, str) and value in ids_of(kind)
 
 
 def kind_of(value: object) -> str | None:
@@ -94,4 +99,4 @@ def kind_of(value: object) -> str | None:
 def is_old(value: object) -> bool:
     """Whether `value` is an id in the spelling written before the rename."""
     kind = kind_of(value)
-    return kind is not None and value == IDS[kind][1]
+    return kind is not None and kind not in NEW_ONLY and value == IDS[kind][1]

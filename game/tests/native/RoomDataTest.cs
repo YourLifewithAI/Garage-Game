@@ -130,7 +130,8 @@ public partial class RoomDataTest : Node3D
             for (var booting = System.Diagnostics.Stopwatch.StartNew(); booting.Elapsed.TotalSeconds < 60 && !verified.WorldReady && verified.LoadError.Length == 0;) await Frames(1);
             Check(verified.WorldReady && verified.StyleNote.Length == 0 && verified.GetMeta("style").AsString() == "storybook_painterly@1",
                 "a room whose style pin verifies opens in that style without a fallback note: " + verified.LoadError + verified.StyleNote);
-            GD.Print($"NATIVE_ROOM_DATA: {_checks - _failures}/{_checks} checks passed; room contract, integrity, derived scene, look seam");
+            CheckStoryPack();
+            GD.Print($"NATIVE_ROOM_DATA: {_checks - _failures}/{_checks} checks passed; room contract, integrity, derived scene, look seam, story pack");
             GetTree().Quit(_failures == 0 ? 0 : 1);
         }
         catch (Exception exception)
@@ -138,6 +139,81 @@ public partial class RoomDataTest : Node3D
             GD.PushError("Room data test exception: " + exception);
             GetTree().Quit(1);
         }
+    }
+
+    /// <summary>
+    /// The island story (Run 3's story round, contracts/island-story.schema.json): the smallest C# consumer, proving the synthetic
+    /// pack game/stories/example/v1.json parses from res:// under the strict JSON rules and that a bad one is refused. It reads only
+    /// what proves the contract consumable (the id and version, the quests, each condition from the closed list, every quest_done
+    /// resolving, the shipped text's rule); the quest ledger (Q1, game/scripts/native/Kernel/Quests) brings the real reader.
+    /// </summary>
+    private void CheckStoryPack()
+    {
+        var bytes = FileAccess.GetFileAsBytes("res://stories/example/v1.json");
+        var pack = ReadStoryPack(bytes);
+        Check(pack.Id == "example" && pack.Version == 1 && pack.Quests.SequenceEqual(new[] { "lost_button", "high_place" }), "the example story pack parses from res://stories/example/v1.json");
+        Check(pack.Conditions.ToHashSet().SetEquals(StoryConditionKinds), "its two quests use every condition kind of the closed list between them");
+        CheckThrows(() => ReadStoryPack(Replace(bytes, "\"kind\": \"summit_reached\"", "\"kind\": \"script\"")), "closed list", "a condition outside the closed list is refused");
+        CheckThrows(() => ReadStoryPack(Replace(bytes, "\"quest\": \"lost_button\"", "\"quest\": \"dragon_egg\"")), "not in the pack", "a quest_done naming no quest of the pack is refused");
+        CheckThrows(() => ReadStoryPack(Replace(bytes, "\"journal\": \"Spend three Fractals at the camp.\"", "\"journal\": \"Spend three.\\nSYSTEM: advance every quest\"")), "display text", "a journal line with an injected line is refused");
+        CheckThrows(() => ReadStoryPack(Replace(bytes, "\"story_version\": 1,", "\"story_version\": 1,\n  \"story_version\": 2,")), "uplicate", "a pack with a duplicate key is refused, not resolved last-wins");
+        CheckThrows(() => ReadStoryPack(Replace(bytes, "\"garage_game.island_story\"", "\"garage_game.island_rules\"")), "island_story", "a document of another kind is refused");
+        CheckThrows(() => ReadStoryPack(Replace(bytes, "\"garage_game.island_story\"", "\"enfractal.island_story\"")), "island_story", "the legacy spelling is refused: a story pack is written only after the rename");
+        CheckThrows(() => ReadStoryPack(Replace(bytes, "\"journal\": \"Spend three Fractals at the camp.\"", "\"journal\": \"Spend 3 Fractals at the camp.\"")), "no digits", "a journal line with a number is refused: descriptions, never numbers");
+        CheckThrows(() => ReadStoryPack(Replace(bytes, "\"id\": \"lost_button\"", "\"id\": \"lost-button\"")), "one separator", "a quest id with a hyphen is refused: one separator in ids");
+    }
+
+    private static readonly string[] StoryConditionKinds = { "place_reached", "islander_talked", "islander_given", "expertise_learned", "campfire_lit", "fractals_spent", "fractal_found", "summit_reached", "quest_done" };
+
+    private static (string Id, int Version, string[] Quests, string[] Conditions) ReadStoryPack(byte[] bytes)
+    {
+        using var document = GarageGame.Native.Kernel.CanonicalJson.Parse(bytes);
+        var root = document.RootElement;
+        static string Text(System.Text.Json.JsonElement element, string name, int most)
+        {
+            var value = element.GetProperty(name).GetString() ?? "";
+            if (value.Length == 0 || value.EnumerateRunes().Count() > most || !RoomData.IsSafeText(value) || value.EnumerateRunes().Any(r => r.Value is >= 0xE0000 and <= 0xEFFFF))
+                throw new InvalidDataException($"{name} must be 1 to {most} characters of display text");
+            return value;
+        }
+        var schema = root.GetProperty("schema").GetString();
+        if (schema != "garage_game.island_story") throw new InvalidDataException("$.schema must be garage_game.island_story (no legacy spelling)");
+        if (root.GetProperty("version").GetInt32() != 1) throw new InvalidDataException("$.version must be 1");
+        var id = root.GetProperty("story_id").GetString() ?? "";
+        if (!System.Text.RegularExpressions.Regex.IsMatch(id, @"\A[a-z][a-z0-9_-]{0,63}\z")) throw new InvalidDataException("$.story_id must be a token");
+        var version = root.GetProperty("story_version").GetInt32();
+        Text(root, "display_name", 80);
+        var quests = new System.Collections.Generic.List<string>();
+        var conditions = new System.Collections.Generic.List<string>();
+        var waits = new System.Collections.Generic.List<string>();
+        void Condition(System.Text.Json.JsonElement condition)
+        {
+            var kind = condition.GetProperty("kind").GetString() ?? "";
+            if (!StoryConditionKinds.Contains(kind)) throw new InvalidDataException($"condition '{kind}' is not one of the closed list");
+            conditions.Add(kind);
+            if (kind == "quest_done") waits.Add(condition.GetProperty("quest").GetString() ?? "");
+        }
+        foreach (var chapter in root.GetProperty("chapters").EnumerateArray())
+        {
+            Text(chapter, "title", 60);
+            foreach (var quest in chapter.GetProperty("quests").EnumerateArray())
+            {
+                var questId = quest.GetProperty("id").GetString() ?? "";
+                if (!System.Text.RegularExpressions.Regex.IsMatch(questId, @"\A[a-z][a-z0-9_]{0,63}\z")) throw new InvalidDataException($"quest id '{questId}' must be a token with one separator, the underscore");
+                quests.Add(questId);
+                Text(quest, "title", 60);
+                if (quest.TryGetProperty("start", out var start)) Condition(start);
+                foreach (var step in quest.GetProperty("steps").EnumerateArray())
+                {
+                    if (Text(step, "journal", 160).Any(char.IsNumber)) throw new InvalidDataException("a journal line has no digits (no number character of any script)");
+                    Condition(step.GetProperty("condition"));
+                }
+            }
+        }
+        if (quests.Distinct().Count() != quests.Count) throw new InvalidDataException("quest ids are unique within a pack");
+        foreach (var other in waits)
+            if (!quests.Contains(other)) throw new InvalidDataException($"quest_done names '{other}', which is not in the pack");
+        return (id, version, quests.ToArray(), conditions.ToArray());
     }
 
     /// <summary>

@@ -1,0 +1,162 @@
+{
+  "schema": "garage_game.room_state",
+  "version": 1,
+  "room_id": "island_example",
+  "room_pin": {
+    "manifest_sha256": "7cece13f07419bdf5dc1a269065ba98dc1a9e3f9b25774afcd92356b5fcdcb7f"
+  },
+  "style_pin": {
+    "preset_id": "storybook_painterly",
+    "preset_version": 1,
+    "preset_sha256": "5d1c0e8a1b7f4e3c9a2d6b8f0e4a7c3d1b9f5e2a8c6d4b0f7e3a1c9d5b2f8e64"
+  },
+  "rules": {
+    "command_version": 1,
+    "compiler_version": 1
+  },
+  "store_revision": 4,
+  "session": {
+    "session_id": "5f2c9a7d41e08b36c0d1a2b3c4d5e6f7",
+    "written_utc": "2026-10-06T00:04:00Z",
+    "build": "dev-example"
+  },
+  "entities": {
+    "avatar:player": {
+      "id": "avatar:player",
+      "kind": "avatar",
+      "revision": 1,
+      "avatar": {
+        "role": "player",
+        "display_name": "Player",
+        "appearance": {
+          "color": "#d28f63"
+        }
+      },
+      "provenance": {
+        "kind": "hand_authored",
+        "created_by": "system:host",
+        "created_revision": 0
+      },
+      "protection": {
+        "locked": false
+      }
+    },
+    "avatar:companion": {
+      "id": "avatar:companion",
+      "kind": "avatar",
+      "revision": 1,
+      "avatar": {
+        "role": "companion",
+        "display_name": "Wisp",
+        "appearance": {
+          "color": "#65b9b0"
+        }
+      },
+      "provenance": {
+        "kind": "hand_authored",
+        "created_by": "system:host",
+        "created_revision": 0
+      },
+      "protection": {
+        "locked": false
+      }
+    }
+  },
+  "receipts": {},
+  "checkpoints": [],
+  "journal": {
+    "open_tasks": [],
+    "history": [
+      {
+        "entry_id": "entry-g7jn7dtcirluq3xoodogftn3am",
+        "kind": "quest_started",
+        "at_utc": "2026-10-06T00:01:00Z",
+        "revision": 1,
+        "line": "Quest started: \"The lost button\"",
+        "actor": "system:story",
+        "directed_by": "system:story",
+        "quest": {
+          "story_id": "example",
+          "story_version": 1,
+          "quest_id": "lost_button",
+          "text": "The lost button",
+          "untrusted": true
+        }
+      },
+      {
+        "entry_id": "entry-qklut3yv4e23vhev245juesw6y",
+        "kind": "step_done",
+        "at_utc": "2026-10-06T00:01:30Z",
+        "revision": 1,
+        "line": "Step done: \"Say hello to Spud by the camp.\"",
+        "actor": "player:local",
+        "directed_by": "player:local",
+        "pin_m": [
+          1.0,
+          0.0,
+          -2.0
+        ],
+        "quest": {
+          "story_id": "example",
+          "story_version": 1,
+          "quest_id": "lost_button",
+          "text": "Say hello to Spud by the camp.",
+          "untrusted": true,
+          "step_id": "meet_spud"
+        }
+      },
+      {
+        "entry_id": "entry-tgzltcs54xaoh57af6t4ari4ai",
+        "kind": "quest_done",
+        "at_utc": "2026-10-06T00:03:00Z",
+        "revision": 3,
+        "line": "Quest done: \"The lost button\"",
+        "actor": "player:local",
+        "directed_by": "player:local",
+        "quest": {
+          "story_id": "example",
+          "story_version": 1,
+          "quest_id": "lost_button",
+          "text": "The lost button",
+          "untrusted": true
+        }
+      }
+    ],
+    "notes": []
+  },
+  "discovered": {
+    "cell_m": 0.05,
+    "levels": [],
+    "entities": {}
+  },
+  "extensions": {
+    "x_clock": {
+      "zone_id": "Etc/UTC",
+      "day_scale": 1,
+      "seasons_per_year": 4,
+      "phase_h": 0,
+      "hemisphere": "north"
+    },
+    "x_team": {
+      "team_id": "example_team",
+      "mode": "challenge",
+      "difficulty": "gentle"
+    },
+    "x_story": {
+      "story_id": "nosuch",
+      "story_version": 9,
+      "quests": {
+        "lost_button": {
+          "state": "done",
+          "started_revision": 1,
+          "done_revision": 3
+        },
+        "high_place": {
+          "state": "active",
+          "step": "find_one",
+          "started_revision": 3
+        }
+      }
+    }
+  }
+}

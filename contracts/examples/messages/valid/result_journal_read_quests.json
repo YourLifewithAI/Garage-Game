@@ -1,0 +1,34 @@
+{
+  "schema": "garage_game.result",
+  "version": 1,
+  "ok": true,
+  "op": "journal.read",
+  "query_id": "q-0090",
+  "principal": "companion:local",
+  "room_id": "garage_example",
+  "revision": 4,
+  "replayed": false,
+  "preview": false,
+  "data": {
+    "open_tasks": [],
+    "entries": [
+      {
+        "entry_id": "entry-tgzltcs54xaoh57af6t4ari4ai",
+        "kind": "quest_done",
+        "at_utc": "2026-10-06T00:03:00Z",
+        "revision": 3,
+        "line": "Quest done: \"The lost button\"",
+        "actor": "player:local",
+        "directed_by": "player:local",
+        "quest": {
+          "story_id": "example",
+          "story_version": 1,
+          "quest_id": "lost_button",
+          "text": "The lost button",
+          "untrusted": true
+        }
+      }
+    ]
+  },
+  "at_utc": "2026-10-06T00:05:00Z"
+}

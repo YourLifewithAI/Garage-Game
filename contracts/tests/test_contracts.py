@@ -285,7 +285,7 @@ def l_shaped_room(base: Path, reverse_wall: str | None = None) -> Path:
 class SchemaTests(unittest.TestCase):
     def test_every_schema_is_valid_draft_2020_12(self):
         schemas = sorted(CONTRACTS.glob("*.schema.json"))
-        self.assertEqual(len(schemas), 11)  # the playtest record joined on 15 October, the menu's files on 16 October
+        self.assertEqual(len(schemas), 12)  # the playtest record joined on 15 October, the menu's files on 16 October, the island story in Run 3
         for path in schemas:
             with self.subTest(schema=path.name):
                 Draft202012Validator.check_schema(validate.load_strict(path))
@@ -711,7 +711,10 @@ class MagicModesWishesAndNatureTests(unittest.TestCase):
         self.assertEqual(re.findall(r'\["kind"\] = "([a-z_]+)"', notice), self.defs["consequence_notice"]["properties"]["kind"]["enum"])
         self.assertEqual(int(re.search(r"\bconst int MaxNotices = (\d+);", consequences).group(1)),
                          self.defs["result"]["properties"]["notices"]["maxItems"])
-        self.assertEqual(kernel_set(KERNEL / "CommandHostJournal.cs", "JournalKinds"), set(self.defs["journal_kind"]["enum"]))
+        # The story round (Run 3) added the quest kinds to the contract; the kernel learns them with the quest ledger (Q1), and from
+        # then the two sets are equal again. Until it does, the kernel's kinds are the contract's less exactly those three.
+        kernel_kinds, story_kinds = kernel_set(KERNEL / "CommandHostJournal.cs", "JournalKinds"), {"quest_started", "step_done", "quest_done"}
+        self.assertIn(kernel_kinds, (set(self.defs["journal_kind"]["enum"]), set(self.defs["journal_kind"]["enum"]) - story_kinds))
         host = (KERNEL / "CommandHost.cs").read_text(encoding="utf-8")
         # Decision 82 (24 October): no stop puts a fire out, so the hosts no longer write fires_put_out (the schema keeps it for older documents).
         self.assertNotIn('fires_put_out', host)

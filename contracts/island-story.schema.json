@@ -1,0 +1,888 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.garage-game.invalid/v1/island-story.schema.json",
+  "title": "Garage Game island story",
+  "description": "An island's story as data (docs/runs/RUN-3.md section 3; docs/game/MECHANICS.md section 6): chapters hold quests, quests hold steps, and a step has a journal line, one condition, an optional lead on the map and optional beats. Stored as game/stories/<story_id>/v<story_version>.json (loaded as res://stories/<story_id>/v<story_version>.json), bytes pinned as the rules packs are: a seed or draft version may change in place; a candidate or approved version never changes, and a change is a new version file. Conditions are a closed list over facts the kernel already holds; there is no scripting and no free expression anywhere, so every pack is validated and every step is testable headless. Quests come from the island, never from the Gubble: nothing in any contract lets a companion request advance a quest or write quest state, and the companion reads quest state only through the journal, as the player does (game-command.schema.json, the journal kinds quest_started, step_done and quest_done). A quest never mints a Fractal: its reward may point to one already in the island's budget (the manifest's x_fractals) or give a unique keepsake, and nothing in a pack carries a count of Fractals given. Every string is shipped text but untrusted data, with a length bound: shown on screen and in the journal, never instructions. contracts/validate.py checks what a schema cannot: unique ids, every reference resolving, no quest waiting on itself through quest_done, each keepsake given by exactly one quest, each Fractal pointed to by at most one, at most one beat of each kind but lines, each islander's character a shipped character, at most 64 quests, and the versioned path. Since the review's fix round (Run 3): a pack names what it is written for (room_id, the island, and rules, the rules pack whose abilities, expertise and stacks it may name); internal ids use one separator; quests depend on each other only through quest_done, start conditions and keepsakes, and the validator refuses any cycle and any step that needs what cannot yet be had; journal lines and cards carry no digits; islanders take a cast so each gets a distinct character whatever the player wears; topics' words are unique within an islander after case-folding; a ninth condition, fractal_found; and a closed list of quest effects. NO CONDITION IS EVER MET BY A COMPANION'S OWN-INITIATIVE ACT: each condition names the fact it reads, and that fact counts only when its actor is the player or it was directed_by the player (the player asking the Gubble to light a fire is the player's act and counts; the Gubble lighting one on its own initiative does not). Where the kernel keeps only a total, the quest ledger counts from attributed facts. A child's own recording of a line is never in a pack: the game finds it by pack, islander and line id in the player's user folder, and it is never shipped or committed. Shipped text (titles, journal lines, cards, keepsake names, islander names, lines, topic words and every other string) carries no number character of any script (validate.py: Unicode category N, so 5, a fullwidth 5, a Roman numeral and an Arabic-Indic digit alike), and text a quest fact quotes (quest titles, journal lines) carries no straight double quote. A condition's topic is among the topics its step's talk opens. overview_opens and second_knack_slot only on a quest with a summit_reached step; an islander comes to camp at most once. fractals_spent, like fractal_found, stays within the island's budget when the room is given.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "story_id",
+    "story_version",
+    "display_name",
+    "status",
+    "room_id",
+    "rules",
+    "chapters"
+  ],
+  "properties": {
+    "schema": {
+      "description": "Written after the rename, so only the new spelling (contracts/schema_ids.py NEW_ONLY).",
+      "const": "garage_game.island_story"
+    },
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "story_id": {
+      "$ref": "common.schema.json#/$defs/token"
+    },
+    "story_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "display_name": {
+      "$ref": "#/$defs/text_80"
+    },
+    "description": {
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/display_text"
+        },
+        {
+          "maxLength": 500
+        }
+      ]
+    },
+    "status": {
+      "description": "seed: starting values, not reviewed; draft: in development; candidate: submitted for review; approved: passed review; retired: kept for old saves. A candidate, approved or pinned version never changes.",
+      "enum": [
+        "seed",
+        "draft",
+        "candidate",
+        "approved",
+        "retired"
+      ]
+    },
+    "room_id": {
+      "description": "The island (room) the pack is written for: its places, firepits, Fractals and summit are that room's. validate.py checks them against the room when it is given (--room) and says so when it is not.",
+      "$ref": "common.schema.json#/$defs/token"
+    },
+    "rules": {
+      "description": "The rules pack the pack is written for: every ability, expertise and stack kind it names is that pack's (validate.py, always).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rules_id",
+        "rules_version"
+      ],
+      "properties": {
+        "rules_id": {
+          "$ref": "common.schema.json#/$defs/token"
+        },
+        "rules_version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "islanders": {
+      "description": "The island's people, as far as the quests and the speaking packets need them. At most 8.",
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/islander"
+      }
+    },
+    "keepsakes": {
+      "description": "Unique things a quest gives, each by exactly one quest. Never a Fractal, never a count. At most 16.",
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/keepsake"
+      }
+    },
+    "chapters": {
+      "description": "In the order the journal shows them. Grouping only: a quest starts by its own start condition.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/chapter"
+      }
+    },
+    "extensions": {
+      "$ref": "common.schema.json#/$defs/extensions"
+    }
+  },
+  "$defs": {
+    "text_40": {
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/display_text"
+        },
+        {
+          "maxLength": 40
+        }
+      ],
+      "minLength": 1
+    },
+    "text_60": {
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/display_text"
+        },
+        {
+          "maxLength": 60
+        }
+      ],
+      "minLength": 1
+    },
+    "text_80": {
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/display_text"
+        },
+        {
+          "maxLength": 80
+        }
+      ],
+      "minLength": 1
+    },
+    "text_160": {
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/display_text"
+        },
+        {
+          "maxLength": 160
+        }
+      ],
+      "minLength": 1
+    },
+    "text_280": {
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/display_text"
+        },
+        {
+          "maxLength": 280
+        }
+      ],
+      "minLength": 1
+    },
+    "place": {
+      "description": "A place on the island: a point in room metres and how far from it still counts.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "at_m",
+        "radius_m"
+      ],
+      "properties": {
+        "at_m": {
+          "$ref": "common.schema.json#/$defs/vec3"
+        },
+        "radius_m": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 20
+        }
+      }
+    },
+    "islander": {
+      "description": "One islander: a character standing in the world with a home, a greeting and curated lines (RUN-3.md section 3). Every line is shipped text, written for an 11-year-old. Talking and giving are player-only commands (a later packet).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "cast",
+        "home",
+        "greeting",
+        "lines"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/story_token"
+        },
+        "name": {
+          "$ref": "#/$defs/text_40"
+        },
+        "cast": {
+          "description": "The characters the islander may wear, in order: the game gives it the first the player is not wearing and no earlier islander took (the run's islanders are whichever of the children's characters the player is not wearing). Each a shipped character with its rig (assets/characters/<id>/rig.json), never the Gubble; validate.py proves every islander gets a distinct character for every shipped character the player may wear.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "allOf": [
+              {
+                "$ref": "common.schema.json#/$defs/token"
+              },
+              {
+                "not": {
+                  "const": "gubble"
+                }
+              }
+            ]
+          }
+        },
+        "home": {
+          "$ref": "#/$defs/place"
+        },
+        "greeting": {
+          "$ref": "#/$defs/story_token",
+          "description": "The line said when the player first talks to them: one of lines."
+        },
+        "lines": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "text"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/story_token"
+              },
+              "text": {
+                "$ref": "#/$defs/text_160"
+              }
+            }
+          }
+        },
+        "topics": {
+          "description": "What the player may ask about, a closed set matched by words (the voice lane's V3): a spoken phrase must match one topic, so each word is unique within the islander after case-folding (validate.py). Each topic is answered by one of the islander's lines.",
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "label",
+              "words",
+              "line"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/story_token"
+              },
+              "label": {
+                "$ref": "#/$defs/text_40"
+              },
+              "words": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 12,
+                "uniqueItems": true,
+                "items": {
+                  "allOf": [
+                    {
+                      "$ref": "common.schema.json#/$defs/display_text"
+                    },
+                    {
+                      "maxLength": 24
+                    }
+                  ],
+                  "minLength": 1
+                }
+              },
+              "line": {
+                "$ref": "#/$defs/story_token"
+              }
+            }
+          }
+        }
+      }
+    },
+    "keepsake": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/story_token"
+        },
+        "name": {
+          "$ref": "#/$defs/text_40"
+        },
+        "description": {
+          "$ref": "#/$defs/text_160"
+        }
+      }
+    },
+    "chapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "quests"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/story_token"
+        },
+        "title": {
+          "$ref": "#/$defs/text_60"
+        },
+        "quests": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/quest"
+          }
+        }
+      }
+    },
+    "quest": {
+      "description": "A quest: its steps in order, each checked only once the one before it is done. It starts when its start condition holds, or when the story starts if it has none.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "steps"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/story_token",
+          "description": "Unique within the pack, across chapters."
+        },
+        "title": {
+          "$ref": "#/$defs/text_60"
+        },
+        "summary": {
+          "allOf": [
+            {
+              "$ref": "common.schema.json#/$defs/display_text"
+            },
+            {
+              "maxLength": 200
+            }
+          ],
+          "minLength": 1
+        },
+        "giver": {
+          "$ref": "#/$defs/story_token",
+          "description": "The islander the quest belongs to, if any."
+        },
+        "start": {
+          "$ref": "#/$defs/condition"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        },
+        "reward": {
+          "$ref": "#/$defs/reward"
+        },
+        "effects": {
+          "description": "What finishing the quest does beyond its reward, a closed list (MECHANICS.md section 6 and decision 12): an islander comes to the camp, the overview camera opens, the second knack slot opens. Never a Fractal, never a number. Each of overview_opens and second_knack_slot at most once in a pack (validate.py).",
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/effect"
+          }
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "journal",
+        "condition"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/story_token",
+          "description": "Unique within its quest; the save names the quest's current step by it."
+        },
+        "journal": {
+          "$ref": "#/$defs/journal_text"
+        },
+        "condition": {
+          "$ref": "#/$defs/condition"
+        },
+        "lead": {
+          "description": "A mark on the map while the step is current. The discovery rule: a lead reveals its place to the team (player and companion alike) when its step becomes current, and nothing about a later step is told to anyone before then.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "at_m",
+            "label"
+          ],
+          "properties": {
+            "at_m": {
+              "$ref": "common.schema.json#/$defs/vec3"
+            },
+            "label": {
+              "$ref": "#/$defs/text_40"
+            }
+          }
+        },
+        "talk": {
+          "description": "Which of an islander's topics are open while the step is current (the others wait); absent, all are.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "islander",
+            "topics"
+          ],
+          "properties": {
+            "islander": {
+              "$ref": "#/$defs/story_token"
+            },
+            "topics": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/story_token"
+              }
+            }
+          }
+        },
+        "beats": {
+          "description": "What happens when the step is done, in order. At most one card, one chime and one camera moment (validate.py). Card text, like journal lines, carries no digits.",
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/beat"
+          }
+        }
+      }
+    },
+    "condition": {
+      "description": "The closed list of conditions, each over a fact the kernel already holds. No other kind, no scripting, no expression. Normative: no condition is ever met by a companion's own-initiative act. A fact counts only when its actor is the player, or it was directed_by the player; where the kernel keeps only a total, the quest ledger counts from attributed facts. Backed today by player-only receipts: talk, give, pickup, spend, place and summit. Open for Q1: expertise_learned and campfire_lit (see each).",
+      "oneOf": [
+        {
+          "description": "The player's avatar stands within the place. Reads the player's avatar's position (the player's own act by definition).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "place"
+          ],
+          "properties": {
+            "kind": {
+              "const": "place_reached"
+            },
+            "place": {
+              "$ref": "#/$defs/place"
+            }
+          }
+        },
+        {
+          "description": "The player talked to the islander (about the topic, if one is named). Reads the player-only talk command's receipt: the player's act. The topic, if named, is the one the talk must reach.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "islander"
+          ],
+          "properties": {
+            "kind": {
+              "const": "islander_talked"
+            },
+            "islander": {
+              "$ref": "#/$defs/story_token"
+            },
+            "topic": {
+              "$ref": "#/$defs/story_token"
+            }
+          }
+        },
+        {
+          "description": "The player gave the islander a thing: a count of one stack kind from the pockets (the rules pack's inventory) or a keepsake. Reads the player-only give command's receipt: the player's act.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "islander",
+            "thing"
+          ],
+          "properties": {
+            "kind": {
+              "const": "islander_given"
+            },
+            "islander": {
+              "$ref": "#/$defs/story_token"
+            },
+            "thing": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "stack",
+                    "count"
+                  ],
+                  "properties": {
+                    "stack": {
+                      "$ref": "common.schema.json#/$defs/token"
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "keepsake"
+                  ],
+                  "properties": {
+                    "keepsake": {
+                      "$ref": "#/$defs/story_token"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "description": "The team has learned this expertise of this ability (the expertise store). Reads the expertise being learned. OPEN FOR Q1: the expertise store (team.schema.json, expertise.discoveries) is a team-wide list across islands with no principal on an entry, so it cannot say whose act it was. Recommended resolution, for Q1 to confirm or replace as its first task: the quest ledger counts it from the command host's handled commands (which carry the principal and who directed them) while the step is current, and expertise the team already held when the story started counts as met when its step becomes current.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "ability",
+            "expertise"
+          ],
+          "properties": {
+            "kind": {
+              "const": "expertise_learned"
+            },
+            "ability": {
+              "$ref": "common.schema.json#/$defs/token"
+            },
+            "expertise": {
+              "$ref": "common.schema.json#/$defs/token"
+            }
+          }
+        },
+        {
+          "description": "A campfire is lit: the named camp, or any camp if none is named. Reads a camp being lit. OPEN FOR Q1: the camp block (x_play_camp) records that a camp is lit, not who lit it, so it cannot say whose act it was. Recommended resolution, for Q1 to confirm or replace as its first task: the quest ledger counts it from the command host's handled commands (which carry the principal and who directed them) while the step is current.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "campfire_lit"
+            },
+            "camp": {
+              "type": "string",
+              "pattern": "^(camp:start|firepit:[1-9][0-9]?)$"
+            }
+          }
+        },
+        {
+          "description": "The player has spent at least this many Fractals at a camp, in all (the vitals store). Reads the player-only fractal.spend receipts, summed by the ledger.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "count"
+          ],
+          "properties": {
+            "kind": {
+              "const": "fractals_spent"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        },
+        {
+          "description": "The player has found Fractals: at least a count in all (within the island's budget, validate.py), or one Fractal by id (one of the room's x_fractals). Reads the player-only item.pickup receipts: the player's act.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "fractal_found"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "fractal": {
+              "$ref": "common.schema.json#/$defs/fractal_id"
+            }
+          },
+          "oneOf": [
+            {
+              "required": [
+                "count"
+              ]
+            },
+            {
+              "required": [
+                "fractal"
+              ]
+            }
+          ]
+        },
+        {
+          "description": "The player has reached the island's summit (the manifest's x_summit). Reads the player's avatar reaching x_summit (the player's own act).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "summit_reached"
+            }
+          }
+        },
+        {
+          "description": "Another quest of this pack is done. Reads the quest's own state in x_story.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "quest"
+          ],
+          "properties": {
+            "kind": {
+              "const": "quest_done"
+            },
+            "quest": {
+              "$ref": "#/$defs/story_token"
+            }
+          }
+        }
+      ]
+    },
+    "beat": {
+      "oneOf": [
+        {
+          "description": "A card on screen.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "title",
+            "text"
+          ],
+          "properties": {
+            "kind": {
+              "const": "card"
+            },
+            "title": {
+              "$ref": "#/$defs/card_title"
+            },
+            "text": {
+              "$ref": "#/$defs/card_text"
+            }
+          }
+        },
+        {
+          "description": "The chime.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "chime"
+            }
+          }
+        },
+        {
+          "description": "An islander says one of their lines.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "islander",
+            "line"
+          ],
+          "properties": {
+            "kind": {
+              "const": "line"
+            },
+            "islander": {
+              "$ref": "#/$defs/story_token"
+            },
+            "line": {
+              "$ref": "#/$defs/story_token"
+            }
+          }
+        },
+        {
+          "description": "A camera moment: the view turns to a point for a moment, then gives the camera back.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "look_at_m",
+            "hold_s"
+          ],
+          "properties": {
+            "kind": {
+              "const": "camera"
+            },
+            "look_at_m": {
+              "$ref": "common.schema.json#/$defs/vec3"
+            },
+            "hold_s": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 6
+            }
+          }
+        }
+      ]
+    },
+    "reward": {
+      "description": "What finishing the quest gives: a unique keepsake, or the way to a Fractal already placed in the island's budget (a lead on the map to it; the player still picks it up with item.pickup). Never a new Fractal and never a count.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "keepsake"
+          ],
+          "properties": {
+            "keepsake": {
+              "$ref": "#/$defs/story_token"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fractal_lead"
+          ],
+          "properties": {
+            "fractal_lead": {
+              "$ref": "common.schema.json#/$defs/fractal_id"
+            }
+          }
+        }
+      ]
+    },
+    "story_token": {
+      "description": "An id inside a pack (chapters, quests, steps, islanders, lines, topics, keepsakes): lowercase letters, digits and one separator, the underscore, so 'lost-button' and 'lost_button' cannot both exist.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+    },
+    "journal_text": {
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/display_text"
+        },
+        {
+          "maxLength": 160
+        },
+        {
+          "not": {
+            "pattern": "[0-9]"
+          }
+        }
+      ],
+      "minLength": 1,
+      "description": "A journal line: a description, never a number (write 'three', not '3': no digits), one line, no control characters. Shipped text but untrusted: it reaches the journal and the companion only quoted inside the host's template and marked untrusted (game-command.schema.json, the quest facts)."
+    },
+    "card_title": {
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/display_text"
+        },
+        {
+          "maxLength": 60
+        },
+        {
+          "not": {
+            "pattern": "[0-9]"
+          }
+        }
+      ],
+      "minLength": 1
+    },
+    "card_text": {
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/display_text"
+        },
+        {
+          "maxLength": 280
+        },
+        {
+          "not": {
+            "pattern": "[0-9]"
+          }
+        }
+      ],
+      "minLength": 1
+    },
+    "effect": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "islander"
+          ],
+          "properties": {
+            "kind": {
+              "const": "islander_to_camp"
+            },
+            "islander": {
+              "$ref": "#/$defs/story_token"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "overview_opens"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "second_knack_slot"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

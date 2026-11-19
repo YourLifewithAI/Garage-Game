@@ -24,6 +24,8 @@ public static class SchemaIds
     public const string Style = "garage_game.style";
     public const string RoomState = "garage_game.room_state";
     public const string IslandRules = "garage_game.island_rules";
+    /// <summary>The story pack (Run 3). New with the new name: it has no old spelling, so it is not in the table below; compare with ==.</summary>
+    public const string IslandStory = "garage_game.island_story";
     public const string Team = "garage_game.team";
     public const string PlayerModes = "garage_game.player_modes";
     public const string GlowProgress = "garage_game.glow_progress";

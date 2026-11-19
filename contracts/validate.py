@@ -7,6 +7,7 @@ Usage:
   python contracts/validate.py --state path/to/state.json --room path/to/room_dir
   python contracts/validate.py --check-style-pins game/rooms/<room>     # also verify style pins
   python contracts/validate.py game/rules/storybook_wild/v1.json        # an island rules pack
+  python contracts/validate.py game/stories/example/v1.json             # an island story pack
   python contracts/validate.py contracts/examples/playtests/<record>    # a playtest record's folder
   python contracts/validate.py --pin FILE                                # print a file's SHA-256 pin
 
@@ -25,6 +26,7 @@ import base64
 import binascii
 import hashlib
 import json
+import unicodedata
 import math
 import re
 import bisect
@@ -43,6 +45,8 @@ CONTRACTS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = CONTRACTS_DIR.parent
 STYLES_DIR = REPO_ROOT / "game" / "styles"
 RULES_DIR = REPO_ROOT / "game" / "rules"
+STORIES_DIR = REPO_ROOT / "game" / "stories"
+CHARACTERS_DIR = REPO_ROOT / "assets" / "characters"
 
 
 def _load_schema_ids():
@@ -66,6 +70,8 @@ KIND_FILES = {
     "result": "game-command.schema.json",
     "room_state": "room-state.schema.json",
     "island_rules": "island-rules.schema.json",
+    # An island's story pack (Run 3's story round): game/stories/<story_id>/v<story_version>.json.
+    "island_story": "island-story.schema.json",
     # A team's folder (the mechanics round): the team file, the vitals store (version 2) and the expertise store (version 3).
     "team": "team.schema.json",
     "player_modes": "team.schema.json",
@@ -338,7 +344,8 @@ def schema_errors(document, expected: str | None = None) -> list[str]:
     if expected is not None:
         kind = kind_of(expected) or expected
         if not is_schema(document["schema"], kind):
-            return [f"$.schema: expected {id_of(kind)!r} (or {SCHEMA_IDS.ids_of(kind)[1]!r}), found {document['schema']!r}"]
+            spellings = SCHEMA_IDS.ids_of(kind)
+            return [f"$.schema: expected {id_of(kind)!r}" + (f" (or {spellings[1]!r})" if len(spellings) > 1 else "") + f", found {document['schema']!r}"]
     if document["schema"] not in SCHEMA_FILES:
         return [f"$.schema: unknown schema {document['schema']!r}"]
     messages = _schema_messages(validator_for(document["schema"]), document)
@@ -1179,6 +1186,494 @@ def check_rules(pack: dict, label: str, path: Path | None = None) -> list[str]:
     return problems
 
 
+# ---------- island stories ----------
+
+STORY_QUESTS_MOST = 64
+STORY_SINGLE_BEATS = ("card", "chime", "camera")  # at most one of each a step; lines may repeat
+STORY_SINGLE_EFFECTS = ("overview_opens", "second_knack_slot")  # at most once a pack
+STORY_KINDS = ("quest_started", "step_done", "quest_done")
+STORY_LINE_PREFIX = {"quest_started": "Quest started", "step_done": "Step done", "quest_done": "Quest done"}
+# The expertise each ability can teach, as the kernel lists them (game/scripts/native/Kernel/ExpertiseRecord.cs and
+# GlowProgress.cs; contracts/tests/test_story.py checks the two agree). A pack's expertise_learned names one of these, for
+# an ability its rules pack grants.
+EXPERTISE_IDS = {
+    "glow": ("lantern", "torch", "bioluminesce", "constellation", "skylight"),
+    "bubbles": ("bubble_carry", "bubble_boat", "bubble_lift"),
+    "fire": ("first_fire", "campfire", "fireline", "snuff", "will_o_wisp"),
+    "grow": ("tall_plant", "thicket", "green_ash", "rain_garden", "waterpad"),
+}
+# Notes a check leaves for the reader (checks skipped for want of an input); main() prints them as NOTE lines.
+NOTES: list[str] = []
+
+
+def _story_texts(pack: dict):
+    """Every piece of shipped text in a pack, with where it is and whether a quest fact quotes it (quest titles, journal lines)."""
+    yield "display_name", pack["display_name"], False
+    if "description" in pack:
+        yield "description", pack["description"], False
+    for keepsake in pack.get("keepsakes", []):
+        for key in ("name", "description"):
+            if key in keepsake:
+                yield f"keepsake {keepsake['id']!r} {key}", keepsake[key], False
+    for islander in pack.get("islanders", []):
+        yield f"islander {islander['id']!r} name", islander["name"], False
+        for line in islander["lines"]:
+            yield f"islander {islander['id']!r} line {line['id']!r}", line["text"], False
+        for topic in islander.get("topics", []):
+            yield f"islander {islander['id']!r} topic {topic['id']!r} label", topic["label"], False
+            for word in topic["words"]:
+                yield f"islander {islander['id']!r} topic {topic['id']!r} word", word, False
+    for chapter in pack["chapters"]:
+        yield f"chapter {chapter['id']!r} title", chapter["title"], False
+        for quest in chapter["quests"]:
+            yield f"quest {quest['id']!r} title", quest["title"], True
+            if "summary" in quest:
+                yield f"quest {quest['id']!r} summary", quest["summary"], False
+            for step in quest["steps"]:
+                yield f"quest {quest['id']!r} step {step['id']!r} journal", step["journal"], True
+                if "lead" in step:
+                    yield f"quest {quest['id']!r} step {step['id']!r} lead label", step["lead"]["label"], False
+                for beat in step.get("beats", []):
+                    if beat["kind"] == "card":
+                        yield f"quest {quest['id']!r} step {step['id']!r} card title", beat["title"], False
+                        yield f"quest {quest['id']!r} step {step['id']!r} card text", beat["text"], False
+
+
+def _story_text_problems(pack: dict, label: str) -> list[str]:
+    """No number character of any script in shipped text (descriptions, never numbers: 5, fullwidth 5, a Roman numeral,
+    an Arabic-Indic digit alike), and no straight double quote in text a quest fact quotes (it would close the quote)."""
+    problems = []
+    for where, text, quoted in _story_texts(pack):
+        numbers = [c for c in text if unicodedata.category(c).startswith("N")]
+        if numbers:
+            problems.append(f"{label}: {where} carries a number ({', '.join(f'U+{ord(c):04X}' for c in numbers[:3])}); shipped text writes numbers as words")
+        if quoted and '"' in text:
+            problems.append(f"{label}: {where} holds a straight double quote, which would close the quest fact's quote")
+    return problems
+
+
+def story_path(story_id: str, version: int, stories_dir: Path = STORIES_DIR) -> Path:
+    return stories_dir / story_id / f"v{version}.json"
+
+
+def _story_quests(pack: dict) -> list[dict]:
+    return [quest for chapter in pack["chapters"] for quest in chapter["quests"]]
+
+
+def _twice(values) -> list:
+    values = list(values)
+    return sorted({v for v in values if values.count(v) > 1})
+
+
+def shipped_characters(characters_dir: Path = CHARACTERS_DIR) -> list[str]:
+    """The characters a player or an islander may wear: a folder with its rig under assets/characters, never the Gubble."""
+    if not characters_dir.is_dir():
+        return []
+    return sorted(p.name for p in characters_dir.iterdir() if (p / "rig.json").is_file() and p.name != "gubble")
+
+
+def _conditions(quest: dict):
+    """Each condition of a quest with where it sits: ('start', None, condition) and ('step', index, condition)."""
+    if "start" in quest:
+        yield "start", None, quest["start"]
+    for index, step in enumerate(quest["steps"]):
+        yield "step", index, step["condition"]
+
+
+def story_dependencies(pack: dict) -> tuple[dict[str, set[str]], list[str]]:
+    """The quests each quest waits on (quest_done in its start or a step, and the quest that awards each keepsake one of
+    its conditions needs), and the problems found building it: a keepsake no quest awards, or a quest that must hand over
+    its own reward before it can award it."""
+    awarded_by = {}
+    for quest in _story_quests(pack):
+        keepsake = quest.get("reward", {}).get("keepsake")
+        if keepsake is not None:
+            awarded_by.setdefault(keepsake, quest["id"])
+    quest_ids = {q["id"] for q in _story_quests(pack)}
+    waits, problems = {}, []
+    for quest in _story_quests(pack):
+        own = waits.setdefault(quest["id"], set())
+        for _where, _index, condition in _conditions(quest):
+            if condition["kind"] == "quest_done" and condition["quest"] in quest_ids and condition["quest"] != quest["id"]:
+                own.add(condition["quest"])
+            keepsake = condition.get("thing", {}).get("keepsake") if condition["kind"] == "islander_given" else None
+            if keepsake is None:
+                continue
+            giver = awarded_by.get(keepsake)
+            if giver is None:
+                problems.append(f"quest {quest['id']!r} needs keepsake {keepsake!r}, which no quest awards, so it can never be had")
+            elif giver == quest["id"]:
+                problems.append(f"quest {quest['id']!r} must give away keepsake {keepsake!r} before it awards it, so it can never be had")
+            else:
+                own.add(giver)
+    return waits, problems
+
+
+def _loop(waits: dict[str, set[str]]) -> str | None:
+    marks: dict[str, int] = {}
+
+    def looped(quest_id: str) -> bool:
+        if marks.get(quest_id) == 1:
+            return True
+        if marks.get(quest_id) == 2:
+            return False
+        marks[quest_id] = 1
+        found = any(looped(other) for other in sorted(waits.get(quest_id, ())))
+        marks[quest_id] = 2
+        return found
+    for quest_id in sorted(waits):
+        if quest_id not in marks and looped(quest_id):
+            return quest_id
+    return None
+
+
+def _story_rules(pack: dict, label: str, rules_dir: Path) -> list[str]:
+    """Abilities, expertise and stack kinds against the rules pack the story names (always)."""
+    path = rules_path(pack["rules"]["rules_id"], pack["rules"]["rules_version"], rules_dir)
+    if not path.is_file():
+        return [f"{label}: rules pack {pack['rules']['rules_id']} v{pack['rules']['rules_version']} is not in game/rules"]
+    rules = load_strict(path)
+    abilities = {a["capability"] for a in rules["abilities"]}
+    stacks = {k["id"] for k in rules.get("inventory", {}).get("kinds", [])}
+    budget = rules.get("fractals", {}).get("budget_max")
+    problems = []
+    for quest in _story_quests(pack):
+        for where, index, condition in _conditions(quest):
+            at = f"{label}: quest {quest['id']!r} " + ("start" if index is None else f"step {quest['steps'][index]['id']!r}")
+            if condition["kind"] == "expertise_learned":
+                if condition["ability"] not in abilities:
+                    problems.append(f"{at}: ability {condition['ability']!r} is not granted by the rules pack")
+                elif condition["expertise"] not in EXPERTISE_IDS.get(condition["ability"], ()):
+                    problems.append(f"{at}: {condition['ability']} has no expertise {condition['expertise']!r}")
+            stack = condition.get("thing", {}).get("stack") if condition["kind"] == "islander_given" else None
+            if stack is not None and stack not in stacks:
+                problems.append(f"{at}: stack {stack!r} is not a kind of the rules pack's inventory")
+            if condition["kind"] == "fractal_found" and "count" in condition and budget is not None and condition["count"] > budget:
+                problems.append(f"{at}: {condition['count']} Fractals found is past the island's budget ({budget})")
+    return problems
+
+
+def _story_room(pack: dict, label: str, room_dir: Path) -> list[str]:
+    """Places on the island, firepits and Fractals in it (given the room)."""
+    manifest = Path(room_dir) / "room.json"
+    if not manifest.is_file():
+        return [f"{label}: room {room_dir} has no room.json"]
+    room = load_strict(manifest)
+    if room["room_id"] != pack["room_id"]:
+        return [f"{label}: the pack is written for {pack['room_id']!r}, not {room['room_id']!r}"]
+    low, high = room["bounds"]["min_m"], room["bounds"]["max_m"]
+    extensions = room.get("extensions", {})
+    fractals = {f["id"] for f in extensions.get("x_fractals", {}).get("items", [])}
+    firepits = len(extensions.get("x_firepits", {}).get("items", []))
+    problems = []
+
+    def on_island(point, what):
+        if not all(low[i] - BOUNDS_TOLERANCE_M <= point[i] <= high[i] + BOUNDS_TOLERANCE_M for i in range(3)):
+            problems.append(f"{label}: {what} at {point} is not on the island")
+
+    for islander in pack.get("islanders", []):
+        on_island(islander["home"]["at_m"], f"islander {islander['id']!r}'s home")
+    for quest in _story_quests(pack):
+        for where, index, condition in _conditions(quest):
+            at = f"quest {quest['id']!r} " + ("start" if index is None else f"step {quest['steps'][index]['id']!r}")
+            if condition["kind"] == "place_reached":
+                on_island(condition["place"]["at_m"], f"{at}'s place")
+            if condition["kind"] == "campfire_lit" and condition.get("camp", "camp:start").startswith("firepit:"):
+                if int(condition["camp"].split(":")[1]) > firepits:
+                    problems.append(f"{label}: {at}: {condition['camp']} is not one of the island's {firepits} firepits")
+            if condition["kind"] == "fractal_found":
+                if "fractal" in condition and condition["fractal"] not in fractals:
+                    problems.append(f"{label}: {at}: {condition['fractal']} is not one of the island's Fractals")
+                if "count" in condition and condition["count"] > len(fractals):
+                    problems.append(f"{label}: {at}: {condition['count']} Fractals found is more than the island places ({len(fractals)})")
+            if condition["kind"] == "fractals_spent" and condition["count"] > len(fractals):
+                problems.append(f"{label}: {at}: {condition['count']} Fractals spent is more than the island places ({len(fractals)})")
+            if condition["kind"] == "summit_reached" and "x_summit" not in extensions:
+                problems.append(f"{label}: {at}: the island has no summit")
+        for step in quest["steps"]:
+            if "lead" in step:
+                on_island(step["lead"]["at_m"], f"quest {quest['id']!r} step {step['id']!r}'s lead")
+            for beat in step.get("beats", []):
+                if beat["kind"] == "camera":
+                    on_island(beat["look_at_m"], f"quest {quest['id']!r} step {step['id']!r}'s camera")
+        fractal = quest.get("reward", {}).get("fractal_lead")
+        if fractal is not None and fractal not in fractals:
+            problems.append(f"{label}: quest {quest['id']!r}'s reward {fractal} is not one of the island's Fractals")
+    return problems
+
+
+def check_story(pack: dict, label: str, path: Path | None = None, room_dir: Path | None = None,
+                characters_dir: Path = CHARACTERS_DIR, rules_dir: Path = RULES_DIR) -> list[str]:
+    """What the island story schema cannot express (contracts/island-story.schema.json): unique ids, every reference
+    resolving, the quests' dependencies (quest_done, start conditions and keepsakes) without a cycle or a step that needs
+    what cannot yet be had, each keepsake awarded by exactly one quest and handed over at most once, each Fractal pointed
+    to by at most one, the beats and effects a step and a pack may hold, the cast (a distinct shipped character for every
+    islander whatever the player wears), topic words unique within an islander after case-folding, the rules pack's
+    abilities, expertise and stacks, at most 64 quests, and the versioned path; and, given the room, its places,
+    firepits, Fractals and summit. Text rules ran with the schema."""
+    problems = []
+    islanders = {i["id"]: i for i in pack.get("islanders", [])}
+    keepsakes = {k["id"] for k in pack.get("keepsakes", [])}
+    quests = _story_quests(pack)
+    quest_ids = {q["id"] for q in quests}
+    for kind, values in (("chapter", [c["id"] for c in pack["chapters"]]), ("quest", [q["id"] for q in quests]),
+                         ("islander", [i["id"] for i in pack.get("islanders", [])]),
+                         ("keepsake", [k["id"] for k in pack.get("keepsakes", [])])):
+        for value in _twice(values):
+            problems.append(f"{label}: {kind} id {value!r} appears more than once")
+    if len(quests) > STORY_QUESTS_MOST:
+        problems.append(f"{label}: {len(quests)} quests; a pack holds at most {STORY_QUESTS_MOST}")
+    for islander in pack.get("islanders", []):
+        where = f"{label}: islander {islander['id']!r}"
+        lines = [line["id"] for line in islander["lines"]]
+        for value in _twice(lines):
+            problems.append(f"{where}: line id {value!r} appears more than once")
+        if islander["greeting"] not in lines:
+            problems.append(f"{where}: greeting {islander['greeting']!r} is not one of its lines")
+        topics = islander.get("topics", [])
+        for value in _twice(topic["id"] for topic in topics):
+            problems.append(f"{where}: topic id {value!r} appears more than once")
+        for value in _twice(" ".join(word.casefold().split()) for topic in topics for word in topic["words"]):
+            problems.append(f"{where}: the word {value!r} matches more than one topic or twice in one; a spoken word must match one topic")
+        for topic in topics:
+            if topic["line"] not in lines:
+                problems.append(f"{where}: topic {topic['id']!r} answers with line {topic['line']!r}, which it does not have")
+    shipped = shipped_characters(characters_dir)
+    for islander in pack.get("islanders", []):
+        for character in islander["cast"]:
+            if character not in shipped:
+                problems.append(f"{label}: islander {islander['id']!r}: {character!r} is not a shipped character with its rig (assets/characters/<id>/rig.json)")
+    for wearing in shipped:
+        taken = []
+        for islander in pack.get("islanders", []):
+            choice = next((c for c in islander["cast"] if c != wearing and c not in taken and c in shipped), None)
+            if choice is None:
+                problems.append(f"{label}: islander {islander['id']!r} has no character of its own when the player wears {wearing!r}")
+                break
+            taken.append(choice)
+
+    def condition_problems(condition: dict, where: str, own: str) -> list[str]:
+        found, kind = [], condition["kind"]
+        if kind in ("islander_talked", "islander_given"):
+            islander = islanders.get(condition["islander"])
+            if islander is None:
+                found.append(f"{where}: islander {condition['islander']!r} is not in the pack")
+            elif "topic" in condition and condition["topic"] not in {topic["id"] for topic in islander.get("topics", [])}:
+                found.append(f"{where}: islander {condition['islander']!r} has no topic {condition['topic']!r}")
+            keepsake = condition.get("thing", {}).get("keepsake")
+            if keepsake is not None and keepsake not in keepsakes:
+                found.append(f"{where}: keepsake {keepsake!r} is not in the pack")
+        elif kind == "quest_done":
+            if condition["quest"] == own:
+                found.append(f"{where}: a quest cannot wait on itself")
+            elif condition["quest"] not in quest_ids:
+                found.append(f"{where}: quest {condition['quest']!r} is not in the pack")
+        return found
+
+    awarded: dict[str, list[str]] = {}
+    handed: dict[str, list[str]] = {}
+    pointed: dict[str, list[str]] = {}
+    effects: dict[str, int] = {}
+    to_camp: dict[str, list[str]] = {}
+    for quest in quests:
+        where = f"{label}: quest {quest['id']!r}"
+        if "giver" in quest and quest["giver"] not in islanders:
+            problems.append(f"{where}: giver {quest['giver']!r} is not in the pack")
+        for kind, index, condition in _conditions(quest):
+            name = "start" if index is None else f"step {quest['steps'][index]['id']!r}"
+            problems += condition_problems(condition, f"{where} {name}", quest["id"])
+            keepsake = condition.get("thing", {}).get("keepsake") if condition["kind"] == "islander_given" else None
+            if keepsake is not None:
+                handed.setdefault(keepsake, []).append(quest["id"])
+        for value in _twice(s["id"] for s in quest["steps"]):
+            problems.append(f"{where}: step id {value!r} appears more than once")
+        for step in quest["steps"]:
+            kinds = [beat["kind"] for beat in step.get("beats", [])]
+            for kind in STORY_SINGLE_BEATS:
+                if kinds.count(kind) > 1:
+                    problems.append(f"{where} step {step['id']!r}: at most one {kind} a step")
+            for beat in step.get("beats", []):
+                if beat["kind"] == "line":
+                    islander = islanders.get(beat["islander"])
+                    if islander is None:
+                        problems.append(f"{where} step {step['id']!r}: islander {beat['islander']!r} is not in the pack")
+                    elif beat["line"] not in {line["id"] for line in islander["lines"]}:
+                        problems.append(f"{where} step {step['id']!r}: islander {beat['islander']!r} has no line {beat['line']!r}")
+            needs = step["condition"]
+            if ("talk" in step and needs["kind"] == "islander_talked" and "topic" in needs
+                    and step["talk"]["islander"] == needs["islander"] and needs["topic"] not in step["talk"]["topics"]):
+                problems.append(f"{where} step {step['id']!r}: its condition needs topic {needs['topic']!r}, which its talk does not open, so it can never be done")
+            if "talk" in step:
+                islander = islanders.get(step["talk"]["islander"])
+                if islander is None:
+                    problems.append(f"{where} step {step['id']!r}: talk names islander {step['talk']['islander']!r}, who is not in the pack")
+                else:
+                    for topic in step["talk"]["topics"]:
+                        if topic not in {t["id"] for t in islander.get("topics", [])}:
+                            problems.append(f"{where} step {step['id']!r}: islander {islander['id']!r} has no topic {topic!r} to open")
+        summit = any(s["condition"]["kind"] == "summit_reached" for s in quest["steps"])
+        for effect in quest.get("effects", []):
+            effects[effect["kind"]] = effects.get(effect["kind"], 0) + 1
+            if effect["kind"] == "islander_to_camp":
+                to_camp.setdefault(effect["islander"], []).append(quest["id"])
+                if effect["islander"] not in islanders:
+                    problems.append(f"{where}: effect names islander {effect['islander']!r}, who is not in the pack")
+            elif not summit:
+                problems.append(f"{where}: {effect['kind']} only on a quest with a summit_reached step, not on an errand")
+        reward = quest.get("reward", {})
+        if "keepsake" in reward:
+            awarded.setdefault(reward["keepsake"], []).append(quest["id"])
+            if reward["keepsake"] not in keepsakes:
+                problems.append(f"{where}: reward keepsake {reward['keepsake']!r} is not in the pack")
+        if "fractal_lead" in reward:
+            pointed.setdefault(reward["fractal_lead"], []).append(quest["id"])
+    for islander, by in sorted(to_camp.items()):
+        if len(by) > 1:
+            problems.append(f"{label}: islander {islander!r} comes to camp in {len(by)} quests; at most once")
+    problems += _story_text_problems(pack, label)
+    for kind in STORY_SINGLE_EFFECTS:
+        if effects.get(kind, 0) > 1:
+            problems.append(f"{label}: {kind} is the effect of {effects[kind]} quests; it happens once")
+    for keepsake in sorted(keepsakes):
+        count = len(awarded.get(keepsake, []))
+        if count != 1:
+            problems.append(f"{label}: keepsake {keepsake!r} is awarded by {count} quests; a keepsake is unique, awarded by exactly one")
+    for keepsake, by in sorted(handed.items()):
+        if len(by) > 1:
+            problems.append(f"{label}: keepsake {keepsake!r} is handed over in {len(by)} places; it can be handed over once")
+    for fractal, by in sorted(pointed.items()):
+        if len(by) > 1:
+            problems.append(f"{label}: {fractal} is the reward of {len(by)} quests; a Fractal is pointed to by at most one")
+    waits, unobtainable = story_dependencies(pack)
+    problems += [f"{label}: {problem}" for problem in unobtainable]
+    start = _loop(waits)
+    if start is not None:
+        problems.append(f"{label}: quests wait on each other round a loop through quest_done and keepsakes (from {start!r})")
+    problems += _story_rules(pack, label, rules_dir)
+    if room_dir is not None:
+        problems += _story_room(pack, label, room_dir)
+    else:
+        NOTES.append(f"{label}: no room given (--room), so its places, firepits, Fractals and summit were not checked against {pack['room_id']!r}")
+    if path is not None and (path.parent.name != pack["story_id"] or path.name != f"v{pack['story_version']}.json"):
+        problems.append(f"{label}: a story pack lives at stories/<story_id>/v<story_version>.json")
+    return problems
+
+
+def check_story_progress(block: dict, pack: dict, label: str, store: int | None = None) -> list[str]:
+    """A save's story block (room state's x_story) against its pack: the same story and version, every quest the pack's,
+    an active quest's step one of its steps, and the order: a quest started only after the quests its start waits on
+    were done, and its passed steps only after the quests they wait on were done."""
+    if (block["story_id"], block["story_version"]) != (pack["story_id"], pack["story_version"]):
+        return [f"{label}: x_story names {block['story_id']} v{block['story_version']}, not the pack given"]
+    problems = []
+    quests = {q["id"]: q for q in _story_quests(pack)}
+    _waits, _ = story_dependencies(pack)
+    awarded_by = {q.get("reward", {}).get("keepsake"): q["id"] for q in quests.values() if "keepsake" in q.get("reward", {})}
+    for quest_id, progress in block["quests"].items():
+        quest = quests.get(quest_id)
+        if quest is None:
+            problems.append(f"{label}: x_story quest {quest_id!r} is not in the pack")
+            continue
+        step_ids = [s["id"] for s in quest["steps"]]
+        if progress["state"] == "active" and progress["step"] not in step_ids:
+            problems.append(f"{label}: x_story quest {quest_id!r} is at step {progress['step']!r}, which it does not have")
+            continue
+        passed = len(step_ids) if progress["state"] == "done" else step_ids.index(progress["step"])
+        until = progress.get("done_revision", store if store is not None else progress["started_revision"])
+        needs = []  # (quest it waits on, the revision by which it must be done, why)
+        for kind, index, condition in _conditions(quest):
+            if index is not None and index >= passed:
+                continue
+            by = progress["started_revision"] if index is None else until
+            if condition["kind"] == "quest_done":
+                needs.append((condition["quest"], by, "start" if index is None else f"step {step_ids[index]!r}"))
+            keepsake = condition.get("thing", {}).get("keepsake") if condition["kind"] == "islander_given" else None
+            if keepsake in awarded_by:
+                needs.append((awarded_by[keepsake], by, f"keepsake {keepsake!r}"))
+        for other, by, why in needs:
+            done = block["quests"].get(other, {})
+            if done.get("state") != "done":
+                problems.append(f"{label}: x_story quest {quest_id!r} is past its {why}, but {other!r} it waits on is not done")
+            elif done["done_revision"] > by:
+                problems.append(f"{label}: x_story quest {quest_id!r} passed its {why} before {other!r} it waits on was done")
+    return problems
+
+
+def check_story_facts(entries: list[dict], block: dict | None, pack: dict | None, label: str) -> list[str]:
+    """The journal's quest facts against the save's story block and its pack: the save's story and version, a quest that
+    started, a step of it, a quest done only if the block says so, the pack's own words, and a pin only the lead the pack
+    gives that step (step_done)."""
+    problems = []
+    quests = {q["id"]: q for q in _story_quests(pack)} if pack else {}
+    seen = set()
+    for entry in entries:
+        if entry["kind"] not in STORY_KINDS:
+            continue
+        where = f"{label}: journal entry {entry['entry_id']}"
+        ref = entry["quest"]
+        if block is None:
+            problems.append(f"{where}: a quest fact in a save with no story (x_story)")
+            continue
+        if (ref["story_id"], ref["story_version"]) != (block["story_id"], block["story_version"]):
+            problems.append(f"{where}: names {ref['story_id']} v{ref['story_version']}, not the save's story")
+            continue
+        progress = block["quests"].get(ref["quest_id"])
+        if progress is None:
+            problems.append(f"{where}: quest {ref['quest_id']!r} has not started in this save")
+            continue
+        if entry["kind"] == "quest_done" and progress["state"] != "done":
+            problems.append(f"{where}: quest {ref['quest_id']!r} is not done in this save")
+        elif entry["kind"] == "quest_done" and entry["revision"] != progress["done_revision"]:
+            problems.append(f"{where}: quest {ref['quest_id']!r} was done at revision {progress['done_revision']}, not {entry['revision']}")
+        if entry["revision"] < progress["started_revision"]:
+            problems.append(f"{where}: a quest fact before quest {ref['quest_id']!r} started")
+        key = (entry["kind"], ref["quest_id"], ref.get("step_id"))
+        if key in seen:
+            problems.append(f"{where}: the same {entry['kind']} fact for {ref['quest_id']!r} twice")
+        seen.add(key)
+        if entry["line"] != f'{STORY_LINE_PREFIX[entry["kind"]]}: "{ref["text"]}"':
+            problems.append(f"{where}: the line is not the host's template around the pack's quoted text")
+        quest = quests.get(ref["quest_id"])
+        if pack is None or quest is None:
+            continue
+        step = next((s for s in quest["steps"] if s["id"] == ref.get("step_id")), None)
+        if entry["kind"] == "step_done" and step is None:
+            problems.append(f"{where}: quest {ref['quest_id']!r} has no step {ref.get('step_id')!r}")
+            continue
+        if entry["kind"] == "step_done" and progress["state"] == "active":
+            ids = [s["id"] for s in quest["steps"]]
+            if ids.index(step["id"]) >= ids.index(progress["step"]):
+                problems.append(f"{where}: step {step['id']!r} is done, but quest {ref['quest_id']!r} has not passed it (it is at {progress['step']!r})")
+        words = step["journal"] if entry["kind"] == "step_done" else quest["title"]
+        if ref["text"] != words:
+            problems.append(f"{where}: the text is not the pack's own words for it")
+        if "pin_m" in entry and (step is None or "lead" not in step or entry["pin_m"] != step["lead"]["at_m"]):
+            problems.append(f"{where}: a quest fact's pin may only be the lead the pack gives that step")
+    return problems
+
+
+def _check_story_block(block: dict, store: int, label: str, stories_dir: Path = STORIES_DIR, room_id: str | None = None) -> tuple[list[str], dict | None]:
+    """Room state's x_story: no quest newer than the store, none done before it started, its pack in game/stories (a save
+    naming a pack the game does not have keeps the block inert; the validator refuses what it cannot check), and against
+    that pack."""
+    problems = []
+    for quest_id, progress in block["quests"].items():
+        started, done = progress["started_revision"], progress.get("done_revision")
+        if started > store or (done is not None and done > store):
+            problems.append(f"{label}: x_story quest {quest_id!r} is newer than the store revision")
+        if done is not None and done < started:
+            problems.append(f"{label}: x_story quest {quest_id!r} was done before it started")
+    path = story_path(block["story_id"], block["story_version"], stories_dir)
+    if not path.is_file():
+        return problems + [f"{label}: x_story names {block['story_id']} v{block['story_version']}, which is not in game/stories: the game keeps the block inert and nothing checks it"], None
+    pack = load_strict(path)
+    if schema_errors(pack, "island_story"):
+        return problems + [f"{label}: x_story's pack {path} is not a valid story pack"], None
+    if room_id is not None and pack["room_id"] != room_id:
+        problems.append(f"{label}: x_story's pack is written for {pack['room_id']!r}, not this save's room {room_id!r}")
+    return problems + check_story_progress(block, pack, label, store), pack
+
+
 # ---------- room state ----------
 
 def check_state(state: dict, label: str, room_dir: Path | None = None, check_style_pins: bool = False, styles_dir: Path = STYLES_DIR) -> list[str]:
@@ -1242,6 +1737,12 @@ def check_state(state: dict, label: str, room_dir: Path | None = None, check_sty
             problems.append(f"{label}: {thing} in the chest is not an object in the pinned room")
     if "journal" in state:
         problems += _check_journal(state["journal"], store, label)
+    block, pack = state.get("extensions", {}).get("x_story"), None
+    if block is not None:
+        found, pack = _check_story_block(block, store, label, room_id=state["room_id"])
+        problems += found
+    journal = state.get("journal", {})
+    problems += check_story_facts(journal.get("open_tasks", []) + journal.get("history", []), block, pack, label)
     if "discovered" in state:
         problems += _check_discovered(state["discovered"], store, label, manifest_objects, shell_ids, bounds)
     if check_style_pins:
@@ -1568,17 +2069,17 @@ def check_playtest(record_dir: Path, manifest_name: str = "manifest.json") -> li
     return problems
 
 
-def check_path(path: Path, check_style_pins: bool = False) -> list[str]:
+def check_path(path: Path, check_style_pins: bool = False, room_dir: Path | None = None) -> list[str]:
     """A directory is a room (room.json) or a playtest record (manifest.json); a file is validated as what its schema says."""
     path = Path(path)
     if not path.is_dir():
-        return check_document(path, check_style_pins)
+        return check_document(path, check_style_pins, room_dir)
     if (path / "manifest.json").is_file() and not (path / "room.json").is_file():
         return check_playtest(path)
     return check_room(path, check_style_pins)
 
 
-def check_document(path: Path, check_style_pins: bool = False) -> list[str]:
+def check_document(path: Path, check_style_pins: bool = False, room_dir: Path | None = None) -> list[str]:
     """Schema plus per-kind semantic checks for one file, validated as that file."""
     path = Path(path)
     label = str(path)
@@ -1598,6 +2099,8 @@ def check_document(path: Path, check_style_pins: bool = False) -> list[str]:
         return check_style(document, label, path)
     if kind == "island_rules":
         return check_rules(document, label, path)
+    if kind == "island_story":
+        return check_story(document, label, path, room_dir)
     if kind == "room_state":
         return check_state(document, label, check_style_pins=check_style_pins)
     if kind in TEAM_DOCUMENTS:
@@ -1633,10 +2136,12 @@ def main(argv: list[str]) -> int:
         problems += check_room(args.room, args.check_style_pins)
     for path in args.paths:
         checked += 1
-        problems += check_path(path, args.check_style_pins)
+        problems += check_path(path, args.check_style_pins, args.room)
     if not checked:
         parser.print_usage()
         return 2
+    for note in NOTES:
+        print(f"NOTE {note}")
     for problem in problems:
         print(f"FAIL {problem}")
     print(f"{'OK' if not problems else 'FAILED'}: {checked} item(s) checked, {len(problems)} problem(s)")

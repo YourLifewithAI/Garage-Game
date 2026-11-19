@@ -1,0 +1,284 @@
+{
+  "schema": "garage_game.island_story",
+  "version": 1,
+  "story_id": "example",
+  "story_version": 1,
+  "display_name": "The example story",
+  "status": "draft",
+  "description": "Two short made-up quests for the quest ledger's tests. Not the garage's tale.",
+  "room_id": "island_example",
+  "rules": {
+    "rules_id": "storybook_wild",
+    "rules_version": 5
+  },
+  "islanders": [
+    {
+      "id": "spud",
+      "name": "Spud",
+      "cast": [
+        "potato_man",
+        "tomato_man"
+      ],
+      "home": {
+        "at_m": [
+          1.0,
+          0.0,
+          -2.0
+        ],
+        "radius_m": 0.4
+      },
+      "greeting": "hello",
+      "lines": [
+        {
+          "id": "hello",
+          "text": "Oh! Hello, little one. I'm Spud. Have you seen a shiny button anywhere?"
+        },
+        {
+          "id": "button",
+          "text": "My lucky button rolled away near the big rock. I think it is over there."
+        },
+        {
+          "id": "hungry",
+          "text": "I'm so hungry I could eat a whole apple. Maybe two!"
+        },
+        {
+          "id": "thanks",
+          "text": "Thank you! That was the best apple ever."
+        },
+        {
+          "id": "fire",
+          "text": "It gets cold here at night. A warm fire would be lovely."
+        }
+      ],
+      "topics": [
+        {
+          "id": "button",
+          "label": "The lost button",
+          "words": [
+            "button",
+            "lost",
+            "shiny"
+          ],
+          "line": "button"
+        },
+        {
+          "id": "food",
+          "label": "Being hungry",
+          "words": [
+            "hungry",
+            "apple",
+            "food"
+          ],
+          "line": "hungry"
+        }
+      ]
+    }
+  ],
+  "keepsakes": [
+    {
+      "id": "lucky_button",
+      "name": "Spud's lucky button",
+      "description": "A shiny brass button. It still feels lucky."
+    }
+  ],
+  "chapters": [
+    {
+      "id": "first_steps",
+      "title": "First steps",
+      "quests": [
+        {
+          "id": "lost_button",
+          "title": "The lost button",
+          "summary": "Spud has lost a lucky button. Help find it.",
+          "giver": "spud",
+          "steps": [
+            {
+              "id": "meet_spud",
+              "journal": "Say hello to Spud by the camp.",
+              "condition": {
+                "kind": "islander_talked",
+                "islander": "spud",
+                "topic": "button"
+              },
+              "lead": {
+                "at_m": [
+                  1.0,
+                  0.0,
+                  -2.0
+                ],
+                "label": "Spud"
+              },
+              "talk": {
+                "islander": "spud",
+                "topics": [
+                  "button"
+                ]
+              },
+              "beats": [
+                {
+                  "kind": "line",
+                  "islander": "spud",
+                  "line": "button"
+                }
+              ]
+            },
+            {
+              "id": "look_by_rock",
+              "journal": "Look for the button by the big rock.",
+              "condition": {
+                "kind": "place_reached",
+                "place": {
+                  "at_m": [
+                    -5.0,
+                    0.0,
+                    -6.0
+                  ],
+                  "radius_m": 0.5
+                }
+              },
+              "lead": {
+                "at_m": [
+                  -5.0,
+                  0.0,
+                  -6.0
+                ],
+                "label": "The big rock"
+              },
+              "beats": [
+                {
+                  "kind": "camera",
+                  "look_at_m": [
+                    -5.0,
+                    0.2,
+                    -6.0
+                  ],
+                  "hold_s": 2
+                },
+                {
+                  "kind": "chime"
+                }
+              ]
+            },
+            {
+              "id": "feed_spud",
+              "journal": "Spud is hungry. Bring Spud an apple.",
+              "condition": {
+                "kind": "islander_given",
+                "islander": "spud",
+                "thing": {
+                  "keepsake": "lucky_button"
+                }
+              },
+              "talk": {
+                "islander": "spud",
+                "topics": [
+                  "food"
+                ]
+              },
+              "beats": [
+                {
+                  "kind": "line",
+                  "islander": "spud",
+                  "line": "thanks"
+                }
+              ]
+            },
+            {
+              "id": "warm_fire",
+              "journal": "Light the campfire so Spud stays warm tonight.",
+              "condition": {
+                "kind": "campfire_lit",
+                "camp": "camp:start"
+              },
+              "beats": [
+                {
+                  "kind": "line",
+                  "islander": "spud",
+                  "line": "fire"
+                },
+                {
+                  "kind": "card",
+                  "title": "A lucky button",
+                  "text": "Spud gives you the lucky button to keep."
+                }
+              ]
+            }
+          ],
+          "reward": {
+            "fractal_lead": "fractal:p7m2c5"
+          },
+          "effects": [
+            {
+              "kind": "islander_to_camp",
+              "islander": "spud"
+            }
+          ]
+        },
+        {
+          "id": "high_place",
+          "title": "The high place",
+          "summary": "Climb to the top of the island.",
+          "start": {
+            "kind": "quest_done",
+            "quest": "lost_button"
+          },
+          "steps": [
+            {
+              "id": "find_one",
+              "journal": "Find a Fractal.",
+              "condition": {
+                "kind": "fractal_found",
+                "count": 1
+              }
+            },
+            {
+              "id": "learn_lantern",
+              "journal": "Ask the Gubble to make a little light.",
+              "condition": {
+                "kind": "expertise_learned",
+                "ability": "glow",
+                "expertise": "lantern"
+              }
+            },
+            {
+              "id": "spend_three",
+              "journal": "Spend three Fractals at the camp.",
+              "condition": {
+                "kind": "fractals_spent",
+                "count": 3
+              }
+            },
+            {
+              "id": "reach_summit",
+              "journal": "Reach the top of the island.",
+              "condition": {
+                "kind": "summit_reached"
+              },
+              "beats": [
+                {
+                  "kind": "chime"
+                },
+                {
+                  "kind": "card",
+                  "title": "The top",
+                  "text": "You can see the whole island from here."
+                }
+              ]
+            }
+          ],
+          "reward": {
+            "keepsake": "lucky_button"
+          },
+          "effects": [
+            {
+              "kind": "overview_opens"
+            },
+            {
+              "kind": "second_knack_slot"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
