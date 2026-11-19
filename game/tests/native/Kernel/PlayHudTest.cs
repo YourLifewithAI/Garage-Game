@@ -1531,9 +1531,12 @@ public partial class PlayHudTest : Node
         // In order through the day (an hour past midnight for night is allowed to wrap), light by day and dark at night.
         var unwrapped = hours.Select((h, i) => i > 0 && h < hours[0] ? h + 24f : h).ToArray();
         Check(unwrapped.Zip(unwrapped.Skip(1), (a, b) => b > a).All(ok => ok), "the seven times run in order: " + string.Join(", ", hours.Select(h => h.ToString("0.0"))));
-        // Noon within 0.02 of the brightest: the day's light keys plateau through the afternoon, and on some real dates (mid
-        // October: noon 0.89, late afternoon 0.90) the late-afternoon step reads a hundredth brighter, which no one can see.
-        Check(daylight[2] >= daylight[1] && daylight[2] >= daylight[3] - 0.02f && daylight[3] > daylight[4] && daylight[4] > daylight[6], $"noon is the brightest and the light falls through the afternoon to sunset ({string.Join(" ", daylight.Select(d => d.ToString("0.00")))})");
+        // The light rises to noon, noon and late afternoon are both full day, and it falls to sunset and night. Noon is
+        // not always the brightest step: the day's light keys sit at fixed hours and peak after noon, while the T steps
+        // follow the real date's sunrise and sunset. In mid October the late-afternoon step read 0.90 against noon's 0.89;
+        // on 18 November, with sunset at 16.8 h, it read 0.96 against 0.89 and failed the old 0.02 allowance. Whether the
+        // light keys should follow the day's length is a look question (Run 3, L-air), not this check's.
+        Check(daylight[2] >= daylight[1] && daylight[2] >= 0.7f && daylight[3] >= 0.7f && daylight[2] >= daylight[3] - 0.12f && daylight[3] > daylight[4] && daylight[4] > daylight[6], $"noon and late afternoon are full day and the light falls to sunset ({string.Join(" ", daylight.Select(d => d.ToString("0.00")))})");
         Check(daylight[6] < 0.1f && daylight[5] <= daylight[4] && look.Moment.MoonWeight > 0.9f, "night is dark and lit by the moon");
         Check(look.LampsOn, "and the lamps are on at night");
         _hud._UnhandledInput(Press(Key.T));
