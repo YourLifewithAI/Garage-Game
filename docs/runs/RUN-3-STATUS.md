@@ -74,7 +74,7 @@ The handoff page for [RUN-3.md](RUN-3.md), the story run. An integrating session
 4. **Sound's small follow-ups** above, by the integrator or a short Sonnet round.
 5. **The pull request for batch 1,** from a snapshot branch as RUN-2-STATUS.md describes. The Linux suite has not been run on any of this session's work, and a pull request to main needs it green on the exact commit: run `tools/linux/test-all.sh` in a cloud session first.
 6. **Show the founder the island with sound** (`run-room.ps1`), and the before and after pictures once L-air has something to show.
-7. **The founder's sharing question** (LEAD.md, 18 November): a design answer, as its own piece of work.
+7. **The founder's sharing question** (LEAD.md, 18 November) has a design answer on record: [docs/ideas/SHARING-THE-GAME.md](../ideas/SHARING-THE-GAME.md), written 19 November on the founder's word. It is a proposal, not a plan: nothing is built, and its section 9 lists nine decisions that are the founder's. Two of them touch this run before it goes further: where the family's story lives (decision 4, before T1 writes a word) and whether Q1's story reader takes its roots as a list (section 10). Neither is decided; do not act on either without the founder.
 
 Worktrees `contracts`, `sound` and `look-perf` under `C:\dev\Garage-Game-run3` all stay; nothing was deleted.
 
@@ -107,4 +107,4 @@ Every merge runs both Windows runners on the exact tree before the integration b
   - the frame budget, now with numbers: two views are over 16.7 ms, and drawing small plants to 30 m instead of 40 would bring both inside it at a visible cost;
   - how dark the night should be: away from the fire the land is nearly black, and the hamlet has no lit windows;
   - whether the day's light should follow the day's length (it peaks after noon at fixed hours);
-  - the sharing question the founder raised (LEAD.md): how others copy the game and make it their own with their own AI, and one safe place to share what they make.
+  - the sharing question the founder raised (LEAD.md): the design answer is in [docs/ideas/SHARING-THE-GAME.md](../ideas/SHARING-THE-GAME.md), and its nine decisions wait for the founder. The first is the licence: the repository is public and has none.

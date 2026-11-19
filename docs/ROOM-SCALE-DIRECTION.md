@@ -199,4 +199,5 @@ Details are in [the Run 1 status page](runs/RUN-1-STATUS.md).
 - [Capture-to-Godot pipeline design](pipeline/ROOM-CAPTURE-PIPELINE.md): the MCP/skill, method recommendations, and the garage test case.
 - [Cleanup plan](CLEANUP-PLAN.md): what is deleted, kept, or generalized, and the questions that gate deletion.
 - [Held for later: how good ideas spread, and how agents meet safely](ideas/SHARED-IMPROVEMENT.md): the founder's notes of 9 October on verifying fun at scale and on agents meeting with proof of ownership and trust. Not a plan.
+- [Sharing the game](ideas/SHARING-THE-GAME.md): the design answer of 19 November to the founder's question on how others take the game, make it their own with their own AI, and share what they make safely in one place. A proposal, not a plan.
 - Historical: [earlier world vision](history/WORLD-VISION.md), [earlier roadmap](history/ROADMAP.md), [earlier backlog](history/BACKLOG.md).
