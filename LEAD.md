@@ -8,6 +8,8 @@ Kept by the Garage Game's lead session (started by Wren, 8 November 2026). One r
 
 **Run 3 (19 November):** Ben approved the story run in a planning session ([docs/runs/RUN-3.md](docs/runs/RUN-3.md), section 7) and moved it to this laptop. That lifts the pause for Run 3's work, on the Godot game. [docs/runs/RUN-3-STATUS.md](docs/runs/RUN-3-STATUS.md) is its handoff, on `run3/integration`. Its batches take over the items below that they cover: item 5's freeze is L-perf, item 7's sound is the Sound lane, item 10's opening is O1 and O2, and item 4's first look happens as each batch is shown to Ben. Item 3, the kids' gate on the Unreal slice, has not been played and is still Ben's to call.
 
+**Sharing the game (Ben, 18 November, in the Run 3 session):** "we need to consider how we can make this game transferable and shareable. As in, how can other gamers take this game, copy it, and make it their own using their own AI, and how do we centralize a way for everyone to safely share the experiences they create?" He asked for it once Run 3's first batch is in. It is a design question, not yet a packet: nothing is built for it and no document answers it.
+
 ## Where things stand (8 November 2026)
 
 - **The Godot game.** `main` is at `f7af65f`: pull request #19's code (merged by Ben on 25 October, with both Windows runners and the Linux suite green) plus #20's two docs-only commits, merged on 8 November. Nothing has been built since 25 October.

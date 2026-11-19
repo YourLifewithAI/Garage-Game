@@ -16,20 +16,76 @@ The handoff page for [RUN-3.md](RUN-3.md), the story run. An integrating session
   - Over the provisional budget: the spawn view (18.1 ms p95, worst frame 65 to 67 ms) and the far Fractal view (19.6 ms p95).
   - The summit camera could not place the player, so there is no picture from the top yet; `-Sweep` fails with the island cameras. Both are in L-perf's packet.
 - **Step 2, done.** The opening commit is `496ad80`: OWNERSHIP.md's Run 3 section (with a narrow grant for L-perf), AGENTS.md's worktree line and LEAD.md's note.
-- **Step 3, batch 1 dispatched,** each in `C:\dev\Garage-Game-run3\<lane>` on `run3/<lane>`, with `.cache\dotnet`, `.cache\godot` and `.cache\contracts-venv` linked to the integrator's:
+- **Step 3, batch 1,** each lane in `C:\dev\Garage-Game-run3\<lane>` on `run3/<lane>`, with `.cache\dotnet`, `.cache\godot` and `.cache\contracts-venv` linked to the integrator's. The routing log in ORCHESTRATION.md has each run's tokens and outcome.
 
   | Worktree | Packet | Model | State |
   |---|---|---|---|
-  | `contracts` | The story pack contract, its examples, the save's story block, an example pack (on the integrator's behalf) | Opus | Running |
-  | `sound` | The bus, the director, a first set of sounds made in code, WAV previews for the founder's ears | Sonnet | Running |
-  | `look-perf` | L-perf: the freeze, the hitches, the two views over budget, the summit camera | Opus | Running (the only GPU lane) |
+  | `sound` | The buses, one director, 28 sounds made in code | Sonnet, reviewed by a fresh Opus | **Merged** (`1ce6be8`), both runners green on the merge |
+  | `look-perf` | L-perf | Opus | **Merged** (`a7b6cf5`), both runners green. Partial: no frame time won |
+  | `contracts` | The story pack contract (on the integrator's behalf) | Opus, reviewed twice by a fresh Opus | **Not merged.** See "The story contract" below |
 
-- **Not started:** Q1 (waits for the contract to merge) and L-air (waits for L-perf).
+- **Sound, as merged.** The director attaches in `RoomWorld._Ready` after the command host; `project.godot` names the bus layout; `native_audio.tscn` is in both runner lists (392 checks). A headless run starts no audio. `capture-look.ps1` passes `--audio-driver Dummy`, so captures are silent; one single-view capture with sound attached ran clean (the hamlet 7.9 / 11.0 ms, as before).
+  - **Open:** a windowed game quit while sounds play can still print Godot's "ObjectDB instances were leaked at exit" (a race in the audio server; the headless switch hides it from the tests and does not remove it).
+  - **Cost:** attaching takes 18 to 22 ms of main thread once, at room start, on the 10x island.
+  - **Change requests not yet applied:** the expertise chime to the UI bus (`RoomHud.Camp.cs`, the player's initialiser near line 172, `Bus = "UI"`) and the glow chimes to Effects (`LookDirector.GlowGrowth.cs`, the `AudioStreamPlayer3D` near line 91). The settings screen needs sliders over `AudioSettings.Get/Set/Mute/Reset/Save` (Lane U).
+  - **Not built:** sounds for the Gubble's actions, doors and the Bubble; muffling when the eye is under water; music.
+  - **Not heard by anyone.** The founder has three listening files (ambience, feet and water, small things); the lane checked the sounds by numbers only.
+- **L-perf, as merged.** The intro's set-up waits two frames behind the black cover: the freeze frame on the 10x island went from 846 to 1,064 ms to about 728 ms. The summit camera stands on the highest ground the player can stand on. `FrameProbe --split` times each child of the world. The numbers are in [docs/look/reviews/run3/README.md](../look/reviews/run3/README.md).
+  - **Still over the provisional budget:** the spawn (18.2 ms p95) and the far Fractal view (19.3).
+  - **L-perf round 2 comes before L-air.** Its measured targets:
+    - the land's geometry is drawn in the depth pre-pass (2.7 ms) and again in the opaque pass (4.3 ms) at the spawn;
+    - small plants drawn to 30 m instead of 40 put both views inside the budget (16.6 and 16.0 ms p95) but change the picture visibly: render the pair for the founder to judge;
+    - what is left of the freeze: a HUD CanvasLayer (about 100 ms, Lane U's), the first 87 pipelines (230 to 300 ms), the bubble's warm-up (66 ms), the campfires (50 ms), a 62 ms terrain-collision tile build (`Room/TerrainCollision.cs`, in the grant), and the command host's physics step (25 to 45 ms every few seconds, the kernel's);
+    - the apple-picking hitch was not reproduced; `-Sweep` still fails with the island cameras;
+    - check whether sound's start adds to the first view's worst frame (86 ms with the hamlet first, against 65 to 67 ms at the spawn before sound).
+- **The summit has nothing to see.** The true summit view is a wide, flat, pale tabletop, with none of the island below in the frame. Nobody has checked that this spot is the island's `x_summit`. The ending rests on this place: Q3 checks the route and the spot, and the look and the plant kit make it worth reaching.
+- **A crash under load, not ours to chase yet.** The room runner's character steps crashed at exit three times in the `contracts` worktree (a .NET finalizer crash, "Leaked unsafe reference", GLTF) while four suites shared the machine. The same steps pass alone, and the integrator's five room-runner passes never showed it. Stagger the lanes' final runner passes.
+- **Not started:** Q1 (waits for the contract) and L-air (waits for L-perf round 2).
 - **Both Windows runners on the base: green.**
   - The room runner passed on `8c20e90`.
   - The engine runner first failed one check there, and stopped before its later suites: the play HUD's "noon is the brightest" reads the real date, and on 18 November the late-afternoon step reads 0.96 against noon's 0.89. Main fails the same way on this date. Fixed in the test (`1cb4ded`); the engine runner then passed on `1cb4ded` with no failing check (companion 868 tests, playtest reader 98).
   - The three lanes were told to merge `1cb4ded` before their final runner pass.
   - **For L-air:** the day's light keys sit at fixed hours and peak after noon, so they do not follow the day's length. In winter the brightest light comes under two hours before sunset.
+
+### The story contract
+
+**State at 22:35 on 18 November: not merged.** `run3/contracts` holds round 1 (`9414dc6`) and the first fix round (`0decccc`), which merged cleanly into the integration tree and passed both runners there before the review's blockers kept it out. A short third round was running for the re-review's findings:
+- a step whose condition needs a topic the step never opens;
+- digits in titles, names and lines (and Unicode digits);
+- the save's room against the pack's `room_id`;
+- quest facts against progress;
+- `fractals_spent` against the island's budget;
+- a `"` inside quoted text;
+- where the two summit effects may sit.
+
+If a newer commit is on the branch, its body holds the lane's report; if not, that list is what is left.
+
+- **What it is** (`contracts/island-story.schema.json`, `check_story` and its companions in `contracts/validate.py`, `game/stories/example/v1.json`): a pack at `game/stories/<id>/v<N>.json` names its island (`room_id`) and its rules pack. Chapters hold quests, quests hold steps; a step has a journal line, one condition from a closed list of nine, an optional lead and beats. Rewards are a keepsake or a lead to a Fractal the island already has. Quest state is room state's `extensions.x_story`; the journal has three quest kinds.
+- **Round 1 passed its own tests and was still broken.** The reviewer wrote packs that validated and could never be finished, and showed that the Gubble's own Fire could satisfy "a campfire lit". The fix rounds closed both blockers.
+- **The integrator's decisions, all provisional:**
+  - no condition is met by a companion's own-initiative act: a fact counts when the player did it or directed it;
+  - an islander's character is one id or an ordered cast list, and the validator proves every islander gets a distinct character whatever the player wears;
+  - a ninth condition, a Fractal found;
+  - a closed list of three quest effects (an islander comes to the camp, the overview opens, the second knack slot);
+  - no digits in a pack's text;
+  - a child's recording of a line is found by pack, islander and line id in the player's user folder, never shipped and never committed;
+  - the old-style id `enfractal.island_story` is not accepted.
+- **Open for Q1, its first task.** The kernel cannot yet attribute two conditions. The expertise store (`team.schema`, `expertise.discoveries`) is a team-wide list with no principal on an entry, and `x_play_camp` records that a campfire is lit, not who lit it. Recommended: the ledger counts both from the command host's handled commands while the step is current, and expertise the team held when the story started counts when its step becomes current.
+- **Also for Q1:** `CommandHostRoomState.cs` (near lines 110 to 125) rebuilds a save's extensions from scratch, so the host must write `x_story` back; add the three quest kinds to `CommandHostJournal.cs`'s `JournalKinds` and restore exact equality in `test_contracts.py`; a save naming a pack the game does not have keeps its story block untouched and inert; which pack a room plays is bound by `room_id`.
+- **For the family, before T1 writes a word:** the player wears one of the four characters, so three islanders are left for the four friends' needs (Grow, Bubbles, Glow, Fire). The cast list carries either answer; who carries the fourth need is a story decision.
+
+## The next session, in order
+
+0. Read this page. `run3/integration` is pushed; the lane branches are local only.
+1. **The story contract:** finish what "The story contract" above says is left, then merge it: the contract tests (`python -m unittest discover -s contracts/tests` from the repository's root, with `.cache\contracts-venv`), `validate.py` over the shipped rooms, presets, rules and stories, and both Windows runners on the merge.
+2. **Q1, the quest ledger** (Opus), on the merged contract, starting with the attribution question above.
+3. **L-perf round 2** (Opus, the GPU lane), then **L-air**. Show the founder the 30 m and 40 m pair first.
+4. **Sound's small follow-ups** above, by the integrator or a short Sonnet round.
+5. **The pull request for batch 1,** from a snapshot branch as RUN-2-STATUS.md describes. The Linux suite has not been run on any of this session's work, and a pull request to main needs it green on the exact commit: run `tools/linux/test-all.sh` in a cloud session first.
+6. **Show the founder the island with sound** (`run-room.ps1`), and the before and after pictures once L-air has something to show.
+7. **The founder's sharing question** (LEAD.md, 18 November): a design answer, as its own piece of work.
+
+Worktrees `contracts`, `sound` and `look-perf` under `C:\dev\Garage-Game-run3` all stay; nothing was deleted.
 
 ## For the session on the laptop, in order
 
@@ -54,4 +110,10 @@ Every merge runs both Windows runners on the exact tree before the integration b
 - The controls table in RUN-3.md section 7: mark it up before U2 starts.
 - The frame budget, the gamepad and where music comes from (RUN-3.md section 7, items 3 to 5): the run uses the provisional answers written there until the founder says otherwise.
 - Whether the family's subscription may carry a child's live conversation with a character: a question for Anthropic. Voice's first step needs no live model, so nothing waits on it.
-- The story's first draft: the founder and the children say who each islander is and what it wants, by voice once V2 exists, in words to the founder before that.
+- The story's first draft: the founder and the children say who each islander is and what it wants, by voice once V2 exists, in words to the founder before that. With it, who carries the fourth friend's need (above).
+- From the first laptop session (18 November):
+  - whether the first sounds feel gentle (three listening files), and where music comes from;
+  - the frame budget, now with numbers: two views are over 16.7 ms, and drawing small plants to 30 m instead of 40 would bring both inside it at a visible cost;
+  - how dark the night should be: away from the fire the land is nearly black, and the hamlet has no lit windows;
+  - whether the day's light should follow the day's length (it peaks after noon at fixed hours);
+  - the sharing question the founder raised (LEAD.md): how others copy the game and make it their own with their own AI, and one safe place to share what they make.
