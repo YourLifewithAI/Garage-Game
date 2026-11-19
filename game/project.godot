@@ -6,6 +6,10 @@ config/name="Garage-Game"
 run/main_scene="res://scenes/menu.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 
+[audio]
+
+buses/default_bus_layout="res://assets/audio/default_bus_layout.tres"
+
 [display]
 window/size/viewport_width=1280
 window/size/viewport_height=720

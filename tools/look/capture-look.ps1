@@ -157,7 +157,8 @@ if ($Room) {
     $userArgs += "--room=$(([System.IO.Path]::GetFullPath($Room, $repository)) -replace '\\', '/')"
 }
 if ($Jpg -gt 0) { $userArgs += "--jpg=$Jpg" }
-$engineArgs = @('--path', $projectPath, '--disable-vsync')
+# A capture is silent: since Run 3's Sound lane a windowed room plays its ambience, and a capture has no one listening.
+$engineArgs = @('--path', $projectPath, '--disable-vsync', '--audio-driver', 'Dummy')
 if ($RootViewport) { $engineArgs += @('--resolution', '1920x1080', '--position', '0,0') }
 else { $engineArgs += @('--resolution', '960x540', '--position', '40,40') }
 $engineArgs += @('res://tests/native_look_capture.tscn', '--') + $userArgs
