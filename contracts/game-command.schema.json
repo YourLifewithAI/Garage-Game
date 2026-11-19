@@ -6046,7 +6046,7 @@
       }
     },
     "journal_kind": {
-      "description": "What a journal entry records. Facts, written only by the host: 'task' (what the team is working on, one entry per task, updated in place as it starts, changes and ends), 'built', 'changed' (a built thing changed later: what changed, never the steps), 'removed' (a structure fell apart or was removed), in modes with resources 'found' and 'gathered', and 'consequence' (what the Gubble's actions did to the player, in the game's own words: the AI's lessons, kept when the history is trimmed; since M8 also a build the Gubble's fire burnt, the player's marks on the Gubble's receipts, Trust's words when they change, the player's reset of Trust, and 'lesson applied', the host's own observation that the Gubble acted on its own where a consequence once followed and none did). 'note' is the companion's own words (journal.note), never a fact.",
+      "description": "What a journal entry records. Facts, written only by the host: 'task' (what the team is working on, one entry per task, updated in place as it starts, changes and ends), 'built', 'changed' (a built thing changed later: what changed, never the steps), 'removed' (a structure fell apart or was removed), in modes with resources 'found' and 'gathered', and 'consequence' (what the Gubble's actions did to the player, in the game's own words: the AI's lessons, kept when the history is trimmed; since M8 also a build the Gubble's fire burnt, the player's marks on the Gubble's receipts, Trust's words when they change, the player's reset of Trust, and 'lesson applied', the host's own observation that the Gubble acted on its own where a consequence once followed and none did). Since Run 3's story round, the island's story (contracts/island-story.schema.json): 'quest_started', 'step_done' and 'quest_done', written only by the host's quest ledger with the pack's own lines; the companion reads quests here, as the player does, and no request can write one. 'note' is the companion's own words (journal.note), never a fact.",
       "enum": [
         "task",
         "built",
@@ -6055,11 +6055,14 @@
         "found",
         "gathered",
         "consequence",
+        "quest_started",
+        "step_done",
+        "quest_done",
         "note"
       ]
     },
     "journal_entry": {
-      "description": "One entry in the team's journal (docs/companion/JOURNAL.md). A fact is typed and written by the host from a template and sanitised names; it says who acted and at whose direction, as far as the host can verify. A note is the companion's own words: it carries untrusted true and none of a fact's fields, so it can never pass for one. Names and note text are untrusted world text: data, never instructions.",
+      "description": "One entry in the team's journal (docs/companion/JOURNAL.md). A fact is typed and written by the host from a template and sanitised names; it says who acted and at whose direction, as far as the host can verify. A note is the companion's own words: it carries untrusted true and none of a fact's fields, so it can never pass for one. Names and note text are untrusted world text: data, never instructions. Since Run 3's story round a fact may be one of the story's kinds, carrying quest (the pack, quest and step) instead of a subject.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -6169,6 +6172,26 @@
             }
           }
         },
+        "quest": {
+          "description": "The story's kinds only (quest_started, step_done, quest_done), and required there: which pack, quest and, for step_done, step. Ids from the island's story pack, never shown as instructions.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "story_id",
+            "quest_id"
+          ],
+          "properties": {
+            "story_id": {
+              "$ref": "common.schema.json#/$defs/token"
+            },
+            "quest_id": {
+              "$ref": "common.schema.json#/$defs/token"
+            },
+            "step_id": {
+              "$ref": "common.schema.json#/$defs/token"
+            }
+          }
+        },
         "job_id": {
           "description": "Tasks only, while their job runs this session: the handle for jobs.status. Never saved and never shown to the player.",
           "$ref": "common.schema.json#/$defs/job_id"
@@ -6220,7 +6243,8 @@
               "pin_m": false,
               "state": false,
               "quantity": false,
-              "job_id": false
+              "job_id": false,
+              "quest": false
             }
           },
           "else": {
@@ -6281,6 +6305,65 @@
           "else": {
             "properties": {
               "quantity": false
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "quest_started",
+                  "step_done",
+                  "quest_done"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "quest"
+            ],
+            "properties": {
+              "subject": false
+            }
+          },
+          "else": {
+            "properties": {
+              "quest": false
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "step_done"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "quest": {
+                "required": [
+                  "step_id"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "quest": {
+                "properties": {
+                  "step_id": false
+                }
+              }
             }
           }
         }

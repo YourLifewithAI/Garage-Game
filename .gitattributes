@@ -16,6 +16,7 @@ contracts/examples/** -text
 game/rooms/** -text
 game/styles/**/*.json text eol=lf
 game/rules/**/*.json text eol=lf
+game/stories/**/*.json text eol=lf
 # Canonical JSON golden fixture: the three languages hash these exact bytes, so Git never converts them.
 game/tests/fixtures/kernel/** -text
 

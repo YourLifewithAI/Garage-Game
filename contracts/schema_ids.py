@@ -25,6 +25,7 @@ IDS: dict[str, tuple[str, str]] = {
     "style": ("garage_game.style", "enfractal.style"),
     "room_state": ("garage_game.room_state", "enfractal.room_state"),
     "island_rules": ("garage_game.island_rules", "enfractal.island_rules"),
+    "island_story": ("garage_game.island_story", "enfractal.island_story"),
     "team": ("garage_game.team", "enfractal.team"),
     "player_modes": ("garage_game.player_modes", "enfractal.player_modes"),
     "glow_progress": ("garage_game.glow_progress", "enfractal.glow_progress"),

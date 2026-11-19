@@ -177,8 +177,8 @@ echo "== playtest reader (R2; the contact sheet's tests skip without Pillow)"
 if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" -m unittest discover -s tools/playtest/tests > "$LOG/playtest.log" 2>&1); then
   echo "PASS playtest reader: $(grep -E '^Ran' "$LOG/playtest.log")"
 else cat "$LOG/playtest.log"; failed=1; fi
-if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" -I contracts/validate.py game/rooms/test_room game/styles/*/v*.json game/rules/*/v*.json > "$LOG/validate.log" 2>&1); then
-  echo "PASS shipped rooms, presets and island rules validate"
+if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" -I contracts/validate.py game/rooms/test_room game/styles/*/v*.json game/rules/*/v*.json game/stories/*/v*.json > "$LOG/validate.log" 2>&1); then
+  echo "PASS shipped rooms, presets, island rules and stories validate"
 else cat "$LOG/validate.log"; failed=1; fi
 echo "== companion"
 if (cd "$REPO" && PYTHONPATH="$REPO/companion/src" "$LINUX/companion-venv/bin/python" -m unittest discover -s companion/tests > "$LOG/companion.log" 2>&1); then
