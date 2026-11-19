@@ -89,7 +89,7 @@ public static class IslandCameras
     }
 
     /// <summary>Every derived camera this island has (one with no beach or no structures leaves that camera out, and says why in notes).</summary>
-    public static List<DerivedCamera> Derive(RoomData room, Func<Vector2, Vector3?> ground, Func<Vector3, bool> openSky, List<string> notes)
+    public static List<DerivedCamera> Derive(RoomData room, Func<Vector2, Vector3?> ground, Func<Vector3, bool> openSky, List<string> notes, Func<Vector3, bool>? footing = null)
     {
         var cameras = new List<DerivedCamera>();
         var middle = Middle(room);
@@ -103,7 +103,7 @@ public static class IslandCameras
         else
         {
             var crowns = Crowns(room);
-            bool Clear(Vector3 at) => openSky(at) && !crowns.Any(c => c.Centre.DistanceTo(new Vector2(at.X, at.Z)) < c.RadiusM + SummitClearM);
+            bool Clear(Vector3 at) => openSky(at) && footing?.Invoke(at) != false && !crowns.Any(c => c.Centre.DistanceTo(new Vector2(at.X, at.Z)) < c.RadiusM + SummitClearM);
             var clear = samples.OrderByDescending(s => s.Y).Take(Math.Max(256, samples.Count / 10)).Where(Clear).Select(s => (Vector3?)s).FirstOrDefault();
             if (clear == null) notes.Add("summit: no open sky on the highest ground; the highest point is used");
             var summit = clear ?? samples.MaxBy(s => s.Y);
@@ -188,6 +188,18 @@ public static class IslandCameras
             exclude.Add(hit["rid"].AsRid());
         }
         return null;
+    };
+
+    /// <summary>
+    /// Whether the player can stand on a ground point (Run 3, L-perf): the body's own ray down meets ground there no steeper than the
+    /// body's floor angle. The highest ground of the 10x island is a slope the player cannot be put on (the Run 3 "before" sets: "the
+    /// player could not be placed"), so the summit camera is the highest ground the player can stand on.
+    /// </summary>
+    public static Func<Vector3, bool> RayFooting(PhysicsDirectSpaceState3D space, float floorMaxAngleRad) => at =>
+    {
+        using var query = PhysicsRayQueryParameters3D.Create(at + Vector3.Up * 0.04f, at + Vector3.Down * 0.3f, RoomBuilder.BodyMask);
+        using var hit = space.IntersectRay(query);
+        return hit.Count > 0 && hit["normal"].AsVector3().Y >= Mathf.Cos(floorMaxAngleRad);
     };
 
     /// <summary>

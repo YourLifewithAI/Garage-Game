@@ -175,7 +175,13 @@ public partial class LookPresetTest
         var space = built.GetWorld3D().DirectSpaceState;
         var ground = IslandCameras.RayGround(space, land.Bounds);
         var notes = new List<string>();
-        var cameras = IslandCameras.Derive(land, ground, IslandCameras.RaySky(space), notes);
+        var footing = IslandCameras.RayFooting(space, Mathf.DegToRad(45f));
+        var cameras = IslandCameras.Derive(land, ground, IslandCameras.RaySky(space), notes, footing);
+        // L-perf: ground the player cannot stand on is never the summit (the 10x island's highest ground is such a slope).
+        var unfooted = IslandCameras.Derive(land, ground, IslandCameras.RaySky(space), new List<string>()).First(c => c.Id == "summit").PlayerM;
+        var refused = IslandCameras.Derive(land, ground, IslandCameras.RaySky(space), new List<string>(), at => at != unfooted).First(c => c.Id == "summit").PlayerM;
+        Check(footing(cameras.First(c => c.Id == "summit").PlayerM) && refused != unfooted && refused.Y <= unfooted.Y + 1e-4f,
+            "the summit camera stands where the player can stand: ground without footing is passed over for the next highest");
         GD.Print("LOOK_INFO: the 1x garage's island cameras: " + string.Join("; ", cameras.Select(c => $"{c.Id} at {c.PlayerM} facing {c.YawDeg:0} degrees"))
                  + (notes.Count > 0 ? "; notes: " + string.Join("; ", notes) : ""));
         Check(cameras.Select(c => c.Id).SequenceEqual(IslandCameras.Ids), "the 1x garage has every island camera: " + string.Join(", ", cameras.Select(c => c.Id)));

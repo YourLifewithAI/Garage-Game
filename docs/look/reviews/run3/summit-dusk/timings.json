@@ -1,0 +1,152 @@
+{
+  "label": "summit-dusk",
+  "commit": "6830f296+uncommitted",
+  "note": "NVIDIA GeForce RTX 2070 Super; 1810 of 8192 MiB in use and 0% utilisation before launch (quiet for 6 s)",
+  "captured_utc": "2026-11-19T03:37:47Z",
+  "engine": "4.7.2-stable (official)",
+  "rendering_method": "forward_plus",
+  "rendering_driver": "vulkan",
+  "adapter": "NVIDIA GeForce RTX 2070 Super",
+  "adapter_driver": "NVIDIA 32.0.15.7680",
+  "target": "offscreen SubViewport (window shows a scaled preview)",
+  "resolution": [
+    1920,
+    1080
+  ],
+  "vsync": "disabled",
+  "warmup_frames": 120,
+  "measured_frames": 300,
+  "style": "storybook_painterly@2",
+  "style_note": "",
+  "room_manifest_sha256": "d107aacd157fac44357195fa298919e5e1fec03ea4e014e84bcd5cd675e57673",
+  "cameras_file": "C:\\dev\\Garage-Game-run3\\look-perf\\.cache\\scratch\\island_dusk.json",
+  "msaa_3d": "Disabled",
+  "screen_space_aa": "Fxaa",
+  "use_taa": false,
+  "cameras": [
+    {
+      "frames": 300,
+      "frame_ms_mean": 8.2,
+      "frame_ms_p50": 7.865,
+      "frame_ms_p95": 11.212,
+      "frame_ms_p99": 12.75,
+      "frame_ms_max": 65.595,
+      "gpu_ms_mean": 7.433,
+      "gpu_ms_p95": 7.553,
+      "render_cpu_ms_mean": 1.882,
+      "draw_calls_mean": 1414,
+      "primitives_mean": 7913983,
+      "video_mem_mib": 312.159,
+      "spike_threshold_ms": 19.662,
+      "spikes": [
+        {
+          "frame": 283,
+          "ms": 27.564,
+          "process_ms": 8.148,
+          "physics_ms": 4.581,
+          "navigation_ms": 0.006,
+          "render_cpu_ms": 1.736,
+          "gpu_ms": 7.388,
+          "gc_pause_ms": 0,
+          "objects_drawn": 1648,
+          "causes": "unattributed (outside the engine's steps: the OS, the driver or presenting)"
+        },
+        {
+          "frame": 294,
+          "ms": 65.595,
+          "process_ms": 8.148,
+          "physics_ms": 4.581,
+          "navigation_ms": 0.006,
+          "render_cpu_ms": 1.748,
+          "gpu_ms": 7.628,
+          "gc_pause_ms": 0,
+          "objects_drawn": 1648,
+          "causes": "unattributed (outside the engine's steps: the OS, the driver or presenting)"
+        }
+      ],
+      "frames_over_25_ms": 2,
+      "gc_collections": [
+        1,
+        0,
+        0
+      ],
+      "pipeline_compilations": 0,
+      "memory": {
+        "working_set_mib": 1459.367,
+        "private_mib": 1945.355,
+        "peak_working_set_mib": 1831.512,
+        "engine_static_mib": 436.685,
+        "engine_static_peak_mib": 512.846,
+        "managed_heap_mib": 98.878,
+        "managed_live_mib": 105.898,
+        "video_mib": 312.159,
+        "video_texture_mib": 170.854,
+        "video_buffer_mib": 102.206
+      },
+      "camera": "summit",
+      "file": "summit.jpg",
+      "image_size": [
+        1920,
+        1080
+      ]
+    }
+  ],
+  "memory_end": {
+    "working_set_mib": 1476.73,
+    "private_mib": 1961.609,
+    "peak_working_set_mib": 1831.512,
+    "engine_static_mib": 451.483,
+    "engine_static_peak_mib": 512.846,
+    "managed_heap_mib": 99.648,
+    "managed_live_mib": 107.307,
+    "video_mib": 313.242,
+    "video_texture_mib": 170.854,
+    "video_buffer_mib": 103.288
+  },
+  "memory_breakdown": {
+    "copies_multimeshes": 504,
+    "copies_instances_in_all_bands": 287009,
+    "copies_instance_buffers_mib": 17.518,
+    "copies": 333186,
+    "terrain_levels": {
+      "0": {
+        "meshes": 204,
+        "vertices": 1564502,
+        "indices": 7726641
+      },
+      "1": {
+        "meshes": 204,
+        "vertices": 78346,
+        "indices": 364374
+      },
+      "2": {
+        "meshes": 204,
+        "vertices": 9702,
+        "indices": 34620
+      }
+    },
+    "collision_triangles": 1410552,
+    "ground_tiles_built": 76,
+    "ground_tiles": 204,
+    "copies_held": 232720,
+    "room_verified_mesh_bytes_mib": 0,
+    "navigation_polygons": 80335,
+    "objects": 8628,
+    "nodes": 2930,
+    "resources": 69
+  },
+  "derive_notes": [],
+  "look": "storybook_painterly@2 (draft) sha256=c1f9c3ca1df7e070cf894f50345add476e9f98e6e1f504f3bd0b8003207d689c; renderer=forward_plus; key=sun elevation 1 yaw -117.4 energy 0.18 (sun at -0.1 degrees, bearing 297.4; moon weight 0; sun scale 1); sky fill none; lamps none; hour 19 day 172 season summer (hour pinned, day pinned (pinned by SetClock)); open land: no VoxelGI (a closed interior is what it bakes); the sky's ambient light and the sun light the land; ssao=True ssil=False glow=True dof=True tilt=0.8; grain 0.05 vignette 0.22 post effect ran; site room (30 degrees latitude, -Z facing 0, solar noon 12 h)",
+  "look_problems": [],
+  "post_effect_check": {
+    "ran": true,
+    "corner_to_centre_darkening": 0.184,
+    "grain_spread": 0.181,
+    "grain_correlation": 0.055,
+    "noise_correlation_scale": 0.005,
+    "centre_pixels_compared": 43446,
+    "passed": true
+  },
+  "player_notice": "",
+  "gpu_during_capture": "GPU memory during capture 1819-2411 MiB over 34 samples"
+}

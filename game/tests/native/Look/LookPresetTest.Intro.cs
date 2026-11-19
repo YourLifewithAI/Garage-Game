@@ -227,6 +227,9 @@ public partial class LookPresetTest
         Check(RoomIntro.WhyNot(false, none, false, true, false)?.Contains("Play the intro", StringComparison.Ordinal) == true, "never with the player's setting off");
         Check(RoomIntro.WhyNot(false, none, true, false, false) != null && RoomIntro.WhyNot(false, none, true, true, true) != null, "never on a room that is not a landscape, nor twice at once");
         Check(RoomIntro.WhyNot(false, none, true, true, false) == null, "otherwise on every load");
+        Check(RoomIntro.SetUpAfterFrames >= 2 && !RoomIntro.SetUpNow(1, true) && !RoomIntro.SetUpNow(RoomIntro.SetUpAfterFrames, true)
+              && RoomIntro.SetUpNow(RoomIntro.SetUpAfterFrames + 1, true) && !RoomIntro.SetUpNow(100, false),
+            "the intro's set-up waits out the world's first frames after the load (L-perf: never in the freeze's frame) and its data");
         Check(RoomIntro.IsSkip(new InputEventKey { Pressed = true, PhysicalKeycode = Key.W }) && !RoomIntro.IsSkip(new InputEventKey { Pressed = true, Echo = true, PhysicalKeycode = Key.W })
             && !RoomIntro.IsSkip(new InputEventKey { Pressed = false, PhysicalKeycode = Key.W }) && RoomIntro.IsSkip(new InputEventMouseButton { Pressed = true, ButtonIndex = MouseButton.Left })
             && RoomIntro.IsSkip(new InputEventJoypadButton { Pressed = true, ButtonIndex = JoyButton.A }) && !RoomIntro.IsSkip(new InputEventMouseMotion { Relative = new Vector2(5, 0) })
