@@ -185,12 +185,25 @@ public partial class RoomIntro : Node
         });
     }
 
+    /// <summary>
+    /// The frames the intro waits, from its start at the world's ready, before its set-up (Run 3, L-perf). The world's first frame
+    /// after the load is the play's longest (every view's first process: the HUD, the look, the campfires, the copies; then the
+    /// island's first pipelines drawn in the next), and the set-up (the land marked, the shell built: about 140 ms on the 10x
+    /// island) added to it made the freeze after the island appears. Under the black cover, so nothing seen changes.
+    /// </summary>
+    public const int SetUpAfterFrames = 2;
+    private int _framesWaited;
+
+    /// <summary>Whether the set-up runs in this frame: its data read, and the world's first frames gone by (the rule the suite checks).</summary>
+    public static bool SetUpNow(int framesSinceStart, bool prepared) => prepared && framesSinceStart > SetUpAfterFrames;
+
     public override void _Process(double delta)
     {
         if (Finished) return;
         if (!Playing)
         {
-            if (_preparing is not { IsCompleted: true } prepared) return;
+            if (!SetUpNow(++_framesWaited, _preparing is { IsCompleted: true })) return;
+            var prepared = _preparing!;
             if (prepared.IsFaulted) { Finish("its data could not be read: " + (prepared.Exception?.InnerException?.Message ?? "unknown")); return; }
             if (prepared.Result is not { } data) { Finish("the room has no source (extensions.x_landscape_source)"); return; }
             try { SetUp(data.Source, data.Field); }

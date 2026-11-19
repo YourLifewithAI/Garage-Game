@@ -33,12 +33,56 @@ public partial class FrameProbe : Node
     private double _pause;
     private double _pipelines;
 
-    private readonly record struct Frame(double At, double Ms, double ProcessMs, double PhysicsMs, double RenderCpuMs, double GpuMs, string Gc, double PauseMs, double Pipelines, string State);
+    private readonly record struct Frame(double At, double Ms, double ProcessMs, double PhysicsMs, double RenderCpuMs, double GpuMs, string Gc, double PauseMs, double Pipelines, string State, string Split = "");
 
     private sealed partial class First : Node
     {
         public Action? Tick;
+        public Action? Step;
         public override void _Process(double delta) => Tick?.Invoke();
+        public override void _PhysicsProcess(double delta) => Step?.Invoke();
+    }
+
+    /// <summary>"--split": a marker after each of the world's children (same priority, next in tree order), so the time since the marker
+    /// before it is that child's subtree's process or physics step (Run 3, L-perf: what the first frame after the load is spent on).</summary>
+    private sealed partial class Mark : Node
+    {
+        public string Label = "";
+        public Action<string, bool>? Hit;
+        public override void _Process(double delta) => Hit?.Invoke(Label, false);
+        public override void _PhysicsProcess(double delta) => Hit?.Invoke(Label, true);
+    }
+
+    private double _markLast;
+    private readonly Dictionary<string, double> _split = new();
+
+    private void MarkHit(string label, bool physics)
+    {
+        var now = _clock.Elapsed.TotalMilliseconds;
+        var key = (physics ? "phys:" : "proc:") + label;
+        _split[key] = _split.GetValueOrDefault(key) + (now - _markLast);
+        _markLast = now;
+    }
+
+    private void OnWorldChild(Node child)
+    {
+        if (child is Mark || _world == null) return;
+        var parent = child.GetParent();
+        var label = parent == _world ? child.Name.ToString() : $"{parent?.Name}/{child.Name}";
+        if (parent == _world && child.Name.ToString() is "Look" or "Room") child.ChildEnteredTree += OnWorldChild;
+        Callable.From(() =>
+        {
+            if (!GodotObject.IsInstanceValid(child) || !child.IsInsideTree()) return;
+            child.AddSibling(new Mark { Name = "Mark_" + child.Name, Label = label, Hit = MarkHit, ProcessPriority = child.ProcessPriority, ProcessPhysicsPriority = child.ProcessPhysicsPriority });
+        }).CallDeferred();
+    }
+
+    private string SplitNow()
+    {
+        if (_split.Count == 0) return "";
+        var text = string.Join(", ", _split.OrderByDescending(p => p.Value).Take(8).Select(p => FormattableString.Invariant($"{p.Key} {p.Value:0.0}")));
+        _split.Clear();
+        return text;
     }
 
     private static string Arg(string name, string fallback) =>
@@ -48,9 +92,12 @@ public partial class FrameProbe : Node
     {
         _viewport = GetViewport().GetViewportRid();
         RenderingServer.ViewportSetMeasureRenderTime(_viewport, true);
-        var first = new First { Name = "FirstInFrame", ProcessPriority = int.MinValue, ProcessMode = ProcessModeEnum.Always, Tick = Sample };
+        var split = OS.GetCmdlineUserArgs().Contains("--split");
+        var first = new First { Name = "FirstInFrame", ProcessPriority = int.MinValue, ProcessPhysicsPriority = int.MinValue, ProcessMode = ProcessModeEnum.Always, Tick = Sample };
+        if (split) first.Step = () => _markLast = _clock.Elapsed.TotalMilliseconds;
         AddChild(first);
         var world = GD.Load<PackedScene>("res://scenes/room.tscn").Instantiate<RoomWorld>();
+        if (split) world.ChildEnteredTree += OnWorldChild;
         world.RoomDirectory = RoomWorld.ResolveRoom(Arg("room", "res://rooms/test_room").Replace('\\', '/'));
         _world = world;
         GD.Print($"FRAME_PROBE start: room {world.RoomDirectory}, {Arg("seconds", "60")} s, report frames over {Arg("over", "30")} ms");
@@ -119,6 +166,7 @@ public partial class FrameProbe : Node
         SurveyAtOnce();
         ForceDraw();
         var now = _clock.Elapsed.TotalMilliseconds;
+        if (_last >= 0 && now - _last > 300) GD.Print(FormattableString.Invariant($"FRAME_PROBE sample: frame {Engine.GetProcessFrames()} began after {now - _last:0} ms"));
         if (double.IsNaN(_readyAt) && _world is { WorldReady: true }) _readyAt = now;
         if (_last >= 0)
         {
@@ -129,7 +177,7 @@ public partial class FrameProbe : Node
                 + Performance.GetMonitor(Performance.Monitor.PipelineCompilationsSpecialization);
             var gc = $"{gc0 - _gc0}/{gc1 - _gc1}/{gc2 - _gc2}";
             _frames.Add(new Frame(now / 1000.0, now - _last, Performance.GetMonitor(Performance.Monitor.TimeProcess) * 1000.0, Performance.GetMonitor(Performance.Monitor.TimePhysicsProcess) * 1000.0,
-                RenderingServer.ViewportGetMeasuredRenderTimeCpu(_viewport), RenderingServer.ViewportGetMeasuredRenderTimeGpu(_viewport), gc, pause - _pause, pipelines - _pipelines, StateNow()));
+                RenderingServer.ViewportGetMeasuredRenderTimeCpu(_viewport), RenderingServer.ViewportGetMeasuredRenderTimeGpu(_viewport), gc, pause - _pause, pipelines - _pipelines, StateNow(), SplitNow()));
             (_gc0, _gc1, _gc2, _pause, _pipelines) = (gc0, gc1, gc2, pause, pipelines);
         }
         else
@@ -140,6 +188,7 @@ public partial class FrameProbe : Node
                 + Performance.GetMonitor(Performance.Monitor.PipelineCompilationsSpecialization);
         }
         _last = now;
+        _markLast = _clock.Elapsed.TotalMilliseconds;
         if (!double.IsNaN(_readyAt) && now - _readyAt > double.Parse(Arg("seconds", "60"), CultureInfo.InvariantCulture) * 1000.0) Finish();
     }
 
@@ -153,7 +202,7 @@ public partial class FrameProbe : Node
         var ready = _readyAt / 1000.0;
         GD.Print(FormattableString.Invariant($"FRAME_PROBE room ready at {ready:0.00} s; {_frames.Count} frames; mean frame {_frames.Average(f => f.Ms):0.00} ms"));
         foreach (var f in _frames.Where(f => f.Ms > over))
-            GD.Print(FormattableString.Invariant($"FRAME_PROBE slow t={f.At - ready,7:0.00} s (since ready) {f.Ms,7:0.0} ms: process {f.ProcessMs:0.0}, physics {f.PhysicsMs:0.0}, render cpu {f.RenderCpuMs:0.0}, gpu {f.GpuMs:0.0}, collections {f.Gc}, gc pause {f.PauseMs:0.0}, pipelines {f.Pipelines:0}; {f.State}"));
+            GD.Print(FormattableString.Invariant($"FRAME_PROBE slow t={f.At - ready,7:0.00} s (since ready) {f.Ms,7:0.0} ms: process {f.ProcessMs:0.0}, physics {f.PhysicsMs:0.0}, render cpu {f.RenderCpuMs:0.0}, gpu {f.GpuMs:0.0}, collections {f.Gc}, gc pause {f.PauseMs:0.0}, pipelines {f.Pipelines:0}; {f.State}{(f.Split.Length > 0 ? " | " + f.Split : "")}"));
         // As the record's frame events: the longest frame of each five seconds from the room's ready.
         var windows = new List<string>();
         for (var start = 0.0; start < _frames.Last().At - ready; start += 5.0)
