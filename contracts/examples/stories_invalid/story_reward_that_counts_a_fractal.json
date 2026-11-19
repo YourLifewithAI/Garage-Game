@@ -6,16 +6,24 @@
   "display_name": "The example story",
   "status": "draft",
   "description": "Two short made-up quests for the quest ledger's tests. Not the garage's tale.",
+  "room_id": "island_example",
+  "rules": {
+    "rules_id": "storybook_wild",
+    "rules_version": 5
+  },
   "islanders": [
     {
       "id": "spud",
       "name": "Spud",
-      "character": "potato_man",
+      "cast": [
+        "potato_man",
+        "tomato_man"
+      ],
       "home": {
         "at_m": [
-          1.2,
+          1.0,
           0.0,
-          0.6
+          -2.0
         ],
         "radius_m": 0.4
       },
@@ -27,7 +35,7 @@
         },
         {
           "id": "button",
-          "text": "My lucky button rolled away near the table. I think it is under there."
+          "text": "My lucky button rolled away near the big rock. I think it is over there."
         },
         {
           "id": "hungry",
@@ -86,56 +94,63 @@
           "steps": [
             {
               "id": "meet_spud",
-              "journal": "Say hello to Spud by the bean bag.",
+              "journal": "Say hello to Spud by the camp.",
               "condition": {
                 "kind": "islander_talked",
-                "islander": "spud"
+                "islander": "spud",
+                "topic": "button"
               },
               "lead": {
                 "at_m": [
-                  1.2,
+                  1.0,
                   0.0,
-                  0.6
+                  -2.0
                 ],
                 "label": "Spud"
+              },
+              "talk": {
+                "islander": "spud",
+                "topics": [
+                  "button"
+                ]
               },
               "beats": [
                 {
                   "kind": "line",
                   "islander": "spud",
-                  "line": "hello"
+                  "line": "button"
                 }
               ]
             },
             {
-              "id": "look_under_table",
-              "journal": "Look for the button under the table.",
+              "id": "look_by_rock",
+              "journal": "Look for the button by the big rock.",
               "condition": {
                 "kind": "place_reached",
                 "place": {
                   "at_m": [
-                    -0.9,
+                    -5.0,
                     0.0,
-                    -0.9
+                    -6.0
                   ],
-                  "radius_m": 0.3
+                  "radius_m": 0.5
                 }
               },
               "lead": {
                 "at_m": [
-                  -0.9,
+                  -5.0,
                   0.0,
-                  -0.9
+                  -6.0
                 ],
-                "label": "Under the table"
+                "label": "The big rock"
               },
               "beats": [
                 {
                   "kind": "camera",
                   "look_at_m": [
-                    -0.9,
+                    -5.0,
                     0.2,
-                    -0.9
+                    -6.0
                   ],
                   "hold_s": 2
                 },
@@ -154,6 +169,12 @@
                   "stack": "apple",
                   "count": 1
                 }
+              },
+              "talk": {
+                "islander": "spud",
+                "topics": [
+                  "food"
+                ]
               },
               "beats": [
                 {
@@ -186,7 +207,13 @@
           ],
           "reward": {
             "keepsake": "lucky_button"
-          }
+          },
+          "effects": [
+            {
+              "kind": "islander_to_camp",
+              "islander": "spud"
+            }
+          ]
         },
         {
           "id": "high_place",
@@ -197,6 +224,14 @@
             "quest": "lost_button"
           },
           "steps": [
+            {
+              "id": "find_one",
+              "journal": "Find a Fractal.",
+              "condition": {
+                "kind": "fractal_found",
+                "count": 1
+              }
+            },
             {
               "id": "learn_lantern",
               "journal": "Ask the Gubble to make a little light.",
@@ -233,9 +268,17 @@
             }
           ],
           "reward": {
-            "fractal_lead": "fractal:example1",
+            "fractal_lead": "fractal:k3x9q2",
             "count": 2
-          }
+          },
+          "effects": [
+            {
+              "kind": "overview_opens"
+            },
+            {
+              "kind": "second_knack_slot"
+            }
+          ]
         }
       ]
     }

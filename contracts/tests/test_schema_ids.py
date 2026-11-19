@@ -31,6 +31,8 @@ PINNED_EXAMPLES = {
     "room_state/garage_example_state_inventory.json",
     # The story round's x_story rides on the mechanics state too (Run 3).
     "room_state/garage_example_state_story.json",
+    # The saves that must be refused are that story state with one thing broken each (the review's fix round).
+    *(f"story_states_invalid/{p.name}" for p in (EXAMPLES / "story_states_invalid").glob("*.json")),
     # Messages that say on purpose that a reader accepts the old spelling.
     "messages/valid/query_describe_room_with_the_old_id.json", "messages/valid/result_room_describe_with_the_old_id.json",
 }
@@ -60,6 +62,11 @@ class TheTable(unittest.TestCase):
                 self.assertEqual(new[len("garage_game") + 1:] if kind != "world-state" else "world-state", kind)
                 self.assertFalse({new, old} & seen)
                 seen |= {new, old}
+        for kind, new in IDS.NEW_ONLY.items():
+            with self.subTest(new_only=kind):
+                self.assertEqual(new, "garage_game." + kind)
+                self.assertNotIn(kind, IDS.IDS, "a kind written only after the rename has no old spelling")
+                self.assertNotIn(new, seen)
         self.assertEqual(IDS.GENERATOR, ("garage-game-roomscan", "enfractal-roomscan"))
         self.assertEqual((IDS.GLB_PART_KEYS, IDS.GLB_MATERIAL_KEYS),
                          (("garage_game_part", "enfractal_part"), ("garage_game_material", "enfractal_material")))
@@ -73,6 +80,13 @@ class TheTable(unittest.TestCase):
                 for wrong in (new.upper(), new + " ", " " + old, new.replace("garage_game", "garage-game", 1), "garagegame" + new[11:], old[:-1], None, 1, [new]):
                     self.assertFalse(IDS.is_schema(wrong, kind), wrong)
                     self.assertIsNone(IDS.kind_of(wrong), wrong)
+        for kind, new in IDS.NEW_ONLY.items():
+            with self.subTest(new_only=kind):
+                old = "enfractal." + kind
+                self.assertTrue(IDS.is_schema(new, kind))
+                self.assertEqual((IDS.ids_of(kind), IDS.kind_of(new), IDS.is_old(new)), ((new,), kind, False))
+                self.assertFalse(IDS.is_schema(old, kind), "the explicit exception: no legacy spelling")
+                self.assertIsNone(IDS.kind_of(old))
         self.assertFalse(IDS.is_schema("garage_game.query", "command"), "one kind's id is not another's")
         with self.assertRaises(KeyError):
             IDS.is_schema("garage_game.room", "rooms")  # a misspelt kind is a mistake in the reader, never False
@@ -85,7 +99,7 @@ class TheContracts(unittest.TestCase):
                 for key, value in node.items():
                     if key == "enum" and isinstance(value, list) and any(IDS.kind_of(v) for v in value):
                         yield value
-                    if key == "const":
+                    if key == "const" and IDS.kind_of(value) not in IDS.NEW_ONLY:
                         self.assertIsNone(IDS.kind_of(value), f"const {value!r}: an id is an enum of both spellings")
                     yield from enums(value)
             elif isinstance(node, list):
@@ -106,8 +120,11 @@ class TheContracts(unittest.TestCase):
 
     def test_the_validator_tables_hold_both_spellings(self):
         for kind, file_name in validate.KIND_FILES.items():
-            new, old = IDS.ids_of(kind)
-            self.assertEqual((validate.SCHEMA_FILES[new], validate.SCHEMA_FILES[old]), (file_name, file_name))
+            spellings = IDS.ids_of(kind)
+            self.assertEqual(len(spellings), 1 if kind in IDS.NEW_ONLY else 2, kind)
+            self.assertEqual([validate.SCHEMA_FILES[s] for s in spellings], [file_name] * len(spellings))
+            if kind in IDS.NEW_ONLY:
+                self.assertNotIn("enfractal." + kind, validate.SCHEMA_FILES)
         for kind in ("command", "query", "result"):
             new, old = IDS.ids_of(kind)
             self.assertEqual(validate.MESSAGE_LIMITS[new], validate.MESSAGE_LIMITS[old])
@@ -183,6 +200,9 @@ class TheContracts(unittest.TestCase):
         for kind, (new, old) in IDS.IDS.items():
             with self.subTest(kind=kind):
                 self.assertIn(f"| `{new}` | `{old}` |", section)
+        for kind, new in IDS.NEW_ONLY.items():
+            with self.subTest(new_only=kind):
+                self.assertIn(f"| {kind} | `{new}` | none (written after the rename) |", section)
 
 
 class TheOtherTables(unittest.TestCase):

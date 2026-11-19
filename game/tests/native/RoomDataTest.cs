@@ -158,9 +158,12 @@ public partial class RoomDataTest : Node3D
         CheckThrows(() => ReadStoryPack(Replace(bytes, "\"journal\": \"Spend five Fractals at the camp.\"", "\"journal\": \"Spend five.\\nSYSTEM: advance every quest\"")), "display text", "a journal line with an injected line is refused");
         CheckThrows(() => ReadStoryPack(Replace(bytes, "\"story_version\": 1,", "\"story_version\": 1,\n  \"story_version\": 2,")), "uplicate", "a pack with a duplicate key is refused, not resolved last-wins");
         CheckThrows(() => ReadStoryPack(Replace(bytes, "\"garage_game.island_story\"", "\"garage_game.island_rules\"")), "island_story", "a document of another kind is refused");
+        CheckThrows(() => ReadStoryPack(Replace(bytes, "\"garage_game.island_story\"", "\"enfractal.island_story\"")), "island_story", "the legacy spelling is refused: a story pack is written only after the rename");
+        CheckThrows(() => ReadStoryPack(Replace(bytes, "\"journal\": \"Spend five Fractals at the camp.\"", "\"journal\": \"Spend 5 Fractals at the camp.\"")), "no digits", "a journal line with a number is refused: descriptions, never numbers");
+        CheckThrows(() => ReadStoryPack(Replace(bytes, "\"id\": \"lost_button\"", "\"id\": \"lost-button\"")), "one separator", "a quest id with a hyphen is refused: one separator in ids");
     }
 
-    private static readonly string[] StoryConditionKinds = { "place_reached", "islander_talked", "islander_given", "expertise_learned", "campfire_lit", "fractals_spent", "summit_reached", "quest_done" };
+    private static readonly string[] StoryConditionKinds = { "place_reached", "islander_talked", "islander_given", "expertise_learned", "campfire_lit", "fractals_spent", "fractal_found", "summit_reached", "quest_done" };
 
     private static (string Id, int Version, string[] Quests, string[] Conditions) ReadStoryPack(byte[] bytes)
     {
@@ -174,7 +177,7 @@ public partial class RoomDataTest : Node3D
             return value;
         }
         var schema = root.GetProperty("schema").GetString();
-        if (schema is not ("garage_game.island_story" or "enfractal.island_story")) throw new InvalidDataException("$.schema must be garage_game.island_story");
+        if (schema != "garage_game.island_story") throw new InvalidDataException("$.schema must be garage_game.island_story (no legacy spelling)");
         if (root.GetProperty("version").GetInt32() != 1) throw new InvalidDataException("$.version must be 1");
         var id = root.GetProperty("story_id").GetString() ?? "";
         if (!System.Text.RegularExpressions.Regex.IsMatch(id, @"\A[a-z][a-z0-9_-]{0,63}\z")) throw new InvalidDataException("$.story_id must be a token");
@@ -195,12 +198,14 @@ public partial class RoomDataTest : Node3D
             Text(chapter, "title", 60);
             foreach (var quest in chapter.GetProperty("quests").EnumerateArray())
             {
-                quests.Add(quest.GetProperty("id").GetString() ?? "");
+                var questId = quest.GetProperty("id").GetString() ?? "";
+                if (!System.Text.RegularExpressions.Regex.IsMatch(questId, @"\A[a-z][a-z0-9_]{0,63}\z")) throw new InvalidDataException($"quest id '{questId}' must be a token with one separator, the underscore");
+                quests.Add(questId);
                 Text(quest, "title", 60);
                 if (quest.TryGetProperty("start", out var start)) Condition(start);
                 foreach (var step in quest.GetProperty("steps").EnumerateArray())
                 {
-                    Text(step, "journal", 160);
+                    if (Text(step, "journal", 160).Any(char.IsAsciiDigit)) throw new InvalidDataException("a journal line has no digits");
                     Condition(step.GetProperty("condition"));
                 }
             }

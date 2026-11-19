@@ -361,12 +361,15 @@
         "kind": "quest_started",
         "at_utc": "2026-10-06T00:01:00Z",
         "revision": 1,
-        "line": "Started: The lost button",
+        "line": "Quest started: \"The lost button\"",
         "actor": "system:story",
         "directed_by": "system:story",
         "quest": {
           "story_id": "example",
-          "quest_id": "lost_button"
+          "story_version": 1,
+          "quest_id": "lost_button",
+          "text": "The lost button",
+          "untrusted": true
         }
       },
       {
@@ -374,17 +377,20 @@
         "kind": "step_done",
         "at_utc": "2026-10-06T00:01:30Z",
         "revision": 1,
-        "line": "Say hello to Spud by the bean bag.",
+        "line": "Step done: \"Say hello to Spud by the camp.\"",
         "actor": "player:local",
         "directed_by": "player:local",
         "pin_m": [
-          1.2,
+          1.0,
           0.0,
-          0.6
+          -2.0
         ],
         "quest": {
           "story_id": "example",
+          "story_version": 1,
           "quest_id": "lost_button",
+          "text": "Say hello to Spud by the camp.",
+          "untrusted": true,
           "step_id": "meet_spud"
         }
       },
@@ -413,12 +419,15 @@
         "kind": "quest_done",
         "at_utc": "2026-10-06T00:03:00Z",
         "revision": 3,
-        "line": "Done: The lost button",
+        "line": "Quest done: \"The lost button\"",
         "actor": "player:local",
         "directed_by": "player:local",
         "quest": {
           "story_id": "example",
-          "quest_id": "lost_button"
+          "story_version": 1,
+          "quest_id": "lost_button",
+          "text": "The lost button",
+          "untrusted": true
         }
       },
       {
@@ -648,7 +657,7 @@
         },
         "high_place": {
           "state": "active",
-          "step": "learn_lantern",
+          "step": "find_one",
           "started_revision": 3
         }
       }
