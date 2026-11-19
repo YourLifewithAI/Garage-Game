@@ -1,7 +1,6 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using GarageGame.Native.Kernel;
 using GarageGame.Native.Room;
 
@@ -39,7 +38,7 @@ public sealed class AudioSnapshot
     /// <summary>What the player stands on now: one of Sounds.Grounds. Read only when a footstep is due.</summary>
     public Func<string> GroundNow = () => "grass";
     public IReadOnlyList<LitFire> Fires = Array.Empty<LitFire>();
-    /// <summary>True while the game is paused or a menu covers it: the ambience fades out.</summary>
+    /// <summary>True while the game is paused or a menu covers it: the world's sounds fade out.</summary>
     public bool Paused;
 }
 
@@ -48,19 +47,29 @@ public interface IAudioSource
     AudioSnapshot Read();
 }
 
-/// <summary>The real source: reads the room's bodies, look, weather and campfires, and changes none of them.</summary>
-public sealed class RoomAudioSource : IAudioSource
+/// <summary>The real source: reads the room's bodies, look, weather and campfires, and changes none of them. One snapshot, reused every frame.</summary>
+public sealed class RoomAudioSource : IAudioSource, IDisposable
 {
     /// <summary>Within this distance of the coast (m) the sea starts to be heard; at the edge it is at full strength.</summary>
     public const float SeaHearingM = 14f;
+    /// <summary>A footstep looks this far above and below the feet for the ground (m).</summary>
+    public const float GroundRayUpM = 0.03f, GroundRayDownM = 0.2f;
 
     private readonly RoomWorld _world;
     private readonly CommandHost? _host;
     private readonly AudioSnapshot _snapshot = new();
+    private readonly List<LitFire> _fires = new();
+    private PhysicsRayQueryParameters3D? _ray;
     private double _seaClock;
     private float _sea;
 
-    public RoomAudioSource(RoomWorld world, CommandHost? host) { _world = world; _host = host; }
+    public RoomAudioSource(RoomWorld world, CommandHost? host)
+    {
+        _world = world;
+        _host = host;
+        _snapshot.Fires = _fires;
+        _snapshot.GroundNow = GroundUnder;
+    }
 
     public AudioSnapshot Read()
     {
@@ -72,7 +81,10 @@ public sealed class RoomAudioSource : IAudioSource
             var weather = _host.NatureWeather;
             s.Rain01 = weather.Rain01;
             s.WindMps = weather.WindMps.Length();
-            s.Fires = _host.CampSites.Where(c => _host.IsCampfireLit(c.Id)).Select(c => new LitFire(c.Id, c.PositionM)).ToArray();
+            _fires.Clear();
+            var sites = _host.CampSites;
+            for (var i = 0; i < sites.Count; i++)
+                if (_host.IsCampfireLit(sites[i].Id)) _fires.Add(new LitFire(sites[i].Id, sites[i].PositionM));
         }
         if (look?.Moment is { } moment) { s.Daylight = moment.Daylight; s.Season = moment.Season; }
         s.Outdoors = look?.OpenLand ?? false;
@@ -84,14 +96,16 @@ public sealed class RoomAudioSource : IAudioSource
             var water = player.Water;
             s.Water = !water.Wet || water.Under(player.GlobalPosition) <= 0 ? FeetWater.Dry
                 : water.DepthM >= player.SwimDepthM ? FeetWater.Swimming : FeetWater.Wading;
-            s.GroundNow = () => GroundUnder(player);
             // The shore is measured four times a second, not every frame: the coast outline can have thousands of points.
-            if (look?.OpenSea?.Sea is { } sea && sea.Coast.Length > 1 && (_seaClock -= player.GetPhysicsProcessDeltaTime()) <= 0)
+            if (look?.OpenSea?.Sea is { } sea && sea.Coast.Length > 1)
             {
-                _seaClock = 0.25;
-                _sea = SeaNear(sea.Coast, new Vector2(s.PlayerPosition.X, s.PlayerPosition.Z));
+                if ((_seaClock -= player.GetPhysicsProcessDeltaTime()) <= 0)
+                {
+                    _seaClock = 0.25;
+                    _sea = SeaNear(sea.Coast, new Vector2(s.PlayerPosition.X, s.PlayerPosition.Z));
+                }
             }
-            else if (look?.OpenSea == null) _sea = 0;
+            else _sea = 0;
             s.SeaNear01 = _sea;
         }
         s.Paused = _world.GetTree()?.Paused ?? false;
@@ -112,34 +126,66 @@ public sealed class RoomAudioSource : IAudioSource
         return Mathf.Clamp(1f - best / SeaHearingM, 0f, 1f);
     }
 
-    /// <summary>
-    /// The ground under the feet from what the ray hits: a collider (or a parent) named or tagged sand, stone, wood or dirt; otherwise
-    /// grass on open land and wood indoors. Names are read as hints only, never as anything to act on.
-    /// </summary>
-    private string GroundUnder(SmallPlayerController player)
+    /// <summary>The ground under the player's feet: a short ray down, the hit read by <see cref="GroundOfNode"/>.</summary>
+    private string GroundUnder()
     {
-        var from = player.GlobalPosition + Vector3.Up * 0.03f;
-        var query = PhysicsRayQueryParameters3D.Create(from, from + Vector3.Down * 0.2f);
-        query.Exclude = new Godot.Collections.Array<Rid> { player.GetRid() };
-        var hit = player.GetWorld3D().DirectSpaceState.IntersectRay(query);
-        Node? node = hit.Count > 0 ? hit["collider"].AsGodotObject() as Node : null;
-        for (var depth = 0; node != null && depth < 4; depth++, node = node.GetParent())
+        var player = _world.Player;
+        if (player == null || !GodotObject.IsInstanceValid(player)) return Fallback();
+        var from = player.GlobalPosition + Vector3.Up * GroundRayUpM;
+        if (_ray == null)
         {
-            if (node.HasMeta("ground") && node.GetMeta("ground").AsString() is { } tag && Sounds.Grounds.Contains(tag)) return tag;
-            var found = GroundFromName(node.Name);
-            if (found != null) return found;
+            _ray = PhysicsRayQueryParameters3D.Create(from, from + Vector3.Down * GroundRayDownM);
+            _ray.Exclude = new Godot.Collections.Array<Rid> { player.GetRid() };
         }
-        return _world.Look?.OpenLand == true ? "grass" : "wood";
+        _ray.From = from;
+        _ray.To = from + Vector3.Down * (GroundRayUpM + GroundRayDownM);
+        using var hit = player.GetWorld3D().DirectSpaceState.IntersectRay(_ray);
+        if (hit.Count == 0) return Fallback();
+        using var collider = hit["collider"];
+        return GroundOfNode(collider.AsGodotObject() as Node, _world.Look?.OpenLand == true);
     }
 
-    public static string? GroundFromName(string name)
+    private string Fallback() => _world.Look?.OpenLand == true ? "grass" : "wood";
+
+    public void Dispose()
     {
-        var n = name.ToLowerInvariant();
-        if (n.Contains("sand") || n.Contains("beach") || n.Contains("shore")) return "sand";
-        if (n.Contains("stone") || n.Contains("rock") || n.Contains("tile") || n.Contains("concrete") || n.Contains("path")) return "stone";
-        if (n.Contains("wood") || n.Contains("floor") || n.Contains("deck") || n.Contains("jetty") || n.Contains("plank") || n.Contains("table")) return "wood";
-        if (n.Contains("dirt") || n.Contains("soil") || n.Contains("mud") || n.Contains("earth")) return "dirt";
-        if (n.Contains("grass") || n.Contains("meadow") || n.Contains("moss")) return "grass";
-        return null;
+        _ray?.Dispose();
+        _ray = null;
     }
+
+    /// <summary>
+    /// What a node, or the nearest parent that says, sounds like underfoot. Reads what the builders write: the <c>material_role</c> meta
+    /// on a room part, a plant copy's holder (PlantCopiesView) and a collision body (wood and floors are wood; stone, rock, plaster and
+    /// metal are stone; sand; soil and dirt; grass, moss, leaves and foliage are grass). A <c>ground</c> meta overrides it, as a
+    /// hand-made level may. Nothing found: grass outdoors, wood indoors.
+    /// </summary>
+    public static string GroundOfNode(Node? node, bool outdoors)
+    {
+        for (var depth = 0; node != null && depth < 6; depth++, node = node.GetParent())
+        {
+            if (node.HasMeta("ground"))
+            {
+                using var tag = node.GetMeta("ground");
+                var text = tag.AsString();
+                if (Array.IndexOf(Sounds.Grounds, text) >= 0) return text;
+            }
+            if (node.HasMeta("material_role"))
+            {
+                using var role = node.GetMeta("material_role");
+                if (GroundFromRole(role.AsString(), outdoors) is { } fromRole) return fromRole;
+            }
+        }
+        return outdoors ? "grass" : "wood";
+    }
+
+    public static string? GroundFromRole(string role, bool outdoors) => role switch
+    {
+        "wood" or "wood_painted" or "floor" or "fabric" or "paper" or "bark" => "wood",
+        "stone" or "rock" or "plaster" or "metal" or "metal_painted" or "metallic" or "glass" or "concrete" or "tile" or "landmark" => "stone",
+        "sand" or "beach" => "sand",
+        "soil" or "dirt" or "mud" or "earth" => "dirt",
+        "grass" or "grass_tufts" or "moss" or "leaf" or "foliage" => "grass",
+        "ground" => outdoors ? "grass" : "dirt",
+        _ => null,
+    };
 }

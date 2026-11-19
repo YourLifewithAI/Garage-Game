@@ -54,7 +54,7 @@ public static class AudioSettings
     }
 
     /// <summary>The decibels a volume fraction stands for: a squared curve, so the slider's middle is a clear half, and 0 is silent.</summary>
-    public static float ToDb(float volume) => volume <= 0.0001f ? -80f : Mathf.LinearToDb(volume * volume);
+    public static float ToDb(float volume) => !(volume > 0.0001f) ? -80f : Mathf.LinearToDb(volume * volume);
 
     public static void Apply(string bus)
     {
@@ -74,23 +74,33 @@ public static class AudioSettings
         var file = new ConfigFile();
         foreach (var bus in AudioBuses.All)
         {
-            file.SetValue(Section, bus, Get(bus));
+            var volume = Get(bus);
+            file.SetValue(Section, bus, float.IsFinite(volume) ? Math.Clamp(volume, 0f, Max) : DefaultOf(bus));
             file.SetValue(Section, bus + "_muted", IsMuted(bus));
         }
         return file.Save(path);
     }
 
-    /// <summary>Reads the file if it exists (a missing or damaged one leaves the defaults) and applies the result.</summary>
+    /// <summary>
+    /// Reads the file and applies the result. Everything in the file is untrusted: each value that is not a finite number from 0 to 1
+    /// (NaN, infinity, out of range, a string, missing) takes its default, a mute flag that is not a real boolean is off, and unknown keys
+    /// are ignored. A file that is not there leaves the current values; one that cannot be parsed gives the defaults.
+    /// </summary>
     public static void Load(string path = DefaultPath)
     {
         var file = new ConfigFile();
-        if (file.Load(path) == Error.Ok)
-            foreach (var bus in AudioBuses.All)
-            {
-                var v = file.GetValue(Section, bus, DefaultOf(bus));
-                if (v.VariantType is Variant.Type.Float or Variant.Type.Int) Values[bus] = Math.Clamp((float)v.AsDouble(), 0f, Max);
-                if (file.GetValue(Section, bus + "_muted", false).AsBool()) Muted.Add(bus); else Muted.Remove(bus);
-            }
+        var error = file.Load(path);
+        if (error is Error.FileNotFound or Error.FileCantOpen or Error.FileNoPermission) { ApplyAll(); return; }
+        foreach (var bus in AudioBuses.All)
+        {
+            Values[bus] = DefaultOf(bus);
+            Muted.Remove(bus);
+            if (error != Error.Ok) continue;
+            using var v = file.GetValue(Section, bus, Variant.From(DefaultOf(bus)));
+            if (v.VariantType is Variant.Type.Float or Variant.Type.Int && v.AsDouble() is var d && double.IsFinite(d) && d >= 0 && d <= Max) Values[bus] = (float)d;
+            using var m = file.GetValue(Section, bus + "_muted", Variant.From(false));
+            if (m.VariantType == Variant.Type.Bool && m.AsBool()) Muted.Add(bus);
+        }
         ApplyAll();
     }
 }

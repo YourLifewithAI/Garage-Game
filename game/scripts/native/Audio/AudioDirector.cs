@@ -38,8 +38,15 @@ public partial class AudioDirector : Node
     /// <summary>Within this distance (m) of a lit campfire its fire is heard.</summary>
     public const float FireHearingM = 6f;
 
+    private static readonly string[] LoopIds = { Sounds.WindSoft, Sounds.WindGust, Sounds.Sea, Sounds.Rain, Sounds.Insects };
+    private readonly float[] _targets = new float[5];
+    private readonly List<Loop> _loopList = new();
+    private readonly List<Node> _watched = new();
+    private readonly System.Threading.CancellationTokenSource _cancel = new();
+
     private sealed class Loop
     {
+        public string Id = "";
         public AudioStreamPlayer? Player;
         public float Level;
         public float Target;
@@ -75,10 +82,22 @@ public partial class AudioDirector : Node
 
     /// <summary>When true (the game), the director updates itself every frame. A test turns it off and calls <see cref="Update"/>.</summary>
     public bool SelfUpdating { get; set; } = true;
+    /// <summary>
+    /// Whether sounds are really started on the audio server. The director decides, logs and eases exactly the same either way. The game
+    /// turns it off on a headless run (the test runners and servers: nobody can hear, and an audio playback still running when the
+    /// engine quits is reported by Godot as leaked ObjectDB instances, which fails every test that wants a silent stderr).
+    /// </summary>
+    public bool PlayAudio { get; set; } = true;
     /// <summary>True once every sound is made and wrapped in a stream.</summary>
     public bool StreamsReady { get; private set; }
     /// <summary>The most recent sounds started (up to 256), oldest first.</summary>
     public IReadOnlyList<PlayedSound> Log => _log;
+    /// <summary>Seconds the director has run, counted from its own process delta (it keeps counting while the tree is paused).</summary>
+    public double ClockS => _clock;
+    /// <summary>Milliseconds of main thread the Attach call took (measured, for the report; the sounds are made on a worker).</summary>
+    public double AttachMs { get; private set; }
+    public int WiredButtons => _wired.Count;
+    public int WatchedContainers => _watched.Count;
     public int PlayedCount(string id) => _counts.TryGetValue(id, out var n) ? n : 0;
     public int PlayedPrefix(string prefix) => _counts.Where(p => p.Key.StartsWith(prefix, StringComparison.Ordinal)).Sum(p => p.Value);
     public event Action<PlayedSound>? Played;
@@ -93,10 +112,14 @@ public partial class AudioDirector : Node
     /// <summary>The one entry point. Call it once the room's command host is attached (RoomWorld, after CommandHost.Attach).</summary>
     public static AudioDirector Attach(RoomWorld world)
     {
+        var timer = System.Diagnostics.Stopwatch.StartNew();
         var director = new AudioDirector { Name = "AudioDirector" };
         world.AddChild(director);
         var host = CommandHost.Of(world);
+        director.PlayAudio = DisplayServer.GetName() != "headless";
         director.Start(new RoomAudioSource(world, host), host, loadSettings: true);
+        director.AttachMs = timer.Elapsed.TotalMilliseconds;
+        GD.Print($"ROOM_AUDIO_ATTACH {director.AttachMs:0.00} ms of main thread ({director.WatchedContainers} UI containers watched, {director.WiredButtons} buttons wired, audio {(director.PlayAudio ? "on" : "off: headless")})");
         return director;
     }
 
@@ -112,6 +135,9 @@ public partial class AudioDirector : Node
     private void Start(IAudioSource source, CommandHost? host, bool loadSettings)
     {
         _source = source;
+        // The Esc menu and the Gubble wheel pause the tree: the director must keep running through it, to fade the world's sounds
+        // and to keep the menu's own ticks working. Its players inherit this.
+        ProcessMode = ProcessModeEnum.Always;
         AudioBuses.EnsureLayout();
         if (loadSettings) AudioSettings.Load(); else AudioSettings.ApplyAll();
         foreach (var recipe in SoundBank.All) _recipes[recipe.Id] = recipe;
@@ -127,25 +153,37 @@ public partial class AudioDirector : Node
             AddChild(voice);
             _birdVoices.Add(voice);
         }
-        foreach (var id in new[] { Sounds.WindSoft, Sounds.WindGust, Sounds.Sea, Sounds.Rain, Sounds.Insects })
+        foreach (var id in LoopIds)
         {
             var player = new AudioStreamPlayer { Name = "Loop_" + id, Bus = AudioBuses.Ambience, VolumeDb = -80 };
             AddChild(player);
-            _loops[id] = new Loop { Player = player };
+            var loop = new Loop { Id = id, Player = player };
+            _loops[id] = loop;
+            _loopList.Add(loop);
         }
         _fire = new AudioStreamPlayer3D { Name = "Loop_fire", Bus = AudioBuses.Effects, UnitSize = 1.5f, MaxDistance = FireHearingM, VolumeDb = -80 };
         AddChild(_fire);
         if (host != null) Bind(host);
         // Synthesis runs off the main thread; nothing waits for it. The sounds fade in as they are wrapped.
-        _worker = Task.Run(MakeAll);
-        var tree = GetTree();
-        tree.NodeAdded += OnNodeAdded;
-        WireButtons(tree.Root);
+        var token = _cancel.Token;
+        _worker = Task.Run(() => MakeAll(token));
+        // Buttons live in UI trees, never in the 3D world: only the window's and the world's own children are watched, and below them
+        // only Control and CanvasLayer subtrees (WatchUi). The thousands of bodies, plants and lights of an island are never walked
+        // and never reported to this script.
+        WatchContainer(GetTree().Root);
+        if (GetParent() is { } world) WatchContainer(world);
     }
 
-    private void MakeAll()
+    private void MakeAll(System.Threading.CancellationToken token)
     {
-        try { foreach (var recipe in SoundBank.All) _pcm[recipe.Id] = ToPcm16(SoundBank.Render(recipe)); }
+        try
+        {
+            foreach (var recipe in SoundBank.All)
+            {
+                if (token.IsCancellationRequested) return;
+                _pcm[recipe.Id] = ToPcm16(SoundBank.Render(recipe));
+            }
+        }
         catch (Exception error) { GD.PushError("AudioDirector synthesis failed: " + error); }
     }
 
@@ -212,12 +250,25 @@ public partial class AudioDirector : Node
         PlayOnce(id, 0f, jitter: false);
     }
 
-    private void OnNodeAdded(Node node) { if (node is BaseButton button) Wire(button); }
+    /// <summary>Watches a node's children as they enter, and visits the ones already there.</summary>
+    private void WatchContainer(Node container)
+    {
+        if (container.HasMeta("audio_watched")) return;
+        container.SetMeta("audio_watched", true);
+        container.ChildEnteredTree += OnChildEntered;
+        _watched.Add(container);
+        var count = container.GetChildCount();
+        for (var i = 0; i < count; i++) Visit(container.GetChild(i));
+    }
 
-    private void WireButtons(Node node)
+    private void OnChildEntered(Node child) => Visit(child);
+
+    /// <summary>A button is wired; a UI subtree (anything that is not 3D) is walked and watched; a 3D subtree is skipped whole.</summary>
+    private void Visit(Node node)
     {
         if (node is BaseButton button) Wire(button);
-        foreach (var child in node.GetChildren()) WireButtons(child);
+        if (node is Node3D) return;
+        WatchContainer(node);
     }
 
     private void Wire(BaseButton button)
@@ -228,6 +279,17 @@ public partial class AudioDirector : Node
         button.MouseEntered += OnButtonHover;
         _wired.Add(button);
     }
+
+    private double _pruneClock;
+
+    /// <summary>Drops the buttons and containers that have been freed (the journal rebuilds its buttons all the time).</summary>
+    private void Prune()
+    {
+        _wired.RemoveAll(IsGone);
+        _watched.RemoveAll(IsGone);
+    }
+
+    private static bool IsGone(Node node) => !IsInstanceValid(node);
 
     private void OnButtonPressed() => PlayUi(Sounds.UiTick);
     private void OnButtonHover() => PlayUi(Sounds.UiHover);
@@ -245,6 +307,7 @@ public partial class AudioDirector : Node
         var dt = (float)Math.Max(0, delta);
         _clock += dt;
         if (!StreamsReady) WrapStreams(StreamsPerFrame);
+        if ((_pruneClock += dt) > 5) { _pruneClock = 0; Prune(); }
         var s = _source.Read();
         UpdateAmbience(s, dt);
         UpdateFire(s, dt);
@@ -259,20 +322,20 @@ public partial class AudioDirector : Node
         var winter = s.Season == "winter";
         var night = 1f - Smooth(0.15f, 0.5f, s.Daylight);
         var rain = MathF.Pow(Math.Clamp(s.Rain01, 0f, 1f), 0.7f) * (s.Outdoors ? 1f : 0.35f);
-        var targets = new Dictionary<string, float>
-        {
-            [Sounds.WindSoft] = 0.85f * (1f - 0.6f * gust) * open,
-            [Sounds.WindGust] = 0.9f * gust * open,
-            [Sounds.Sea] = 0.9f * Math.Clamp(s.SeaNear01, 0f, 1f) * (s.Outdoors ? 1f : 0.3f),
-            [Sounds.Rain] = rain,
-            [Sounds.Insects] = 0.8f * night * (winter ? 0.25f : 1f) * (1f - 0.7f * Smooth(0.3f, 0.7f, s.Rain01)) * (s.Outdoors ? 1f : 0.2f),
-        };
+        // In LoopIds order: wind soft, wind gust, sea, rain, insects.
+        _targets[0] = 0.85f * (1f - 0.6f * gust) * open;
+        _targets[1] = 0.9f * gust * open;
+        _targets[2] = 0.9f * Math.Clamp(s.SeaNear01, 0f, 1f) * (s.Outdoors ? 1f : 0.3f);
+        _targets[3] = rain;
+        _targets[4] = 0.8f * night * (winter ? 0.25f : 1f) * (1f - 0.7f * Smooth(0.3f, 0.7f, s.Rain01)) * (s.Outdoors ? 1f : 0.2f);
         var ease = 1f - MathF.Exp(-dt / EaseS);
-        foreach (var (id, loop) in _loops)
+        for (var i = 0; i < _loopList.Count; i++)
         {
-            loop.Target = s.Paused ? 0 : Math.Clamp(targets[id], 0f, 1f);
+            var loop = _loopList[i];
+            // Paused (the Esc menu, the Gubble wheel): the world's sounds ease out, and back in on resume.
+            loop.Target = s.Paused ? 0 : Math.Clamp(_targets[i], 0f, 1f);
             loop.Level += (loop.Target - loop.Level) * ease;
-            Drive(loop.Player, id, loop.Level);
+            Drive(loop.Player, loop.Id, loop.Level);
         }
     }
 
@@ -282,7 +345,7 @@ public partial class AudioDirector : Node
         if (level < 0.003f) { if (player.Playing) player.Stop(); return; }
         if (!_streams.TryGetValue(id, out var stream)) return;
         player.VolumeDb = Mathf.LinearToDb(level);
-        if (!player.Playing) { player.Stream = stream; player.Play((float)(_rng.Next01() * stream.GetLength())); }
+        if (PlayAudio && !player.Playing) { player.Stream = stream; player.Play((float)(_rng.Next01() * stream.GetLength())); }
     }
 
     private void UpdateFire(AudioSnapshot s, float dt)
@@ -302,7 +365,7 @@ public partial class AudioDirector : Node
         if (_fireLevel < 0.003f) { if (_fire.Playing) _fire.Stop(); return; }
         if (!_streams.TryGetValue(Sounds.Fire, out var stream)) return;
         _fire.VolumeDb = Mathf.LinearToDb(_fireLevel);
-        if (!_fire.Playing) { _fire.Stream = stream; _fire.Play((float)(_rng.Next01() * stream.GetLength())); }
+        if (PlayAudio && !_fire.Playing) { _fire.Stream = stream; _fire.Play((float)(_rng.Next01() * stream.GetLength())); }
     }
 
     private void UpdateFeet(AudioSnapshot s, float dt)
@@ -364,7 +427,7 @@ public partial class AudioDirector : Node
         voice.Stream = stream;
         voice.VolumeDb = _rng.Range(-4f, -1f);
         voice.PitchScale = _rng.Range(0.9f, 1.15f);
-        voice.Play();
+        if (PlayAudio) voice.Play();
         Record(id, AudioBuses.Ambience);
     }
 
@@ -377,7 +440,7 @@ public partial class AudioDirector : Node
         voice.Bus = recipe.Bus;
         voice.VolumeDb = volumeDb + (jitter ? _rng.Range(-1.5f, 1.5f) : 0);
         voice.PitchScale = jitter ? _rng.Range(0.95f, 1.05f) : 1f;
-        voice.Play();
+        if (PlayAudio) voice.Play();
         Record(id, recipe.Bus);
     }
 
@@ -393,18 +456,29 @@ public partial class AudioDirector : Node
     public override void _ExitTree()
     {
         if (_host != null) { _host.Handled -= OnHandled; _host.FoodSound -= OnFood; }
-        var tree = GetTree();
-        if (tree != null) tree.NodeAdded -= OnNodeAdded;
+        // A game that quits before synthesis is done: the worker stops at its next sound and nothing waits for it.
+        _cancel.Cancel();
+        foreach (var node in _watched)
+            if (IsInstanceValid(node)) { node.ChildEnteredTree -= OnChildEntered; node.RemoveMeta("audio_watched"); }
+        _watched.Clear();
         foreach (var button in _wired)
             if (IsInstanceValid(button)) { button.Pressed -= OnButtonPressed; button.MouseEntered -= OnButtonHover; button.RemoveMeta("audio_wired"); }
         _wired.Clear();
-        // Players let go of their streams before the streams are disposed.
-        foreach (var player in _voices) { player.Stop(); player.Stream = null; }
-        foreach (var loop in _loops.Values) { loop.Player?.Stop(); if (loop.Player != null) loop.Player.Stream = null; }
-        foreach (var voice in _birdVoices) { voice.Stop(); voice.Stream = null; }
-        _fire?.Stop();
-        if (_fire != null) _fire.Stream = null;
+        // Players let go of their streams before the streams are disposed. Stopping only asks: the audio server's mixer drops a
+        // playback (and with it the playback's hold on its stream) on its next passes, and an engine that quits first reports the
+        // stream and the playback as leaked ObjectDB instances. So when anything was playing, give the mixer a few passes.
+        var stopped = false;
+        void Release(AudioStreamPlayer? player) { if (player == null) return; stopped |= player.Playing; player.Stop(); player.Stream = null; }
+        foreach (var player in _voices) Release(player);
+        foreach (var loop in _loopList) Release(loop.Player);
+        foreach (var voice in _birdVoices) { stopped |= voice.Playing; voice.Stop(); voice.Stream = null; }
+        if (_fire != null) { stopped |= _fire.Playing; _fire.Stop(); _fire.Stream = null; }
+        if (stopped) System.Threading.Thread.Sleep(MixerDrainMs);
         foreach (var stream in _streams.Values) stream.Dispose();
         _streams.Clear();
+        (_source as IDisposable)?.Dispose();
     }
+
+    /// <summary>How long to let the mixer drop stopped playbacks when the director leaves the tree.</summary>
+    public const int MixerDrainMs = 150;
 }

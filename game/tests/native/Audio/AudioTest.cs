@@ -47,9 +47,13 @@ public partial class AudioTest : Node3D
             }
             TestBuses();
             TestSettings();
+            TestHostileSettings();
             TestSounds();
+            TestGround();
             await TestDirector();
             await TestRealHost();
+            await TestRealRoom();
+            TestEarlyQuit();
             GD.Print($"NATIVE_KERNEL_AUDIO: {_checks - _failures}/{_checks} checks passed; the bus layout and volume settings, {SoundBank.All.Count} sounds made in code (deterministic, quiet, loops seamless), and the director's ambience, fire, feet, water, hands, eating, birds and UI hooks");
             GetTree().Quit(_failures == 0 ? 0 : 1);
         }
@@ -129,6 +133,159 @@ public partial class AudioTest : Node3D
         Check(Math.Abs(AudioSettings.Get(AudioBuses.Master) - 0.3f) < 1e-5f, "a missing file leaves the values alone");
         DirAccess.RemoveAbsolute(path);
         AudioSettings.Reset();
+    }
+
+    // ---- ground from what the builders write; the sea ----
+
+    private void TestGround()
+    {
+        var holder = new Node3D { Name = "RockHolder" };
+        holder.SetMeta("material_role", "rock");
+        var body = new StaticBody3D { Name = "Body" };
+        holder.AddChild(body);
+        Check(RoomAudioSource.GroundOfNode(body, true) == "stone", "a collision body under a plant copy's rock holder (material_role rock) sounds like stone");
+        var floor = new StaticBody3D { Name = "Part" };
+        floor.SetMeta("material_role", "floor");
+        Check(RoomAudioSource.GroundOfNode(floor, false) == "wood", "a floor part (material_role floor) sounds like wood");
+        var sand = new StaticBody3D { Name = "Beach" };
+        sand.SetMeta("material_role", "sand");
+        Check(RoomAudioSource.GroundOfNode(sand, true) == "sand", "material_role sand sounds like sand");
+        sand.SetMeta("ground", "dirt");
+        Check(RoomAudioSource.GroundOfNode(sand, true) == "dirt", "a ground meta overrides the role");
+        sand.SetMeta("ground", "lava");
+        Check(RoomAudioSource.GroundOfNode(sand, true) == "sand", "an unknown ground meta is ignored");
+        var bare = new Node3D { Name = "Bare" };
+        Check(RoomAudioSource.GroundOfNode(bare, true) == "grass" && RoomAudioSource.GroundOfNode(bare, false) == "wood" && RoomAudioSource.GroundOfNode(null, true) == "grass",
+            "no role: grass outdoors, wood indoors");
+        var unknown = new Node3D { Name = "Unknown" };
+        unknown.SetMeta("material_role", "unobtainium");
+        var child = new Node3D { Name = "Child" };
+        unknown.AddChild(child);
+        Check(RoomAudioSource.GroundOfNode(child, true) == "grass", "an unknown role falls back");
+        foreach (var (role, expected) in new[] { ("wood", "wood"), ("leaf", "grass"), ("foliage", "grass"), ("soil", "dirt"), ("moss", "grass"), ("stone", "stone"), ("ground", "grass") })
+            Check(RoomAudioSource.GroundFromRole(role, true) == expected, $"role {role} is {expected}");
+        holder.Free(); floor.Free(); sand.Free(); bare.Free(); unknown.Free();
+        var coast = new[] { new Vector2(-10, -10), new Vector2(10, -10), new Vector2(10, 10), new Vector2(-10, 10) };
+        Check(RoomAudioSource.SeaNear(coast, new Vector2(10, 0)) > 0.99f, "on the coast line the sea is at full strength");
+        Check(Math.Abs(RoomAudioSource.SeaNear(coast, new Vector2(3, 0)) - (1f - 7f / RoomAudioSource.SeaHearingM)) < 1e-4f, "seven metres inside the coast, the sea has faded by seven fourteenths");
+        Check(Math.Abs(RoomAudioSource.SeaNear(coast, new Vector2(-5, 0)) - (1f - 5f / RoomAudioSource.SeaHearingM)) < 1e-4f && RoomAudioSource.SeaNear(coast, new Vector2(40, 0)) == 0f && RoomAudioSource.SeaNear(coast, new Vector2(0, 0)) < 0.35f,
+            "far from the coast the sea is faint or silent");
+    }
+
+    // ---- a real game that quits early writes nothing to stderr ----
+
+    private void TestEarlyQuit()
+    {
+        var project = ProjectSettings.GlobalizePath("res://");
+        foreach (var frames in new[] { 3, 30, 120 })
+        {
+            var output = new Godot.Collections.Array();
+            var code = OS.Execute(OS.GetExecutablePath(), new[] { "--headless", "--path", project, "--fixed-fps", "60", "--quit-after", frames.ToString(), "res://scenes/room.tscn" }, output, readStderr: true);
+            var text = string.Join("\n", output.Select(o => o.AsString()));
+            var bad = text.Split('\n').Where(l => l.Contains("leaked", StringComparison.OrdinalIgnoreCase) || l.Contains("ObjectDB", StringComparison.Ordinal) || l.StartsWith("WARNING", StringComparison.Ordinal) || l.StartsWith("ERROR", StringComparison.Ordinal) || l.Contains("SCRIPT ERROR", StringComparison.Ordinal)).ToArray();
+            Check(code == 0 && bad.Length == 0, $"a real room boot that quits after {frames} frames exits 0 with no warning or error on stderr (exit {code}): {string.Join(" | ", bad.Take(3))}");
+        }
+    }
+
+    // ---- a damaged settings file ----
+
+    private void TestHostileSettings()
+    {
+        const string path = "user://tests/audio/hostile.cfg";
+        DirAccess.MakeDirRecursiveAbsolute("user://tests/audio");
+        void Write(string text) { using var f = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Write); f.StoreString(text); }
+        AudioSettings.Reset();
+        Write("[volume]\nMaster=nan\nAmbience=inf\nEffects=-5.0\nUI=\"loud\"\nVoice=2.5\nExtra=3\nMaster_muted=\"yes\"\n");
+        AudioSettings.Load(path);
+        foreach (var bus in AudioBuses.All)
+        {
+            var v = AudioSettings.Get(bus);
+            Check(float.IsFinite(v) && v >= 0 && v <= 1 && Math.Abs(v - AudioSettings.DefaultOf(bus)) < 1e-5f, $"a damaged value for {bus} falls back to the default ({v})");
+            Check(float.IsFinite(AudioServer.GetBusVolumeDb(AudioServer.GetBusIndex(bus))), $"{bus}'s bus volume is a number");
+            Check(!AudioSettings.IsMuted(bus), $"a damaged mute flag for {bus} is off");
+        }
+        Write("[volume]\nMaster=0.5\nAmbience=nan\n");
+        AudioSettings.Load(path);
+        Check(Math.Abs(AudioSettings.Get(AudioBuses.Master) - 0.5f) < 1e-5f && Math.Abs(AudioSettings.Get(AudioBuses.Ambience) - 0.7f) < 1e-5f && Math.Abs(AudioSettings.Get(AudioBuses.Music) - 0.6f) < 1e-5f,
+            "good values are kept beside bad and missing ones");
+        Write("garbage ][ not a config at all");
+        AudioSettings.Load(path);
+        Check(AudioBuses.All.All(b => Math.Abs(AudioSettings.Get(b) - AudioSettings.DefaultOf(b)) < 1e-5f), "an unreadable file leaves the defaults");
+        Write("[volume]\nMaster=nan\nUI=inf\n");
+        AudioSettings.Load(path);
+        Check(AudioSettings.Save(path) == Error.Ok, "settings save after a damaged load");
+        var saved = Godot.FileAccess.GetFileAsString(path).ToLowerInvariant();
+        Check(!saved.Contains("nan") && !saved.Contains("inf"), "nothing bad is written back: " + saved.Replace("\n", " "));
+        DirAccess.RemoveAbsolute(path);
+        AudioSettings.Reset();
+    }
+
+    // ---- the real source in a real room ----
+
+    private async System.Threading.Tasks.Task TestRealRoom()
+    {
+        var previous = (CommandHost.SaveRoot, CommandHost.DefaultPlayerVitalsPath, CommandHost.DefaultGlowProgressPath, CommandHost.DefaultWishSaveRoot);
+        CommandHost.SaveRoot = "user://tests/audio/saves";
+        CommandHost.DefaultPlayerVitalsPath = "user://tests/audio/profile/player_vitals_v1.json";
+        CommandHost.DefaultGlowProgressPath = "user://tests/audio/profile/glow_progress_v1.json";
+        CommandHost.DefaultWishSaveRoot = "user://tests/audio/saves/wishes";
+        var world = GD.Load<PackedScene>("res://scenes/room.tscn").Instantiate<RoomWorld>();
+        AddChild(world);
+        try
+        {
+            for (var booting = System.Diagnostics.Stopwatch.StartNew(); booting.Elapsed.TotalSeconds < 60 && !world.WorldReady && world.LoadError.Length == 0;)
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            Check(world.WorldReady, "the room boots: " + world.LoadError);
+            if (!world.WorldReady) return;
+            var director = world.GetNodeOrNull<AudioDirector>("AudioDirector");
+            var wall = System.Diagnostics.Stopwatch.StartNew();
+            director ??= AudioDirector.Attach(world);
+            GD.Print($"AUDIO_ATTACH: {director.AttachMs:0.00} ms of main thread in Attach (test room; {director.WatchedContainers} UI containers watched, {director.WiredButtons} buttons wired)");
+            Check(director.SelfUpdating, "the attached director updates itself");
+            director.LoadAllNow();
+            for (var i = 0; i < 90; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+
+            // The real source reads the real room.
+            var read = new RoomAudioSource(world, CommandHost.Of(world)).Read();
+            Check(read.Daylight >= 0 && read.Daylight <= 1 && float.IsFinite(read.WindMps) && read.Water == FeetWater.Dry, "the real source reads weather, light and water from the room");
+            var ground = read.GroundNow();
+            Check(Sounds.Grounds.Contains(ground), "the ground under the spawn is a known ground: " + ground);
+            GD.Print("AUDIO_GROUND: the test room's floor sounds like " + ground);
+            Check(read.SeaNear01 == 0, "the test room has no sea");
+            Check(read.PlayerPosition.IsFinite(), "the position reads");
+            Check(director.LoopTarget(Sounds.WindSoft) > 0.1f || !world.Look.OpenLand, "the running director follows the room's wind");
+
+            // The tree really paused, as the Esc menu and the Gubble wheel do it.
+            var clock = director.ClockS;
+            GetTree().Paused = true;
+            for (var i = 0; i < 90; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            Check(director.ClockS > clock + 0.5, $"the director keeps running while the tree is paused ({director.ClockS - clock:0.00} s passed)");
+            Check(new[] { Sounds.WindSoft, Sounds.WindGust, Sounds.Sea, Sounds.Rain, Sounds.Insects }.All(id => director.LoopTarget(id) == 0), "paused for real, every ambient loop is fading out");
+            var steps = director.PlayedPrefix("step_");
+            var button = new Button { Text = "menu", ProcessMode = ProcessModeEnum.Always };
+            world.AddChild(button);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            var ticks = director.PlayedCount(Sounds.UiTick);
+            button.EmitSignal(BaseButton.SignalName.Pressed);
+            Check(director.PlayedCount(Sounds.UiTick) == ticks + 1, "a press in a paused menu ticks");
+            for (var i = 0; i < 6; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            button.EmitSignal(BaseButton.SignalName.Pressed);
+            for (var i = 0; i < 6; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            button.EmitSignal(BaseButton.SignalName.MouseEntered);
+            Check(director.PlayedCount(Sounds.UiTick) == ticks + 2 && director.PlayedCount(Sounds.UiHover) >= 1, "later presses and hovers in the paused menu are still heard");
+            Check(director.PlayedPrefix("step_") == steps, "no footsteps while paused");
+            GetTree().Paused = false;
+            for (var i = 0; i < 240; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            Check(director.LoopTarget(Sounds.WindSoft) > 0.1f || !world.Look.OpenLand, "after resume the world's sounds come back");
+            button.QueueFree();
+        }
+        finally
+        {
+            GetTree().Paused = false;
+            world.QueueFree();
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            (CommandHost.SaveRoot, CommandHost.DefaultPlayerVitalsPath, CommandHost.DefaultGlowProgressPath, CommandHost.DefaultWishSaveRoot) = previous;
+        }
     }
 
     // ---- the sounds ----
@@ -367,8 +524,11 @@ public partial class AudioTest : Node3D
         button.EmitSignal(BaseButton.SignalName.MouseEntered);
         Check(director.PlayedCount(Sounds.UiHover) == 1, "hovering a button makes the quiet hover tick");
         Check(director.Log.Where(p => p.Id.StartsWith("ui_", StringComparison.Ordinal)).All(p => p.Bus == AudioBuses.UI), "ui sounds play on the UI bus");
+        var wiredBefore = director.WiredButtons;
         button.QueueFree();
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        Steps(director, source, 6);
+        Check(wiredBefore >= 1 && director.WiredButtons == wiredBefore - 1, $"a freed button is dropped from the director's list ({wiredBefore} then {director.WiredButtons})");
 
         // The same world and seed give the same sounds.
         var script = director.Log.Select(p => p.Id).ToArray();
