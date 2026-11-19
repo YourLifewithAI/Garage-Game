@@ -1,6 +1,6 @@
 # Run 3: the story run (proposed 19 November 2026)
 
-**Status: a proposal from a planning session, for the founder's yes. Nothing here is built and nothing is decided.** The founder asked (19 November): how to make the game as beautiful as possible, with characters that move more realistically, a landscape that looks more realistic and a UI that is intuitive; a plan to take the game from objective-less to story-driven; and how a team of agents would build it. This page is the answer as a run brief. Section 7 lists what only the founder can settle; every other choice here is the planner's recommendation and can be overruled.
+**Status: proposed on 19 November 2026 and answered by the founder the same day (section 7). The run is approved to start, orchestrated from a session on the founder's laptop ([RUN-3-STATUS.md](RUN-3-STATUS.md) is the handoff). Nothing here is built yet.** The founder asked (19 November): how to make the game as beautiful as possible, with characters that move more realistically, a landscape that looks more realistic and a UI that is intuitive; a plan to take the game from objective-less to story-driven; and how a team of agents would build it. This page is the answer as a run brief. Where section 7 records the founder's word, it wins over the rest of the page; every other choice is the planner's recommendation and can be overruled.
 
 **Read with** [AGENTS.md](../../AGENTS.md), [ORCHESTRATION.md](ORCHESTRATION.md), [OWNERSHIP.md](OWNERSHIP.md), [docs/game/MECHANICS.md](../game/MECHANICS.md) (section 6: quests, the summit), [RUN-2-OPENING.md](RUN-2-OPENING.md), [RUN-2-CHARACTERS.md](RUN-2-CHARACTERS.md) and [docs/look/LOOK-BIBLE.md](../look/LOOK-BIBLE.md).
 
@@ -19,7 +19,7 @@ Four read-only surveys of the tree at `f7af65f`, checked against the code, plus 
 Two findings about how the work has been done matter as much as the gaps:
 
 - **The game is built far more than it is played.** MECHANICS.md holds 135 numbered decisions. The record holds two plays, both the founder's, the second 4.7 minutes long, and none by the children. Every HUD packet of 25 October ends with a "Not seen" list (the bar's look, the padlock, the icons): three rounds of HUD were built by agents that never saw them, and judged by 1,221 checks that cannot tell clear from confusing.
-- **Cloud agents are not blind.** The game's own HUD capture scene runs in a virtual display with Mesa's software OpenGL, with nothing installed: `tools/linux/capture-hud.sh` (new with this page) wrote three 1280x720 pictures of the test room in 83 s. It is good for layout, words and icons. It is not the look: software OpenGL means the Compatibility renderer, with no GI, depth of field or post effect. One island picture took 9 minutes. Whether the real Forward+ renderer runs on a software Vulkan driver in the cloud is **not tested**: this session's permissions refused the run (section 7, question 6).
+- **Cloud agents are not blind.** The game's own HUD capture scene runs in a virtual display with Mesa's software OpenGL, with nothing installed: `tools/linux/capture-hud.sh` (new with this page) wrote three 1280x720 pictures of the test room in 83 s. It is good for layout, words and icons. It is not the look: software OpenGL means the Compatibility renderer, with no GI, depth of field or post effect. One island picture took 9 minutes. The real Forward+ renderer does start on a software Vulkan driver in the cloud, but too slowly to work with (section 7, item 6).
 
 ## 2. What "beautiful" should mean here
 
@@ -36,6 +36,8 @@ That reading is a guess until the children point at pictures (question 1). In or
 The frame budget is already spent: the open meadow with the new grass measures 16.8 ms p95 against 16.7 ms on the RTX 2070 SUPER, and RUN-2-TEN-TIMES.md sets a second, stricter budget (question 3). So a performance packet comes first and pays for the rest.
 
 **Characters.** Keep the motion procedural: there is no animator, the bodies are children's drawings of any shape, and agents can measure procedural motion (foot slide, intrusion) where they cannot judge keyframes. The founder's own decision of 13 October already names the next step, "bendy limbs later", with weights from the converter's tube centrelines. Then faces (pupils, brows, a mouth, driven by a small set of moods), a gesture layer (wave, point, cheer, shiver, startle, sit), foot planting for every legged character, and body language that carries the meters (a tired walk at low stamina, a wince at a lost heart).
+
+**"More realistic physics" for the bodies (the founder, 19 November).** What it means here, in build order: limbs that bend; momentum and weight (speeding up, slowing down, a turning arc at a run, a landing that costs more the farther the fall); feet that plant and never slide; springs on every soft part, not only hats and hair; a carried thing's weight in the posture and the pace, and a lean into a push; and a second try at a jointed tumble once limbs have two segments (the physical bones of 13 October failed their test run and a rigid hull replaced them, so the jointed tumble ships only if it passes the tumble suite). One thing stays fixed: every character shares one collision body, as the traits design decides.
 
 ## 3. The story
 
@@ -60,6 +62,27 @@ The frame budget is already spent: the open meadow with the new grass measures 1
 
 Open in the draft: the garage's summit stands at band 8, beyond what its own Fractals open, so the last chapter must rest on Bubble lift or a built ladder, both already decided as ways up. The quest lane checks that route before any text is written.
 
+### Speaking with the islanders (the founder, 19 November)
+
+The founder: the children should speak to the game, not write; speech to speech with their characters; and through the founder's Claude subscription rather than the API if that can be done.
+
+**What the documentation says** (read 19 November; re-check before building):
+
+- Claude's models take text and images and give text. There is no audio in or out, so speech-to-text and text-to-speech are separate parts. Both can run on the PC, free and offline ([models overview](https://platform.claude.com/docs/en/about-claude/models/overview)).
+- Signed in with a plan, `claude -p` and the Agent SDK draw on the subscription's limits ([support article](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan)). The founder's own Claude client playing the companion on the founder's PC is the bring-your-own-AI design this game already has.
+- The consumer terms require the account's user to be 18 or older and forbid sharing the account ([consumer terms](https://www.anthropic.com/legal/consumer-terms)); the guidance for products that children use is written for products built on the API ([usage policy](https://www.anthropic.com/legal/aup)). **So children holding a live conversation with Claude through the founder's account is not something those terms clearly cover.** No page read settles a family's own game either way; ask Anthropic before relying on it.
+- Claude Code has dictation, not spoken replies; the Claude apps' voice mode is a beta. Channels, a research preview, are the documented way for a local MCP server to push "the player said this" into a running Claude Code session ([channels](https://code.claude.com/docs/en/channels)).
+
+**Proposed, in two steps.**
+
+1. **Voice with no live model (build this first).** Speech-to-text and text-to-speech on the PC, as [LIVE-VOICE.md](../companion/LIVE-VOICE.md)'s Talker layer already plans.
+   - *Telling the story:* a child holds a key and tells the game who their character is and what it wants. The game records and transcribes on the PC. The founder, as the Claude user, has an agent turn the transcripts into the story pack's lines and approves every line.
+   - *Playing:* a child holds a key and speaks to an islander. The words are matched to that islander's authored topics for the quest step, a closed set, and the islander answers aloud. A line may be a voice from the PC or the child's own recording of it.
+   - It plays with no AI connected, quests stay island data, and nothing a child says leaves the PC.
+2. **Open conversation (later, and the founder's decision).** A live model behind `companion.say` and the grown-ups' password, as the magic design already holds it, by whichever route Anthropic confirms: an API key under the guidance for products children use, or the family's subscription if that is allowed.
+
+The speech parts must have no strings attached, as the toolchain rule says; the lane checks each candidate's licence before it is added.
+
 ## 4. Lanes and packets
 
 One agent per lane at a time, each in its own worktree and branch, editing only its paths. New paths (`game/stories/**`, the quest kernel, the audio folder) get owners in OWNERSHIP.md when the run opens.
@@ -72,13 +95,16 @@ One agent per lane at a time, each in its own worktree and branch, editing only 
 | **U, the UI** | U1 a theme, two open-licence fonts and a drawn icon set in the journal's leather and paper. U2 fewer keys: one interact key, test keys behind a switch, prompts for everything. U3 gamepad. U4 the objective line, the Quests page, speech bubbles. U5 text size and remapping | Sonnet, Opus if the log shows rework | `capture-hud.sh` before and after, looked at by the agent, in every report |
 | **K, characters** | K9 bendy limbs. K10 faces and moods. K11 gestures and the opening's animations (O2). K12 islanders' idle life. K8 as planned | Opus | Motion sheets; the family's blind vote, as for the converters |
 | **L, the look** | L-perf first (the 941 ms freeze, the grass's cost, culling). L-air (light and atmosphere). L-water. L-ground | Opus | The founder's GPU, or a cloud renderer if question 6 allows |
-| **C, the plant kit** | Trees, rocks and plants as real meshes with levels and wind; the generator places them | Opus | The landscape harness, then the look captures |
+| **C, the plant kit** | Trees, rocks and plants as real meshes with levels and wind; better grass and flowers (the founder, 19 November); the generator places them | Opus | The landscape harness, then the look captures |
+| **V, voice** | V1 speech-to-text and text-to-speech on the PC behind one interface, push-to-talk. V2 telling the story: record, transcribe, the founder's review. V3 speaking to islanders: topics matched, lines spoken (section 3) | Opus for the boundary, Sonnet for the parts | Headless tests on recorded clips; the founder's and the children's ears |
 | **Sound** | An audio bus and volume settings; hooks for steps, water, fire, pickups, the chime, UI; a first set of sounds; music by question 5 | Sonnet | Headless checks that hooks fire; the founder's ears |
 | **Reviewer** | One fresh Opus review when a lane finishes a chunk, as ORCHESTRATION.md says | Opus | — |
 
 ## 5. Waves and gates
 
-Each wave is a vertical slice that ends in a build the children play, with the recorder on and a `/playtest` debrief. The next wave's packets come from the debrief. **The gate is the play, not the suite.**
+**The founder's ruling (19 November): the children play after the whole update, not after each wave.** So each wave below ends with the founder's own look and listen on the laptop, and the children's recorded plays, with `/playtest` debriefs, come when the update is done. The gates written for the children below become the checks for that final round.
+
+As proposed: each wave is a vertical slice that ends in a build the children play, with the recorder on and a `/playtest` debrief. The next wave's packets come from the debrief. **The gate is the play, not the suite.**
 
 - **Wave 0, see and decide (two or three days).** The founder captures the 10x island as it is today (no picture has been committed since 8 October); the children pick what "realistic" means from reference frames; the children play the current build for fifteen minutes with the recorder on, as the baseline; the founder answers section 7. No building beyond `capture-hud.sh`.
 - **Wave 1, the first twenty minutes (about two weeks).** The contract, Q1, the opening's beats (O1) and animations, the first night's quests and one islander, U1 to U4 on the screens that chapter touches, the Sound lane's bus and first sounds, L-perf and L-air. **Gate: a child who has not played completes the first night without coaching.** That is Run 5's exit evidence, pulled forward to where it can still change the design.
@@ -101,20 +127,40 @@ ORCHESTRATION.md's lanes, owned paths, routing log and reviews stay. Proposed ch
    - *A workflow script* for the repeated shape build, independent review, fix round, when the founder asks for one.
    - *Separate cloud sessions,* one per lane and branch, for lanes that outlast one session's context; and a session on the founder's GPU machine for look captures, frame times and the Windows runners.
 
-## 7. For the founder
+## 7. The founder's answers (19 November)
 
-1. **"Realistic":** believable inside the painterly style (recommended), or a move toward realism that rewrites the look bible? Ten minutes with the children and a sheet of reference frames settles it.
-2. **The story:** the spine of section 3 as a starting draft, with the children's characters as the islanders and the children as its writers?
-3. **The frame budget:** 16.7 ms at 1080p on the RTX 2070 SUPER (the look bible) or 8 ms median (RUN-2-TEN-TIMES.md)? The two disagree, and richer land needs to know which.
-4. **Gamepad** as a first-class way to play? Which controller do the children use?
-5. **Sound:** add the lane? And where music comes from: open-licence recordings the founder approves one by one, sounds made in code, or the children's own recordings. No spending either way.
-6. **A cloud renderer:** may cloud agents unpack Mesa's software Vulkan driver into the ignored `.cache` (two Ubuntu packages, nothing installed system-wide) and try the Forward+ renderer with it? If it works, look agents can check stills without the founder's GPU; frame times still need the GPU. This session downloaded and unpacked the driver there and was refused the run, so it is untested and unused.
-7. **How to run it:** subagents under one integrating session for Wave 1 (recommended)?
+1. **"Realistic" means believable, not photographic.** Yes: "Believable doesn't need to mean photographic." The look bible stands.
+2. **The story:** the children's characters as the islanders, yes. The children do not write: **they speak to the game**, speech to speech with their characters, through the founder's Claude subscription if that can be done (section 3, "Speaking with the islanders").
+3. **The frame budget:** not answered. Provisional: the look bible's 16.7 ms at 1080p on its card, until the founder says otherwise.
+4. **Gamepad:** not answered. Provisional: built as a first-class way to play.
+5. **Sound:** yes, "to give the game more ambience". Where music comes from is not answered. Provisional: ambience and effects made in code, no music until the founder chooses.
+6. **A cloud renderer:** yes, agents may try the software Vulkan driver. Tried the same day: Forward+ starts on it (`Vulkan 1.4.318 - Forward+ - Using Device #0: Unknown - llvmpipe`, VoxelGI baked in 368 ms), but the test room had written no frame after five minutes when the founder stopped the run, where software OpenGL takes 69 s. It is too slow to work with. The founder: do the work on the laptop.
+7. **How to run it:** the founder wants to see what the planner can do as the orchestrator, and asked for the work to move to the laptop.
+
+**The founder on the seven improvements:** the children's playtests come after the big update (section 5); light and air, yes; real trees and rocks, "something I've been wanting to see", with better grass and flowers too; better, more realistic physics for the character models (section 2); the UI's simplification is to be worked through together (below); sound, yes.
+
+### The controls, proposed for the founder to mark up
+
+Today a player meets about 36 keys. The proposal is nine things to know, and the rest found on screen:
+
+| To do | Today | Proposed |
+|---|---|---|
+| Move, jump, run | WASD, Space, Shift | The same |
+| Look | Hold the left button and drag | Move the mouse; the right stick on a gamepad |
+| Act on what you face | E use, F pick up, V push, Z rest | **E** for all of it, with the prompt saying what E will do; hold E for the other choice |
+| The Gubble | Right-click, Q come, X stop, I its eyes, the wheel | Right-click to point and ask; hold for the wheel, which holds come, stop and its eyes |
+| What you carry and cast | 1 to 0, Tab | The same, and the mouse wheel |
+| Views | F1, F2, O | The mouse wheel past its ends: all the way in is first person, all the way out is the overview |
+| Everything else | H help, C settings, M magic, J journal, Esc | **One book:** J opens the journal with tabs for quests, the map, magic, the character, settings and help; Esc pauses |
+| Dive, recover, home | Ctrl, R, B | Dive stays; recover and home move into the book |
+| Test keys | G, T, L, P, F6 to F9 | Off unless a switch in settings turns them on |
+
+A prompt shows the right key or button for the device last touched, and a first-time hint retires after it has been followed three times.
 
 ## 8. Not verified
 
 - The look as it is today: the cloud pictures are the Compatibility renderer, and the newest committed look captures are from 8 October, before the island, the 10x world, the characters and the new grass.
 - What the children mean by "realistic", and that they find the UI confusing where the founder does: neither is recorded in the repository.
-- That Forward+ runs on a software Vulkan driver in a cloud container.
+- Whether the family's subscription may carry a child's live conversation with a character (section 3): no page read settles it.
 - The token and calendar estimates, which rest on the routing log's past rounds.
 - `tools/linux/test-all.sh` was not run for this page: it adds one script and docs, and changes no game code.
