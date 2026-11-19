@@ -1,0 +1,438 @@
+{
+  "label": "before",
+  "commit": "496ad800",
+  "note": "NVIDIA GeForce RTX 2070 Super; 1810 of 8192 MiB in use and 0% utilisation before launch (quiet for 6 s)",
+  "captured_utc": "2026-11-19T03:02:00Z",
+  "engine": "4.7.2-stable (official)",
+  "rendering_method": "forward_plus",
+  "rendering_driver": "vulkan",
+  "adapter": "NVIDIA GeForce RTX 2070 Super",
+  "adapter_driver": "NVIDIA 32.0.15.7680",
+  "target": "offscreen SubViewport (window shows a scaled preview)",
+  "resolution": [
+    1920,
+    1080
+  ],
+  "vsync": "disabled",
+  "warmup_frames": 120,
+  "measured_frames": 300,
+  "style": "storybook_painterly@2",
+  "style_note": "",
+  "room_manifest_sha256": "d107aacd157fac44357195fa298919e5e1fec03ea4e014e84bcd5cd675e57673",
+  "cameras_file": "C:\\dev\\Garage-Game\\tools\\look\\island_cameras.json",
+  "msaa_3d": "Disabled",
+  "screen_space_aa": "Fxaa",
+  "use_taa": false,
+  "cameras": [
+    {
+      "frames": 300,
+      "frame_ms_mean": 14.812,
+      "frame_ms_p50": 14.567,
+      "frame_ms_p95": 18.15,
+      "frame_ms_p99": 26.1,
+      "frame_ms_max": 67.283,
+      "gpu_ms_mean": 13.991,
+      "gpu_ms_p95": 14.203,
+      "render_cpu_ms_mean": 1.776,
+      "draw_calls_mean": 1262,
+      "primitives_mean": 14403822,
+      "video_mem_mib": 311.734,
+      "spike_threshold_ms": 36.418,
+      "spikes": [
+        {
+          "frame": 104,
+          "ms": 67.283,
+          "process_ms": 14.836,
+          "physics_ms": 4.715,
+          "navigation_ms": 0.01,
+          "render_cpu_ms": 1.574,
+          "gpu_ms": 14.12,
+          "gc_pause_ms": 0,
+          "objects_drawn": 1471,
+          "causes": "unattributed (outside the engine's steps: the OS, the driver or presenting)"
+        }
+      ],
+      "frames_over_25_ms": 4,
+      "gc_collections": [
+        2,
+        2,
+        0
+      ],
+      "pipeline_compilations": 0,
+      "memory": {
+        "working_set_mib": 1505.359,
+        "private_mib": 1981.402,
+        "peak_working_set_mib": 1834.5,
+        "engine_static_mib": 447.938,
+        "engine_static_peak_mib": 538.277,
+        "managed_heap_mib": 91.528,
+        "managed_live_mib": 92.937,
+        "video_mib": 311.734,
+        "video_texture_mib": 170.378,
+        "video_buffer_mib": 103.757
+      },
+      "camera": "spawn",
+      "file": "spawn.jpg",
+      "image_size": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "frames": 300,
+      "frame_ms_mean": 10.24,
+      "frame_ms_p50": 10.107,
+      "frame_ms_p95": 13.453,
+      "frame_ms_p99": 15.116,
+      "frame_ms_max": 24.841,
+      "gpu_ms_mean": 9.575,
+      "gpu_ms_p95": 9.675,
+      "render_cpu_ms_mean": 0.994,
+      "draw_calls_mean": 546,
+      "primitives_mean": 10020441,
+      "video_mem_mib": 311.734,
+      "spike_threshold_ms": 25.268,
+      "spikes": [],
+      "frames_over_25_ms": 0,
+      "gc_collections": [
+        2,
+        0,
+        0
+      ],
+      "pipeline_compilations": 0,
+      "memory": {
+        "working_set_mib": 1510.93,
+        "private_mib": 1992.242,
+        "peak_working_set_mib": 1834.5,
+        "engine_static_mib": 453.872,
+        "engine_static_peak_mib": 538.277,
+        "managed_heap_mib": 98.618,
+        "managed_live_mib": 98.611,
+        "video_mib": 311.734,
+        "video_texture_mib": 170.378,
+        "video_buffer_mib": 103.757
+      },
+      "camera": "summit",
+      "file": "summit.jpg",
+      "image_size": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "frames": 300,
+      "frame_ms_mean": 8.004,
+      "frame_ms_p50": 7.968,
+      "frame_ms_p95": 11.293,
+      "frame_ms_p99": 12.639,
+      "frame_ms_max": 24.389,
+      "gpu_ms_mean": 7.429,
+      "gpu_ms_p95": 7.557,
+      "render_cpu_ms_mean": 0.738,
+      "draw_calls_mean": 206,
+      "primitives_mean": 6315804,
+      "video_mem_mib": 311.43,
+      "spike_threshold_ms": 19.92,
+      "spikes": [
+        {
+          "frame": 211,
+          "ms": 24.389,
+          "process_ms": 8.256,
+          "physics_ms": 4.667,
+          "navigation_ms": 0.011,
+          "render_cpu_ms": 0.783,
+          "gpu_ms": 7.393,
+          "gc_pause_ms": 0,
+          "objects_drawn": 230,
+          "causes": "unattributed (outside the engine's steps: the OS, the driver or presenting)"
+        }
+      ],
+      "frames_over_25_ms": 0,
+      "gc_collections": [
+        1,
+        0,
+        0
+      ],
+      "pipeline_compilations": 0,
+      "memory": {
+        "working_set_mib": 1521.281,
+        "private_mib": 2002.457,
+        "peak_working_set_mib": 1834.5,
+        "engine_static_mib": 447.996,
+        "engine_static_peak_mib": 538.277,
+        "managed_heap_mib": 99.651,
+        "managed_live_mib": 103.563,
+        "video_mib": 311.43,
+        "video_texture_mib": 170.378,
+        "video_buffer_mib": 103.453
+      },
+      "camera": "hamlet",
+      "file": "hamlet.jpg",
+      "image_size": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "frames": 300,
+      "frame_ms_mean": 10.955,
+      "frame_ms_p50": 10.845,
+      "frame_ms_p95": 14.115,
+      "frame_ms_p99": 15.568,
+      "frame_ms_max": 27.383,
+      "gpu_ms_mean": 10.401,
+      "gpu_ms_p95": 10.668,
+      "render_cpu_ms_mean": 1.494,
+      "draw_calls_mean": 1028,
+      "primitives_mean": 11494596,
+      "video_mem_mib": 310.334,
+      "spike_threshold_ms": 27.112,
+      "spikes": [
+        {
+          "frame": 266,
+          "ms": 27.383,
+          "process_ms": 11.258,
+          "physics_ms": 4.462,
+          "navigation_ms": 0.006,
+          "render_cpu_ms": 1.395,
+          "gpu_ms": 10.476,
+          "gc_pause_ms": 0,
+          "objects_drawn": 1160,
+          "causes": "process step"
+        }
+      ],
+      "frames_over_25_ms": 1,
+      "gc_collections": [
+        1,
+        0,
+        0
+      ],
+      "pipeline_compilations": 0,
+      "memory": {
+        "working_set_mib": 1521.855,
+        "private_mib": 2001.82,
+        "peak_working_set_mib": 1834.5,
+        "engine_static_mib": 444.274,
+        "engine_static_peak_mib": 538.277,
+        "managed_heap_mib": 101.151,
+        "managed_live_mib": 103.164,
+        "video_mib": 310.334,
+        "video_texture_mib": 170.378,
+        "video_buffer_mib": 102.357
+      },
+      "camera": "beach",
+      "file": "beach.jpg",
+      "image_size": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "frames": 470,
+      "frame_ms_mean": 4.917,
+      "frame_ms_p50": 4.674,
+      "frame_ms_p95": 7.721,
+      "frame_ms_p99": 9.789,
+      "frame_ms_max": 17.247,
+      "gpu_ms_mean": 4.348,
+      "gpu_ms_p95": 5.1,
+      "render_cpu_ms_mean": 0.694,
+      "draw_calls_mean": 220.296,
+      "primitives_mean": 2155040.091,
+      "video_mem_mib": 311.275,
+      "spike_threshold_ms": 16.7,
+      "spikes": [
+        {
+          "frame": 122,
+          "ms": 17.247,
+          "process_ms": 45.359,
+          "physics_ms": 4.607,
+          "navigation_ms": 0.016,
+          "render_cpu_ms": 0.618,
+          "gpu_ms": 4.525,
+          "gc_pause_ms": 7.691,
+          "objects_drawn": 249,
+          "causes": "gen1 collection, process step"
+        }
+      ],
+      "frames_over_25_ms": 0,
+      "gc_collections": [
+        1,
+        1,
+        0
+      ],
+      "pipeline_compilations": 0,
+      "memory": {
+        "working_set_mib": 1526.164,
+        "private_mib": 2009.711,
+        "peak_working_set_mib": 1834.5,
+        "engine_static_mib": 446.369,
+        "engine_static_peak_mib": 538.277,
+        "managed_heap_mib": 97.364,
+        "managed_live_mib": 103.587,
+        "video_mib": 311.275,
+        "video_texture_mib": 170.378,
+        "video_buffer_mib": 103.298
+      },
+      "camera": "flight",
+      "file": "flight.jpg",
+      "image_size": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "frames": 300,
+      "frame_ms_mean": 11.858,
+      "frame_ms_p50": 11.787,
+      "frame_ms_p95": 15.185,
+      "frame_ms_p99": 16.103,
+      "frame_ms_max": 16.338,
+      "gpu_ms_mean": 11.337,
+      "gpu_ms_p95": 11.791,
+      "render_cpu_ms_mean": 1.244,
+      "draw_calls_mean": 782,
+      "primitives_mean": 12726389,
+      "video_mem_mib": 316.986,
+      "spike_threshold_ms": 29.468,
+      "spikes": [],
+      "frames_over_25_ms": 0,
+      "gc_collections": [
+        1,
+        1,
+        0
+      ],
+      "pipeline_compilations": 0,
+      "memory": {
+        "working_set_mib": 1556.535,
+        "private_mib": 2040.047,
+        "peak_working_set_mib": 1834.5,
+        "engine_static_mib": 472.343,
+        "engine_static_peak_mib": 538.277,
+        "managed_heap_mib": 106.894,
+        "managed_live_mib": 114.537,
+        "video_mib": 316.986,
+        "video_texture_mib": 170.378,
+        "video_buffer_mib": 109.009
+      },
+      "camera": "fractal_near",
+      "file": "fractal_near.jpg",
+      "image_size": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "frames": 300,
+      "frame_ms_mean": 16.316,
+      "frame_ms_p50": 16.187,
+      "frame_ms_p95": 19.649,
+      "frame_ms_p99": 21.292,
+      "frame_ms_max": 41.165,
+      "gpu_ms_mean": 15.699,
+      "gpu_ms_p95": 16.071,
+      "render_cpu_ms_mean": 1.706,
+      "draw_calls_mean": 1164,
+      "primitives_mean": 18686730,
+      "video_mem_mib": 315.159,
+      "spike_threshold_ms": 40.468,
+      "spikes": [
+        {
+          "frame": 263,
+          "ms": 41.165,
+          "process_ms": 16.471,
+          "physics_ms": 5.39,
+          "navigation_ms": 0.006,
+          "render_cpu_ms": 1.563,
+          "gpu_ms": 15.58,
+          "gc_pause_ms": 0,
+          "objects_drawn": 1304,
+          "causes": "process step"
+        }
+      ],
+      "frames_over_25_ms": 1,
+      "gc_collections": [
+        2,
+        0,
+        0
+      ],
+      "pipeline_compilations": 0,
+      "memory": {
+        "working_set_mib": 1544.789,
+        "private_mib": 2026.57,
+        "peak_working_set_mib": 1834.5,
+        "engine_static_mib": 467.656,
+        "engine_static_peak_mib": 538.277,
+        "managed_heap_mib": 108.547,
+        "managed_live_mib": 112.545,
+        "video_mib": 315.159,
+        "video_texture_mib": 170.378,
+        "video_buffer_mib": 107.182
+      },
+      "camera": "fractal_far",
+      "file": "fractal_far.jpg",
+      "image_size": [
+        1920,
+        1080
+      ]
+    }
+  ],
+  "memory_end": {
+    "working_set_mib": 1548.781,
+    "private_mib": 2030.59,
+    "peak_working_set_mib": 1834.5,
+    "engine_static_mib": 459.148,
+    "engine_static_peak_mib": 538.277,
+    "managed_heap_mib": 107.741,
+    "managed_live_mib": 112.908,
+    "video_mib": 311.772,
+    "video_texture_mib": 170.378,
+    "video_buffer_mib": 103.795
+  },
+  "memory_breakdown": {
+    "copies_multimeshes": 612,
+    "copies_instances_in_all_bands": 295310,
+    "copies_instance_buffers_mib": 18.024,
+    "copies": 333186,
+    "terrain_levels": {
+      "0": {
+        "meshes": 204,
+        "vertices": 1564502,
+        "indices": 7726641
+      },
+      "1": {
+        "meshes": 204,
+        "vertices": 78346,
+        "indices": 364374
+      },
+      "2": {
+        "meshes": 204,
+        "vertices": 9702,
+        "indices": 34620
+      }
+    },
+    "collision_triangles": 1418161,
+    "ground_tiles_built": 80,
+    "ground_tiles": 204,
+    "copies_held": 240172,
+    "room_verified_mesh_bytes_mib": 0,
+    "navigation_polygons": 80335,
+    "objects": 8253,
+    "nodes": 3128,
+    "resources": 69
+  },
+  "derive_notes": [],
+  "look": "storybook_painterly@2 (draft) sha256=c1f9c3ca1df7e070cf894f50345add476e9f98e6e1f504f3bd0b8003207d689c; renderer=forward_plus; key=sun elevation 49.3 yaw 91.9 energy 1.24 (sun at 49.3 degrees, bearing 88.1; moon weight 0; sun scale 1); sky fill none; lamps none; hour 9 day 172 season summer (hour pinned, day pinned (pinned by SetClock)); open land: no VoxelGI (a closed interior is what it bakes); the sky's ambient light and the sun light the land; ssao=True ssil=False glow=True dof=True tilt=0.8; grain 0.05 vignette 0.22 post effect ran; site room (30 degrees latitude, -Z facing 0, solar noon 12 h)",
+  "look_problems": [],
+  "post_effect_check": {
+    "ran": true,
+    "corner_to_centre_darkening": 0.068,
+    "grain_spread": 0.093,
+    "grain_correlation": 0.064,
+    "noise_correlation_scale": 0.005,
+    "centre_pixels_compared": 46656,
+    "passed": true
+  },
+  "player_notice": "",
+  "gpu_during_capture": "GPU memory during capture 1830-2413 MiB over 86 samples"
+}
