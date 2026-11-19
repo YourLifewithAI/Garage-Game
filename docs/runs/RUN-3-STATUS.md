@@ -25,7 +25,11 @@ The handoff page for [RUN-3.md](RUN-3.md), the story run. An integrating session
   | `look-perf` | L-perf: the freeze, the hitches, the two views over budget, the summit camera | Opus | Running (the only GPU lane) |
 
 - **Not started:** Q1 (waits for the contract to merge) and L-air (waits for L-perf).
-- **Both Windows runners on the base (`8c20e90`):** running as this is written; the result goes here.
+- **Both Windows runners on the base: green.**
+  - The room runner passed on `8c20e90`.
+  - The engine runner first failed one check there, and stopped before its later suites: the play HUD's "noon is the brightest" reads the real date, and on 18 November the late-afternoon step reads 0.96 against noon's 0.89. Main fails the same way on this date. Fixed in the test (`1cb4ded`); the engine runner then passed on `1cb4ded` with no failing check (companion 868 tests, playtest reader 98).
+  - The three lanes were told to merge `1cb4ded` before their final runner pass.
+  - **For L-air:** the day's light keys sit at fixed hours and peak after noon, so they do not follow the day's length. In winter the brightest light comes under two hours before sunset.
 
 ## For the session on the laptop, in order
 
