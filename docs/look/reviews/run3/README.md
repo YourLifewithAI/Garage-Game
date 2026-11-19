@@ -37,3 +37,25 @@ Bold is over the provisional budget of 16.7 ms p95. Two lanes were reading docum
 - **The summit picture is not from the summit.** The harness reported "the player could not be placed at (22.469, 20.213, 30.217) (no ground there yet?)" in all three sets, so `summit.jpg` is taken from where the player already stood. There is no picture from the top of the island yet.
 - **`-Sweep` fails with the island cameras** (`LookCaptureHarness.Sweep`, line 595: no camera matches the one the sweep looks for). The time-of-day sets above stand in for it.
 - **`flight.jpg` is mostly sky and sea.** The flight is there for its frame times.
+
+## L-perf (18 November 2026, Lane L)
+
+**The freeze after the island appears** (the frame probe, windowed, on the 10x island; `FrameProbe --split` times each of the world's children): the first frame after the load was 846 to 1064 ms in four runs. In it ran every view's first process (a CanvasLayer of the HUD's about 100 ms, the look's bubble warm-up 66 ms, the campfires 50 ms, the copies 40 ms, the command host's physics 25 to 45 ms) and the intro's set-up (140 ms, plus about 100 ms more round it), and the next frame draws the island's first 87 pipelines (render CPU 230 to 300 ms). The intro's set-up now waits two frames (`RoomIntro.SetUpAfterFrames`, under the black cover): the freeze frame is 727 to 729 ms in two runs and the set-up a frame of 183 to 198 ms of its own. What is left is outside the look (the HUD, the command host, the engine's pipelines).
+
+**The summit, from the summit.** The 10x island's highest ground is a slope the player cannot stand on, so the summit camera is now the highest ground the body's own ray finds footing on (`IslandCameras.RayFooting`). `summit/`, `summit-dusk/` and `summit-night/` are that view by day, at 19:00 and at 21:00 with the lamps on, the look unchanged (`-Only summit`). The flight flies at the summit's height plus 3 m, so it is lower now and its frame times are not comparable with the `before` set's.
+
+**`after-perf/`**: the full set after the packet (`-NoLightChecks -Jpg 88`). The look is unchanged, and so are the views' frame times within run-to-run spread (ms, p50 / p95):
+
+| Camera | before | after |
+|---|---|---|
+| spawn | 14.6 / 18.1 | 14.6 / 18.2 |
+| summit | 10.1 / 13.5 (not the summit) | 8.2 / 11.8 (the summit) |
+| hamlet | 8.0 / 11.3 | 7.9 / 10.7 |
+| beach | 10.8 / 14.1 | 10.8 / 13.9 |
+| flight | 4.7 / 7.7 | 7.6 / 11.7 (a lower flight) |
+| fractal_near | 11.8 / 15.2 | 11.8 / 15.4 |
+| fractal_far | 16.2 / 19.6 | 15.9 / 19.3 |
+
+**Where the spawn's GPU time goes** (Godot's `--gpu-profile`, the play camera at the spawn, 10.2 ms of GPU): depth pre-pass 2.7 ms, opaque pass 4.3, the sun's shadows 1.0, transparent 0.4, glow 0.4, tonemap 0.3, depth of field 0.3, SSAO 0.2, sky 0.1. The land's geometry, drawn in the pre-pass and again in the opaque pass, is where headroom has to come from.
+
+**Tried and refused:** small plants drawn to 30 m instead of 40 (`DrawDistances.SmallPlantM`) gave spawn 13.4 / 16.6 against 14.5 / 17.8 back to back, and fractal_far 12.7 / 16.0 against 13.3 / 16.7, but the spawn picture moved past the noise (mean |d| 9.6 and 37.5 % of pixels over 8, against 2.7 and 6.8 % between two captures of the same code). A visible change, so not kept.

@@ -1,0 +1,424 @@
+{
+  "label": "after-perf",
+  "commit": "94c50ebe",
+  "note": "NVIDIA GeForce RTX 2070 Super; 1810 of 8192 MiB in use and 0% utilisation before launch (quiet for 6 s)",
+  "captured_utc": "2026-11-19T03:45:21Z",
+  "engine": "4.7.2-stable (official)",
+  "rendering_method": "forward_plus",
+  "rendering_driver": "vulkan",
+  "adapter": "NVIDIA GeForce RTX 2070 Super",
+  "adapter_driver": "NVIDIA 32.0.15.7680",
+  "target": "offscreen SubViewport (window shows a scaled preview)",
+  "resolution": [
+    1920,
+    1080
+  ],
+  "vsync": "disabled",
+  "warmup_frames": 120,
+  "measured_frames": 300,
+  "style": "storybook_painterly@2",
+  "style_note": "",
+  "room_manifest_sha256": "d107aacd157fac44357195fa298919e5e1fec03ea4e014e84bcd5cd675e57673",
+  "cameras_file": "C:\\dev\\Garage-Game-run3\\look-perf\\tools\\look\\island_cameras.json",
+  "msaa_3d": "Disabled",
+  "screen_space_aa": "Fxaa",
+  "use_taa": false,
+  "cameras": [
+    {
+      "frames": 300,
+      "frame_ms_mean": 14.9,
+      "frame_ms_p50": 14.583,
+      "frame_ms_p95": 18.167,
+      "frame_ms_p99": 19.387,
+      "frame_ms_max": 72.228,
+      "gpu_ms_mean": 13.993,
+      "gpu_ms_p95": 14.213,
+      "render_cpu_ms_mean": 1.989,
+      "draw_calls_mean": 1257,
+      "primitives_mean": 14373680,
+      "video_mem_mib": 312.897,
+      "spike_threshold_ms": 36.458,
+      "spikes": [
+        {
+          "frame": 98,
+          "ms": 47.073,
+          "process_ms": 15.302,
+          "physics_ms": 4.825,
+          "navigation_ms": 0.011,
+          "render_cpu_ms": 2.111,
+          "gpu_ms": 13.946,
+          "gc_pause_ms": 9.165,
+          "objects_drawn": 1466,
+          "causes": "gen1 collection"
+        },
+        {
+          "frame": 105,
+          "ms": 72.228,
+          "process_ms": 15.302,
+          "physics_ms": 4.825,
+          "navigation_ms": 0.011,
+          "render_cpu_ms": 2.346,
+          "gpu_ms": 14.404,
+          "gc_pause_ms": 0,
+          "objects_drawn": 1466,
+          "causes": "unattributed (outside the engine's steps: the OS, the driver or presenting)"
+        }
+      ],
+      "frames_over_25_ms": 2,
+      "gc_collections": [
+        2,
+        2,
+        0
+      ],
+      "pipeline_compilations": 0,
+      "memory": {
+        "working_set_mib": 1486.621,
+        "private_mib": 1971.379,
+        "peak_working_set_mib": 1854.441,
+        "engine_static_mib": 452.635,
+        "engine_static_peak_mib": 536.78,
+        "managed_heap_mib": 90.57,
+        "managed_live_mib": 91.357,
+        "video_mib": 312.897,
+        "video_texture_mib": 170.503,
+        "video_buffer_mib": 103.295
+      },
+      "camera": "spawn",
+      "file": "spawn.jpg",
+      "image_size": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "frames": 300,
+      "frame_ms_mean": 8.311,
+      "frame_ms_p50": 8.208,
+      "frame_ms_p95": 11.755,
+      "frame_ms_p99": 12.933,
+      "frame_ms_max": 21.914,
+      "gpu_ms_mean": 7.676,
+      "gpu_ms_p95": 7.774,
+      "render_cpu_ms_mean": 1.682,
+      "draw_calls_mean": 1143,
+      "primitives_mean": 7885989,
+      "video_mem_mib": 311.808,
+      "spike_threshold_ms": 20.52,
+      "spikes": [
+        {
+          "frame": 109,
+          "ms": 21.914,
+          "process_ms": 10.53,
+          "physics_ms": 4.619,
+          "navigation_ms": 0.01,
+          "render_cpu_ms": 1.438,
+          "gpu_ms": 7.769,
+          "gc_pause_ms": 0,
+          "objects_drawn": 1323,
+          "causes": "process step"
+        }
+      ],
+      "frames_over_25_ms": 0,
+      "gc_collections": [
+        1,
+        1,
+        0
+      ],
+      "pipeline_compilations": 0,
+      "memory": {
+        "working_set_mib": 1488.648,
+        "private_mib": 1973.613,
+        "peak_working_set_mib": 1854.441,
+        "engine_static_mib": 447.854,
+        "engine_static_peak_mib": 536.78,
+        "managed_heap_mib": 90.776,
+        "managed_live_mib": 97.611,
+        "video_mib": 311.808,
+        "video_texture_mib": 170.503,
+        "video_buffer_mib": 102.206
+      },
+      "camera": "summit",
+      "file": "summit.jpg",
+      "image_size": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "frames": 300,
+      "frame_ms_mean": 7.943,
+      "frame_ms_p50": 7.927,
+      "frame_ms_p95": 10.656,
+      "frame_ms_p99": 12.493,
+      "frame_ms_max": 17.206,
+      "gpu_ms_mean": 7.412,
+      "gpu_ms_p95": 7.506,
+      "render_cpu_ms_mean": 0.721,
+      "draw_calls_mean": 207,
+      "primitives_mean": 6319644,
+      "video_mem_mib": 312.887,
+      "spike_threshold_ms": 19.818,
+      "spikes": [],
+      "frames_over_25_ms": 0,
+      "gc_collections": [
+        1,
+        1,
+        0
+      ],
+      "pipeline_compilations": 0,
+      "memory": {
+        "working_set_mib": 1512.855,
+        "private_mib": 1998.219,
+        "peak_working_set_mib": 1854.441,
+        "engine_static_mib": 451.035,
+        "engine_static_peak_mib": 536.78,
+        "managed_heap_mib": 91.303,
+        "managed_live_mib": 93.163,
+        "video_mib": 312.887,
+        "video_texture_mib": 170.503,
+        "video_buffer_mib": 103.285
+      },
+      "camera": "hamlet",
+      "file": "hamlet.jpg",
+      "image_size": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "frames": 300,
+      "frame_ms_mean": 10.85,
+      "frame_ms_p50": 10.811,
+      "frame_ms_p95": 13.887,
+      "frame_ms_p99": 15.237,
+      "frame_ms_max": 19.916,
+      "gpu_ms_mean": 10.294,
+      "gpu_ms_p95": 10.424,
+      "render_cpu_ms_mean": 1.425,
+      "draw_calls_mean": 1027,
+      "primitives_mean": 11415260,
+      "video_mem_mib": 311.949,
+      "spike_threshold_ms": 27.028,
+      "spikes": [],
+      "frames_over_25_ms": 0,
+      "gc_collections": [
+        1,
+        1,
+        0
+      ],
+      "pipeline_compilations": 0,
+      "memory": {
+        "working_set_mib": 1500.02,
+        "private_mib": 1984.848,
+        "peak_working_set_mib": 1854.441,
+        "engine_static_mib": 447.594,
+        "engine_static_peak_mib": 536.78,
+        "managed_heap_mib": 91.343,
+        "managed_live_mib": 99.071,
+        "video_mib": 311.949,
+        "video_texture_mib": 170.503,
+        "video_buffer_mib": 102.347
+      },
+      "camera": "beach",
+      "file": "beach.jpg",
+      "image_size": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "frames": 1106,
+      "frame_ms_mean": 7.775,
+      "frame_ms_p50": 7.559,
+      "frame_ms_p95": 11.68,
+      "frame_ms_p99": 13.377,
+      "frame_ms_max": 26.462,
+      "gpu_ms_mean": 7.245,
+      "gpu_ms_p95": 8.833,
+      "render_cpu_ms_mean": 1.128,
+      "draw_calls_mean": 570.508,
+      "primitives_mean": 4530989.793,
+      "video_mem_mib": 312.893,
+      "spike_threshold_ms": 18.898,
+      "spikes": [
+        {
+          "frame": 473,
+          "ms": 26.462,
+          "process_ms": 9.104,
+          "physics_ms": 4.528,
+          "navigation_ms": 0.019,
+          "render_cpu_ms": 1.062,
+          "gpu_ms": 7.75,
+          "gc_pause_ms": 0,
+          "objects_drawn": 671,
+          "causes": "unattributed (outside the engine's steps: the OS, the driver or presenting)"
+        }
+      ],
+      "frames_over_25_ms": 1,
+      "gc_collections": [
+        4,
+        3,
+        0
+      ],
+      "pipeline_compilations": 0,
+      "memory": {
+        "working_set_mib": 1506.887,
+        "private_mib": 1992.207,
+        "peak_working_set_mib": 1854.441,
+        "engine_static_mib": 450.407,
+        "engine_static_peak_mib": 536.78,
+        "managed_heap_mib": 91.965,
+        "managed_live_mib": 92.649,
+        "video_mib": 312.893,
+        "video_texture_mib": 170.503,
+        "video_buffer_mib": 103.291
+      },
+      "camera": "flight",
+      "file": "flight.jpg",
+      "image_size": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "frames": 300,
+      "frame_ms_mean": 11.9,
+      "frame_ms_p50": 11.806,
+      "frame_ms_p95": 15.361,
+      "frame_ms_p99": 16.699,
+      "frame_ms_max": 19.743,
+      "gpu_ms_mean": 11.339,
+      "gpu_ms_p95": 11.533,
+      "render_cpu_ms_mean": 1.393,
+      "draw_calls_mean": 781,
+      "primitives_mean": 12851938,
+      "video_mem_mib": 318.611,
+      "spike_threshold_ms": 29.515,
+      "spikes": [],
+      "frames_over_25_ms": 0,
+      "gc_collections": [
+        2,
+        0,
+        0
+      ],
+      "pipeline_compilations": 0,
+      "memory": {
+        "working_set_mib": 1556.762,
+        "private_mib": 2056.809,
+        "peak_working_set_mib": 1854.441,
+        "engine_static_mib": 479.214,
+        "engine_static_peak_mib": 536.78,
+        "managed_heap_mib": 103.25,
+        "managed_live_mib": 105.78,
+        "video_mib": 318.611,
+        "video_texture_mib": 170.503,
+        "video_buffer_mib": 109.009
+      },
+      "camera": "fractal_near",
+      "file": "fractal_near.jpg",
+      "image_size": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "frames": 300,
+      "frame_ms_mean": 16.147,
+      "frame_ms_p50": 15.938,
+      "frame_ms_p95": 19.276,
+      "frame_ms_p99": 20.348,
+      "frame_ms_max": 32.09,
+      "gpu_ms_mean": 15.535,
+      "gpu_ms_p95": 16.257,
+      "render_cpu_ms_mean": 1.699,
+      "draw_calls_mean": 1180,
+      "primitives_mean": 19172439,
+      "video_mem_mib": 316.784,
+      "spike_threshold_ms": 39.845,
+      "spikes": [],
+      "frames_over_25_ms": 2,
+      "gc_collections": [
+        1,
+        0,
+        0
+      ],
+      "pipeline_compilations": 0,
+      "memory": {
+        "working_set_mib": 1542.254,
+        "private_mib": 2039.918,
+        "peak_working_set_mib": 1854.441,
+        "engine_static_mib": 474.217,
+        "engine_static_peak_mib": 536.78,
+        "managed_heap_mib": 102.95,
+        "managed_live_mib": 109.88,
+        "video_mib": 316.784,
+        "video_texture_mib": 170.503,
+        "video_buffer_mib": 107.182
+      },
+      "camera": "fractal_far",
+      "file": "fractal_far.jpg",
+      "image_size": [
+        1920,
+        1080
+      ]
+    }
+  ],
+  "memory_end": {
+    "working_set_mib": 1547.117,
+    "private_mib": 2044.844,
+    "peak_working_set_mib": 1854.441,
+    "engine_static_mib": 465.904,
+    "engine_static_peak_mib": 536.78,
+    "managed_heap_mib": 103.107,
+    "managed_live_mib": 111.158,
+    "video_mib": 313.397,
+    "video_texture_mib": 170.503,
+    "video_buffer_mib": 103.795
+  },
+  "memory_breakdown": {
+    "copies_multimeshes": 612,
+    "copies_instances_in_all_bands": 295310,
+    "copies_instance_buffers_mib": 18.024,
+    "copies": 333186,
+    "terrain_levels": {
+      "0": {
+        "meshes": 204,
+        "vertices": 1564502,
+        "indices": 7726641
+      },
+      "1": {
+        "meshes": 204,
+        "vertices": 78346,
+        "indices": 364374
+      },
+      "2": {
+        "meshes": 204,
+        "vertices": 9702,
+        "indices": 34620
+      }
+    },
+    "collision_triangles": 1418161,
+    "ground_tiles_built": 80,
+    "ground_tiles": 204,
+    "copies_held": 240172,
+    "room_verified_mesh_bytes_mib": 0,
+    "navigation_polygons": 80335,
+    "objects": 8698,
+    "nodes": 3128,
+    "resources": 69
+  },
+  "derive_notes": [],
+  "look": "storybook_painterly@2 (draft) sha256=c1f9c3ca1df7e070cf894f50345add476e9f98e6e1f504f3bd0b8003207d689c; renderer=forward_plus; key=sun elevation 49.3 yaw 91.9 energy 1.24 (sun at 49.3 degrees, bearing 88.1; moon weight 0; sun scale 1); sky fill none; lamps none; hour 9 day 172 season summer (hour pinned, day pinned (pinned by SetClock)); open land: no VoxelGI (a closed interior is what it bakes); the sky's ambient light and the sun light the land; ssao=True ssil=False glow=True dof=True tilt=0.8; grain 0.05 vignette 0.22 post effect ran; site room (30 degrees latitude, -Z facing 0, solar noon 12 h)",
+  "look_problems": [],
+  "post_effect_check": {
+    "ran": true,
+    "corner_to_centre_darkening": 0.065,
+    "grain_spread": 0.093,
+    "grain_correlation": 0.066,
+    "noise_correlation_scale": 0.005,
+    "centre_pixels_compared": 46656,
+    "passed": true
+  },
+  "player_notice": "",
+  "gpu_during_capture": "GPU memory during capture 1865-2429 MiB over 96 samples"
+}
