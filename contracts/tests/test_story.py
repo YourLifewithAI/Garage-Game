@@ -22,7 +22,7 @@ import validate  # noqa: E402
 EXAMPLES = CONTRACTS / "examples"
 STORIES = ROOT / "game" / "stories"
 EXAMPLE_PACK = STORIES / "example" / "v1.json"
-STORY_STATE = EXAMPLES / "room_state" / "garage_example_state_story.json"
+STORY_STATE = EXAMPLES / "room_state" / "island_example_state_story.json"
 MECHANICS_STATE = EXAMPLES / "room_state" / "garage_example_state_mechanics.json"
 GARAGE = EXAMPLES / "rooms" / "garage_example"
 CONDITION_KINDS = {"place_reached", "islander_talked", "islander_given", "expertise_learned", "campfire_lit", "fractals_spent",
@@ -79,7 +79,7 @@ STORY_FAILURES = {
     "story_islander_id_twice": "islander id 'spud' appears more than once",
     "story_line_id_twice": "line id 'hello' appears more than once",
     "story_topic_id_twice": "topic id 'food' appears more than once",
-    "story_step_id_twice": "step id 'spend_five' appears more than once",
+    "story_step_id_twice": "step id 'spend_three' appears more than once",
     "story_id_with_a_hyphen": "'lost-button' does not match",
     "story_more_than_sixty_four_quests": "66 quests; a pack holds at most 64",
     "story_unknown_field": "'advance_by_companion' was unexpected",
@@ -92,8 +92,19 @@ STORY_FAILURES = {
     "story_place_off_the_island": "[999, 999, 999] is not on the island",
     "story_fractal_the_island_does_not_have": "fractal:nosuchthing is not one of the island's Fractals",
     "story_more_fractals_than_the_island_places": "40 Fractals found is more than the island places",
+    # The review's third round: n1, n2, n3 and n3b, n4, n5.
+    "story_talk_that_closes_the_needed_topic": "its condition needs topic 'button', which its talk does not open",
+    "story_spending_more_fractals_than_the_island_places": "200 Fractals spent is more than the island places",
+    "story_quest_title_with_numbers": "quest 'lost_button' title carries a number (U+0031",
+    "story_line_with_a_fullwidth_digit": "line 'hungry' carries a number (U+FF15)",
+    "story_keepsake_name_with_a_roman_numeral": "keepsake 'lucky_button' name carries a number (U+2162)",
+    "story_topic_word_with_an_arabic_indic_digit": "topic 'food' word carries a number (U+0665)",
+    "story_quest_title_with_a_quote": "quest 'lost_button' title holds a straight double quote",
+    "story_journal_line_with_a_quote": "step 'meet_spud' journal holds a straight double quote",
+    "story_overview_on_an_errand": "overview_opens only on a quest with a summit_reached step",
+    "story_islander_to_camp_twice": "islander 'spud' comes to camp in 2 quests",
 }
-# Each invalid save (examples/story_states_invalid), checked against the garage example room, and its reason. The review's
+# Each invalid save (examples/story_states_invalid), checked against the example island, and its reason. The review's
 # s_a, s_b, s_c and s_e (s_d is s_e written another way).
 STATE_FAILURES = {
     "state_story_pack_not_in_the_game": "which is not in game/stories: the game keeps the block inert",
@@ -107,6 +118,11 @@ STATE_FAILURES = {
     "state_quest_fact_with_other_words": "the text is not the pack's own words for it",
     "state_quest_fact_with_its_text_unquoted": "line: 'Step done: Say hello to Spud by the camp.' does not match",
     "state_quest_fact_without_its_version": "'story_version' is a required property",
+    # The review's third round: major 3, s_f, s_g, s_h.
+    "state_story_of_another_island": "x_story's pack is written for 'island_example', not this save's room 'garage_example'",
+    "state_step_done_ahead_of_its_quest": "step 'meet_spud' is done, but quest 'lost_button' has not passed it",
+    "state_quest_done_before_it_started": "a quest fact before quest 'lost_button' started",
+    "state_quest_done_twice": "the same quest_done fact for 'lost_button' twice",
 }
 
 
@@ -273,7 +289,7 @@ class StoryStateTests(unittest.TestCase):
         self.state = validate.load_strict(STORY_STATE)
 
     def problems(self, state) -> list[str]:
-        return validate.schema_errors(state) or validate.check_state(state, "state", GARAGE)
+        return validate.schema_errors(state) or validate.check_state(state, "state", ISLAND)
 
     def test_the_story_state_validates_against_its_room_and_pack(self):
         self.assertEqual(self.problems(self.state), [])
@@ -282,7 +298,10 @@ class StoryStateTests(unittest.TestCase):
     def test_an_older_save_reads_as_no_story_started(self):
         older = validate.load_strict(MECHANICS_STATE)
         self.assertNotIn("x_story", older.get("extensions", {}))
-        self.assertEqual(self.problems(older), [])
+        self.assertEqual(validate.schema_errors(older) or validate.check_state(older, "state", GARAGE), [])
+
+    def test_the_save_is_on_the_island_its_pack_is_written_for(self):
+        self.assertEqual(self.state["room_id"], validate.load_strict(EXAMPLE_PACK)["room_id"])
 
     def broken(self, change) -> dict:
         state = copy.deepcopy(self.state)
@@ -384,7 +403,7 @@ class ReadmeTests(unittest.TestCase):
         readme = (CONTRACTS / "README.md").read_text(encoding="utf-8")
         self.assertIn("| Island story (story pack; the save's story block; the journal's quest kinds) | `island-story.schema.json`", readme)
         self.assertIn("## Island stories", readme)
-        for rule in ("own-initiative", "directed_by", "discovery rule", "never shipped or committed", "no digits",
+        for rule in ("own-initiative", "directed_by", "discovery rule", "never shipped or committed", "number character of any script", "straight double quote", "Open for Q1", "room_id",
                      "untrusted", "--room", "cast", "fractal_found", "inert", "x_story"):
             with self.subTest(rule=rule):
                 self.assertIn(rule, readme)

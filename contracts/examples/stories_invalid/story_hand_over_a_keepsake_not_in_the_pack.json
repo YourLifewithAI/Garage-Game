@@ -242,8 +242,8 @@
               }
             },
             {
-              "id": "spend_five",
-              "journal": "Spend five Fractals at the camp.",
+              "id": "spend_three",
+              "journal": "Spend three Fractals at the camp.",
               "condition": {
                 "kind": "islander_given",
                 "islander": "spud",

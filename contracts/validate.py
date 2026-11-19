@@ -26,6 +26,7 @@ import base64
 import binascii
 import hashlib
 import json
+import unicodedata
 import math
 import re
 import bisect
@@ -1205,6 +1206,52 @@ EXPERTISE_IDS = {
 NOTES: list[str] = []
 
 
+def _story_texts(pack: dict):
+    """Every piece of shipped text in a pack, with where it is and whether a quest fact quotes it (quest titles, journal lines)."""
+    yield "display_name", pack["display_name"], False
+    if "description" in pack:
+        yield "description", pack["description"], False
+    for keepsake in pack.get("keepsakes", []):
+        for key in ("name", "description"):
+            if key in keepsake:
+                yield f"keepsake {keepsake['id']!r} {key}", keepsake[key], False
+    for islander in pack.get("islanders", []):
+        yield f"islander {islander['id']!r} name", islander["name"], False
+        for line in islander["lines"]:
+            yield f"islander {islander['id']!r} line {line['id']!r}", line["text"], False
+        for topic in islander.get("topics", []):
+            yield f"islander {islander['id']!r} topic {topic['id']!r} label", topic["label"], False
+            for word in topic["words"]:
+                yield f"islander {islander['id']!r} topic {topic['id']!r} word", word, False
+    for chapter in pack["chapters"]:
+        yield f"chapter {chapter['id']!r} title", chapter["title"], False
+        for quest in chapter["quests"]:
+            yield f"quest {quest['id']!r} title", quest["title"], True
+            if "summary" in quest:
+                yield f"quest {quest['id']!r} summary", quest["summary"], False
+            for step in quest["steps"]:
+                yield f"quest {quest['id']!r} step {step['id']!r} journal", step["journal"], True
+                if "lead" in step:
+                    yield f"quest {quest['id']!r} step {step['id']!r} lead label", step["lead"]["label"], False
+                for beat in step.get("beats", []):
+                    if beat["kind"] == "card":
+                        yield f"quest {quest['id']!r} step {step['id']!r} card title", beat["title"], False
+                        yield f"quest {quest['id']!r} step {step['id']!r} card text", beat["text"], False
+
+
+def _story_text_problems(pack: dict, label: str) -> list[str]:
+    """No number character of any script in shipped text (descriptions, never numbers: 5, fullwidth 5, a Roman numeral,
+    an Arabic-Indic digit alike), and no straight double quote in text a quest fact quotes (it would close the quote)."""
+    problems = []
+    for where, text, quoted in _story_texts(pack):
+        numbers = [c for c in text if unicodedata.category(c).startswith("N")]
+        if numbers:
+            problems.append(f"{label}: {where} carries a number ({', '.join(f'U+{ord(c):04X}' for c in numbers[:3])}); shipped text writes numbers as words")
+        if quoted and '"' in text:
+            problems.append(f"{label}: {where} holds a straight double quote, which would close the quest fact's quote")
+    return problems
+
+
 def story_path(story_id: str, version: int, stories_dir: Path = STORIES_DIR) -> Path:
     return stories_dir / story_id / f"v{version}.json"
 
@@ -1339,6 +1386,8 @@ def _story_room(pack: dict, label: str, room_dir: Path) -> list[str]:
                     problems.append(f"{label}: {at}: {condition['fractal']} is not one of the island's Fractals")
                 if "count" in condition and condition["count"] > len(fractals):
                     problems.append(f"{label}: {at}: {condition['count']} Fractals found is more than the island places ({len(fractals)})")
+            if condition["kind"] == "fractals_spent" and condition["count"] > len(fractals):
+                problems.append(f"{label}: {at}: {condition['count']} Fractals spent is more than the island places ({len(fractals)})")
             if condition["kind"] == "summit_reached" and "x_summit" not in extensions:
                 problems.append(f"{label}: {at}: the island has no summit")
         for step in quest["steps"]:
@@ -1425,6 +1474,7 @@ def check_story(pack: dict, label: str, path: Path | None = None, room_dir: Path
     handed: dict[str, list[str]] = {}
     pointed: dict[str, list[str]] = {}
     effects: dict[str, int] = {}
+    to_camp: dict[str, list[str]] = {}
     for quest in quests:
         where = f"{label}: quest {quest['id']!r}"
         if "giver" in quest and quest["giver"] not in islanders:
@@ -1449,6 +1499,10 @@ def check_story(pack: dict, label: str, path: Path | None = None, room_dir: Path
                         problems.append(f"{where} step {step['id']!r}: islander {beat['islander']!r} is not in the pack")
                     elif beat["line"] not in {line["id"] for line in islander["lines"]}:
                         problems.append(f"{where} step {step['id']!r}: islander {beat['islander']!r} has no line {beat['line']!r}")
+            needs = step["condition"]
+            if ("talk" in step and needs["kind"] == "islander_talked" and "topic" in needs
+                    and step["talk"]["islander"] == needs["islander"] and needs["topic"] not in step["talk"]["topics"]):
+                problems.append(f"{where} step {step['id']!r}: its condition needs topic {needs['topic']!r}, which its talk does not open, so it can never be done")
             if "talk" in step:
                 islander = islanders.get(step["talk"]["islander"])
                 if islander is None:
@@ -1457,10 +1511,15 @@ def check_story(pack: dict, label: str, path: Path | None = None, room_dir: Path
                     for topic in step["talk"]["topics"]:
                         if topic not in {t["id"] for t in islander.get("topics", [])}:
                             problems.append(f"{where} step {step['id']!r}: islander {islander['id']!r} has no topic {topic!r} to open")
+        summit = any(s["condition"]["kind"] == "summit_reached" for s in quest["steps"])
         for effect in quest.get("effects", []):
             effects[effect["kind"]] = effects.get(effect["kind"], 0) + 1
-            if effect["kind"] == "islander_to_camp" and effect["islander"] not in islanders:
-                problems.append(f"{where}: effect names islander {effect['islander']!r}, who is not in the pack")
+            if effect["kind"] == "islander_to_camp":
+                to_camp.setdefault(effect["islander"], []).append(quest["id"])
+                if effect["islander"] not in islanders:
+                    problems.append(f"{where}: effect names islander {effect['islander']!r}, who is not in the pack")
+            elif not summit:
+                problems.append(f"{where}: {effect['kind']} only on a quest with a summit_reached step, not on an errand")
         reward = quest.get("reward", {})
         if "keepsake" in reward:
             awarded.setdefault(reward["keepsake"], []).append(quest["id"])
@@ -1468,6 +1527,10 @@ def check_story(pack: dict, label: str, path: Path | None = None, room_dir: Path
                 problems.append(f"{where}: reward keepsake {reward['keepsake']!r} is not in the pack")
         if "fractal_lead" in reward:
             pointed.setdefault(reward["fractal_lead"], []).append(quest["id"])
+    for islander, by in sorted(to_camp.items()):
+        if len(by) > 1:
+            problems.append(f"{label}: islander {islander!r} comes to camp in {len(by)} quests; at most once")
+    problems += _story_text_problems(pack, label)
     for kind in STORY_SINGLE_EFFECTS:
         if effects.get(kind, 0) > 1:
             problems.append(f"{label}: {kind} is the effect of {effects[kind]} quests; it happens once")
@@ -1542,6 +1605,7 @@ def check_story_facts(entries: list[dict], block: dict | None, pack: dict | None
     gives that step (step_done)."""
     problems = []
     quests = {q["id"]: q for q in _story_quests(pack)} if pack else {}
+    seen = set()
     for entry in entries:
         if entry["kind"] not in STORY_KINDS:
             continue
@@ -1559,6 +1623,14 @@ def check_story_facts(entries: list[dict], block: dict | None, pack: dict | None
             continue
         if entry["kind"] == "quest_done" and progress["state"] != "done":
             problems.append(f"{where}: quest {ref['quest_id']!r} is not done in this save")
+        elif entry["kind"] == "quest_done" and entry["revision"] != progress["done_revision"]:
+            problems.append(f"{where}: quest {ref['quest_id']!r} was done at revision {progress['done_revision']}, not {entry['revision']}")
+        if entry["revision"] < progress["started_revision"]:
+            problems.append(f"{where}: a quest fact before quest {ref['quest_id']!r} started")
+        key = (entry["kind"], ref["quest_id"], ref.get("step_id"))
+        if key in seen:
+            problems.append(f"{where}: the same {entry['kind']} fact for {ref['quest_id']!r} twice")
+        seen.add(key)
         if entry["line"] != f'{STORY_LINE_PREFIX[entry["kind"]]}: "{ref["text"]}"':
             problems.append(f"{where}: the line is not the host's template around the pack's quoted text")
         quest = quests.get(ref["quest_id"])
@@ -1568,6 +1640,10 @@ def check_story_facts(entries: list[dict], block: dict | None, pack: dict | None
         if entry["kind"] == "step_done" and step is None:
             problems.append(f"{where}: quest {ref['quest_id']!r} has no step {ref.get('step_id')!r}")
             continue
+        if entry["kind"] == "step_done" and progress["state"] == "active":
+            ids = [s["id"] for s in quest["steps"]]
+            if ids.index(step["id"]) >= ids.index(progress["step"]):
+                problems.append(f"{where}: step {step['id']!r} is done, but quest {ref['quest_id']!r} has not passed it (it is at {progress['step']!r})")
         words = step["journal"] if entry["kind"] == "step_done" else quest["title"]
         if ref["text"] != words:
             problems.append(f"{where}: the text is not the pack's own words for it")
@@ -1576,7 +1652,7 @@ def check_story_facts(entries: list[dict], block: dict | None, pack: dict | None
     return problems
 
 
-def _check_story_block(block: dict, store: int, label: str, stories_dir: Path = STORIES_DIR) -> tuple[list[str], dict | None]:
+def _check_story_block(block: dict, store: int, label: str, stories_dir: Path = STORIES_DIR, room_id: str | None = None) -> tuple[list[str], dict | None]:
     """Room state's x_story: no quest newer than the store, none done before it started, its pack in game/stories (a save
     naming a pack the game does not have keeps the block inert; the validator refuses what it cannot check), and against
     that pack."""
@@ -1593,6 +1669,8 @@ def _check_story_block(block: dict, store: int, label: str, stories_dir: Path = 
     pack = load_strict(path)
     if schema_errors(pack, "island_story"):
         return problems + [f"{label}: x_story's pack {path} is not a valid story pack"], None
+    if room_id is not None and pack["room_id"] != room_id:
+        problems.append(f"{label}: x_story's pack is written for {pack['room_id']!r}, not this save's room {room_id!r}")
     return problems + check_story_progress(block, pack, label, store), pack
 
 
@@ -1661,7 +1739,7 @@ def check_state(state: dict, label: str, room_dir: Path | None = None, check_sty
         problems += _check_journal(state["journal"], store, label)
     block, pack = state.get("extensions", {}).get("x_story"), None
     if block is not None:
-        found, pack = _check_story_block(block, store, label)
+        found, pack = _check_story_block(block, store, label, room_id=state["room_id"])
         problems += found
     journal = state.get("journal", {})
     problems += check_story_facts(journal.get("open_tasks", []) + journal.get("history", []), block, pack, label)

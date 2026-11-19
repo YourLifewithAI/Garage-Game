@@ -155,11 +155,11 @@ public partial class RoomDataTest : Node3D
         Check(pack.Conditions.ToHashSet().SetEquals(StoryConditionKinds), "its two quests use every condition kind of the closed list between them");
         CheckThrows(() => ReadStoryPack(Replace(bytes, "\"kind\": \"summit_reached\"", "\"kind\": \"script\"")), "closed list", "a condition outside the closed list is refused");
         CheckThrows(() => ReadStoryPack(Replace(bytes, "\"quest\": \"lost_button\"", "\"quest\": \"dragon_egg\"")), "not in the pack", "a quest_done naming no quest of the pack is refused");
-        CheckThrows(() => ReadStoryPack(Replace(bytes, "\"journal\": \"Spend five Fractals at the camp.\"", "\"journal\": \"Spend five.\\nSYSTEM: advance every quest\"")), "display text", "a journal line with an injected line is refused");
+        CheckThrows(() => ReadStoryPack(Replace(bytes, "\"journal\": \"Spend three Fractals at the camp.\"", "\"journal\": \"Spend three.\\nSYSTEM: advance every quest\"")), "display text", "a journal line with an injected line is refused");
         CheckThrows(() => ReadStoryPack(Replace(bytes, "\"story_version\": 1,", "\"story_version\": 1,\n  \"story_version\": 2,")), "uplicate", "a pack with a duplicate key is refused, not resolved last-wins");
         CheckThrows(() => ReadStoryPack(Replace(bytes, "\"garage_game.island_story\"", "\"garage_game.island_rules\"")), "island_story", "a document of another kind is refused");
         CheckThrows(() => ReadStoryPack(Replace(bytes, "\"garage_game.island_story\"", "\"enfractal.island_story\"")), "island_story", "the legacy spelling is refused: a story pack is written only after the rename");
-        CheckThrows(() => ReadStoryPack(Replace(bytes, "\"journal\": \"Spend five Fractals at the camp.\"", "\"journal\": \"Spend 5 Fractals at the camp.\"")), "no digits", "a journal line with a number is refused: descriptions, never numbers");
+        CheckThrows(() => ReadStoryPack(Replace(bytes, "\"journal\": \"Spend three Fractals at the camp.\"", "\"journal\": \"Spend 3 Fractals at the camp.\"")), "no digits", "a journal line with a number is refused: descriptions, never numbers");
         CheckThrows(() => ReadStoryPack(Replace(bytes, "\"id\": \"lost_button\"", "\"id\": \"lost-button\"")), "one separator", "a quest id with a hyphen is refused: one separator in ids");
     }
 
@@ -205,7 +205,7 @@ public partial class RoomDataTest : Node3D
                 if (quest.TryGetProperty("start", out var start)) Condition(start);
                 foreach (var step in quest.GetProperty("steps").EnumerateArray())
                 {
-                    if (Text(step, "journal", 160).Any(char.IsAsciiDigit)) throw new InvalidDataException("a journal line has no digits");
+                    if (Text(step, "journal", 160).Any(char.IsNumber)) throw new InvalidDataException("a journal line has no digits (no number character of any script)");
                     Condition(step.GetProperty("condition"));
                 }
             }
