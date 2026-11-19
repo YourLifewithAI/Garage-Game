@@ -6,6 +6,8 @@ Kept by the Garage Game's lead session (started by Wren, 8 November 2026). One r
 
 **Ben's answers (8 November, 17:59, relayed by Wren):** the Garage Game is a fun project now, behind the dental office and Life with AI. Finish what's in flight (the kids' gate on DiamondAge), then pause: no new work until he says. The kids wanted the Gubble see-through, so it's made see-through before their gate. His five-minute look at the slice may or may not happen first; the gate doesn't wait on it. Yes to pushing the three branches, which he then typed in the lead's session ("Yes, push all three"): `run2/integration` here at `0f9d541`, the slice's `main` at `b5edf01`, and `claude/stage-3-wiring` with its pull request, [Garage-Unreal#7](https://github.com/YourLifewithAI/Garage-Unreal/pull/7).
 
+**Run 3 (19 November):** Ben approved the story run in a planning session ([docs/runs/RUN-3.md](docs/runs/RUN-3.md), section 7) and moved it to this laptop. That lifts the pause for Run 3's work, on the Godot game. [docs/runs/RUN-3-STATUS.md](docs/runs/RUN-3-STATUS.md) is its handoff, on `run3/integration`. Its batches take over the items below that they cover: item 5's freeze is L-perf, item 7's sound is the Sound lane, item 10's opening is O1 and O2, and item 4's first look happens as each batch is shown to Ben. Item 3, the kids' gate on the Unreal slice, has not been played and is still Ben's to call.
+
 ## Where things stand (8 November 2026)
 
 - **The Godot game.** `main` is at `f7af65f`: pull request #19's code (merged by Ben on 25 October, with both Windows runners and the Linux suite green) plus #20's two docs-only commits, merged on 8 November. Nothing has been built since 25 October.

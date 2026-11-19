@@ -51,7 +51,7 @@ Headless Linux renders nothing, so look captures and frame timings need the foun
 
 ## Working on the founder's machine (parallel lane worktrees)
 
-Lanes run side by side in `C:\dev\EnFractal-run<n>\<lane>` git worktrees (Run 2: `C:\dev\EnFractal-run2\<lane>`); the integrator's checkout is `C:\dev\EnFractal`.
+Lanes run side by side in `C:\dev\EnFractal-run<n>\<lane>` git worktrees (Run 2: `C:\dev\EnFractal-run2\<lane>`; Run 3, on the renamed laptop: `C:\dev\Garage-Game-run3\<lane>`); the integrator's checkout is `C:\dev\EnFractal`.
 - **Stay in your worktree.** Never build, run or write in the integrator's checkout or another lane's worktree.
 - **Absolute paths for .NET file APIs.** PowerShell `cd` does not move .NET's working directory, which stays at the integrator's checkout. A relative `[System.IO.File]` path writes there.
 - **Godot needs `DOTNET_ROOT`.** When you launch Godot directly instead of through the runners, first set `$env:DOTNET_ROOT` to your worktree's `.cache\dotnet` and prepend it to `PATH`. Otherwise a modal dialog blocks the founder's screen.

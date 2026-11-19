@@ -94,6 +94,23 @@ The integrator owns `docs/codex/README.md`, `docs/codex/briefs/**` and `tools/co
 
 The bodies' own files stay Lane P's: `SmallPlayerController.cs` and `CompanionAvatar.cs` take the round's hooks from the integrator, and K5 edits `CompanionAvatar.cs` only on the run-specific grant the plan names.
 
+## Run 3, the story run (opened 19 November 2026)
+
+[RUN-3.md](RUN-3.md) section 4 names the lanes; [RUN-3-STATUS.md](RUN-3-STATUS.md) has the batches. Lane worktrees are `C:\dev\Garage-Game-run3\<lane>` on branches `run3/<lane>`, cut from `run3/integration`; each keeps its scratch files in its own `.cache\scratch`. The tracks above keep their paths; this table adds the run's new paths and says which Run 3 lane holds a track's paths while the run lasts. One agent per lane at a time.
+
+| Lane | Paths | Packets |
+|---|---|---|
+| **Integrator** | `contracts/island-story.schema.json` with its examples, validator and tests; `game/stories/**` (story packs at `game/stories/<id>/v<N>.json`, bytes pinned as the rules packs are); the island save's story block and the journal's new kinds, as a contract round. An Opus agent may build a contract round on the integrator's behalf, as in Run 2; Lane T drafts a pack's words and the integrator commits and pins them | The story pack contract, T1 |
+| **Q, quests** | New: `game/scripts/native/Kernel/Quests/**`, `game/tests/native/Kernel/Quests/**`, `game/tests/native_kernel_quest*.tscn`, `game/tests/fixtures/kernel/quests/**`. For the run, Track P's other kernel paths (`game/scripts/native/Kernel/**` and its tests) where a quest packet must hook in. The integrator wires the ledger's `Attach(RoomWorld)` entry point into `RoomWorld.cs` at merge | Q1 to Q3 |
+| **Sound** | New: `game/scripts/native/Audio/**`, `game/assets/audio/**`, `tools/audio/**`, `game/tests/native/Audio/**`, `game/tests/native_audio*.tscn`, `docs/audio/**`. The integrator wires its `Attach(RoomWorld)` entry point and the audio bus layout in `project.godot`; a hook inside another lane's file is a change request | The bus, the hooks, ambience and effects |
+| **V, voice** | New: `game/scripts/native/Voice/**`, `game/tests/native/Voice/**`, `game/tests/native_voice*.tscn`, `docs/voice/**` | V1 to V3 |
+| **U, the UI** | New: `game/assets/ui/**` (the theme, fonts, icons). For the run, Track P's `game/scripts/native/RoomHud.cs` and `game/scripts/native/Ui/**` | U1 to U5 |
+| **K, characters** | Track K's paths. The bodies' own files (`SmallPlayerController.cs`, `CompanionAvatar.cs`) stay with the integrator for the run: K sends the exact diff | K8 to K12, O2 |
+| **L, the look** | Track L's paths | L-perf, L-air, L-water, L-ground |
+| **C, the plant kit** | `pipeline/landscape/generator/**` and the harness's rendering side, as Track C's row above; the kit's in-game paths are named when batch 2 is dispatched | Trees, rocks, grass and flowers |
+
+**A grant for L-perf only.** A measured freeze or hitch may live outside the Look paths. Where the measurement shows it does, L-perf may make a small change that keeps behaviour as it is, with a test, in Track P's `game/scripts/native/Room/**`, `Navigation/**` and `Sandbox/**`. For `Kernel/**`, `Saves/**`, `RoomHud.cs`, `Ui/**` and `RoomWorld.cs` it sends the exact diff, because other Run 3 lanes or the integrator hold them.
+
 ## Rules for crossing a boundary
 
 - **Need a change in a file you do not own?** Write the exact diff and the reason in your lane report. The integrator applies it or hands it to the owning lane. Do not edit it yourself, even for a one-line fix.
