@@ -1,0 +1,16 @@
+{
+  "schema": "garage_game.carried_builds",
+  "version": 1,
+  "team_id": "example_team",
+  "islands": {
+    "garage_example": {
+      "copied_utc": "2026-10-14T18:30:00Z",
+      "from_mode": "creative",
+      "manifest_prefix": "0123456789abcdef",
+      "difficulty": "standard",
+      "builds": [
+        "creation:00000001"
+      ]
+    }
+  }
+}

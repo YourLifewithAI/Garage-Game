@@ -1,0 +1,25 @@
+{
+  "schema": "garage_game.set_aside",
+  "version": 1,
+  "team_id": "example_team",
+  "mode": "challenge",
+  "set_aside_utc": "2026-11-23T19:05:12Z",
+  "last_played_utc": "2026-10-14T19:30:00Z",
+  "files": [
+    {
+      "path": "modes/challenge/islands/garage_example/0123456789abcdef/inventions.json",
+      "sha256": "6cf5d3ea53dcfa9ee62512286064e5cdfaf064bf58432366466f3faed671183e",
+      "bytes": 147
+    },
+    {
+      "path": "modes/challenge/islands/island_example/7cece13f07419bdf/inventions.json",
+      "sha256": "9aee2eeec5adc6c975b2ea8cff8ddc6d6097922007817e9f1c4ddb064f52422f",
+      "bytes": 147
+    },
+    {
+      "path": "modes/challenge/vitals.json",
+      "sha256": "61f1783b3d85e7fee00907053042a763a303d2a5f1240415a660085bd23c89d9",
+      "bytes": 640
+    }
+  ]
+}

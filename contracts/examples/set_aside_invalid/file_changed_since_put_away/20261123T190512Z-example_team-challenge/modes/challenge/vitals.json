@@ -1,0 +1,26 @@
+{
+  "schema": "garage_game.player_modes",
+  "version": 2,
+  "team_id": "example_team",
+  "mode": "challenge",
+  "written_utc": "2026-10-14T19:30:00Z",
+  "vitals": {
+    "health": 99,
+    "max_health": 120,
+    "stamina": 0.55,
+    "max_stamina": 0.8,
+    "challenges": [
+      "3d9e9b093fc01180451954f4af2dc7dc66e354e0926f7b2ba8fc308ff23738a6",
+      "bd8e43c8145649d14b1140acdba9e0e38abb7b929e70261a5fa18b2c5af2bac6",
+      "0e1b38a6012eca59d50778912cf561cc3ee41f9fc2048d56655f85b684ee929f"
+    ],
+    "recoveries": 1,
+    "fractals": {
+      "found": 13,
+      "unspent": 3,
+      "hearts": 1,
+      "bands": 1
+    },
+    "pips": 6
+  }
+}

@@ -9,12 +9,14 @@ Usage:
   python contracts/validate.py game/rules/storybook_wild/v1.json        # an island rules pack
   python contracts/validate.py game/stories/example/v1.json             # an island story pack
   python contracts/validate.py contracts/examples/playtests/<record>    # a playtest record's folder
+  python contracts/validate.py contracts/examples/set_aside/<folder>    # a game New game put away: its ledger and its files
   python contracts/validate.py --pin FILE                                # print a file's SHA-256 pin
 
 A directory containing room.json is validated as a room: the manifest, every asset.json it
 references, every listed file (hash, size, self-contained GLB), its plant tables and tiled terrain
 GLBs (the 10x world), and the semantic rules JSON Schema cannot express. A directory containing manifest.json
-is validated as a playtest record: the manifest, then every line of events.jsonl. A .json file is validated by its own 'schema' field (a style preset or an
+is validated as a playtest record: the manifest, then every line of events.jsonl. A directory containing set_aside.json
+is validated as a game set aside: the ledger, then every file it lists (hash, size) and that the folder holds no other. A .json file is validated by its own 'schema' field (a style preset or an
 island rules pack is one such file). A document may name its kind in either spelling of its id (contracts/schema_ids.py:
 garage_game.<kind>, or enfractal.<kind> as files written before the rename and pinned files say). Exit status is 0 only when
 everything passes. Requires the packages in contracts/requirements.txt.
@@ -24,8 +26,10 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+import datetime
 import hashlib
 import json
+import os
 import unicodedata
 import math
 import re
@@ -80,8 +84,20 @@ KIND_FILES = {
     # events.jsonl, stills/), docs/runs/RUN-2-PLAYTEST-LOOP.md. The manifest is a document of its own; each line of
     # events.jsonl is the schema's $defs/event, checked here line by line.
     "playtest_manifest": "playtest-record.schema.json",
+    # The menu's two older files (M7): user://teams/last_game.json and user://teams/<team_id>/carried_builds.json.
+    "last_game": "menu.schema.json",
+    "carried_builds": "menu.schema.json",
 }
 SCHEMA_FILES = {spelling: file for kind, file in KIND_FILES.items() for spelling in SCHEMA_IDS.ids_of(kind)}
+# The menu's third file, the set-aside ledger (Run 4's first contract round, CR-1): the record of one game New game put
+# away, user://set_aside/<yyyyMMddTHHmmssZ>-<team_id>-<mode>/set_aside.json. First written after the rename, so it has one
+# spelling and readers accept only it. The id table (contracts/schema_ids.py, NEW_ONLY) is to hold it too: this validator
+# reads the same with or without that line, and contracts/tests/test_menu.py checks the table spells it as here.
+SET_ASIDE = "garage_game.set_aside"
+SCHEMA_FILES[SET_ASIDE] = "menu.schema.json"
+SET_ASIDE_LEDGER = "set_aside.json"  # the ledger's name in its folder
+SET_ASIDE_TEAM_FILE = "team.json"  # the team file as it was: always among a ledger's files
+SET_ASIDE_LEDGER_LIMIT = 1048576  # bytes of canonical JSON
 TEAM_DOCUMENTS = ("team", "player_modes", "glow_progress")  # kinds
 PLAYTEST_MANIFEST = id_of("playtest_manifest")
 PLAYTEST_MANIFEST_LIMIT = 16384  # bytes of canonical JSON
@@ -442,7 +458,9 @@ def _inside_xz_polygon(x: float, z: float, polygon) -> bool:
 
 # ---------- files ----------
 
-def _check_listed_files(base: Path, files: list, referenced: set[str], label: str) -> list[str]:
+def _check_listed_files(base: Path, files: list, referenced: set[str], label: str, meshes: bool = True) -> list[str]:
+    """Each listed file once, there, with its size and hash; with `meshes`, a .glb is read as a self-contained mesh too
+    (a room's and an asset's files; a set-aside ledger pins bytes only)."""
     problems = []
     listed = {}
     for entry in files:
@@ -466,7 +484,7 @@ def _check_listed_files(base: Path, files: list, referenced: set[str], label: st
             problems.append(f"{label}: {path} is {len(data)} bytes, files list says {entry['bytes']}")
         if hashlib.sha256(data).hexdigest() != entry["sha256"]:
             problems.append(f"{label}: {path} hash does not match the files list")
-        if path.endswith(".glb"):
+        if meshes and path.endswith(".glb"):
             problems += check_glb(data, f"{label}: {path}")
     return problems
 
@@ -1858,6 +1876,86 @@ def check_team_document(document: dict, label: str) -> list[str]:
     return problems
 
 
+# ---------- the menu's files: a game set aside by New game (Run 4's first contract round, CR-1) ----------
+
+def set_aside_folder_name(ledger: dict) -> str:
+    """The one folder a ledger belongs in, under user://set_aside/: <yyyyMMddTHHmmssZ>-<team_id>-<mode>, its moment to the
+    second, its team and its mode."""
+    return f"{re.sub('[-:]', '', ledger['set_aside_utc'])}-{ledger['team_id']}-{ledger['mode']}"
+
+
+def _real_moment(text: str) -> bool:
+    """Whether a utc_timestamp names a moment the calendar has (the pattern lets the 31st of February through)."""
+    match = PLAYTEST_UTC.match(text)
+    try:
+        datetime.datetime(*(int(group) for group in match.groups()[:6]))
+    except (AttributeError, ValueError):
+        return False
+    return True
+
+
+def _files_in(folder: Path) -> list[str]:
+    """Every file under a folder, by its place in it with forward slashes. A linked folder is never walked into."""
+    found = []
+    for base, _folders, names in os.walk(folder):
+        found += [(Path(base) / name).relative_to(folder).as_posix() for name in names]
+    return sorted(found)
+
+
+def check_set_aside(ledger: dict, label: str, folder: Path | None = None) -> list[str]:
+    """What the menu schema cannot express for the ledger of a game set aside: its two moments real ones, the team file
+    among its files, every other file under its own mode's folder, and no file twice. Given the folder it lies in, also
+    that the folder is named for the ledger (its moment, team and mode), that every listed file is there with its size and
+    SHA-256, and that the folder holds no other file: a put-away game is whole, with nothing added. The ledger pins bytes,
+    never meaning, so no put-away file is parsed here."""
+    problems = []
+    size = len(canonical_bytes(ledger))
+    if size > SET_ASIDE_LEDGER_LIMIT:
+        problems.append(f"{label}: the ledger is {size} bytes of canonical JSON; the limit is {SET_ASIDE_LEDGER_LIMIT}")
+    for name in ("set_aside_utc", "last_played_utc"):
+        if not _real_moment(ledger[name]):
+            problems.append(f"{label}: {name} {ledger[name]!r} is not a real moment")
+    paths = [entry["path"] for entry in ledger["files"]]
+    if SET_ASIDE_TEAM_FILE not in paths:
+        problems.append(f"{label}: the ledger does not list {SET_ASIDE_TEAM_FILE}, the team file as it was (the game's pockets and hand are in it)")
+    home = f"modes/{ledger['mode']}/"
+    for path in sorted(set(paths)):
+        if path != SET_ASIDE_TEAM_FILE and not path.startswith(home):
+            problems.append(f"{label}: file {path} is not under {home}; a {ledger['mode']} game holds its own mode's files only")
+    if folder is None:
+        return problems + [f"{label}: file {path} is listed twice" for path in _twice(paths)]
+    folder = Path(folder)
+    name = set_aside_folder_name(ledger)
+    if folder.name != name:
+        problems.append(f"{label}: the ledger belongs in a folder named {name!r} (its moment, team and mode), not {folder.name!r}")
+    problems += _check_listed_files(folder, ledger["files"], set(), label, meshes=False)
+    listed = set(paths) | {SET_ASIDE_LEDGER}
+    problems += [f"{label}: file {path} is in the folder but not in the ledger; a put-away game is whole, with nothing added"
+                 for path in _files_in(folder) if path not in listed]
+    return problems
+
+
+def check_set_aside_folder(folder: Path, ledger_name: str = SET_ASIDE_LEDGER) -> list[str]:
+    """A game New game put away, in its folder under user://set_aside/: the ledger by its schema, then check_set_aside
+    against the folder. The folder's one ledger has one name, set_aside.json; under any other it is refused."""
+    folder = Path(folder)
+    label = f"{folder.name}/{ledger_name}"
+    try:
+        ledger = load_strict(folder / ledger_name)
+    except (OSError, ContractError) as error:
+        return [f"{label}: {error}"]
+    if not isinstance(ledger, dict) or not isinstance(ledger.get("schema"), str):
+        return [f"{label} $: document must be an object with a string 'schema' field"]
+    if ledger["schema"] != SET_ASIDE:
+        return [f"{label} $.schema: expected {SET_ASIDE!r}, found {ledger['schema']!r}"]
+    problems = [f"{label} {message}" for message in schema_errors(ledger)]
+    if problems:
+        return problems
+    if ledger_name != SET_ASIDE_LEDGER:
+        problems.append(f"{label}: a set-aside ledger is named {SET_ASIDE_LEDGER} in its folder")
+    return problems + check_set_aside(ledger, label, folder)
+
+
 def check_message(document: dict, label: str) -> list[str]:
     """Rules a schema cannot express for results: the journal newest first with one id per entry, and map.find
     answers nearest first."""
@@ -2070,10 +2168,13 @@ def check_playtest(record_dir: Path, manifest_name: str = "manifest.json") -> li
 
 
 def check_path(path: Path, check_style_pins: bool = False, room_dir: Path | None = None) -> list[str]:
-    """A directory is a room (room.json) or a playtest record (manifest.json); a file is validated as what its schema says."""
+    """A directory is a room (room.json), a game set aside (set_aside.json) or a playtest record (manifest.json); a file is
+    validated as what its schema says."""
     path = Path(path)
     if not path.is_dir():
         return check_document(path, check_style_pins, room_dir)
+    if (path / SET_ASIDE_LEDGER).is_file() and not (path / "room.json").is_file():
+        return check_set_aside_folder(path)
     if (path / "manifest.json").is_file() and not (path / "room.json").is_file():
         return check_playtest(path)
     return check_room(path, check_style_pins)
@@ -2107,6 +2208,8 @@ def check_document(path: Path, check_style_pins: bool = False, room_dir: Path | 
         return check_team_document(document, label)
     if kind == "playtest_manifest":
         return check_playtest(path.parent, manifest_name=path.name)
+    if document["schema"] == SET_ASIDE:
+        return check_set_aside_folder(path.parent, ledger_name=path.name)
     return check_message(document, label)
 
 

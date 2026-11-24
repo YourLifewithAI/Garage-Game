@@ -1,0 +1,9 @@
+{
+  "schema": "garage_game.last_game",
+  "version": 1,
+  "team_id": "example_team",
+  "room_id": "island_example",
+  "mode": "challenge",
+  "difficulty": "standard",
+  "written_utc": "2026-11-23T19:05:40Z"
+}

@@ -1211,6 +1211,99 @@ def build_teams(out: Path, at: str) -> None:
         write(out / "teams_invalid" / f"{name}.json", dump(document))
 
 
+# ---------- the menu's files (contracts/menu.schema.json; README "The menu's files") ----------
+# The last game and the carried builds (M7), and since Run 4's first contract round (CR-1, MENU-1) the ledger of a game
+# New game put away: the example team's Challenge game, in its folder under user://set_aside/.
+
+# The ledger was first written after the rename, so its id has one spelling. The id table (schema_ids.py, NEW_ONLY) is to
+# hold it; until it does the id is spelt here, and contracts/tests/test_menu.py holds this, the validator and the table to it.
+SET_ASIDE_ID = "garage_game.set_aside"
+SET_ASIDE_AT = "2026-11-23T19:05:12Z"
+SET_ASIDE_FOLDER = f"20261123T190512Z-{TEAM_ID}-challenge"  # <yyyyMMddTHHmmssZ>-<team_id>-<mode>
+# The manifest prefix the example team's pocketed cup already names (team_documents): the garage island's save.
+GARAGE_PREFIX = "0123456789abcdef"
+
+
+def menu_documents() -> dict:
+    """The menu's two older files as the game writes them: the game Continue opens (the new one, begun as the old one was
+    put away) and the example team's one Creative copy of the garage island."""
+    return {
+        "last_game.json": {"schema": ID("last_game"), "version": 1, "team_id": TEAM_ID, "room_id": "island_example", "mode": "challenge",
+                           "difficulty": "standard", "written_utc": "2026-11-23T19:05:40Z"},
+        "carried_builds.json": {"schema": ID("carried_builds"), "version": 1, "team_id": TEAM_ID, "islands": {
+            "garage_example": {"copied_utc": "2026-10-14T18:30:00Z", "from_mode": "creative", "manifest_prefix": GARAGE_PREFIX,
+                               "difficulty": "standard", "builds": ["creation:00000001"]}}},
+    }
+
+
+def island_save_stand_in(room_id: str) -> bytes:
+    """An island save's place in the put-away example. The ledger pins bytes and no contract reads a save (the kernel's own
+    format, garage_game.creation-world), so the example holds short stand-ins, not saves."""
+    return dump({"stand_in": "An island save's place in a game put away. The ledger pins these bytes; no contract reads them.",
+                 "room_id": room_id})
+
+
+def set_aside_game(at: str, island_prefix: str) -> dict[str, bytes]:
+    """The example team's Challenge game as New game finds it, each file by its place under the team's folder: the team
+    file (the Challenge pockets and hand are in it), the vitals store and two islands' saves."""
+    team = team_documents(at)
+    return {
+        "team.json": dump(team["team.json"]),
+        "modes/challenge/vitals.json": dump(team["modes/challenge/vitals.json"]),
+        f"modes/challenge/islands/garage_example/{GARAGE_PREFIX}/inventions.json": island_save_stand_in("garage_example"),
+        f"modes/challenge/islands/island_example/{island_prefix}/inventions.json": island_save_stand_in("island_example"),
+    }
+
+
+def set_aside_ledger(files: dict[str, bytes], last_played: str) -> dict:
+    return {"schema": SET_ASIDE_ID, "version": 1, "team_id": TEAM_ID, "mode": "challenge", "set_aside_utc": SET_ASIDE_AT,
+            "last_played_utc": last_played,
+            "files": [{"path": path, "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)} for path, data in sorted(files.items())]}
+
+
+def write_set_aside(folder: Path, ledger: dict, files: dict[str, bytes]) -> None:
+    for path, data in files.items():
+        write(folder / path, data)
+    write(folder / "set_aside.json", dump(ledger))
+
+
+def build_menu(out: Path, at: str) -> None:
+    for name, document in menu_documents().items():
+        write(out / "menu" / name, dump(document))
+    island_prefix = hashlib.sha256((out / "rooms" / "island_example" / "room.json").read_bytes()).hexdigest()[:16]
+    files = set_aside_game(at, island_prefix)
+    ledger = set_aside_ledger(files, at)  # last played when the vitals store was last written
+    write_set_aside(out / "set_aside" / SET_ASIDE_FOLDER, ledger, files)
+
+    vitals = "modes/challenge/vitals.json"
+    island = f"modes/challenge/islands/island_example/{island_prefix}/inventions.json"
+    healed = files[vitals].replace(b'"health": 85', b'"health": 99')
+    assert healed != files[vitals] and len(healed) == len(files[vitals])
+    without_team = {path: data for path, data in files.items() if path != "team.json"}
+    with_creative = {**files, "modes/creative/vitals.json": files[vitals]}
+    with_expertise = {**files, "expertise.json": dump(team_documents(at)["expertise.json"])}
+    climbing = {"path": "modes/challenge/../../../teams/other_team/team.json", "sha256": hashlib.sha256(files["team.json"]).hexdigest(),
+                "bytes": len(files["team.json"])}
+    # Each broken folder (set_aside_invalid/<name>/<folder>): its folder's name, its ledger, its files. One reason each.
+    invalid: dict[str, tuple[str, dict, dict[str, bytes]]] = {
+        # The folder against its ledger: a put-away game is whole, with nothing changed, missing or added.
+        "file_changed_since_put_away": (SET_ASIDE_FOLDER, ledger, {**files, vitals: healed}),
+        "file_gone_from_the_folder": (SET_ASIDE_FOLDER, ledger, {path: data for path, data in files.items() if path != island}),
+        "file_the_ledger_never_listed": (SET_ASIDE_FOLDER, ledger, {**files, island + ".pending": files[island]}),
+        "folder_named_for_another_moment": (f"20261123T190513Z-{TEAM_ID}-challenge", ledger, files),
+        # The ledger: the team file always, the game's own mode only, nothing else of the team's, no path that leaves the
+        # folder, no word on where to put anything back, and the one spelling of its id.
+        "ledger_without_the_team_file": (SET_ASIDE_FOLDER, set_aside_ledger(without_team, at), without_team),
+        "ledger_file_of_another_mode": (SET_ASIDE_FOLDER, set_aside_ledger(with_creative, at), with_creative),
+        "ledger_holding_the_expertise": (SET_ASIDE_FOLDER, set_aside_ledger(with_expertise, at), with_expertise),
+        "ledger_path_that_climbs_out": (SET_ASIDE_FOLDER, {**ledger, "files": ledger["files"] + [climbing]}, files),
+        "ledger_with_a_way_back": (SET_ASIDE_FOLDER, {**ledger, "restore_to": f"teams/{TEAM_ID}"}, files),
+        "ledger_in_the_old_spelling": (SET_ASIDE_FOLDER, {**ledger, "schema": "enfractal.set_aside"}, files),
+    }
+    for name, (folder, broken_ledger, broken_files) in invalid.items():
+        write_set_aside(out / "set_aside_invalid" / name / folder, broken_ledger, broken_files)
+
+
 # The ledger seam (game/scripts/native/Seams/StaminaLedger.cs): the body reports sprint, deep-water and dive seconds; the kernel
 # charges them from the pack's traits.stamina. One fixture both sides test against, at v5's rates.
 LEDGER_STAMINA = MECHANICS["traits"]["stamina"]
@@ -2355,6 +2448,7 @@ def main() -> None:
     build_messages(args.out)
     build_rules(args.out)
     build_teams(args.out, "2026-10-14T19:30:00Z")
+    build_menu(args.out, "2026-10-14T19:30:00Z")  # the example team's Challenge game, put away on 23 November
     build_ledger(args.out)
     build_playtests(args.out)
     build_story(args.out, stories)

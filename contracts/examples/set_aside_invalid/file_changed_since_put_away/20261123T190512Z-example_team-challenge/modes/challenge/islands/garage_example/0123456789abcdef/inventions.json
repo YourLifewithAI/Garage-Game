@@ -1,0 +1,4 @@
+{
+  "stand_in": "An island save's place in a game put away. The ledger pins these bytes; no contract reads them.",
+  "room_id": "garage_example"
+}

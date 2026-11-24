@@ -1,19 +1,27 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.garage-game.invalid/v1/menu.schema.json",
-  "title": "EnFractal menu files: the last game played and the builds carried into Challenge",
-  "description": "Two small files the opening menu (M7, game/scripts/native/Ui/Menu/) keeps beside the team folders, never read by the companion surface. garage_game.last_game (user://teams/last_game.json, the machine's, written when a game boots as the game, so a launch with --room= counts too): which team, island and mode Continue opens. garage_game.carried_builds (user://teams/<team_id>/carried_builds.json): the islands this team has copied from Creative into Challenge (docs/game/MECHANICS.md section 3, decisions 13 and 44), each once, with the builds (creations) carried over, which count for no Challenge first, souvenir or achievement; the file is also the record that the island's one copy is used.",
+  "title": "EnFractal menu files: the last game played, the builds carried into Challenge and the ledger of a game set aside",
+  "description": "Three small files the opening menu (M7, game/scripts/native/Ui/Menu/) keeps, never read by the companion surface. garage_game.last_game (user://teams/last_game.json, the machine's, written when a game boots as the game, so a launch with --room= counts too): which team, island and mode Continue opens. garage_game.carried_builds (user://teams/<team_id>/carried_builds.json): the islands this team has copied from Creative into Challenge (docs/game/MECHANICS.md section 3, decisions 13 and 44), each once, with the builds (creations) carried over, which count for no Challenge first, souvenir or achievement; the file is also the record that the island's one copy is used. garage_game.set_aside (user://set_aside/<yyyyMMddTHHmmssZ>-<team_id>-<mode>/set_aside.json, Run 4's first contract round; MECHANICS.md section 3, 'Starting and continuing'): the ledger of one game that New game put away, kept whole and never deleted; nothing loads a game from it.",
   "type": "object",
   "required": [
     "schema"
   ],
   "properties": {
     "schema": {
-      "enum": [
-        "garage_game.last_game",
-        "garage_game.carried_builds",
-        "enfractal.last_game",
-        "enfractal.carried_builds"
+      "anyOf": [
+        {
+          "enum": [
+            "garage_game.last_game",
+            "garage_game.carried_builds",
+            "enfractal.last_game",
+            "enfractal.carried_builds"
+          ]
+        },
+        {
+          "description": "The set-aside ledger was first written after the rename, so it has only the new spelling.",
+          "const": "garage_game.set_aside"
+        }
       ]
     }
   },
@@ -52,6 +60,21 @@
       },
       "then": {
         "$ref": "#/$defs/carried_builds"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema": {
+            "const": "garage_game.set_aside"
+          }
+        },
+        "required": [
+          "schema"
+        ]
+      },
+      "then": {
+        "$ref": "#/$defs/set_aside"
       }
     }
   ],
@@ -170,6 +193,83 @@
                   "type": "string",
                   "pattern": "^creation:[A-Za-z0-9_-]{1,64}$"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "set_aside": {
+      "description": "The ledger of one game that New game put away (set aside): one team's game in one mode, which is its vitals store, every island save of that mode, and the team file as it was, holding that mode's pockets and hand. It is the last file written into its folder, user://set_aside/<yyyyMMddTHHmmssZ>-<team_id>-<mode>/, named for set_aside_utc, team_id and mode. The folder is shaped as the team's own: each file stands where it stood under user://teams/<team_id>/ (team.json; modes/<mode>/vitals.json; modes/<mode>/islands/<room_id>/<manifest prefix>/inventions.json), so no path here says where a file came from or where it would go back. The ledger pins bytes, never meaning: every file in the folder is listed once with its size and SHA-256, and the folder holds nothing else (contracts/validate.py). A folder without a ledger is a put-away that did not finish, never a put-away game. Written by the menu's put-away (MENU-2, game/scripts/native/Saves/GameSetAside.cs) before any host exists: not a command, and never the companion's. Read only to list what was put away; nothing loads a game from it and nothing deletes it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "version",
+        "team_id",
+        "mode",
+        "set_aside_utc",
+        "last_played_utc",
+        "files"
+      ],
+      "properties": {
+        "schema": {
+          "description": "Written after the rename, so only the new spelling.",
+          "const": "garage_game.set_aside"
+        },
+        "version": {
+          "type": "integer",
+          "const": 1
+        },
+        "team_id": {
+          "description": "Whose game it was.",
+          "$ref": "common.schema.json#/$defs/team_id"
+        },
+        "mode": {
+          "description": "The mode it was played in: one game is one team in one mode, and the other modes' games stay where they are.",
+          "enum": [
+            "creative",
+            "challenge",
+            "live"
+          ]
+        },
+        "set_aside_utc": {
+          "description": "When New game put the game away, to the whole second (no fraction): the folder's name spells this moment as yyyyMMddTHHmmssZ.",
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+        },
+        "last_played_utc": {
+          "description": "When the game was last saved before it was put away: the newest write among its files, as the writer found it. The date a list of put-away games shows for it.",
+          "$ref": "common.schema.json#/$defs/utc_timestamp"
+        },
+        "files": {
+          "description": "Every file of the put-away game, each once: team.json, the team file as it was, and the files of this ledger's own modes/<mode>/ (contracts/validate.py checks both, and against the folder: each file there with these bytes, and no other file).",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "properties": {
+              "path": {
+                "description": "The file's place inside the set-aside folder, with forward slashes: team.json, or a path under modes/<mode>/. No '.', '..' or empty segment and no backslash, colon or control character (nor any other character a Windows file name cannot hold), so a path never leaves its folder. Spaces and other printable characters pass: a stray file someone left beside a save is put away with the game, never a reason to refuse.",
+                "type": "string",
+                "maxLength": 400,
+                "pattern": "^(?!.*(?:^|/)\\.\\.?(?:/|$))(?!.*//)(?!.*/$)(?:team\\.json|modes/(?:creative|challenge|live)/[^\\u0000-\\u001F\\u007F\\\\:*?\"<>|]+)$"
+              },
+              "sha256": {
+                "description": "SHA-256 of the file's bytes as they were put away.",
+                "$ref": "common.schema.json#/$defs/sha256"
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 268435456
               }
             }
           }
