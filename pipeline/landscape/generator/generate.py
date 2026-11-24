@@ -24,7 +24,7 @@ from . import sea as Sea
 from . import scale as world
 from .climb import give_lips, knife_edges
 from .detail import Detail, plane_ok_fine
-from . import firepits as Firepits, fractals as Fractals, reach as Reach, sites as Sites
+from . import firepits as Firepits, fractals as Fractals, reach as Reach, rim as Rim, sites as Sites
 
 GENERATOR = {'name': 'landscape-generator', 'version': '5'}
 SEED = 20261008
@@ -125,23 +125,29 @@ def grounding(grid, h, objects, base):
 
 
 def generate(room_dir, out_dir, setup=None, seed=SEED, return_state=False, cell=None, detail=None, plant_salt=None,
-             fractals=None, typed_fractals=False, tutorial=False):
+             fractals=None, typed_fractals=False, tutorial=False, edge=None):
     """The package of a room. On a magnified room a hamlet no graded road reaches (the exact walk from the player's
     spawn finds no way to the crate or a door) is given up and the land generated again with the next site.
     `plant_salt` (None: `WORLD_PLANT_SALT` on a magnified room, none at 1x; 0: none) draws the planting again, on the same land: the plants, trees and stones are a free
     choice, and the game's navigation bake meets a rare layout of trunk holes it cannot triangulate (see REPORT.md).
     `fractals` (None: on a magnified room, off at today's scale, where nothing changes) places the island's Fractals and
     builds the ladder of gates they sit on (fractals.py); `typed_fractals` gives each its kind (the rules pack's flag,
-    off by default); `tutorial` marks the island as one the menu lists first."""
+    off by default); `tutorial` marks the island as one the menu lists first. `edge` (None or 'sea': the island in its
+    sea, as ever; 'rim', on a magnified room: no sea, the walls great cliffs under a desert, rim.py) says what lies at
+    the walls."""
     if fractals and world.W == 1:
         raise ValueError('Fractals are things at world scale 10: the 1x corpus stays byte-identical')
+    if edge not in (None, 'sea', 'rim'):
+        raise ValueError('the land\'s edge is the sea or the rim')
+    if edge == 'rim' and world.W == 1:
+        raise ValueError('the rim is a magnified room\'s: the 1x corpus stays byte-identical')
     if plant_salt is None:
         plant_salt = WORLD_PLANT_SALT if world.W != 1 else 0
     skip, accept = [], None
     while True:
         try:
             return _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, accept, plant_salt,
-                             fractals, typed_fractals, tutorial)
+                             fractals, typed_fractals, tutorial, edge)
         except HamletCutOff as cut:
             skip.append(cut.site)
             print('LANDSCAPE_HAMLET_CUT_OFF', cut, flush=True)
@@ -151,7 +157,7 @@ def generate(room_dir, out_dir, setup=None, seed=SEED, return_state=False, cell=
 
 
 def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, accept=None, plant_salt=0,
-              fractals=None, typed_fractals=False, tutorial=False):
+              fractals=None, typed_fractals=False, tutorial=False, edge=None):
     room_dir = Path(room_dir)
     room = load_json(room_dir/'room.json')
     inventory = load_json(room_dir/'inventory.json')
@@ -170,6 +176,10 @@ def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, 
     # The grid's margin holds the coast's widest headland (x W), the reef, the
     # playable water and the shelf's fall past it (body).
     margin = MARGIN+.28*(W-1)
+    # The rim (rim.py), where the land is made with it: no coast and no sea, and the grid runs out to the tile edge.
+    rim = Rim.plan(room, inventory, objects, setup, W) if edge == 'rim' else None
+    if rim is not None:
+        margin = rim.model.tile
     grid = Grid(lo[0]-margin, lo[2]-margin, hi[0]+margin, hi[2]+margin, cell)
     nx = grid.nx
     spawns = [s['position_m'] for s in room['spawns']]
@@ -231,6 +241,9 @@ def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, 
                     a, b, c, d = bu[r0+i], bu[r0+i+1], bu[r1+i], bu[r1+i+1]
                     out.append((hv, ((a*(1-u)+b*u)*(1-v)+(c*(1-u)+d*u)*v)*W, ou[rn+inn], au[rn+inn]))
             return out
+        if rim is not None:
+            # The cliffs, the lip, the notches, the bays and the buttresses are part of the land wherever it is read.
+            landform = rim.under(landform)
         for hv, bv, ov, av in landform(grid.xs, grid.zs):
             h.append(hv)
             base.append(bv)
@@ -245,7 +258,10 @@ def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, 
     _tick('landforms')
     # ---------------- the island: the walls become a ragged coast, the door a jetty
     h_was = h[:] if detail else None
-    coast = Sea.carve_coast(grid, room, h, base, noise, objects, spawns, seed, frames)
+    if rim is None:
+        coast = Sea.carve_coast(grid, room, h, base, noise, objects, spawns, seed, frames)
+    else:
+        coast = rim.no_coast(grid, frames)   # the rim: no coast is cut, and nothing below finds a sea
     del frames
     jetty = coast['jetty']
     if detail:
@@ -262,7 +278,8 @@ def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, 
             return False
         return jetty is None or math.hypot(grid.xs[q % nx]-jetty['root'][0], grid.zs[q//nx]-jetty['root'][1]) > .8
     water = plan_and_carve(grid, room, objects, h, base, inside, spawns, setup, noise, outside,
-                           sea=dict(level=Sea.SEA_Y, goal=sea_goal, avoid=avoid_jetty), detail=detail)
+                           sea=dict(level=Sea.SEA_Y, goal=sea_goal, avoid=avoid_jetty) if rim is None else
+                           rim.water_way(grid, outlet, inside), detail=detail)
     wet = water['wet']
     _tick('water')
     # Banks the streams raised past the waterline go back under the sea.
@@ -333,6 +350,8 @@ def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, 
                 if rr_dist(*local(o, grid.xs[i], grid.zs[j]), max(o['sx']/2, .06*W), max(o['sz']/2, .06*W), .02*W) <= .03*W:
                     protect[j*nx+i] = True
                     floor_at[j*nx+i] = max(floor_at[j*nx+i], o['top']-max(.15*W, o['sy']/3)+.04*W)
+    if rim is not None:
+        rim.protect(grid, protect, floor_at)
     houses = []
     # A magnified room's coarse grid: the vertices of every cell meeting a cottage's footprint are levelled with its pad.
     pad_reach = 0. if detail is None else grid.cell
@@ -494,11 +513,15 @@ def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, 
             roads.append(r3)
             paint(r3, .028)
     _tick('paths')
-    sea_pos, sea_tris = Sea.sea_surface(grid, sea)
+    sea_pos, sea_tris = Sea.sea_surface(grid, sea) if rim is None else ([], [])
     # The checks' walker looks only at the island and its water, not out to the horizon.
     look = dict(sea=dict(play_area=dict(bounds_m=dict(min_m=[grid.xs[0], 0, grid.zs[0]],
                                                       max_m=[grid.xs[-1], 0, grid.zs[-1]]))), cell_m=cell)
-    beaches = Sea.find_beaches(grid, h, room, coast['coast'], jetty)
+    if rim is not None:
+        look = dict(cell_m=cell)   # no sea: the walker reads the whole land
+    # The sea's still water for the walks below: none on a land made with the rim.
+    sea_rec = [{'mesh': 'sea', 'kind': 'still'}] if rim is None else []
+    beaches = Sea.find_beaches(grid, h, room, coast['coast'], jetty) if rim is None else []
     shore_goals = [b['stand'] for b in beaches]+([jetty['root']] if jetty is not None else [])
     def settle(houses_too=True):
         """What grading may have disturbed, put right: the tarn's rim, the
@@ -569,6 +592,8 @@ def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, 
         wmesh = {w['name']: [dict(role='still_water', positions=w['positions'], triangles=w['triangles'])]
                  for w in water['meshes']}
         wmesh['sea'] = [dict(role='still_water', positions=sea_pos, triangles=sea_tris)]
+        if rim is not None:
+            del wrec[-1], wmesh['sea']
         cots = [dict(prototype='cottage', position_m=[hh['x'], hh['y'], hh['z']], yaw_deg=hh['yaw'],
                      scale=[hh['scale']]*3) for hh in houses]
         decks = [dict(prototype='footbridge', position_m=[b['x'], b['top']-BRIDGE[1], b['z']], yaw_deg=b['yaw'],
@@ -635,12 +660,14 @@ def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, 
         cmesh = {w['name']: [dict(role='still_water', positions=w['positions'], triangles=w['triangles'])]
                  for w in water['meshes']}
         cmesh['sea'] = [dict(role='still_water', positions=sea_pos, triangles=sea_tris)]
+        if rim is not None:
+            del cmesh['sea']
         cmesh['land'] = [dict(role='meadow', positions=[[grid.xs[q % nx], h[q], grid.zs[q//nx]] for q in range(grid.n)],
                               triangles=[list(t) for t in grid.triangles() if inside_tri(grid, inside, t)])]
         if jetty is not None:
             cmesh['jetty'] = Sea.jetty_mesh(grid, h, jetty)
         cprobe = dict(terrain=[{'mesh': 'land'}]+([{'mesh': 'jetty'}] if jetty is not None else []), scenery=[],
-                      water=[{'mesh': w['name'], 'kind': w['kind']} for w in water['meshes']]+[{'mesh': 'sea', 'kind': 'still'}],
+                      water=[{'mesh': w['name'], 'kind': w['kind']} for w in water['meshes']]+sea_rec,
                       scatter=[], objects=[], x_generator=look, prototypes={'footbridge': {'size_m': list(BRIDGE)}})
         near = _W0(cprobe, cmesh, _T0(cprobe, cmesh), room).reach((px, pz))
     if fx_on and near is not None:
@@ -716,11 +743,15 @@ def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, 
                              paths, pads, fields, noise)
     sea = Sea.sea_mask(grid, h, river_mouths)
     weights, tints = Sea.sand_and_seabed(grid, h, coast, sea, weights, tints)
-    far_sea, islands = Sea.distant_islands(grid, room, noise, seed)
+    if rim is not None:
+        rim.paint(grid, owner, wet, weights, tints)
+    far_sea, islands = Sea.distant_islands(grid, room, noise, seed) if rim is None else (None, [])
     if detail is None:
         meshes = {'land': build_mesh(grid, h, weights, tints, tris), 'distant_islands': far_sea}
     else:
         fweights, ftints = detail.surface(objects, shadow, noise, weights, tints)
+        if rim is not None:
+            rim.paint_fine(detail, fweights, ftints, weights, tints)
         land, counts = detail.assemble(h, weights, tints, fweights, ftints)
         meshes = {'land': land, 'distant_islands': far_sea}
         if W != 1:
@@ -729,9 +760,12 @@ def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, 
     if jetty is not None:
         meshes['jetty'] = Sea.jetty_mesh(ground, h, jetty)
         terrain_records.append({'mesh': 'jetty'})
-    sea_pos, sea_tris = Sea.sea_surface(grid, sea)
+    sea_pos, sea_tris = Sea.sea_surface(grid, sea) if rim is None else ([], [])
     meshes['sea'] = [dict(role='still_water', positions=sea_pos, triangles=sea_tris)]
     water_records = [{'mesh': 'sea', 'kind': 'still'}]
+    if rim is not None:
+        # No sea and no sea floor beyond: the look draws the sand past the tile edge from the rim record.
+        del meshes['sea'], meshes['distant_islands'], water_records[0]
     for w in water['meshes']:
         meshes[w['name']] = [dict(role='still_water' if w['kind'] == 'still' else 'flowing_water',
                                   positions=w['positions'], triangles=w['triangles'])]
@@ -879,8 +913,9 @@ def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, 
     _tick('yards')
     # Promise only the beaches a body can walk to from the spawn.
     final = walks.now()
-    beaches = [b for b in Sea.find_beaches(ground, h, room, coast['coast'], jetty) if final.has(b['stand'])]
-    if not beaches:
+    beaches = [b for b in Sea.find_beaches(ground, h, room, coast['coast'], jetty) if final.has(b['stand'])] \
+        if rim is None else []
+    if not beaches and rim is None:
         # No beach stretch a body reaches: the harbour's sand beside the jetty.
         beaches = [b for b in Sea.find_beaches(ground, h, room, coast['coast'], jetty, harbour=True)
                    if final.has(b['stand'])][:1]
@@ -935,6 +970,13 @@ def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, 
         rest['tutorial'] = True
 
     def write(folder, beaches):
+        if rim is not None:
+            # The rim's record where the sea's stood (rim.py), its sun gate and its buttresses; no scenery.
+            extensions = {'x_generator': dict(seed=seed, cell_m=cell, margin_m=margin, world_scale=W,
+                                              **rim.blocks(lambda x, z: ground.tri_height(h, x, z)), **rest)}
+            return write_package(folder, room_dir, meshes=meshes, setup=setup, generator=GENERATOR,
+                                 terrain=terrain_records, water=water_records, scenery=[],
+                                 prototypes=proto_records, scatter=scatter, objects=objects_out, extensions=extensions)
         sea_doc = describe_sea(grid, h, room, coast, jetty, beaches, islands, player0, water['streams'], ground)
         extensions = {'x_generator': dict(seed=seed, cell_m=cell, margin_m=margin, sea=sea_doc, **rest)}
         if W != 1:
@@ -1486,6 +1528,9 @@ def main():
     parser.add_argument('--no-fractals', action='store_true', help='a magnified room without its Fractals and gates')
     parser.add_argument('--typed-fractals', action='store_true', help='each Fractal carries its kind (the rules pack flag)')
     parser.add_argument('--tutorial', action='store_true', help='mark the island as one the menu lists first')
+    # The land's edge (Run 4): the sea, as ever, or the rim (rim.py), on a magnified room.
+    parser.add_argument('--edge', choices=('sea', 'rim'), default='sea',
+                        help='what lies at the walls: the sea (the island, as ever) or the rim (great cliffs under a desert, no sea)')
     parser.add_argument('--reach-report', help='write the Fractals reach report (markdown) here')
     args = parser.parse_args()
     if args.world_scale != 1:
@@ -1494,7 +1539,7 @@ def main():
     doc = generate(args.room, args.out, load_json(args.setup), args.seed, cell=args.cell,
                    detail=False if args.no_detail else None, plant_salt=args.plant_salt,
                    fractals=False if args.no_fractals else None, typed_fractals=args.typed_fractals,
-                   tutorial=args.tutorial)
+                   tutorial=args.tutorial, edge=args.edge)
     if args.reach_report and 'fractals' in doc['x_generator']:
         Path(args.reach_report).write_text(Fractals.report_text(doc['x_generator']['fractals']), encoding='utf-8', newline='\n')
     if args.world_scale != 1:
