@@ -1,0 +1,2 @@
+# Pinned plants are bytes: the tests and the fixture key cover exact bytes, so Git never converts them.
+pinned/*.json -text

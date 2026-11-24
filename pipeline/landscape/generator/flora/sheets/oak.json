@@ -1,0 +1,47 @@
+{
+  "format": "garage_game.flora_sheet",
+  "version": 1,
+  "species": "oak",
+  "kind": "tree",
+  "fuel_class": "broadleaf",
+  "seeds": true,
+  "seed": 1,
+  "model": "rauh",
+  "note": "An oak grown in the open: a short stout bole, low wide limbs that sag and lift, a broad lobed dome.",
+  "styles": ["clumps", "cards"],
+  "size": {"height_m": 1.0, "spread_m": 1.3},
+  "trunk": {
+    "bole": 0.3,
+    "radius_m": 0.05,
+    "flare": 1.75,
+    "flare_height": 0.45,
+    "roots": 4,
+    "root_depth": 0.22,
+    "sweep": 0.03,
+    "leader": 0.35,
+    "sides": 8
+  },
+  "crown": {
+    "base": 0.3,
+    "profile": [[0, 0.45], [0.18, 0.85], [0.42, 1.0], [0.7, 0.86], [0.9, 0.55], [1, 0.2]],
+    "lobes": [0.1, 0.1, 0.07],
+    "shell": [0.5, 0.97],
+    "light_gap_m": 0.085,
+    "flag": 0
+  },
+  "divergence_deg": 144,
+  "pipe_exponent": 2.3,
+  "twig_radius_m": 0.004,
+  "orders": [
+    {"count": [6, 7], "whorl": 3, "angle_deg": [28, 82], "reach": 0.8, "segments": 4, "kink_deg": 16,
+     "light": 0.3, "sag": 0.5, "lift": 0.45, "sides": 5},
+    {"count": [2, 4], "whorl": 2, "angle_deg": [35, 60], "reach": 0.75, "segments": 2, "kink_deg": 20,
+     "light": 0.45, "sag": 0.1, "lift": 0.2, "sides": 4},
+    {"count": [1, 2], "whorl": 2, "angle_deg": [35, 55], "reach": 0.8, "segments": 1, "kink_deg": 0,
+     "light": 0.5, "sag": 0, "lift": 0.1, "sides": 3}
+  ],
+  "leaves": {"count": 38, "size_m": [0.08, 0.22], "flat": 0.8, "reach_m": 0.25, "cover": 1.1, "jitter": 0.16,
+             "under": 0.7, "shade": 0.4, "cards": 5},
+  "levels": [1500, 300, 60],
+  "climb": {"caps": 8, "perch": 0.35}
+}

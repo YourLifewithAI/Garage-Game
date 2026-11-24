@@ -1,0 +1,8 @@
+{
+  "base": "spire",
+  "species": "old_spire",
+  "seed": 8,
+  "note": "A made-up test tree laid over another: only what differs is stated.",
+  "trunk": {"radius_m": 0.045},
+  "orders": [{"count": [9, 9]}]
+}
