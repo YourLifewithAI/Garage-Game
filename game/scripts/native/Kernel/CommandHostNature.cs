@@ -24,6 +24,74 @@ public sealed record SpentUnits(string Kind, int Count, string Words);
 public sealed record RepairSpentView(string Thing, Vector3 At, IReadOnlyList<SpentUnits> Spent);
 
 /// <summary>
+/// What the nature work of the host's physics ticks took (LOOK-3's headless measure; CommandHost.NatureTicks): for each tick the
+/// milliseconds of the simulation's part (a step, or the reading ahead of one), and apart from it the light probes and the
+/// throttled save, which were per tick and every few seconds already. It keeps the latest 8,192 ticks for the percentiles.
+/// </summary>
+public sealed class NatureTickMeter
+{
+    private readonly float[] _work = new float[8192];
+    public int Ticks { get; private set; }
+    /// <summary>Ticks that ran a step, and the longest and the sum of their work.</summary>
+    public int StepTicks { get; private set; }
+    public double LongestStepMs { get; private set; }
+    public double StepMs { get; private set; }
+    /// <summary>The longest and the sum of the work of the ticks between steps (the reading ahead).</summary>
+    public double LongestBetweenMs { get; private set; }
+    public double BetweenMs { get; private set; }
+    public double LongestProbesMs { get; private set; }
+    public double ProbesMs { get; private set; }
+    public int Saves { get; private set; }
+    public double LongestSaveMs { get; private set; }
+    public double SavesMs { get; private set; }
+
+    public void Reset()
+    {
+        Ticks = StepTicks = Saves = 0;
+        LongestStepMs = StepMs = LongestBetweenMs = BetweenMs = LongestProbesMs = ProbesMs = LongestSaveMs = SavesMs = 0;
+    }
+
+    internal void Note(int steps, double workMs, double probesMs, double saveMs)
+    {
+        _work[Ticks % _work.Length] = (float)workMs;
+        Ticks++;
+        if (steps > 0)
+        {
+            StepTicks++;
+            StepMs += workMs;
+            LongestStepMs = Math.Max(LongestStepMs, workMs);
+        }
+        else
+        {
+            BetweenMs += workMs;
+            LongestBetweenMs = Math.Max(LongestBetweenMs, workMs);
+        }
+        ProbesMs += probesMs;
+        LongestProbesMs = Math.Max(LongestProbesMs, probesMs);
+        if (saveMs <= 0) return;
+        Saves++;
+        SavesMs += saveMs;
+        LongestSaveMs = Math.Max(LongestSaveMs, saveMs);
+    }
+
+    /// <summary>The work of the tick at share q (0 to 1) of the kept ticks, shortest first: 0.5 the median, 1 the longest.</summary>
+    public double WorkPercentile(double q)
+    {
+        var kept = Math.Min(Ticks, _work.Length);
+        if (kept == 0) return 0;
+        var sorted = _work.AsSpan(0, kept).ToArray();
+        Array.Sort(sorted);
+        return sorted[(int)Math.Clamp(Math.Ceiling(q * kept) - 1, 0, kept - 1)];
+    }
+
+    /// <summary>One line: the work a tick (median, 95th and 99th of a hundred, longest), the step ticks' mean and longest, the probes and the saves.</summary>
+    public string Summary() => FormattableString.Invariant(
+        $"{Ticks} ticks, work a tick p50 {WorkPercentile(0.5):0.000} p95 {WorkPercentile(0.95):0.000} p99 {WorkPercentile(0.99):0.000} longest {Math.Max(LongestStepMs, LongestBetweenMs):0.000} ms; ") + FormattableString.Invariant(
+        $"{StepTicks} step ticks mean {StepMs / Math.Max(1, StepTicks):0.000} longest {LongestStepMs:0.000} ms; between steps mean {BetweenMs / Math.Max(1, Ticks - StepTicks):0.000} longest {LongestBetweenMs:0.000} ms; ") + FormattableString.Invariant(
+        $"light probes mean {ProbesMs / Math.Max(1, Ticks):0.000} longest {LongestProbesMs:0.000} ms; {Saves} saves mean {SavesMs / Math.Max(1, Saves):0.00} longest {LongestSaveMs:0.00} ms");
+}
+
+/// <summary>
 /// Grow (CommandHostGrow), weather and Fire on the ground field, host side (docs/magic/README.md). Bloom and its flower trail
 /// went with decision 52: an older island's flowers are dropped when it loads, and nature.trail is refused. Nature is room state:
 /// the authority saves it as the host's nature block beside the team block (NatureBlock), checked whole when a save loads.
@@ -127,12 +195,95 @@ public partial class CommandHost
     private readonly Dictionary<ulong, Vector3[]> _climbFaces = new();
     private StandardMaterial3D? _natureScorchMaterial;
 
+    // ---- the step's work, spread over the ticks before it (LOOK-3) ----
+
+    /// <summary>
+    /// LOOK-3, the hitch fix. A nature step with a fire burning did all its work in its one physics tick, twice a second: on the 10x
+    /// island some 300 rays for the ground under each burning cell and beside it (7 ms), every plant in the fire's reach measured
+    /// against the burning cells (5 ms), and the room's entities read twice (1.5 ms). The step is still one step in one tick, in the
+    /// same order with the same results; what is spread over the ticks before it is the reading it needs:
+    /// - the ground under the cells the step will ask about is read a share a tick (ReadGroundAhead), and the step takes a reading
+    ///   instead of casting its ray only while the host can vouch that nothing on the world layer changed since (WorldMark); else
+    ///   it casts, as before. A cell the step asks about that was not read ahead is cast for, as before;
+    /// - each plant in the fire's reach has the grid squares it could catch from measured once (MeasurePlantsAhead), so the step
+    ///   hands BurnPlants only the plants with a burning cell in theirs (PlantsUnderFire): the others cannot catch;
+    /// - the step reads the room's entities once, for the shelter and for the things that catch.
+    /// Off (this property, --nature-spread=off or GARAGE_GAME_NATURE_SPREAD=off at launch): the whole step in its tick, as before.
+    /// A step due every tick (the tests' AdvanceNature(0.5)) has no tick before it and is done whole, as before; so is every step
+    /// of a host not advanced once each physics frame.
+    /// </summary>
+    public bool NatureStepSpread { get; set; } = true;
+    public const string NatureSpreadArgument = "--nature-spread=";
+    public const string NatureSpreadVariable = "GARAGE_GAME_NATURE_SPREAD";
+
+    /// <summary>The ticks a share of the reading keeps in hand before the step is due (the tick's length may wander a little).</summary>
+    private const int AheadSpareTicks = 2;
+    /// <summary>At least this many of the fire's plants are measured a tick (about 2 µs each).</summary>
+    private const int PlantBoxesPerTick = 48;
+
+    /// <summary>A ground ray's column and the height it starts from: what a step's sample asks the room's physics.</summary>
+    private readonly record struct GroundAt(int X, int Z, float Top);
+    /// <summary>What the room's physics answered: the ground there (its height, what it lies on, its material and what that gives fire).</summary>
+    private readonly record struct GroundRead(float Y, string Surface, string Material, bool Fertile, float Fuel);
+    /// <summary>
+    /// Everything the host knows that can change what a world-layer ray hits, read in a few calls. While it stays equal, a ground
+    /// reading stands: the same nature (every durable nature change and every load replaces it), the same room and permission
+    /// revision (creations and things placed, moved, removed, locked), the same things in hands (a held thing collides with nothing),
+    /// the same plants and burnt things in the scene, the same terrain and plant collision tiles (they come and go with the bodies),
+    /// the same room and runtime nodes. A creation's spinning part moves its collision by itself: while any animation runs there is
+    /// no mark (MarkWorld), and nothing is read ahead.
+    /// </summary>
+    private readonly record struct WorldMark(NatureState Nature, int Revision, int Permissions, string Hands, int Plants, string Scene,
+        long TerrainBuilds, long TerrainTiles, ulong CopiesView, int CopiesTiles, ulong RoomNode, ulong RuntimeNode);
+    /// <summary>The grid squares a plant could catch from at one size: its bounds grown by PlantLaws.CatchM, as BurnPlants' Catches walks them.</summary>
+    private readonly record struct PlantBox(float Factor, int X0, int Z0, int X1, int Z1);
+
+    private static readonly StringName RuntimeAnimations = "animations";
+    private WorldMark? _aheadMark;
+    /// <summary>The mark the tick before saw, and that tick's physics frame: a reading is taken only once the mark has stood a whole tick.</summary>
+    private WorldMark? _markSeen;
+    private ulong _markSeenFrame;
+    private NatureState? _aheadPlannedFor;
+    private readonly Dictionary<GroundAt, GroundRead?> _aheadGround = new();
+    private readonly List<GroundAt> _aheadWanted = new();
+    private int _aheadNext;
+    /// <summary>The readings a step may take instead of casting: set only while NatureState.Step runs, before the step changes the scene.</summary>
+    private Dictionary<GroundAt, GroundRead?>? _stepGround;
+    private bool _stepSampling;
+    private readonly Dictionary<string, PlantBox> _plantBoxes = new(StringComparer.Ordinal);
+    private (Vector3 Center, float Radius)? _plantBoxesOf;
+    private int _plantBoxNext;
+
+    /// <summary>Ground readings taken ahead, taken up by a step, cast by a step in its own tick, and dropped because the world changed (counts since the host started).</summary>
+    internal long NatureGroundAhead { get; private set; }
+    internal long NatureGroundUsed { get; private set; }
+    internal long NatureGroundCast { get; private set; }
+    internal long NatureGroundDropped { get; private set; }
+    /// <summary>Plants a step handed BurnPlants, and plants a step could leave out (counts since the host started).</summary>
+    internal long NaturePlantsAsked { get; private set; }
+    internal long NaturePlantsLeftOut { get; private set; }
+    /// <summary>
+    /// Test seam: every reading a step takes is also cast for and compared, and BurnPlants gets every plant while the ones the step
+    /// would have left out are watched; NatureAheadMismatches counts a reading that differs and a left-out plant that caught.
+    /// </summary>
+    internal bool NatureAheadAudit { get; set; }
+    /// <summary>Test seams: the ground readings held for the next step now, and whether a tick of this length would run a step.</summary>
+    internal int NatureGroundHeld => _aheadGround.Count;
+    internal bool NatureStepsNext(double delta) => _natureElapsed + delta >= NatureLaws.StepS;
+    internal long NatureAheadMismatches { get; private set; }
+    /// <summary>What the nature work of each physics tick took (AdvanceNature), kept by the host: LOOK-3's headless measure.</summary>
+    public NatureTickMeter NatureTicks { get; } = new();
+
     // ---- loading and configuring ----
 
     /// <summary>Turns this room's nature on (RoomWorld does): the simulation runs and the nature commands are accepted.</summary>
     public void ConfigureNature()
     {
         NatureConfigured = true;
+        // LOOK-3's off switch for a launch (the frame timing's before and after): the argument first, then the variable.
+        var spread = OS.GetCmdlineUserArgs().FirstOrDefault(a => a.StartsWith(NatureSpreadArgument, StringComparison.Ordinal))?[NatureSpreadArgument.Length..];
+        if (string.IsNullOrEmpty(spread)) spread = OS.GetEnvironment(NatureSpreadVariable);
+        if (spread == "off") NatureStepSpread = false;
         LoadNature();
     }
 
@@ -146,6 +297,7 @@ public partial class CommandHost
     private void LoadNature()
     {
         ForgetPlantFuel();
+        ForgetAhead();
         _companionFireSeenS = double.NegativeInfinity;
         ForgetFireKinds();
         _naturePreviews.Clear();
@@ -757,8 +909,8 @@ public partial class CommandHost
     /// Every object and creation a fire at center could reach, whoever asks (the protection and approval checks need them
     /// all): what does not burn is left out, a held thing is in hands, and each carries the rule's outcome for it now.
     /// </summary>
-    private List<FireTarget> FireTargets(Vector3 center, float radius) =>
-        Entities().Where(e => e["kind"]!.GetValue<string>() is "creation" or "object" && e["held_by"] == null && BoundsOf(e).Grow(radius).HasPoint(center) &&
+    private List<FireTarget> FireTargets(Vector3 center, float radius, List<JsonObject>? entities = null) =>
+        (entities ?? Entities()).Where(e => e["kind"]!.GetValue<string>() is "creation" or "object" && e["held_by"] == null && BoundsOf(e).Grow(radius).HasPoint(center) &&
                 Flammable(e["id"]!.GetValue<string>()))
             .Select(e => (Entity: e, Ruling: FireRulingOf(e)))
             .Select(p => new FireTarget(p.Entity["id"]!.GetValue<string>(), p.Entity["kind"]!.GetValue<string>(), p.Ruling.Outcome, p.Ruling.AskFirst, BoundsOf(p.Entity)))
@@ -775,12 +927,12 @@ public partial class CommandHost
     /// <summary>
     /// The bounds whose ground does not burn: what the rule makes fireproof (locks), and every creation the fire may not
     /// scorch (spared by the player's no, or built or revised since it was lit), so the burn stops at it. authorized is the
-    /// fire about to be lit; otherwise the fire that burns.
+    /// fire about to be lit; otherwise the fire that burns. entities: the room's entities as a step already read them this tick.
     /// </summary>
-    private void RefreshNatureShelter(Dictionary<string, int>? authorized = null)
+    private void RefreshNatureShelter(Dictionary<string, int>? authorized = null, List<JsonObject>? entities = null)
     {
         var allowed = authorized ?? Nature.Fire?.AuthorizedCreations ?? new Dictionary<string, int>();
-        _natureShelter = Entities().Where(e => e["kind"]!.GetValue<string>() is "creation" or "object" && (FireRulingOf(e).Outcome == FireOutcome.Fireproof ||
+        _natureShelter = (entities ?? Entities()).Where(e => e["kind"]!.GetValue<string>() is "creation" or "object" && (FireRulingOf(e).Outcome == FireOutcome.Fireproof ||
                 e["kind"]!.GetValue<string>() == "creation" && !(allowed.TryGetValue(e["id"]!.GetValue<string>(), out var revision) && EntityRevision(e["id"]!.GetValue<string>()) == revision)))
             .Select(BoundsOf).ToArray();
     }
@@ -804,12 +956,14 @@ public partial class CommandHost
     /// The simulation's tick, from _PhysicsProcess (its ray queries belong there, as the sight sweep's do): whole steps of
     /// NatureLaws.StepS with the remainder kept, at most NatureLaws.MaxCatchUpSteps a tick (time beyond them is dropped,
     /// so a stall or a reload never catches up), a bounded batch of light probes, and the throttled save: at most every
-    /// NatureSaveIntervalS while something changes, at once when a fire ends. Tests call it directly.
+    /// NatureSaveIntervalS while something changes, at once when a fire ends. Tests call it directly. On a tick with no step, a
+    /// share of what the next step will read is read ahead (LOOK-3, NatureStepSpread): readings only, changing nothing.
     /// </summary>
     public void AdvanceNature(double delta)
     {
         if (!NatureConfigured || _natureUnavailable || !double.IsFinite(delta) || delta <= 0) return;
         if (Authority == null || !Authority.Call(KernelNames.IsReady).AsBool()) return;
+        var began = System.Diagnostics.Stopwatch.GetTimestamp();
         _natureElapsed += delta;
         _natureSaveClock += delta;
         var steps = 0;
@@ -821,8 +975,14 @@ public partial class CommandHost
             fireEnded |= StepNature();
         }
         _natureElapsed = Math.Min(_natureElapsed, NatureLaws.StepS);
+        if (steps == 0) ReadAhead(delta);
+        var worked = System.Diagnostics.Stopwatch.GetTimestamp();
         ProbeNatureLight();
-        if (_natureDirty && (fireEnded || _natureSaveClock >= NatureSaveIntervalS)) SaveNature();
+        var probed = System.Diagnostics.Stopwatch.GetTimestamp();
+        var saved = _natureDirty && (fireEnded || _natureSaveClock >= NatureSaveIntervalS);
+        if (saved) SaveNature();
+        NatureTicks.Note(steps, System.Diagnostics.Stopwatch.GetElapsedTime(began, worked).TotalMilliseconds, System.Diagnostics.Stopwatch.GetElapsedTime(worked, probed).TotalMilliseconds,
+            saved ? System.Diagnostics.Stopwatch.GetElapsedTime(probed).TotalMilliseconds : 0);
     }
 
     /// <summary>
@@ -833,7 +993,10 @@ public partial class CommandHost
     {
         _fireGraceS = Math.Max(0, _fireGraceS - NatureLaws.StepS);
         var hadFire = Nature.Fire != null;
-        if (hadFire) RefreshNatureShelter();
+        // The room's entities, read once a step (LOOK-3): for the shelter now and for the things that catch after the ground's step,
+        // which changes none of what they are read from (the authority, the hands, the burnt things' records).
+        var entities = hadFire ? Entities() : null;
+        if (hadFire) RefreshNatureShelter(entities: entities);
         // Undo exists only in Creative: a fire that burns on while the mode is not Creative seals its step for good.
         if (Mode != "creative" && Nature.Fire is { } sealing && Nature.Undo.LastOrDefault(s => s.Revision == sealing.Revision) is { Undoable: true } open)
         {
@@ -848,9 +1011,20 @@ public partial class CommandHost
         NatureCell? Sample(int x, int z) => SampleNatureCell(x, z, Nature.Cells.TryGetValue(NatureState.Key(x, z), out var cell) ? cell.Y : fire?.Center.Y);
         // The plants in the fire's circle are fuel (CommandHostGrow): their ground cells read it while the fire burns.
         if (fire != null) EnsurePlantFuel(fire.Center, fire.RadiusM);
-        var changed = Nature.Step(NatureLaws.StepS, Sample, NatureFireproof, Active);
-        changed |= BurnNatureObjects(NatureLaws.StepS);
-        changed |= BurnPlants(NatureLaws.StepS);
+        // The ground read ahead (LOOK-3) answers the step's samples while the world is as it was read, and only here: from the
+        // objects' turn on, the step changes the scene itself (a burnt thing's collision, a burnt plant's), so everything later casts.
+        bool changed;
+        _stepGround = GroundReadAhead();
+        _stepSampling = true;
+        try { changed = Nature.Step(NatureLaws.StepS, Sample, NatureFireproof, Active); }
+        finally
+        {
+            _stepGround = null;
+            _stepSampling = false;
+            ForgetGroundAhead();
+        }
+        changed |= BurnNatureObjects(NatureLaws.StepS, entities);
+        changed |= BurnPlantsUnderFire(NatureLaws.StepS);
         // P-Inventory-2: the loose units burn too (CommandHostInventoryLoose).
         changed |= BurnLooseUnits();
         if (Player != null && IsInstanceValid(Player))
@@ -899,14 +1073,14 @@ public partial class CommandHost
     /// a later rebuild), a creation the fire was approved to scorch is scorched (its repair quote taken from its design).
     /// Each change is recorded in the fire's undo step.
     /// </summary>
-    private bool BurnNatureObjects(float seconds)
+    private bool BurnNatureObjects(float seconds, List<JsonObject>? entities = null)
     {
         var fire = Nature.Fire;
         if (fire == null) return false;
         var burning = Nature.Cells.Values.Where(c => c.BurningS > 0).ToList();
         var step = Nature.Undo.LastOrDefault(s => s.Revision == fire.Revision);
         var changed = false;
-        foreach (var target in FireTargets(fire.Center, fire.RadiusM).Where(t => t.Outcome != FireOutcome.Fireproof))
+        foreach (var target in FireTargets(fire.Center, fire.RadiusM, entities).Where(t => t.Outcome != FireOutcome.Fireproof))
         {
             if (target.Outcome == FireOutcome.Scorches && (!fire.AuthorizedCreations.TryGetValue(target.Id, out var revision) || EntityRevision(target.Id) != revision)) continue;
             var catching = target.Bounds.Grow(NatureLaws.ObjectCatchM);
@@ -962,6 +1136,291 @@ public partial class CommandHost
         }
     }
 
+    // ---- the step's reading, taken ahead (LOOK-3) ----
+
+    /// <summary>
+    /// A tick with no step: a share of the reading the next step will need (NatureStepSpread), so that it is all read two ticks
+    /// before the step is due. Readings only: rays, and the plants' room data. Nothing of nature, the scene or the save changes, so
+    /// a tick with this in it leaves the island exactly as a tick without it.
+    /// </summary>
+    private void ReadAhead(double delta)
+    {
+        if (!NatureStepSpread)
+        {
+            if (_aheadPlannedFor != null || _aheadGround.Count > 0 || _plantBoxesOf != null) ForgetAhead();
+            return;
+        }
+        // The ticks before the step, this one among them, less the ones kept in hand.
+        var ticks = Math.Max(1, (int)Math.Ceiling((NatureLaws.StepS - _natureElapsed) / delta - 1e-9) - AheadSpareTicks);
+        ReadGroundAhead(ticks);
+        MeasurePlantsAhead(ticks);
+    }
+
+    /// <summary>
+    /// This tick's share of the ground the next step will ask about. The readings are kept only while the world's mark stays what it
+    /// was at the first of them: looked at every tick they are held, since a change that came and went would not show later. And a
+    /// reading is taken only on a tick whose mark is the one the physics tick just before it saw: the physics takes up a change
+    /// to the scene at its next step, so on the tick a mark first shows, a ray may still meet the world as it was.
+    /// </summary>
+    private void ReadGroundAhead(int ticks)
+    {
+        // Nothing asks the room's physics while a test's sampler stands in for it, or outside the tree.
+        if (NatureSampleForTests != null || !IsInsideTree())
+        {
+            if (_aheadPlannedFor != null || _aheadGround.Count > 0) ForgetGroundAhead();
+            _markSeen = null;
+            return;
+        }
+        // A plan stands for one nature between two steps: a step forgets it, and a durable change or a load brings another nature.
+        if (!ReferenceEquals(_aheadPlannedFor, Nature))
+        {
+            NatureGroundDropped += _aheadGround.Count;
+            ForgetGroundAhead();
+            PlanGroundAhead();
+        }
+        if (_aheadWanted.Count == 0)
+        {
+            _markSeen = null;
+            return;
+        }
+        var mark = MarkWorld();
+        var frame = Engine.GetPhysicsFrames();
+        var settled = mark != null && _markSeen == mark && _markSeenFrame + 1 == frame;
+        _markSeen = mark;
+        _markSeenFrame = frame;
+        if (!settled || (_aheadMark != null && _aheadMark != mark))
+        {
+            // The world changed under the readings (or cannot be vouched for now): they are void, and the reading starts again.
+            NatureGroundDropped += _aheadGround.Count;
+            _aheadGround.Clear();
+            _aheadNext = 0;
+            _aheadMark = null;
+            if (!settled) return;
+        }
+        _aheadMark = mark;
+        var share = (_aheadWanted.Count - _aheadNext + ticks - 1) / ticks;
+        for (; share > 0 && _aheadNext < _aheadWanted.Count; share--)
+        {
+            var at = _aheadWanted[_aheadNext++];
+            _aheadGround[at] = ReadGround(at.X, at.Z, at.Top);
+            NatureGroundAhead++;
+        }
+    }
+
+    private static readonly (int X, int Z)[] Beside = { (1, 0), (-1, 0), (0, 1), (0, -1) };
+
+    /// <summary>
+    /// What the next step will ask the ground, in its order (NatureState.Step's fire half): the ground under each burning cell and,
+    /// while the rain lets fire spread, under the four beside it that do not burn, each from the height the step will start its ray
+    /// at. A guess only saves rays: whatever the step asks about that is not here, it casts for itself.
+    /// </summary>
+    private void PlanGroundAhead()
+    {
+        _aheadPlannedFor = Nature;
+        _aheadWanted.Clear();
+        _aheadNext = 0;
+        var burning = Nature.Cells.Values.Where(c => c.BurningS > 0).OrderBy(c => c.X).ThenBy(c => c.Z).Take(NatureState.MaxBurning).ToArray();
+        if (burning.Length == 0) return;
+        var fire = Nature.Fire;
+        var spreads = fire != null && NatureState.WeatherAt(Nature.WeatherS + NatureLaws.StepS).Rain01 < NatureLaws.RainStopsSpread01;
+        var wanted = new HashSet<GroundAt>();
+        void Want(int x, int z, float? nearY)
+        {
+            var at = new GroundAt(x, z, GroundTop(nearY));
+            if (wanted.Add(at)) _aheadWanted.Add(at);
+        }
+        foreach (var cell in burning)
+        {
+            Want(cell.X, cell.Z, cell.Y);
+            if (!spreads) continue;
+            foreach (var (dx, dz) in Beside)
+            {
+                if (!Nature.Cells.TryGetValue(NatureState.Key(cell.X + dx, cell.Z + dz), out var there)) Want(cell.X + dx, cell.Z + dz, fire!.Center.Y);
+                else if (there.BurningS <= 0) Want(there.X, there.Z, there.Y);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The world as far as a ground ray can tell, now (WorldMark); null while it cannot be vouched for: outside the tree, or while a
+    /// creation's animation runs (a spinning part turns its own collision, tick by tick, and stays where it stopped).
+    /// </summary>
+    private WorldMark? MarkWorld()
+    {
+        if (!IsInsideTree() || Room == null || Authority == null) return null;
+        ulong runtime = 0;
+        if (Runtime != null && IsInstanceValid(Runtime))
+        {
+            runtime = Runtime.GetInstanceId();
+            using var running = Runtime.Get(RuntimeAnimations);
+            if (running.VariantType == Variant.Type.Array)
+            {
+                using var animations = running.AsGodotArray();
+                if (animations.Count > 0) return null;
+            }
+        }
+        var hands = _held.Count == 0 ? "" : string.Join("|", _held.OrderBy(h => h.Key, StringComparer.Ordinal).Select(h => h.Key + ">" + h.Value.Target));
+        // Terrain collision is built and released round the bodies: every build counts up, and a release alone leaves fewer built.
+        long builds = 0, tiles = 0;
+        foreach (var terrain in TerrainCollision.In(this))
+        {
+            builds += (1L << 40) + terrain.Builds;
+            tiles += terrain.TilesBuilt;
+        }
+        // The plant copies' collision is built tile by tile as the bodies come near, and never released.
+        var copies = GetParent()?.GetNodeOrNull<PlantCopiesView>(CopiesPath);
+        var room = GetParent()?.GetNodeOrNull<Node3D>(RoomNodePath);
+        return new WorldMark(Nature, Revision, PermissionRevision, hands, _plantsVersion, _natureSceneKey, builds, tiles,
+            copies != null && IsInstanceValid(copies) ? copies.GetInstanceId() : 0, copies != null && IsInstanceValid(copies) ? copies.CollisionTilesBuilt : 0,
+            room != null && IsInstanceValid(room) ? room.GetInstanceId() : 0, runtime);
+    }
+
+    /// <summary>The readings taken ahead for the step that runs now, if the world is still as it was when they were taken; else none, and the step casts.</summary>
+    private Dictionary<GroundAt, GroundRead?>? GroundReadAhead()
+    {
+        if (_aheadGround.Count == 0) return null;
+        if (NatureStepSpread && NatureSampleForTests == null && _aheadMark != null && MarkWorld() == _aheadMark) return _aheadGround;
+        NatureGroundDropped += _aheadGround.Count;
+        return null;
+    }
+
+    /// <summary>The ground read ahead is for one step: once it ran (or the nature it was planned for is gone), all of it goes.</summary>
+    private void ForgetGroundAhead()
+    {
+        _aheadGround.Clear();
+        _aheadWanted.Clear();
+        _aheadNext = 0;
+        _aheadMark = null;
+        _aheadPlannedFor = null;
+    }
+
+    /// <summary>A load, or the spread switched off: nothing read ahead is kept.</summary>
+    private void ForgetAhead()
+    {
+        ForgetGroundAhead();
+        _markSeen = null;
+        _plantBoxes.Clear();
+        _plantBoxesOf = null;
+        _plantBoxNext = 0;
+    }
+
+    /// <summary>
+    /// This tick's share of the fire's plants, measured: for each, at its size now, the grid squares it could catch from (PlantBox),
+    /// the very squares BurnPlants' Catches walks. Room data and the plant's own size only, so a box stands until that size changes;
+    /// the boxes are for one fire's circle and go with it.
+    /// </summary>
+    private void MeasurePlantsAhead(int ticks)
+    {
+        var fire = Nature.Fire;
+        if (fire == null || Room?.Copies == null || _plantFuelKey is not { } fuel || fuel.Center != fire.Center || fuel.Radius != fire.RadiusM)
+        {
+            if (_plantBoxesOf != null)
+            {
+                _plantBoxes.Clear();
+                _plantBoxesOf = null;
+                _plantBoxNext = 0;
+            }
+            return;
+        }
+        if (_plantBoxesOf != (fire.Center, fire.RadiusM))
+        {
+            _plantBoxes.Clear();
+            _plantBoxesOf = (fire.Center, fire.RadiusM);
+            _plantBoxNext = 0;
+        }
+        var plants = _firePlants;
+        var share = Math.Min(plants.Count, Math.Max(PlantBoxesPerTick, (plants.Count + ticks - 1) / ticks));
+        for (; share > 0; share--)
+        {
+            if (_plantBoxNext >= plants.Count) _plantBoxNext = 0;
+            var plant = plants[_plantBoxNext++];
+            Nature.Plants.TryGetValue(plant.Id, out var record);
+            if (record is { Burnt: true }) continue;
+            var factor = record?.Factor ?? 1;
+            if (_plantBoxes.TryGetValue(plant.Id, out var box) && box.Factor == factor) continue;
+            _plantBoxes[plant.Id] = BoxOf(plant, factor);
+        }
+    }
+
+    private static PlantBox BoxOf(PlantRef plant, float factor)
+    {
+        var bounds = PlantBounds(plant, factor).Grow(PlantLaws.CatchM);
+        var (x0, z0) = NatureState.Grid(bounds.Position);
+        var (x1, z1) = NatureState.Grid(bounds.End);
+        return new PlantBox(factor, x0, z0, x1, z1);
+    }
+
+    /// <summary>
+    /// The plants' turn of a step, asked only about the plants that can catch (LOOK-3). BurnPlants (CommandHostGrow) looks at each of
+    /// the fire's plants in turn and passes by, untouched, every one with no burning cell in the grid squares of its bounds; a plant
+    /// passed by uses none of the room for burnt plants, and nothing else in BurnPlants reads the list. So for this one call the
+    /// plants whose measured squares hold no burning cell are left out of the list, the rest in their order, and BurnPlants does to
+    /// those exactly what it does: the same plants burn, by the same amounts. A plant not measured at its size now stays in.
+    /// Whoever changes how BurnPlants reads its list changes this with it (NatureTest.Spread compares the two, plant by plant).
+    /// </summary>
+    private bool BurnPlantsUnderFire(float seconds)
+    {
+        var fire = Nature.Fire;
+        if (!NatureStepSpread || fire == null || Room?.Copies == null || _plantBoxes.Count == 0) return BurnPlants(seconds);
+        // As BurnPlants begins: where the rule lets no plant burn it does nothing; else it reads the fire's plants afresh first.
+        var ruling = FireRule.TryGetValue(("plant", Mode), out var row) ? row : FireRule[("plant", "creative")];
+        if (ruling.Outcome == FireOutcome.Fireproof) return BurnPlants(seconds);
+        EnsurePlantFuel(fire.Center, fire.RadiusM);
+        var all = _firePlants;
+        var under = PlantsUnderFire(all);
+        NaturePlantsAsked += under.Count;
+        NaturePlantsLeftOut += all.Count - under.Count;
+        if (NatureAheadAudit)
+        {
+            // The audit hands BurnPlants every plant and watches the ones the step would have left out: none of them may burn.
+            var asked = new HashSet<string>(under.Select(p => p.Id), StringComparer.Ordinal);
+            var left = all.Where(p => !asked.Contains(p.Id)).Select(p => (p.Id, Burn: Nature.Plants.TryGetValue(p.Id, out var was) ? was.Burn : -1f)).ToList();
+            var whole = BurnPlants(seconds);
+            NatureAheadMismatches += left.Count(p => (Nature.Plants.TryGetValue(p.Id, out var now) ? now.Burn : -1f) != p.Burn);
+            return whole;
+        }
+        _firePlants = under;
+        try { return BurnPlants(seconds); }
+        finally
+        {
+            // BurnPlants read nothing afresh (it was just read), so the list is still the one handed in: the fire's own comes back.
+            if (ReferenceEquals(_firePlants, under)) _firePlants = all;
+        }
+    }
+
+    /// <summary>The fire's plants that could catch now: not burnt down, and a burning cell in their measured squares, or not measured at their size.</summary>
+    private List<PlantRef> PlantsUnderFire(List<PlantRef> all)
+    {
+        var burning = new List<(int X, int Z)>();
+        foreach (var cell in Nature.Cells.Values)
+            if (cell.BurningS > 0) burning.Add((cell.X, cell.Z));
+        burning.Sort();
+        var under = new List<PlantRef>();
+        foreach (var plant in all)
+        {
+            Nature.Plants.TryGetValue(plant.Id, out var record);
+            if (record is { Burnt: true }) continue;
+            var factor = record?.Factor ?? 1;
+            if (!_plantBoxes.TryGetValue(plant.Id, out var box) || box.Factor != factor || HoldsAny(burning, box)) under.Add(plant);
+        }
+        return under;
+    }
+
+    /// <summary>Whether any of the cells (sorted by x, then z) lies in the box's squares.</summary>
+    private static bool HoldsAny(List<(int X, int Z)> sorted, PlantBox box)
+    {
+        int low = 0, high = sorted.Count;
+        while (low < high)
+        {
+            var middle = (low + high) >> 1;
+            if (sorted[middle].X < box.X0) low = middle + 1;
+            else high = middle;
+        }
+        for (var i = low; i < sorted.Count && sorted[i].X <= box.X1; i++)
+            if (sorted[i].Z >= box.Z0 && sorted[i].Z <= box.Z1) return true;
+        return false;
+    }
+
     /// <summary>
     /// Saves the simulation's nature now, with the team block in the same write when it waits too: the throttle, a fire's
     /// end, and exit. It never moves the room revision. While an earlier save is offered and the player has not answered,
@@ -999,11 +1458,52 @@ public partial class CommandHost
     private NatureCell? SampleNatureCell(int x, int z, float? nearY = null) =>
         WithPlantFuel(NatureSampleForTests != null ? NatureSampleForTests(x, z) : SampleGround(x, z, nearY), x, z);
 
-    /// <summary>The ground alone at a cell, from the room's physics (SampleNatureCell adds the fuel of the plants rooted there).</summary>
+    /// <summary>
+    /// The ground alone at a cell, from the room's physics (SampleNatureCell adds the fuel of the plants rooted there): what the room
+    /// answers (ReadGround: a ray, or a step's reading taken ahead of the same ray, LOOK-3), then what nature makes of it now (the
+    /// weather's moisture, the fireproof places, the cell already there).
+    /// </summary>
     private NatureCell? SampleGround(int x, int z, float? nearY)
     {
         if (!IsInsideTree()) return null;
-        var top = Math.Min(Room.Bounds.End.Y - 0.002f, nearY is { } y ? y + 0.1f : Room.Bounds.End.Y - 0.002f);
+        var top = GroundTop(nearY);
+        GroundRead? read;
+        if (_stepGround != null && _stepGround.TryGetValue(new GroundAt(x, z, top), out var ahead))
+        {
+            read = ahead;
+            NatureGroundUsed++;
+            if (NatureAheadAudit && ReadGround(x, z, top) != ahead) NatureAheadMismatches++;
+        }
+        else
+        {
+            read = ReadGround(x, z, top);
+            if (_stepSampling) NatureGroundCast++;
+        }
+        if (read is not { } ground) return null;
+        var cell = new NatureCell
+        {
+            X = x, Z = z, Y = ground.Y, Surface = ground.Surface, Material = ground.Material, Fertile = ground.Fertile, Fuel = ground.Fuel,
+            Moisture = NatureLaws.FreshMoisture + NatureWeather.Rain01 * NatureLaws.RainMoisture,
+        };
+        if (NatureFireproof(cell)) return null;
+        if (Nature.Cells.TryGetValue(cell.Key, out var current))
+        {
+            cell.Moisture = current.Moisture;
+            cell.Fuel = Math.Max(cell.Fuel, current.Growth * NatureLaws.FlowerFuel);
+        }
+        return cell;
+    }
+
+    /// <summary>The height a cell's ground ray starts from: just above the intended ground, never above the room.</summary>
+    private float GroundTop(float? nearY) => Math.Min(Room.Bounds.End.Y - 0.002f, nearY is { } y ? y + 0.1f : Room.Bounds.End.Y - 0.002f);
+
+    /// <summary>
+    /// What the room's physics answers for a cell's column from top down: the first walkable face, what it lies on, its material and
+    /// the fuel that gives; nothing where there is no such face, a steep one, ground nothing names, or water over it. It reads the
+    /// room and nothing of nature, so a reading stands for as long as nothing on the world layer changes (WorldMark).
+    /// </summary>
+    private GroundRead? ReadGround(int x, int z, float top)
+    {
         var at = new Vector3((x + 0.5f) * NatureState.CellM, top, (z + 0.5f) * NatureState.CellM);
         if (at.X < Room.Bounds.Position.X || at.Z < Room.Bounds.Position.Z || at.X > Room.Bounds.End.X || at.Z > Room.Bounds.End.Z) return null;
         using var query = PhysicsRayQueryParameters3D.Create(at, at with { Y = Room.Bounds.Position.Y - 0.5f }, RoomBuilder.WorldLayer, KernelNames.NoRids);
@@ -1022,18 +1522,7 @@ public partial class CommandHost
         var fuel = material is "grass" or "foliage" ? NatureLaws.GrassFuel : material is "wood" or "bark" ? NatureLaws.WoodFuel : 0;
         if (material is "fabric" or "paper" or "plastic" or "cloth" or "rubber" or "leaf") fuel = NatureLaws.LightFuel;
         if (RoomWater.SurfaceAbove(GetViewport().World3D.DirectSpaceState, point + Vector3.Up * 0.004f, Room.Bounds.Size.Y + 1) is { } water && water > point.Y + 0.005f) return null;
-        var cell = new NatureCell
-        {
-            X = x, Z = z, Y = point.Y, Surface = surface, Material = material, Fertile = fertile, Fuel = fuel,
-            Moisture = NatureLaws.FreshMoisture + NatureWeather.Rain01 * NatureLaws.RainMoisture,
-        };
-        if (NatureFireproof(cell)) return null;
-        if (Nature.Cells.TryGetValue(cell.Key, out var current))
-        {
-            cell.Moisture = current.Moisture;
-            cell.Fuel = Math.Max(cell.Fuel, current.Growth * NatureLaws.FlowerFuel);
-        }
-        return cell;
+        return new GroundRead(point.Y, surface, material, fertile, fuel);
     }
 
     /// <summary>A node's text metadata, its Variant freed at once.</summary>

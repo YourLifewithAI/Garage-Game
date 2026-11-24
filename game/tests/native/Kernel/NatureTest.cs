@@ -60,6 +60,18 @@ public partial class NatureTest : Node3D
                 GetTree().Quit(_failures == 0 ? 0 : 1);
                 return;
             }
+            // "-- --only=spread" runs LOOK-3's proof alone (while iterating on it); the runners run everything.
+            if (OS.GetCmdlineUserArgs().Contains("--only=spread"))
+            {
+                await TestSpread();
+                await FreeWorld();
+                OS.RemoveLogger(_errors);
+                Check(_errors.Count == 0, $"no script or engine error while the suite ran ({_errors.Count}; first: {_errors.First})");
+                GD.Print($"NATIVE_KERNEL_NATURE_SPREAD: {_checks - _failures}/{_checks} checks passed (the step spread over ticks alone)");
+                RemoveAll();
+                GetTree().Quit(_failures == 0 ? 0 : 1);
+                return;
+            }
             TestSimulation();
             TestBlock();
             await TestReview();
@@ -78,12 +90,14 @@ public partial class NatureTest : Node3D
             await TestFireKinds();
             // The Bubble's time (NatureTest.BubbleTime.cs, decisions 95 and 112): 8 s, a boat 20 s.
             await TestBubbleTime();
+            // LOOK-3 (NatureTest.Spread.cs): the step's reading spread over ticks leaves receipts, saves and replay as they were.
+            await TestSpread();
             await FreeWorld();
             OS.RemoveLogger(_errors);
             Check(_errors.Count == 0, $"no script or engine error while the suite ran ({_errors.Count}; first: {_errors.First})");
             GD.Print($"NATIVE_KERNEL_NATURE: {_checks - _failures}/{_checks} checks passed; the ground field's laws and bounds, time away, nature as room state (saved block, " +
                 "throttle, rebuild, migration), receipts and undo by room revision (Creative only), the authority's checks, what a companion learns, the fire rule and its one ask, " +
-                $"Grow (plants grown, saved, climbed and burnt), carried and burnt things, the Gubble's fire: consequences, guardrails and feedback, Trust (initiative, marks, burnt builds, bands, lessons), Fire's camp (start spots, resting, firepits; no Fire until the first rest, rain putting campfires out, firepits spread evenly), Grow's five expertise and the waterpad, Grow's unlocks (the gate, sprouts in phases, replanting, the bridge, wall ivy){(_dump != null ? $"; {_dumped} messages dumped" : "")}");
+                $"Grow (plants grown, saved, climbed and burnt), carried and burnt things, the Gubble's fire: consequences, guardrails and feedback, Trust (initiative, marks, burnt builds, bands, lessons), Fire's camp (start spots, resting, firepits; no Fire until the first rest, rain putting campfires out, firepits spread evenly), Grow's five expertise and the waterpad, Grow's unlocks (the gate, sprouts in phases, replanting, the bridge, wall ivy), the step spread over ticks (the same receipts, saves and replay){(_dump != null ? $"; {_dumped} messages dumped" : "")}");
             RemoveAll();
             GetTree().Quit(_failures == 0 ? 0 : 1);
         }
