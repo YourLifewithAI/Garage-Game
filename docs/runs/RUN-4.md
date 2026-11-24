@@ -276,6 +276,14 @@ Five are his. The run takes each default and goes on; only D3 and D4 hold a pack
 | D5 | The frame: 16.7 ms at p95. Is G-Sync on? If the cuts fall short, what gives first? | 16.7. With G-Sync off, a 144 Hz screen shows a 15 ms frame at 48 a second: turn it on, or let the game ask for 60 Hz. The table has no room for 13.9. Far small plants thin, a cut he can see, before any wonder goes | 16.7 ms (`docs/runs/RUN-3.md:134`); pairs at each sitting | Nothing. Look packets wait on the ledger, not on him |
 | D9 | The world's day. On the real clock an evening-only player sees night all winter: no beam, no shadow crossing the floor | The real clock for now, with the preview (R4-6). Once he has seen dawn and noon that way, choose: stay real, or an evening arc set at New game, a game day every six real hours, offset so an evening sitting runs afternoon, dusk and lamps-on (`game/scripts/native/Look/WorldTime.cs:19,30`). A new game's save is fresh anyway | Real clock; preview shortcuts | Nothing |
 
+**His answers (24 November 2026, typed in the lead's session):**
+
+- **D1: put away.** As wave 1 builds it.
+- **D3: yes.** His garage is regenerated into the new world once the world is ready, its saves starting fresh, and his photos are read again on this laptop. R4-7 and WORLD-7 are released. Fetching model weights is still a download and still waits for his yes.
+- **D4: after he has played it.** BODY-7 stays held until he has tried BODY-6's falling.
+- **D5: 16.7 ms stands. He said to turn G-Sync on, and it cannot be turned on here.** The laptop's own screen (1920 by 1080 at 144 Hz) is wired to the Intel chip: the NVIDIA card draws each frame and hands it over, and G-Sync works only on a screen the NVIDIA card drives itself. Windows offers no variable refresh on this chip either. So the table's other branch stands, and the game keeps a pace the screen can show. At 144 Hz that is 13.9 ms or 20.8 ms a frame and never 16.7; at 60 Hz it is 16.7. R4-10 (section 7) builds both for the wave 1 sitting, and he picks by eye. Read from the display's settings on 24 November; nothing was changed.
+- **D9: the real clock stays.** The preview clock is for looking only, and no evening arc is planned.
+
 **Taken, for him to vet in play; no answer needed:**
 
 - **D2.** "1 cm" is today's ten-times world round the 10 cm body. If the first basin still reads small to him, this is the first thing to ask.
@@ -299,6 +307,7 @@ These fill gaps the pages leave. `N/` is `game/scripts/native/`.
 | R4-7 | His local `captures/` only | After D3: his photos read in place, about two minutes of GPU; wall things, supports and floor patches in the local inventory; reported in counts and kinds; nothing committed |
 | R4-8 | Track K's | A pose each for the drift, the brace, the skin walk, the ride and the ferry |
 | R4-9 | `contracts/**`, `game/rules/storybook_wild/v7.json` | CR-4 in one commit: the drift and skin commands, floor marks, rules v7; examples, validator and tests |
+| R4-10 | `run-room.ps1`, `tools/look/**`, `N/Look/FramePace.cs` (new) | After D5's answer, the steady frame, two ways behind switches and neither the default: `-ScreenHz 60` sets the laptop's screen to 60 Hz for the length of a play and puts it back when the game ends, even after a crash; `--frame-pace=48` holds the game at 48 a second on the 144 Hz screen. A timing of each beside today's, and the pair at the wave 1 sitting; the default changes only on his word |
 
 Split in this edit, each with its row on its page: WORLD-19, BODY-21, FLORA-20, FLORA-21, LOOK-22, LOOK-23, LOOK-24, MENU-15, VILLAGE-19.
 
