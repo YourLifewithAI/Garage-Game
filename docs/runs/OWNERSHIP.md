@@ -111,6 +111,10 @@ The bodies' own files stay Lane P's: `SmallPlayerController.cs` and `CompanionAv
 
 **A grant for L-perf only.** A measured freeze or hitch may live outside the Look paths. Where the measurement shows it does, L-perf may make a small change that keeps behaviour as it is, with a test, in Track P's `game/scripts/native/Room/**`, `Navigation/**` and `Sandbox/**`. For `Kernel/**`, `Saves/**`, `RoomHud.cs`, `Ui/**` and `RoomWorld.cs` it sends the exact diff, because other Run 3 lanes or the integrator hold them.
 
+## Run 4, the room made vast (opened 23 November 2026)
+
+[RUN-4.md](RUN-4.md) section 3 names the twelve lanes and section 5 their paths; that table is the run's ownership and is not repeated here. Lane worktrees are `C:\dev\Garage-Game-run4\<lane>` on branches `run4/<lane>`, cut from `run4/integration`; each keeps its scratch files in its own `.cache\scratch`. The generator's lanes (`world`, `habitat`, `flora`) merge in series into the batch branch `run4/generator`, which integration takes once a batch. One agent per lane at a time, and one editor at a time on the files RUN-4.md's ruling 14 lists. Run 3's story lanes (Q, V, the tale) are parked and hold no paths while Run 4 lasts; Sound and Track K keep theirs.
+
 ## Rules for crossing a boundary
 
 - **Need a change in a file you do not own?** Write the exact diff and the reason in your lane report. The integrator applies it or hands it to the owning lane. Do not edit it yourself, even for a one-line fix.
