@@ -8,28 +8,42 @@ walls' own height (the lip), and past the lip lies level sand out to the tile ed
 the option the land is the island it was, byte for byte: nothing here runs.
 
 Openings. A window is a notch, cut from its sill up through the whole rim: its sides run straight through the cliff's
-thickness (as far out as the lip) and widen FLARE_DEG a side past it; beyond it the desert lies at the sill's height,
+thickness and its mouth widens FLARE_DEG a side from the lip on; beyond it the desert lies at the sill's height,
 between two scarps as steep as the cliffs (the low desert). So the sill is a broad bench one looks out of the window
-from, a low sun can come in over the sand, and the sill opens no walk to the high desert. (Sides that widened from
-the wall line met the cliff's face in a knife edge a climber topped out on; straight ones meet it in a corner.) A door is a bay: a recess in the cliff's foot with the room's own floor in it, closed at the back, where the
-water leaves until WORLD-3 gives it a swallow-hole. A vent stays shut: it needs a roof.
+from, a low sun can come in over the sand, and the sill opens no walk to the high desert. The widening starts where
+the scarps' tops, at the lip's height, part at the lip (a scarp leans back, so its foot parts a little further out):
+inside the lip no face of a notch falls as one goes out, and a side meets the cliff's face in a corner, never in a
+knife edge a climber tops out on. A door is a bay: a recess in the cliff's foot with the room's own floor in it,
+closed at the back, where the water leaves until WORLD-3 gives it a swallow-hole. A vent stays shut: it needs a roof.
+In a room that is not a plain box an opening ends where it would meet another wall: every wall but its own keeps its
+cliff and KEEP_TOP_M of level sand behind its lip, and a scarp falls from there to the opening's floor.
 
-Things against a wall. A thing standing nearer a wall than a slot (JOIN_GAP_M, true size) is a buttress: the gap behind
-it is filled to the height of the thing's own edge, so its top runs into the cliff. A lifted thing nothing holds (a wall
-shelf the scan kept) is one within LIFTED_JOIN_M. A gap a slot canyon can keep (WORLD-9) stays open.
+Things against a wall. A thing standing within JOIN_GAP_M of a wall (true size, with room for a scan's error), a side
+turned to it, stands against it and is a buttress: from the thing's own crest (the tallest its land stands between
+its middle and that side) the land runs level to the wall and into the cliff, so its top is the cliff's with no gap
+between, whether its rock fills its box (a desk) or stands back from the box's side (a bicycle's fin). A lifted thing
+nothing holds (a wall shelf the scan kept) is one within LIFTED_JOIN_M. A buttress stops at a door (a bay keeps its
+floor) and rises no higher than a window's sill in the window (the notch stays open). The founder asked that things
+on or against the walls become parts of the cliffs, so the gap a slot canyon could keep behind such a thing (WORLD-9:
+2 to 10 cm) is filled; `--wall-join 0.02` on the generator keeps those slots open instead (only a thing nearer than a
+slot joins; any gap from 0 to 1 m may be given), and the package says which rule made it (`x_generator.rim_join`).
 
 The rim record (`x_generator.rim`) is the table of docs/runs/RUN-4.md, section 4, and nothing more. `Model` rebuilds the
 rim's surface from that record alone, which is how the generator raises it too, so a reader of the record (BODY-4,
 LOOK-24, WORLD-5) and the land agree. `validate` refuses a record that is not that shape: bounded numbers, closed
 tokens, no other key.
 
-The rim check (`rim_checks`) stands beside the sea check: on the written package it proves the record, that no sea is
-left, that the land past the lip is level at the lip's height all round but for the openings, that each notch's floor
-runs level out to the tile edge, that every wall is closed up to its lip, and that every buttress stands. `sun_gate`
-sweeps the year's sun through each notch (the room's latitude and bearing, apparent solar time) and lists the hours a
-ray comes through it and lands on the floor; a notch the sun never enters is said to have no beam.
+The rim check (`rim_checks`) stands beside the sea check. It proves the written package against the room, not against
+the package's own word: the record is the room's (the wall line its floor's outline, the lip at its walls' height,
+each window a notch and each door a bay where it stands); no sea is left; the land past the lip is level at the lip's
+height all round but for the openings; each notch's floor runs level out to the tile edge; every wall is closed up to
+its lip but for its own openings; and every thing the room's inventory stands against a wall is joined to it, with no
+gap between its edge and the cliff. `sun_gate` sweeps the year's sun through each notch (the room's latitude and
+bearing, apparent solar time) and lists two things: the hours a ray comes through it into the room at all, and the
+hours one lands on the bare floor; a notch the sun never enters is said to have no beam.
 
-Metres in the room's frame (y up, -Z forward); bearings in degrees clockwise from the room's -Z, seen from above.
+Metres in the room's frame (y up, -Z forward). Every bearing is in the room's frame too, degrees clockwise from the
+room's -Z seen from above (`home_wind_deg`, `faces_deg`), but the one named a compass bearing (`faces_compass_deg`).
 """
 import argparse
 import json
@@ -45,9 +59,20 @@ WRAP_PAST_SEAM_M = 1.5    # a walker still going out is turned this far past the
 PERIOD_M = 12.8           # the sand's repeat; a wrap moves whole periods
 FLARE_DEG = 30.           # a notch widens this much a side, past the lip
 LIP_ROOM_M = 2.           # the lip keeps at least this much level sand inside the tiles (a taller wall's face steepens)
-JOIN_GAP_M = .02          # true metres: a thing nearer a wall than this is a buttress (a slot's narrowest gap)
+# True metres: a thing standing this near a wall stands against it, and is a buttress. 15 cm for the thing itself (the
+# corpus's wall furniture stands 5 to 12.5 cm off) and 10 cm more for the scan, which may place a box that far from
+# where the thing stands (corpus/README.md, the imperfection budget): over the corpus's eight rooms each thing that
+# truly stands within 15 cm of a wall is still within 25 cm of it in both scans (24.8 cm at most), where 15 cm let 9
+# of 25 go in one scan or the other.
+JOIN_GAP_M = .25
+SLOT_GAP_M = .02          # true metres: a slot's narrowest gap (`--wall-join 0.02`: only a thing nearer than a slot joins)
 LIFTED_JOIN_M = .5        # true metres: a lifted thing nothing holds, this near a wall, is a buttress
 JOIN_FACING = .7          # a side faces a wall when their normals agree this far (45 degrees)
+CREST_STEP_M = .015       # true metres: a thing's crest is read on lines this far apart
+CREST_READ_M = .005       # true metres: and along each line at this step, which is the rim check's too
+CREST_TOL_M = .005        # true metres: where a thing's land stands this near its crest, it is the crest still
+KEEP_TOP_M = 2.           # the level sand another wall keeps behind its lip where an opening would meet it
+SAME_WALL_K = .25         # an edge lying this near an opening's own wall line (a share of the lip's reach) is that wall
 BAY_DEPTH_K, BAY_DEPTH_M = .12, (1., 3.)   # a bay's depth: this share of its width, within these metres
 MAX_OUTLINE, MAX_OPENINGS = 64, 16
 NOTCH_KINDS = ('window',)
@@ -66,7 +91,9 @@ SUN_MIN_ALT_DEG = 1.
 
 # ---------------------------------------------------------------- the record
 def _number(v, lo, hi, what):
-    if type(v) not in (int, float) or not math.isfinite(v) or not lo <= v <= hi:
+    # (The bounds are read before anything is made a float: a whole number too large for one is out of bounds, not an
+    # overflow; a number that is not one fails every comparison.)
+    if type(v) not in (int, float) or not lo <= v <= hi:
         raise ValueError('rim record: %s' % what)
     return float(v)
 
@@ -175,6 +202,14 @@ class Model:
         f = dict(k=k, kind=o['kind'], x=float(cx), z=float(cz), nx=nx, nz=nz, tx=tx, tz=tz, half=o['width_m']/2,
                  floor=float(o['floor_y_m']), tan_flare=math.tan(flare), cos_flare=math.cos(flare))
         f['depth'] = bay_depth(self.record, o) if o['kind'] == 'bay' else None
+        # Where a notch's foot starts to widen: so far past the lip that the two faces of a side (the straight one
+        # and the widening one, each leaning back at the cliffs' angle) part at the lip's height over the lip itself.
+        f['lean'] = (1-f['cos_flare'])/(f['tan_flare']*f['cos_flare']) if f['tan_flare'] > 0 else 0.
+        f['flare_from'] = self.lip_out+f['lean']*(self.lip_y-f['floor'])/self.tan
+        # Its own wall: every edge lying along its wall line (a ragged scan gives one wall several edges).
+        same = SAME_WALL_K*self.lip_out
+        f['wall'] = frozenset(j for j, (ax, az, _, ex_, ez_, _L) in enumerate(self.edges)
+                              if abs((ax-cx)*nx+(az-cz)*nz) <= same and abs((ax+ex_-cx)*nx+(az+ez_-cz)*nz) <= same)
         return f
 
     def inside(self, x, z):
@@ -201,6 +236,35 @@ class Model:
             if d < best:
                 best = d
         return best
+
+    def foot(self, x, z):
+        """(x, z, distance) of the wall line's nearest point to (x, z)."""
+        best = (math.inf, x, z)
+        for ax, az, _, ex, ez, L in self.edges:
+            t = 0. if L == 0 else min(1., max(0., ((x-ax)*ex+(z-az)*ez)/L))
+            d = math.hypot(x-ax-t*ex, z-az-t*ez)
+            if d < best[0]:
+                best = (d, ax+t*ex, az+t*ez)
+        return best[1], best[2], best[0]
+
+    def ahead(self, x, z, dx, dz):
+        """(distance, edge) to the wall straight ahead of (x, z) along the unit direction (dx, dz): where the line
+        from the point first meets the wall line, and which of its edges that is. From a point outside the wall
+        line (a scanned box that pokes through a wall) it is the way back in, as a negative distance. (inf, None)
+        where no wall lies that way."""
+        back = not self.inside(x, z)
+        if back:
+            dx, dz = -dx, -dz
+        best = (math.inf, None)
+        for k, (ax, az, _, ex, ez, _L) in enumerate(self.edges):
+            den = dx*ez-dz*ex
+            if abs(den) < 1e-12:
+                continue
+            t = ((ax-x)*ez-(az-z)*ex)/den
+            u = ((ax-x)*dz-(az-z)*dx)/den
+            if 1e-9 < t < best[0] and -1e-9 <= u <= 1.+1e-9:
+                best = (t, k)
+        return (-best[0], best[1]) if back else best
 
     def signed(self, x, z):
         """Distance to the wall line: negative inside, positive outside."""
@@ -229,17 +293,47 @@ class Model:
                 continue
             b = abs(dx*f['tx']+dz*f['tz'])
             if f['depth'] is None:
-                # Straight through the cliff's thickness, widening past the lip: the nearer of the two sides.
+                # Straight through the cliff's thickness, widening from `flare_from` on: the nearer of the two sides.
                 d = b-f['half']
-                d = min(d, (d-(a-self.lip_out)*f['tan_flare'])*f['cos_flare'])
+                d = min(d, (d-(a-f['flare_from'])*f['tan_flare'])*f['cos_flare'])
                 cap, lies = (f['floor']+tan*d, 'cliff') if d > 0 else (f['floor'], 'sand')
             else:
                 da, db = a-f['depth'], b-f['half']
                 d = math.hypot(da if da > 0 else 0., db if db > 0 else 0.)
                 cap, lies = (f['floor']+tan*d, 'cliff') if d > 0 else (f['floor'], 'slab')
+            if cap < y and not self.plain:
+                keep = self._kept(f, x, z)
+                if keep > cap:
+                    cap, lies = keep, 'cliff'
             if cap < y:
                 y, cover = cap, lies
         return y, cover
+
+    def _kept(self, f, x, z):
+        """What opening `f` must leave standing at (x, z), in a room that is not a plain box: every wall but its own
+        keeps its cliff and KEEP_TOP_M of level sand behind its lip, and from there a scarp of the cliffs' own angle
+        falls to the opening's floor. So a window that looks at another wall (a room with wings, a recess) cuts no
+        gap in that wall from behind. Out from a wall's own stretch, and round each of its corners."""
+        lip_y, tan, room, wall = self.lip_y, self.tan, self.lip_out+KEEP_TOP_M, f['wall']
+        keep = 0.
+        n = len(self.edges)
+        for k, (ax, az, _, ex, ez, L) in enumerate(self.edges):
+            if k in wall or L == 0:
+                continue
+            u = ((x-ax)*ex+(z-az)*ez)/L
+            if u < 0.:
+                if (k-1) % n in wall:
+                    continue        # the corner it shares with the opening's own wall
+                d = math.hypot(x-ax, z-az)
+            elif u <= 1.:
+                d = ((x-ax)*ez-(z-az)*ex)/math.sqrt(L)*self.sign
+            else:
+                continue            # the next edge's corner
+            if d > 0:
+                got = lip_y-tan*max(0., d-room)
+                if got > keep:
+                    keep = got
+        return keep
 
     def height(self, x, z):
         """The rim's surface at (x, z): 0 inside the wall line."""
@@ -294,13 +388,64 @@ def outline(room):
     return [[x, z] for x, z in kept]
 
 
+def wall_sides(model, cx, cz, sx, sz, yaw_deg):
+    """The sides a box turns to a wall (its centre, footprint and yaw, in the land's metres): each side whose own
+    outward direction agrees with that of the wall straight ahead of its middle (JOIN_FACING), with the gap between
+    them, measured straight ahead of the side (`gap` at the nearest of its two ends and its middle, `far` at the
+    furthest; negative where the box pokes through the wall), and `at(u, v)`: the room's point `u` along the side
+    and `v` out from the box's middle (the side itself at `half_v`), with `to(x, z)` back again. The gap is to the
+    wall the side is turned to: a thing by a corner is not against the second wall because its end is near the
+    first. Where no wall lies ahead of one of the side's points (a scanned box in a corner, poking through the next
+    wall: that end stands past the wall line), the side is read at its other points."""
+    a, b = sx/2, sz/2
+    ang = math.radians(yaw_deg)
+    c, s = math.cos(ang), math.sin(ang)
+    out = []
+    for axis, sign in ((0, 1.), (0, -1.), (1, 1.), (1, -1.)):
+        half_u, half_v = (b, a) if axis == 0 else (a, b)
+
+        def at(u, v, axis=axis, sign=sign):
+            lx, lz = (sign*v, u) if axis == 0 else (u, sign*v)
+            return cx+c*lx+s*lz, cz-s*lx+c*lz
+
+        def to(x, z, axis=axis, sign=sign):
+            lx, lz = c*(x-cx)-s*(z-cz), s*(x-cx)+c*(z-cz)
+            return (lz, sign*lx) if axis == 0 else (lx, sign*lz)
+        side = [at(u, half_v) for u in (-half_u, 0., half_u)]
+        ox, oz = (sign*c, -sign*s) if axis == 0 else (sign*s, sign*c)   # the side's own outward direction
+        hits = [model.ahead(x, z, ox, oz) for x, z in side]
+        found = [(t, k) for t, k in (hits[1], hits[0], hits[2]) if k is not None]
+        if not found:
+            continue
+        _, _, _, ex, ez, L = model.edges[found[0][1]]       # (the wall ahead of its middle, where one lies there)
+        facing = (ox*ez-oz*ex)/math.sqrt(L)*model.sign      # against the outward direction of the wall ahead
+        if facing >= JOIN_FACING:
+            gaps = [t for t, _ in found]
+            out.append(dict(axis=axis, sign=sign, half_u=half_u, half_v=half_v, c=c, s=s, at=at, to=to, gap=min(gaps),
+                            far=max(gaps), out=(ox, oz), mid=side[1], facing=facing))
+    return out
+
+
+def in_the_way(model, side):
+    """The openings of the wall a side is turned to: the ones a buttress from that side would run into."""
+    ox, oz = side['out']
+    reach = max(side['far'], 0.)+1.
+    return [f for f in model.openings if f['nx']*ox+f['nz']*oz >= JOIN_FACING
+            and -reach <= (side['mid'][0]-f['x'])*f['nx']+(side['mid'][1]-f['z'])*f['nz'] <= 1.]
+
+
 class Rim:
     """One room's rim: its record, the surface the record gives, the things joined into the cliff, and the rules the
-    generator replays wherever it reads the land (the base grid and every detail block alike)."""
+    generator replays wherever it reads the land (the base grid and every detail block alike). `join_gap` (true
+    metres; None: JOIN_GAP_M) is how near a wall a thing stands to be joined into it."""
 
-    def __init__(self, room, inventory, objects, setup, W, tile_edge_out=TILE_EDGE_OUT_M):
+    def __init__(self, room, inventory, objects, setup, W, tile_edge_out=TILE_EDGE_OUT_M, join_gap=None):
         if W == 1:
             raise ValueError('the rim is a magnified room\'s: at true size the land is the island it was')
+        self.join_gap = JOIN_GAP_M if join_gap is None else join_gap
+        if type(self.join_gap) not in (int, float) or not 0. <= self.join_gap <= 1.:
+            raise ValueError('a thing joins a wall from 0 to 1 m off it (true size)')
+        self.lifted_gap = LIFTED_JOIN_M
         self.room, self.W, self.setup = room, W, setup
         self.objects = objects
         lo, hi, _ = room_shape(room)
@@ -361,50 +506,58 @@ class Rim:
             if o['parent'] is not None:
                 continue
             hung = o['id'] in lifted
-            a, b = o['sx']/2, o['sz']/2
-            ang = math.radians(o['yaw'])
-            c, s = math.cos(ang), math.sin(ang)
-
-            def to_room(lx, lz):
-                return o['cx']+c*lx+s*lz, o['cz']-s*lx+c*lz
-            for axis, sign in ((0, 1.), (0, -1.), (1, 1.), (1, -1.)):
-                half_u, half_v = (b, a) if axis == 0 else (a, b)
-                side = [to_room(*((sign*half_v, u) if axis == 0 else (u, sign*half_v))) for u in (-half_u, 0., half_u)]
-                gaps = [-m.signed(x, z) for x, z in side]
-                gap = min(gaps)
-                if not (gap <= LIFTED_JOIN_M*W if hung else gap < JOIN_GAP_M*W):
+            for side in wall_sides(m, o['cx'], o['cz'], o['sx'], o['sz'], o['yaw']):
+                if side['gap'] > (self.lifted_gap if hung else self.join_gap)*W+1e-9:
                     continue
-                ox, oz = (sign*c, -sign*s) if axis == 0 else (sign*s, sign*c)   # the side's own outward direction
-                wx, wz = m.normal(*side[1], .02*W)
-                facing = ox*wx+oz*wz
-                if facing < JOIN_FACING:
-                    continue
-                ext = (max(max(gaps), 0.)+m.lip_out)/facing+.5
-                inset = min(.045*W, .25*2*half_v)
-                corners = [to_room(*((sign*v, u) if axis == 0 else (u, sign*v))) for u in (-half_u, half_u)
-                           for v in (half_v, half_v+ext)]
-                out.append(dict(k=k, o=o, axis=axis, sign=sign, half_u=half_u, half_v=half_v, ext=ext, inset=inset,
-                                c=c, s=s, gap=gap, lifted=hung, cap=None, out=(ox, oz), mid=side[1],
+                half_u, half_v, at = side['half_u'], side['half_v'], side['at']
+                ways = in_the_way(m, side)
+                if all(_into(ways, *at(u, half_v))[0] for u in (-half_u, -half_u/2, 0., half_u/2, half_u)):
+                    continue    # it stands in a door: no wall is behind it
+                ext = max(side['far'], 0.)+m.lip_out/side['facing']+.5
+                corners = [at(u, v) for u in (-half_u, half_u) for v in (0., half_v+ext)]
+                out.append(dict(side, k=k, o=o, ext=ext, lifted=hung, cap=None, crests={}, ways=ways,
                                 x0=min(p[0] for p in corners), x1=max(p[0] for p in corners),
                                 z0=min(p[1] for p in corners), z1=max(p[1] for p in corners)))
         return out
 
+    def _crest(self, j, n):
+        """(height, where) of a thing's crest on line `n` of a join (the lines lie CREST_STEP_M apart along its
+        side): the tallest its own land stands between its middle and the side it turns to the wall, no taller than
+        the thing itself (what rests on it does not climb the wall with it), and how far out from its middle it last
+        stands that tall. The buttress runs on from there."""
+        got = j['crests'].get(n)
+        if got is None:
+            o, at, half_u, half_v, step = j['o'], j['at'], j['half_u'], j['half_v'], CREST_STEP_M*self.W
+            read = CREST_READ_M*self.W
+            if j['cap'] is None:
+                j['cap'] = o['top']+self.land(o['cx'], o['cz'])[1]
+            u = max(-half_u, min(half_u, n*step))
+            steps = max(2, int(math.ceil(half_v/read)))
+            line = [(half_v*i/steps, self.land(*at(u, half_v*i/steps))[0]) for i in range(steps+1)]
+            top = min(max(y for _, y in line), j['cap'])
+            got = j['crests'][n] = (top, max(v for v, y in line if y >= top-CREST_TOL_M*self.W))
+        return got
+
     def _fill(self, j, x, z):
-        """The height a buttress stands at (x, z): the thing's own land just inside the side it turns to the wall,
-        carried straight to the wall and into the cliff; None off the buttress."""
-        o = j['o']
-        lx, lz = local(o, x, z)
+        """The height a buttress stands at (x, z): the thing's own crest on that line, carried level to the wall and
+        into the cliff; None off the buttress (and on the thing itself, up to its crest). In a door's width there
+        is none (the bay keeps its floor, and no wall stands behind the thing there); in a window's it rises no
+        higher than the sill (the notch stays open)."""
+        lx, lz = local(j['o'], x, z)
         u, v = (lz, lx*j['sign']) if j['axis'] == 0 else (lx, lz*j['sign'])
-        if abs(u) > j['half_u'] or v <= j['half_v'] or v > j['half_v']+j['ext']:
+        if abs(u) > j['half_u'] or v <= 0. or v > j['half_v']+j['ext']:
             return None
-        vi = j['sign']*(j['half_v']-j['inset'])
-        px, pz = (vi, u) if j['axis'] == 0 else (u, vi)
-        c, s = j['c'], j['s']
-        top = self.land(o['cx']+c*px+s*pz, o['cz']-s*px+c*pz)[0]
-        if j['cap'] is None:
-            # No higher than the thing itself: what rests on it by this side does not climb the wall with it.
-            j['cap'] = o['top']+self.land(o['cx'], o['cz'])[1]
-        return min(top, j['cap'])
+        door, sill = _into(j['ways'], x, z) if j['ways'] else (False, None)
+        if door:
+            return None
+        step = CREST_STEP_M*self.W
+        n = math.floor(u/step)
+        t = u/step-n
+        (top0, from0), (top1, from1) = self._crest(j, n), self._crest(j, n+1)
+        if v <= (from0 if t < .5 else from1):
+            return None
+        top = max(top0, top1)
+        return top if sill is None else min(top, sill)
 
     # ------------------------------------------------------------ the land
     def under(self, landform):
@@ -538,11 +691,15 @@ class Rim:
         its gap and the height the land stands at there (`height_at(x, z)`: the land as built)."""
         rows = []
         for j in self.joins:
-            reach = max(j['gap'], 0.)/2+.5*min(.05*self.W, j['ext'])
-            x, z = j['mid'][0]+j['out'][0]*reach, j['mid'][1]+j['out'][1]*reach
+            reach = j['half_v']+max(j['gap'], 0.)/2+.5*min(.05*self.W, j['ext'])
+            # (Read on a line that is joined: not one that runs into a door.)
+            u = next((u for u in (0., -j['half_u']/2, j['half_u']/2, -.9*j['half_u'], .9*j['half_u'])
+                      if not _into(j['ways'], *j['at'](u, reach))[0]), 0.)
+            x, z = j['at'](u, reach)
             rows.append(dict(id=j['o']['id'], kind=j['o']['kind'], lifted=j['lifted'], gap_m=round(j['gap'], 3)+0.,
                              probe_m=[round(x, 3)+0., round(z, 3)+0.], stands_m=round(height_at(x, z), 3)))
         return dict(edge='rim', rim=self.record, sun_gate=self.sun_gate(), buttresses=rows,
+                    rim_join=dict(gap_m=self.join_gap, lifted_m=self.lifted_gap),
                     rim_shut=self.shut, rim_openings=self.opening_ids)
 
     def sun_gate(self):
@@ -551,21 +708,35 @@ class Rim:
         return self._sun
 
 
-def plan(room, inventory, objects, setup, W):
-    return Rim(room, inventory, objects, setup, W)
+def _into(ways, x, z):
+    """(a door, a sill) at (x, z) of the openings in a buttress's way: whether the point stands in a bay's width, and
+    the floor of the notch whose width it stands in (None: none)."""
+    sill = None
+    for f in ways:
+        if abs((x-f['x'])*f['tx']+(z-f['z'])*f['tz']) <= f['half']:
+            if f['depth'] is not None:
+                return True, None
+            sill = f['floor'] if sill is None else min(sill, f['floor'])
+    return False, sill
+
+
+def plan(room, inventory, objects, setup, W, join_gap=None):
+    return Rim(room, inventory, objects, setup, W, join_gap=join_gap)
 
 
 # ---------------------------------------------------------------- the sun gate
-def _beam(model, f, sun):
-    """The rays of this sun that come through notch `f` and land on the floor, of those tried: each landing's
-    distance from the notch's wall (metres) and where it is, as (reach, x, z).
+def _rays(model, f, sun):
+    """The rays of this sun that come through notch `f` into the room, of those tried: (reach, x, z, lands) for each,
+    with (x, z) where it comes down to the floor's height, `reach` that point's distance from the notch's wall
+    (metres) and `lands` whether it lies inside the wall line (a ray that does not land has met a cliff first).
 
     A ray through the notch crosses the sill's edge (where the cliff's face reaches the sill's height) above the
     sill, inside the notch at that height, and would have met the unbroken cliff. Out from there it must clear the two
     scarps until it stands over the lip. A scarp leans back from its foot, so at a height the notch is free as far as
     the wider of two straight lines (the straight side's and the widening side's); a straight ray inside the wider of
-    two lines at the sill's edge, where the two cross and where it tops the lip is inside it all the way. In, it must
-    come down on the floor inside the wall line."""
+    two lines at the sill's edge, where the two cross and where it tops the lip is inside it all the way. In, it
+    passes the wall line over the floor, into the room. Only the rim's own notch is in a ray's way here: nothing that
+    stands in the room, and in a room with wings no other wing's cliff (WORLD-17 casts those)."""
     dx, dy, dz = sun
     ca = dx*f['nx']+dz*f['nz']
     if ca <= 1e-3 or dy <= 0:
@@ -573,14 +744,13 @@ def _beam(model, f, sun):
     kt = (dx*f['tx']+dz*f['tz'])/ca     # sideways, per metre out
     ky = dy/ca                          # up, per metre out
     tan, lip_y, floor, lip_out = model.tan, model.lip_y, f['floor'], model.lip_out
-    tan_f, cos_f = f['tan_flare'], f['cos_flare']
+    tan_f, cos_f, lean, flare_from = f['tan_flare'], f['cos_flare'], f['lean'], f['flare_from']
     a_s = floor/tan
-    lean = (1-cos_f)/(tan_f*cos_f) if tan_f > 0 else 0.   # where the two lines cross, per metre of a scarp's lean
 
     def free(a, y):
         """Half the notch's free width `a` metres out, at height `y`."""
         s = (y-floor)/tan
-        return f['half']+max(s, (a-lip_out)*tan_f+s/cos_f)
+        return f['half']+max(s, (a-flare_from)*tan_f+s/cos_f)
     steps = 16
     for i in range(steps):
         y_s = floor+(lip_y-floor)*(i+.5)/steps
@@ -591,7 +761,7 @@ def _beam(model, f, sun):
         a_top = a_s+(lip_y-y_s)/ky
         # Where the two lines cross along this ray (its height, and so a scarp's lean, grows as it goes out).
         k = ky/tan
-        a_x = (lip_out-lean*((y_s-floor)/tan-a_s*k))/(1+lean*k)
+        a_x = (flare_from-lean*((y_s-floor)/tan-a_s*k))/(1+lean*k)
         at = [(a_top, free(a_top, lip_y))]
         if a_s < a_x < a_top:
             at.append((a_x, free(a_x, y_s+(a_x-a_s)*ky)))
@@ -600,11 +770,20 @@ def _beam(model, f, sun):
             b_s = hw*(n-8)/8
             if any(abs(b_s+(a-a_s)*kt) > w for a, w in at):
                 continue
+            # It passes the wall line into the room (a ray that slants past the wall's end meets the next cliff).
+            b_wall = b_s-a_s*kt
+            if not model.inside(f['x']+f['tx']*b_wall-f['nx']*1e-3, f['z']+f['tz']*b_wall-f['nz']*1e-3):
+                continue
             b_land = b_s+(a_land-a_s)*kt
             x = f['x']+f['nx']*a_land+f['tx']*b_land
             z = f['z']+f['nz']*a_land+f['tz']*b_land
-            if model.inside(x, z):
-                yield -a_land, x, z
+            yield -a_land, x, z, model.inside(x, z)
+
+
+def _beam(model, f, sun):
+    """The rays of this sun that come through notch `f` and land on the floor, of those tried: each landing's
+    distance from the notch's wall (metres) and where it is, as (reach, x, z)."""
+    return ((r, x, z) for r, x, z, lands in _rays(model, f, sun) if lands)
 
 
 def _lit(model, f, sun):
@@ -613,10 +792,22 @@ def _lit(model, f, sun):
     return max((r for r, _, _ in _beam(model, f, sun)), default=None)
 
 
+def _hours(times):
+    """(first, last, how long) of the sweep's steps in `times` (apparent solar hours), or (None, None, 0)."""
+    if not times:
+        return None, None, 0.
+    return round(times[0], 3), round(times[-1], 3), round(len(times)*SUN_STEP_MIN/60, 3)
+
+
 def sun_gate(record, latitude_deg, neg_z_bearing_deg):
-    """Each notch's sunlit hours through the year: on the 21st of each month, the apparent solar hours between which a
-    ray comes through the notch and lands on the floor, how long that is, and how far in the beam reaches at its
-    deepest. A notch no ray enters on any of the days has no beam, and says so."""
+    """Each notch's sunlit hours through the year, on the 21st of each month, in apparent solar hours. Two things
+    are listed side by side, so a reader can tell a notch the sun never enters from one whose sun meets a cliff:
+    `through_from_h`, `through_to_h` and `through_h`, the hours between which a ray comes through the notch into the
+    room at all, and `from_h`, `to_h` and `lit_h`, the hours one lands on the bare floor, with `reach_m`, how far in
+    it lands at its deepest. `beam` says whether a ray lands on the floor on any of the days, `through` whether one
+    comes in; a notch with no beam says which it is. `faces_deg` is the way the notch looks out in the room's frame
+    (as `home_wind_deg` is); `faces_compass_deg` is the same as a compass bearing. `shade` says what is in a ray's
+    way in this sweep: the notch alone."""
     from pipeline.landscape.harness.views import sun_position
     model = Model(record)
     suns = {}
@@ -634,20 +825,30 @@ def sun_gate(record, latitude_deg, neg_z_bearing_deg):
             continue
         days = []
         for day in SUN_DAYS:
-            lit = [(t, r) for t, r in ((t, _lit(model, f, sun)) for t, sun in suns[day]) if r is not None]
-            if lit:
-                days.append(dict(day=day, from_h=round(lit[0][0], 3), to_h=round(lit[-1][0], 3),
-                                 lit_h=round(len(lit)*SUN_STEP_MIN/60, 3), reach_m=round(max(r for _, r in lit), 2)))
-            else:
-                days.append(dict(day=day, from_h=None, to_h=None, lit_h=0., reach_m=0.))
+            came, lit = [], []
+            for t, sun in suns[day]:
+                rays = [(r, lands) for r, _, _, lands in _rays(model, f, sun)]
+                if rays:
+                    came.append(t)
+                if any(lands for _, lands in rays):
+                    lit.append((t, max(r for r, lands in rays if lands)))
+            from_h, to_h, lit_h = _hours([t for t, _ in lit])
+            through_from_h, through_to_h, through_h = _hours(came)
+            days.append(dict(day=day, from_h=from_h, to_h=to_h, lit_h=lit_h,
+                             reach_m=round(max(r for _, r in lit), 2) if lit else 0.,
+                             through_from_h=through_from_h, through_to_h=through_to_h, through_h=through_h))
         beam = any(d['lit_h'] > 0 for d in days)
-        row = dict(opening=f['k'], faces_deg=round((neg_z_bearing_deg+bearing_in_room(f['nx'], f['nz'])) % 360, 1) % 360,
-                   beam=beam, days=days)
-        if not beam:
+        through = any(d['through_h'] > 0 for d in days)
+        faces = bearing_in_room(f['nx'], f['nz'])
+        row = dict(opening=f['k'], faces_deg=round(faces, 1) % 360, faces_compass_deg=round((neg_z_bearing_deg+faces) % 360, 1) % 360,
+                   beam=beam, through=through, days=days)
+        if not through:
             row['note'] = 'no beam: no sun comes through this notch on any of the days'
+        elif not beam:
+            row['note'] = 'no beam: the sun comes through this notch and meets the cliffs, never the floor'
         notches.append(row)
     return dict(latitude_deg=latitude_deg, neg_z_bearing_deg=neg_z_bearing_deg, step_min=SUN_STEP_MIN,
-                time='apparent solar', notches=notches)
+                time='apparent solar', shade='the notch alone', notches=notches)
 
 
 # ---------------------------------------------------------------- the rim check
@@ -655,39 +856,240 @@ LEVEL_TOL_M = .005   # level sand lies this near its height
 EDGE_CLEAR_M = .3    # level sand is read this far from where it ends (the land's grid rounds an edge)
 SAMPLE_M = .5        # the rim is read on this lattice, and along each wall at this step
 CLOSED_TOL_M = .05   # a wall's crest may stand this far under what its record says
+JOIN_LINES = 9       # a buttress is read along this many lines, from the thing's crest to the cliff
+JOIN_HELD = .75      # and stands when this share of them hold (a line may run along a part's own edge)
+JOIN_TOL_M = .1      # a line holds when the land along it stays this near the thing's edge
+# What each kind of opening must be. The check's own word, not the generator's lists: a generator that shut every
+# window would otherwise agree with itself.
+MUST_OPEN = {'window': 'notch', 'door': 'bay', 'garage_door': 'bay', 'archway': 'bay', 'portal': 'bay', 'pet_door': 'bay'}
 
 
 def rim_of(doc):
     return (doc.get('x_generator') or {}).get('rim')
 
 
-def rim_checks(doc, meshes, terrain, room):
-    """The rim, proved on the written package (the land as its meshes hold it, the record as written):
+def is_rim(doc):
+    """Whether a package was made with the rim: it says so (`edge`), or holds a rim record. (One that says so and
+    has lost its record is still the rim check's to fail.)"""
+    gen = doc.get('x_generator') or {}
+    return gen.get('edge') == 'rim' or gen.get('rim') is not None
+
+
+def _the_rooms(model, room, W):
+    """The record against the room it is the rim of (rows, each with its `ok`): the wall line is the floor's
+    outline; the lip stands at the walls' height, behind a face of FACE_DEG or steeper; every window of the room has
+    its notch and every door its bay, where it stands on the wall line, as wide, its floor at its foot, unless it is
+    shut for a reason that holds (off the wall line, its foot over the lip, the record full; a kind that needs a
+    roof); and the record holds no opening the room lacks."""
+    rec = model.record
+    rows = {}
+    _, hi, _ = room_shape(room)
+    rows['walls_height'] = dict(room_m=round(float(hi[1]), 3), lip_m=model.lip_y, ok=abs(model.lip_y-float(hi[1])) <= 2e-3)
+    face = math.degrees(math.atan(model.tan))
+    rows['face'] = dict(deg=round(face, 2), ok=face >= FACE_DEG-.05)
+    try:
+        line = sorted(map(tuple, outline(room)))
+    except ValueError:
+        line = None
+    says = sorted((p[0], p[1]) for p in rec['outline_m'])
+    rows['wall_line'] = dict(points=len(says), ok=line is not None and len(line) == len(says) and all(
+        abs(a[0]-b[0]) <= 2e-3 and abs(a[1]-b[1]) <= 2e-3 for a, b in zip(line, says)))
+    used, shut, missing = set(), [], []
+    full = len(rec['openings']) >= MAX_OPENINGS
+    openings = sorted(room['shell'].get('openings', []), key=lambda o: o['id'])
+    for o in openings:
+        x, y, z = o['center_m']
+        width, tall = o['size_m']
+        floor = max(0., y-tall/2)
+        must = MUST_OPEN.get(o['kind'])
+        fx, fz, off = model.foot(x, z)
+        hit = next((k for k, r in enumerate(rec['openings']) if k not in used and r['kind'] == must
+                    and math.hypot(r['centre_m'][0]-fx, r['centre_m'][1]-fz) <= .05
+                    and abs(r['width_m']-width) <= 2e-3 and abs(r['floor_y_m']-floor) <= 2e-3), None)
+        if hit is not None:
+            used.add(hit)
+            continue
+        why = 'a %s needs a roof' % o['kind'] if must is None else 'not on the wall line' if off > ON_WALL_M*W else \
+            'its foot is over the lip' if floor > model.lip_y-1. else 'more openings than the record holds' if full else None
+        (shut if why else missing).append(dict(id=o['id'], kind=o['kind'], why=why or 'no %s in the record' % must))
+    extra = [k for k in range(len(rec['openings'])) if k not in used]
+    rows['openings'] = dict(of_the_room=len(openings), notches=sum(r['kind'] == 'notch' for r in rec['openings']),
+                            bays=sum(r['kind'] == 'bay' for r in rec['openings']), shut=shut, missing=missing,
+                            not_the_rooms=extra, ok=not missing and not extra)
+    return rows
+
+
+def _against(model, inventory, W, gap, lifted):
+    """The things of the room's inventory that stand against a wall, read from the inventory's own boxes and not
+    from the generator's plan: (entry, side, hung) for each side a thing on the floor turns to a wall within `gap`
+    true metres of it, or a lifted thing nothing holds within `lifted`. What rests on another thing stands on it,
+    not against the wall."""
+    ids = {e['id'] for e in inventory['objects']}
+    out = []
+    for e in inventory['objects']:
+        support = e['placement']['support']
+        held = support.get('target_id') in ids
+        if support['kind'] == 'object' and held:
+            continue
+        hung = support['kind'] != 'floor' and not held
+        b = e['box']
+        for side in wall_sides(model, b['centre_m'][0], b['centre_m'][2], b['size_m'][0], b['size_m'][2], float(b['yaw_deg'])):
+            if side['gap'] <= (lifted if hung else gap)*W+1e-9:
+                out.append((e, side, hung))
+    return out
+
+
+def _flights(gen, pad):
+    """The ground of every flight the generator cut or built (x_generator.fractals.routes: a ladder's, a step's, the
+    summit's corridor and its stair), as rectangles (x0, x1, z0, z1) with `pad` round them (a flight runs along an
+    axis). A flight is the island's gate, not the thing it is cut into: a buttress is read without it, as a
+    landform's footprint is (checks.stair_rects)."""
+    out = []
+    for row in (gen.get('fractals') or {}).get('routes', ()):
+        (ox, oz), (di, dj) = row['origin_m'], row['direction']
+        length, half = row['length_m'], row['half_width_m']
+        xs = (ox, ox+di*length) if di else (ox-half, ox+half)
+        zs = (oz, oz+dj*length) if dj else (oz-half, oz+half)
+        out.append((min(xs)-pad, max(xs)+pad, min(zs)-pad, max(zs)+pad))
+    return out
+
+
+def _joined(height, model, side, top, W, flights=(), others=(), cell=0.):
+    """Whether the land joins a thing's side to the cliff, read on the land as built: on JOIN_LINES lines across the
+    side, from the thing's crest (the tallest the land stands between its middle and the side, no taller than the
+    thing's own top `top`; in a window, no higher than its sill) straight out to the wall and on into the cliff
+    until the rim's own face stands as high, the land never falls under that crest. The ground of a flight
+    (`flights`: rectangles) is not read; a line that runs into a door has no wall to join, and one within
+    EDGE_CLEAR_M of an opening's side is not read. `others` are the thing's other sides that stand against a wall
+    (a thing in a corner): a line whose crest would be read in the half of the thing another side's buttress fills
+    is left to that side, for there the land is that buttress's and not the thing's own. `cell` is the land's grid:
+    its triangles carry a height a cell sideways, so where a thing's top steps a line reads the taller part beside
+    it, and the crest a line must hold is the lowest of those read on it and a cell to either side. And a line holds
+    no more than the cliff it runs into: beside a notch the cliff's flank leans back from the notch's floor and may
+    never stand as high as the thing, and there the land must hold what that flank holds at its tallest on the line
+    (in a window's own width, the sill). Returns (lines read, lines that hold, the tallest crest read, the lowest
+    the land stands along that line)."""
+    half_u, half_v, at = side['half_u'], side['half_v'], side['at']
+    trim = min(.3*half_u, .08*W)    # clear of the side's two ends, where the thing's own corners are rounded
+    step = CREST_READ_M*W
+    reach = half_v+max(side['far'], 0.)+model.lip_out/side['facing']+.5
+    ways = in_the_way(model, side)
+    steps = max(2, int(math.ceil(half_v/step)))
+
+    def land(x, z):
+        if any(x0 <= x <= x1 and z0 <= z <= z1 for x0, x1, z0, z1 in flights):
+            return None
+        y = height(x, z)
+        return y if y is not None and y == y else -math.inf
+    read = held = 0
+    tallest = (-math.inf, 0.)
+    for i in range(JOIN_LINES):
+        u = (2*i/(JOIN_LINES-1)-1)*(half_u-trim)
+        v = half_v
+        while v < reach and model.signed(*at(u, v)) <= 0:
+            v += step
+        x, z = at(u, v)     # where the line meets the wall
+        skip, sill = False, None
+        for f in ways:
+            b = abs((x-f['x'])*f['tx']+(z-f['z'])*f['tz'])-f['half']
+            if abs(b) < EDGE_CLEAR_M or (b < 0 and f['depth'] is not None):
+                skip = True
+            elif b < 0:
+                sill = f['floor'] if sill is None else min(sill, f['floor'])
+        if not skip:
+            for o in others:
+                uo, vo = o['to'](*at(u, half_v/2))
+                if vo > 0 and abs(uo) <= o['half_u']:
+                    skip = True
+        if skip:
+            continue
+        line = [(v, y) for v, y in ((half_v*k/steps, land(*at(u, half_v*k/steps))) for k in range(steps+1)) if y is not None]
+        if not line:
+            continue
+        want = min(max(y for _, y in line), top)
+        if cell > 0:
+            for beside in (u-cell, u+cell):
+                if abs(beside) <= half_u:
+                    there = [y for y in (land(*at(beside, half_v*k/steps)) for k in range(steps+1)) if y is not None]
+                    if there:
+                        want = min(want, max(there))
+        if sill is not None:
+            want = min(want, sill)
+        peak, v = -math.inf, half_v
+        while v < reach:
+            x, z = at(u, v)
+            out = model.signed(x, z)
+            if out > 0:
+                peak = max(peak, model.above(x, z, out)[0])
+            v += step
+        if peak > -math.inf:
+            want = min(want, peak)
+        low, v = math.inf, max(v for v, y in line if y >= want-JOIN_TOL_M)
+        while v < reach:
+            x, z = at(u, v)
+            out = model.signed(x, z)
+            if out > 0 and model.above(x, z, out)[0] >= want-JOIN_TOL_M:
+                break
+            y = land(x, z)
+            if y is not None:
+                low = min(low, y)
+            v += step
+        low = min(low, want)
+        read += 1
+        held += low >= want-JOIN_TOL_M
+        if want > tallest[0]:
+            tallest = (want, low)
+    return read, held, tallest[0], tallest[1]
+
+
+def rim_checks(doc, meshes, terrain, room, inventory):
+    """The rim, proved on the written package against the room and its inventory (both magnified as the package
+    is): the land as its meshes hold it, and the record only where the room bears it out.
 
     - the record is the table's shape (`validate`), and the package holds no sea;
+    - the record is the room's (`_the_rooms`): the wall line the floor's outline, the lip at the walls' height,
+      each window a notch and each door a bay where it stands;
     - the land's tiles reach the tile edge all round, and the player's spawn lies inside the wall line, under the lip;
     - level sand: wherever the record says the land is level (past the lip, and on each notch's floor past its
       sill's edge), it lies at that height, so the lip stands at the walls' height all round but for the openings and
       each notch runs out level to the tile edge onto its low desert;
-    - closed walls: out from every stretch of wall the land climbs as high as the record says it does there (the lip;
-      a notch's sill in its notch), so nothing but an opening breaks the cliffs;
-    - every buttress the package lists stands where it says, as high as it says;
+    - closed walls: out from every stretch of wall the land climbs to the lip, or through one of that wall's own
+      openings as high as the record says, so nothing but a wall's own openings breaks its cliff;
+    - buttresses: every thing the inventory stands against a wall (within the gap the package says it was made
+      with, `x_generator.rim_join`) is joined to it on the land as built (`_joined`: read without the flights cut
+      into it), and the package lists those things and no other; `left_free` names the things a narrower gap than
+      JOIN_GAP_M left standing free, `at_a_door` the ones with no wall behind them;
     - the sun gate listed is the one the record gives (`sun_gate`).
     """
     gen = doc.get('x_generator') or {}
     rows = {}
     try:
         model = Model(rim_of(doc))
-    except (ValueError, TypeError, KeyError) as bad:
+        join = gen.get('rim_join')
+        if not isinstance(join, dict) or set(join) != {'gap_m', 'lifted_m'}:
+            raise ValueError('rim join: fields')
+        gap, lifted = _number(join['gap_m'], 0., 1., 'join gap'), _number(join['lifted_m'], -1., 5., 'lifted join')
+        W = _number(gen.get('world_scale'), 1., 1000., 'world scale')
+        cell = _number(gen.get('cell_m'), 1e-3, 10., 'cell')
+        listed = gen.get('buttresses')
+        if not isinstance(listed, list) or not all(
+                isinstance(b, dict) and isinstance(b.get('id'), str) and isinstance(b.get('probe_m'), list)
+                and len(b['probe_m']) == 2 and all(type(v) in (int, float) and abs(v) <= 1e4 for v in b['probe_m'])
+                and type(b.get('stands_m')) in (int, float) and abs(b['stands_m']) <= 1e4 for b in listed):
+            raise ValueError('rim buttresses: fields')
+        flights = _flights(gen, .05*W)
+    except (ValueError, TypeError, KeyError, OverflowError) as bad:
         return False, dict(error=str(bad) or 'no rim in the package (x_generator.rim)')
     rec = model.record
     ok = True
     rows['no_sea'] = 'sea' not in gen and not any(r['mesh'] == 'sea' for r in doc['water']) and 'sea' not in meshes
     ok &= rows['no_sea']
+    # The record is this room's.
+    rows.update(_the_rooms(model, room, W))
+    ok &= all(rows[k]['ok'] for k in ('walls_height', 'face', 'wall_line', 'openings'))
     # The land's tiles end at the tile edge.
     xs = [v[0] for p in meshes.get('land', ()) for v in p['positions']]
     zs = [v[2] for p in meshes.get('land', ()) for v in p['positions']]
-    cell = gen.get('cell_m', .1)
     x0, z0, x1, z1 = model.box
     tile = model.tile
     rows['tiles_reach_m'] = [round(v, 3) for v in (x0-min(xs), z0-min(zs), max(xs)-x1, max(zs)-z1)] if xs else None
@@ -717,11 +1119,11 @@ def rim_checks(doc, meshes, terrain, room):
                         key=lambda f: math.hypot(x-f['x'], z-f['z']))
                 row = floors[f['k']]
                 row['reach_m'] = max(row['reach_m'], round((x-f['x'])*f['nx']+(z-f['z'])*f['nz'], 2))
-            gap = abs(terrain.height(x, z)-y)
+            gap_y = abs(terrain.height(x, z)-y)
             row['points'] += 1
-            if not gap <= LEVEL_TOL_M:      # (no land there at all reads as off, too)
+            if not gap_y <= LEVEL_TOL_M:      # (no land there at all reads as off, too)
                 row['off'] += 1
-                row['worst_m'] = max(row['worst_m'], round(gap, 4) if gap == gap else model.lip_y)
+                row['worst_m'] = max(row['worst_m'], round(gap_y, 4) if gap_y == gap_y else model.lip_y)
     rows['lip'] = dict(height_m=model.lip_y, **top)
     ok &= top['points'] > 0 and not top['off']
     rows['notches'] = []
@@ -731,24 +1133,30 @@ def rim_checks(doc, meshes, terrain, room):
             good = row['points'] > 0 and not row['off'] and row['reach_m'] >= tile-SAMPLE_M-e-1e-6
             rows['notches'].append(dict(opening=f['k'], floor_m=f['floor'], open_to_the_tile_edge=good, **row))
             ok &= good
-    # Closed walls: out from each stretch of wall, the land's crest against the record's. Where the record's crest is
-    # the level lip the land stands at it; where it is a face (a ray that leaves through an opening's side) the
-    # land's grid rounds it by a cell of the face's rise.
+    # Closed walls: out from each stretch of wall, the land's crest against what the record gives with that wall's
+    # own openings alone (another wall's notch must not cut it from behind). Where that crest is the level lip the
+    # land stands at it; where it is a face (a ray that leaves through an opening's side) the land's grid rounds it
+    # by a cell of the face's rise.
     walls = dict(points=0, low=0, worst_m=0., through_openings=0)
-    for (ax, az, _, ex, ez, L) in model.edges:
+    own = {}
+    for k, (ax, az, _, ex, ez, L) in enumerate(model.edges):
         length = math.sqrt(L)
         if length < 2*SAMPLE_M:
             continue
+        mine = tuple(f['k'] for f in model.openings if k in f['wall'])
+        if mine not in own:
+            own[mine] = Model(dict(rec, openings=[rec['openings'][n] for n in mine]))
+        wall = own[mine]
         tx, tz = ex/length, ez/length
         nx, nz = tz*model.sign, -tx*model.sign
-        for k in range(1, int(length/SAMPLE_M)):
-            px, pz = ax+tx*k*SAMPLE_M, az+tz*k*SAMPLE_M
+        for along in range(1, int(length/SAMPLE_M)):
+            px, pz = ax+tx*along*SAMPLE_M, az+tz*along*SAMPLE_M
             says = got = 0.
             for n in range(1, int((tile-e)/(SAMPLE_M/2))+1):
                 x, z = px+nx*n*SAMPLE_M/2, pz+nz*n*SAMPLE_M/2
                 if model.inside(x, z):
                     break   # round a corner and back in the room: this wall's own stretch has ended
-                says = max(says, model.above(x, z, model.out(x, z))[0])
+                says = max(says, wall.above(x, z, wall.out(x, z))[0])
                 y = terrain.height(x, z)
                 if y > got:
                     got = y
@@ -761,15 +1169,31 @@ def rim_checks(doc, meshes, terrain, room):
                 walls['worst_m'] = max(walls['worst_m'], round(says-got, 3))
     rows['walls'] = walls
     ok &= walls['points'] > 0 and not walls['low']
-    # Buttresses.
-    bad = []
-    for b in gen.get('buttresses', ()):
-        x, z = b['probe_m']
-        got = terrain.height(x, z)
-        if got < b['stands_m']-CLOSED_TOL_M:
-            bad.append(dict(id=b['id'], says_m=b['stands_m'], stands_m=round(got, 3)))
-    rows['buttresses'] = dict(listed=len(gen.get('buttresses', ())), fallen=bad)
-    ok &= not bad
+    # Buttresses: what the inventory stands against a wall, joined on the land as built.
+    against = _against(model, inventory, W, gap, lifted)
+    joined, at_a_door = [], []
+    tops = [e['box']['centre_m'][1]+e['box']['size_m'][1]/2 for e, _, _ in against]
+    # (A side with no wall behind it has no buttress: it leaves none of a thing's lines to another side.)
+    walled = [_joined(terrain.height, model, side, top, W, flights, (), cell)[0] > 0 for (_, side, _), top in zip(against, tops)]
+    for (entry, side, hung), top in zip(against, tops):
+        others = [s for (e, s, _), has in zip(against, walled) if has and e is entry and s is not side]
+        read, held, edge, stands = _joined(terrain.height, model, side, top, W, flights, others, cell)
+        if not read:
+            at_a_door.append(entry['id'])
+            continue
+        joined.append(dict(id=entry['id'], kind=entry['kind'], lifted=hung, gap_m=round(side['gap'], 3)+0.,
+                           faces_deg=round(bearing_in_room(*side['out']), 1) % 360, lines=read, held=held,
+                           edge_m=round(edge, 3), stands_m=round(stands, 3), ok=held >= JOIN_HELD*read))
+    names = [b['id'] for b in listed]
+    fallen = sorted({r['id'] for r in joined if not r['ok']} |
+                    {b['id'] for b in listed if not terrain.height(*b['probe_m']) >= b['stands_m']-CLOSED_TOL_M})
+    wider = _against(model, inventory, W, max(gap, JOIN_GAP_M), max(lifted, LIFTED_JOIN_M))
+    rows['buttresses'] = dict(rule=dict(gap_m=gap, lifted_m=lifted), listed=len(names), joined=joined, fallen=fallen,
+                              unlisted=sorted({r['id'] for r in joined}-set(names)),
+                              unfounded=sorted(set(names)-{entry['id'] for entry, _, _ in against}),
+                              at_a_door=sorted(set(at_a_door)-{r['id'] for r in joined}),
+                              left_free=sorted({entry['id'] for entry, _, _ in wider}-{entry['id'] for entry, _, _ in against}))
+    ok &= not fallen and not rows['buttresses']['unlisted'] and not rows['buttresses']['unfounded']
     # The sun gate.
     setup = doc['setup']
     gate = sun_gate(rec, setup['latitude_deg'], setup['neg_z_bearing_deg'])
@@ -780,29 +1204,27 @@ def rim_checks(doc, meshes, terrain, room):
 
 
 def run(package, room_dir):
-    """Every check of checks.run on a package made with the rim, the rim check standing where the sea check stood
-    (the result's `rim_ok` and `rim`; a package with a sea is checks.run's own)."""
-    from pipeline.landscape.harness import read_package
+    """Every check of checks.run on a package made with the rim, the rim check standing where the sea check stands
+    (the result's `rim_ok` and `rim`; a package with a sea is checks.run's own). It is checks.run itself that runs,
+    with the rim check handed to it in the sea check's place, so a check added there runs on a rim package too."""
     from pipeline.landscape.harness.common import load_json
     from . import checks, scale as world
-    doc, meshes, room, stats = read_package(package, room_dir)
-    if rim_of(doc) is None:
-        return checks.run(package, room_dir)
-    inventory = world.magnify_inventory(load_json(Path(room_dir)/'inventory.json'), checks.world_scale(doc))
-    terrain = checks.Terrain(doc, meshes)
-    w_ok, water, joins = checks.water_checks(doc, meshes, terrain)
-    g_ok, ground = checks.grounding_checks(doc, terrain)
-    floods = {}
-    p_ok, walks = checks.walk_checks(doc, meshes, terrain, room, floods)
-    f_ok, prints = checks.footprint_checks(inventory, terrain, room, checks.world_scale(doc), checks.stair_rects(doc))
-    r_ok, rim = rim_checks(doc, meshes, terrain, room)
-    c_ok, climbs = checks.climb_checks(doc, meshes)
-    x_ok, fractals = checks.fractal_checks(doc, meshes, terrain, room, floods)
-    fp_ok, firepits = checks.firepit_checks(doc, meshes, terrain, room, floods)
-    return dict(ok=w_ok and g_ok and p_ok and f_ok and r_ok and x_ok and fp_ok, water_ok=w_ok, grounded_ok=g_ok,
-                walk_ok=p_ok, footprints_ok=f_ok, rim_ok=r_ok, climb_ok=c_ok, fractals_ok=x_ok, firepits_ok=fp_ok,
-                water=water, joins=joins, grounding=ground, walks=walks, footprints=prints, rim=rim, climbs=climbs,
-                fractals=fractals, firepits=firepits, stats=stats)
+    sea_checks, rims = checks.sea_checks, []
+
+    def edge_checks(doc, meshes, terrain, room, floods):
+        if not is_rim(doc):
+            return sea_checks(doc, meshes, terrain, room, floods)
+        rims.append(True)
+        inventory = world.magnify_inventory(load_json(Path(room_dir)/'inventory.json'), checks.world_scale(doc))
+        return rim_checks(doc, meshes, terrain, room, inventory)
+    checks.sea_checks = edge_checks
+    try:
+        result = checks.run(package, room_dir)
+    finally:
+        checks.sea_checks = sea_checks
+    if rims:
+        result['rim_ok'], result['rim'] = result.pop('sea_ok'), result.pop('sea')
+    return result
 
 
 def main():
@@ -816,10 +1238,19 @@ def main():
     if args.world_scale != 1:
         world.set_world(args.world_scale)
     result = run(args.package, args.room)
-    if args.json:
-        Path(args.json).write_text(json.dumps(result, indent=2, sort_keys=True)+'\n', encoding='utf-8', newline='\n')
     if 'rim' not in result:
+        if args.json:
+            Path(args.json).write_text(json.dumps(result, indent=2, sort_keys=True)+'\n', encoding='utf-8', newline='\n')
         raise SystemExit('this package has a sea: run pipeline.landscape.generator.checks')
+    report(result, args.json)
+
+
+def report(result, json_path=None):
+    """Print what the checks found on a package made with the rim (`run`'s result), the rim's rows where the sea's
+    stood, write the whole result to `json_path` if one is given, and leave: 0 when every check passes. (Apart from
+    `main` so that the checks' own command can hand a rim package here.)"""
+    if json_path:
+        Path(json_path).write_text(json.dumps(result, indent=2, sort_keys=True)+'\n', encoding='utf-8', newline='\n')
     rim = result['rim']
     for n in rim.get('sun_gate', ()):
         for d in n['days']:

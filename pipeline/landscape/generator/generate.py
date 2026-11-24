@@ -125,7 +125,7 @@ def grounding(grid, h, objects, base):
 
 
 def generate(room_dir, out_dir, setup=None, seed=SEED, return_state=False, cell=None, detail=None, plant_salt=None,
-             fractals=None, typed_fractals=False, tutorial=False, edge=None):
+             fractals=None, typed_fractals=False, tutorial=False, edge=None, wall_join=None):
     """The package of a room. On a magnified room a hamlet no graded road reaches (the exact walk from the player's
     spawn finds no way to the crate or a door) is given up and the land generated again with the next site.
     `plant_salt` (None: `WORLD_PLANT_SALT` on a magnified room, none at 1x; 0: none) draws the planting again, on the same land: the plants, trees and stones are a free
@@ -134,20 +134,23 @@ def generate(room_dir, out_dir, setup=None, seed=SEED, return_state=False, cell=
     builds the ladder of gates they sit on (fractals.py); `typed_fractals` gives each its kind (the rules pack's flag,
     off by default); `tutorial` marks the island as one the menu lists first. `edge` (None or 'sea': the island in its
     sea, as ever; 'rim', on a magnified room: no sea, the walls great cliffs under a desert, rim.py) says what lies at
-    the walls."""
+    the walls. `wall_join` (the rim's; true metres; None: rim.JOIN_GAP_M) is how near a wall a thing stands to be
+    joined into the cliff."""
     if fractals and world.W == 1:
         raise ValueError('Fractals are things at world scale 10: the 1x corpus stays byte-identical')
     if edge not in (None, 'sea', 'rim'):
         raise ValueError('the land\'s edge is the sea or the rim')
     if edge == 'rim' and world.W == 1:
         raise ValueError('the rim is a magnified room\'s: the 1x corpus stays byte-identical')
+    if wall_join is not None and edge != 'rim':
+        raise ValueError('things join a wall on a land made with the rim')
     if plant_salt is None:
         plant_salt = WORLD_PLANT_SALT if world.W != 1 else 0
     skip, accept = [], None
     while True:
         try:
             return _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, accept, plant_salt,
-                             fractals, typed_fractals, tutorial, edge)
+                             fractals, typed_fractals, tutorial, edge, wall_join)
         except HamletCutOff as cut:
             skip.append(cut.site)
             print('LANDSCAPE_HAMLET_CUT_OFF', cut, flush=True)
@@ -157,7 +160,7 @@ def generate(room_dir, out_dir, setup=None, seed=SEED, return_state=False, cell=
 
 
 def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, accept=None, plant_salt=0,
-              fractals=None, typed_fractals=False, tutorial=False, edge=None):
+              fractals=None, typed_fractals=False, tutorial=False, edge=None, wall_join=None):
     room_dir = Path(room_dir)
     room = load_json(room_dir/'room.json')
     inventory = load_json(room_dir/'inventory.json')
@@ -177,7 +180,7 @@ def _generate(room_dir, out_dir, setup, seed, return_state, cell, detail, skip, 
     # playable water and the shelf's fall past it (body).
     margin = MARGIN+.28*(W-1)
     # The rim (rim.py), where the land is made with it: no coast and no sea, and the grid runs out to the tile edge.
-    rim = Rim.plan(room, inventory, objects, setup, W) if edge == 'rim' else None
+    rim = Rim.plan(room, inventory, objects, setup, W, wall_join) if edge == 'rim' else None
     if rim is not None:
         margin = rim.model.tile
     grid = Grid(lo[0]-margin, lo[2]-margin, hi[0]+margin, hi[2]+margin, cell)
@@ -1531,6 +1534,9 @@ def main():
     # The land's edge (Run 4): the sea, as ever, or the rim (rim.py), on a magnified room.
     parser.add_argument('--edge', choices=('sea', 'rim'), default='sea',
                         help='what lies at the walls: the sea (the island, as ever) or the rim (great cliffs under a desert, no sea)')
+    parser.add_argument('--wall-join', type=float, default=None, metavar='METRES',
+                        help='with --edge rim: a thing standing this near a wall (true size) is joined into the cliff '
+                             '(0.25 unless given; 0.02 keeps the slots behind wall things open)')
     parser.add_argument('--reach-report', help='write the Fractals reach report (markdown) here')
     args = parser.parse_args()
     if args.world_scale != 1:
@@ -1539,7 +1545,7 @@ def main():
     doc = generate(args.room, args.out, load_json(args.setup), args.seed, cell=args.cell,
                    detail=False if args.no_detail else None, plant_salt=args.plant_salt,
                    fractals=False if args.no_fractals else None, typed_fractals=args.typed_fractals,
-                   tutorial=args.tutorial, edge=args.edge)
+                   tutorial=args.tutorial, edge=args.edge, wall_join=args.wall_join)
     if args.reach_report and 'fractals' in doc['x_generator']:
         Path(args.reach_report).write_text(Fractals.report_text(doc['x_generator']['fractals']), encoding='utf-8', newline='\n')
     if args.world_scale != 1:
