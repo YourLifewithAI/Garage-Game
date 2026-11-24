@@ -1,6 +1,6 @@
 # Garage Game: the lead's backlog
 
-Kept by the Garage Game's lead session (started by Wren, 8 November 2026). One ranked list for the whole game: the Godot game in this folder and the Unreal slice in `C:\dev\Garage-Unreal`. [docs/runs/RUN-2-STATUS.md](docs/runs/RUN-2-STATUS.md) stays the detailed record ("The next session" and each round's questions); this file sets the order and points there for detail. Work runs one item at a time, top down.
+Kept by the Garage Game's lead session (started by Wren, 8 November 2026; a new lead session since 23 November). One ranked list for the whole game: the Godot game in this folder and the Unreal slice in `C:\dev\Garage-Unreal`. [docs/runs/RUN-2-STATUS.md](docs/runs/RUN-2-STATUS.md) stays the detailed record ("The next session" and each round's questions); this file sets the order and points there for detail. Work runs one item at a time, top down.
 
 **Ben's answers (8 November, 11:36, relayed by Wren):** the order as ranked; go on the Unreal slice's stage 3 with its roadmap's defaults; the kids play on DiamondAge (this laptop); Ben himself played both unread plays; yes to merging #20 and closing #17 and #12. Auto mode refused the lead those GitHub writes on the relay; Ben then gave his sign-off in the lead's session that evening, and the lead did them (H2).
 
@@ -10,7 +10,53 @@ Kept by the Garage Game's lead session (started by Wren, 8 November 2026). One r
 
 **Sharing the game (Ben, 18 November, in the Run 3 session):** "we need to consider how we can make this game transferable and shareable. As in, how can other gamers take this game, copy it, and make it their own using their own AI, and how do we centralize a way for everyone to safely share the experiences they create?" He asked for it once Run 3's first batch is in. It is a design question, not yet a packet: nothing is built for it. On 19 November, on his word, the Run 3 session wrote its answer up as [docs/ideas/SHARING-THE-GAME.md](docs/ideas/SHARING-THE-GAME.md): a licence first (the repository is public and has none), a Windows build that carries the companion, one data-only "experience package" with an export gate and an import gate, and a curated gallery that starts as a GitHub repository. It is a proposal; its nine decisions are Ben's and none is made.
 
-## Where things stand (8 November 2026)
+## Where things stand (23 November 2026)
+
+A new lead session keeps this file from 23 November, started by Wren on Ben's word; the lead of 8 November is archived. Run 3 was run on 18 and 19 November by its own orchestration session, which is gone: [RUN-3-STATUS.md](docs/runs/RUN-3-STATUS.md) is its record. The 8 November section below is kept as history.
+
+- **Branches.** `run3/integration` is at `0a47245`, the same on GitHub, and 35 commits ahead of GitHub's `main` (`f7af65f`), which Run 3 has not touched. The three lane branches (`run3/contracts`, `run3/look-perf`, `run3/sound`) are merged, local only, and their worktrees under `C:\dev\Garage-Game-run3` are kept. Draft [pull request #21](https://github.com/YourLifewithAI/Garage-Game/pull/21), the planning branch, is still open; everything in it is inside `run3/integration`.
+- **The Unreal slice.** `C:\dev\Garage-Unreal` `main` is at `6ea8d89`: one status commit ahead of GitHub's `8869523`, not pushed. No pull request is open, and nothing has been done there since 8 November.
+- **What plays today, and what opens it.** Four desktop shortcuts, each `pwsh -NoProfile -File C:\dev\Garage-Game\run-room.ps1` with its own arguments, started in `C:\dev\Garage-Game`. Every launch builds first and records the play.
+
+  | Shortcut | Arguments | Opens |
+  |---|---|---|
+  | Garage Game Menu | none | The opening menu: the team, one of four islands (the test room, the garage as a room, the stand-in island, the real garage), the mode and the difficulty |
+  | Garage Game My Garage | `-Room landscape_my_garage` | The island made from Ben's own garage, in the mode played last. An older island: it has campfires and no Fractals |
+  | Garage Game Landscape | `-Room landscape_garage_nominal -Mode challenge -Difficulty standard -Fullscreen` | The stand-in garage island, Challenge standard, full screen |
+  | Garage Game 10x Island | `-Room landscape10` | The stand-in island at ten times the size, the one Run 3 builds on (Fractals, the summit, the look pictures). It was built into the cache on 18 November |
+
+  - All four carry Run 3's sound: ambience and effects made in code, no music.
+  - The story has nothing to play yet. Its contract and an example pack are in; the quest ledger (Q1) is not started.
+  - The slice plays with `C:\dev\Garage-Unreal\run-room.ps1` and has no shortcut.
+  - The desktop's two EnFractal shortcuts belong to the EnFractal repository.
+- **A play on 23 November.** Record `20261123-193837-landscape_my_garage`: 2 minutes 19 seconds on the real garage, from the menu, Challenge standard, build `0a47245`, quit cleanly. It is the first play of a build with sound. Not debriefed.
+- **Run 3, what is left.** Batch 1 still owes Q1 (the quest ledger), L-perf round 2 and then L-air, sound's two small follow-ups, the Linux suite on the batch, and the batch's pull request to main. Batches 2 to 4 are not started. The order is in RUN-3-STATUS.md, "The next session".
+- **Wren's project record** still lists the game as paused (9 November). Run 3 lifted the pause for its own work on 19 November. Updating it is Wren's.
+
+### Waiting on Ben (23 November)
+
+Each with the lead's recommendation. No new build work starts until Ben says.
+
+1. **His play notes** from 23 November: what he saw and heard. The lead then debriefs the record with `/playtest`.
+2. **Run 3: go on, or pause again?** Recommended: go on, one lane at a time, Q1 first.
+3. **Sound.** Whether the first sounds are gentle enough, and where music comes from. Recommended: no music until the first night plays; then made in code or from CC0 libraries, never bought.
+4. **The look's open values.**
+   - The frame budget: two views sit at 18 to 19 ms against 16.7, and small plants drawn to 30 m instead of 40 would fix it at a visible cost. Recommended: keep 16.7 ms and judge the 30 m and 40 m pair once L-perf round 2 renders it.
+   - How dark the night is. Recommended: a lighter night, with lit windows in the hamlet.
+   - Whether the day's light follows the day's length. Recommended: fixed hours, with the peak moved to noon.
+5. **The story's words.** Who each islander is and what it wants; who carries the fourth friend's need (three islanders, four needs); and where agents' drafting stops. Recommended: agents write the beats and the machinery, and the family supplies every line a player reads, by voice once V2 exists. Nothing of the tale is shared before Ben's own pass.
+6. **The controls table** (RUN-3.md, section 7), marked up before U2. Recommended: as proposed.
+7. **Sharing** ([SHARING-THE-GAME.md](docs/ideas/SHARING-THE-GAME.md), nine decisions). Recommended: the licences first (Apache-2.0 for the code, CC BY 4.0 for the art, the children's characters and the family's story kept the family's); the other decisions wait for the story run to end.
+8. **The kids' gate on the Unreal slice** (item 3): move, stay, or keep both. Recommended: stay on Godot, where Run 3 builds; the slice parks as it is.
+9. **Batch 1's pull request to main,** after a green Linux suite in a cloud session, and closing draft #21 once it exists. Each GitHub write needs Ben's own typed line in the lead's session.
+10. **Small ones.**
+    - Pushing the slice's one status commit.
+    - The weekly making journal (`codex/daily-journal`, still written each week, last on 22 November, local only): keep it and merge it, or stop it. Recommended: keep and merge.
+    - H3's finished worktrees, which Ben removes with his own script.
+    - The gamepad as a first-class way to play. Recommended: yes, as provisionally built.
+    - Whether a child's live talk with a character may run on the family's plan: a question for Anthropic, and nothing waits on it.
+
+## Where things stood (8 November 2026)
 
 - **The Godot game.** `main` is at `f7af65f`: pull request #19's code (merged by Ben on 25 October, with both Windows runners and the Linux suite green) plus #20's two docs-only commits, merged on 8 November. Nothing has been built since 25 October.
 - **Built and never seen on a screen.** The 24 and 25 October rounds built the Esc menu, the camp screen, the pockets and chest, food, the hotbar, Grow's unlocks (sprouts, replanting, the bridge, ivy) and the repair card. They were tested headless only. Each packet's "first look" list is in the status page.
