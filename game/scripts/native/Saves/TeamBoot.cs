@@ -11,10 +11,14 @@ namespace GarageGame.Native.Saves;
 /// The game's boot of a team (the opening menu's stand-in until M7): <c>--team=</c>, <c>--mode=</c> and <c>--difficulty=</c>
 /// (run-room.ps1 -Team, -Mode, -Difficulty) honoured, in two steps around CommandHost.Attach:
 /// <list type="number">
-/// <item><b>Prepare</b>, before the host exists: the single-player saves before teams moved under the default team (SaveMigration:
+/// <item><b>Prepare</b>, before the host exists: the team's play lease (Run 4, MENU-2: held from here until the room has left the
+/// tree, so New game never puts a game away under a room that is up; first, alone for a moment, a put-away that a crash cut
+/// short is put back, GameSetAside.Recover); the single-player saves before teams moved under the default team (SaveMigration:
 /// write, verify, and remove the old files only on a later launch); the team's folder and team file (seeded from the machine's
 /// settings for a new team); the mode (the one named, else the one this team played last, else Creative; Live is refused); and the
-/// host's store paths pointed into the team's folder: the vitals store, the expertise store and the island saves under the mode.</item>
+/// host's store paths pointed into the team's folder: the vitals store, the expertise store and the island saves under the mode.
+/// A room that starts while the team's game is being put away waits for it, and is refused if it is still at work after
+/// LeaseWait: it never opens a game that is half moved.</item>
 /// <item><b>Apply</b>, once the host and its rules are loaded: the team file's knacks and ranks to the body (UseTeam), then the boot's
 /// one world.set_mode with the island save's difficulty (BootMode), after which the mode is fixed. A <c>--knack=</c> argument
 /// stays as a test's override of the team file's knacks (M5's).</item>
@@ -32,6 +36,8 @@ public sealed class TeamBoot
     public static IReadOnlyList<string>? ArgumentsOverride { get; set; }
     public static bool ForceGameBoot { get; set; }
     public static Func<DateTime> Clock { get; set; } = () => DateTime.UtcNow;
+    /// <summary>How long a boot waits for a put-away at work on its team before it is refused (a test shortens it).</summary>
+    public static TimeSpan LeaseWait { get; set; } = PlayLease.LeavingWait;
 
     public bool GameBoot { get; private init; }
     public string TeamId { get; private init; } = TeamLayout.DefaultTeamId;
@@ -41,6 +47,8 @@ public sealed class TeamBoot
     public MigrationReport? Migration { get; private init; }
     public TeamLayout? Layout { get; private init; }
     public IReadOnlyList<string> Notices { get; private init; } = Array.Empty<string>();
+    /// <summary>The room's hold on its team's play lease (null for a fixture): let go by its keeper once the room has left the tree.</summary>
+    public PlayLease? Lease { get; private init; }
     private TeamStore? Store { get; init; }
     private IReadOnlyDictionary<string, int> KnackOverride { get; init; } = new Dictionary<string, int>();
 
@@ -68,6 +76,9 @@ public sealed class TeamBoot
             team = null;
         }
         team ??= TeamLayout.DefaultTeamId;
+
+        // The team's play lease, before anything of the team's is read: this room holds it for as long as it is up.
+        var lease = TakeLease(world, layout, team, notices);
 
         // The saves from before teams, into the default team: write and verify now, remove the old files on a later launch.
         var migration = SaveMigration.Run(layout, now);
@@ -100,10 +111,38 @@ public sealed class TeamBoot
         var boot = new TeamBoot
         {
             GameBoot = true, TeamId = team, Mode = mode, Difficulty = difficulty, Migration = migration, Layout = layout, Notices = notices, Store = store, KnackOverride = knacks,
+            Lease = lease,
         };
         GD.Print(string.Create(CultureInfo.InvariantCulture, $"TEAM_BOOT team={team} mode={mode}{(difficulty != null ? " difficulty=" + difficulty : "")} migration: {migration.Line()}"));
         foreach (var notice in notices) GD.Print("TEAM_BOOT " + notice);
         return boot;
+    }
+
+    /// <summary>
+    /// The room's hold on the team's play lease (PlayLease), kept by a node added to the room now, before the command host is
+    /// attached: children leave the tree last one first, so the host has written what it writes as it leaves before the team is
+    /// let go. First the lease is asked for alone: if nobody else has the team up, a put-away that the process ending cut short
+    /// is put back (GameSetAside.Recover), so the room never opens half a game. Then the room's own hold, waited for while a
+    /// put-away is at work; still refused after LeaseWait, the boot is refused with the player's words, and nothing was read.
+    /// </summary>
+    private static PlayLease TakeLease(Node world, TeamLayout layout, string team, List<string> notices)
+    {
+        if (PlayLease.TryAlone(layout, team) is { } alone)
+        {
+            try
+            {
+                if (GameSetAside.Recover(alone, layout) is { Length: > 0 } recovered) notices.Add(recovered);
+            }
+            catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or TeamFileException or SetAsideException or SetAsideLedgerException)
+            {
+                // Nothing is lost (what moved lies whole in its set-aside folder); the next start tries again.
+                notices.Add("a put-away that did not finish could not be put back yet; the next start tries again");
+            }
+            finally { alone.Dispose(); }
+        }
+        var lease = PlayLease.Wait(layout, team, alone: false, LeaseWait) ?? throw new InvalidOperationException(PlayLease.BeingPutAway);
+        world.AddChild(new PlayLeaseKeeper { Name = "PlayLease", Lease = lease });
+        return lease;
     }
 
     /// <summary>
