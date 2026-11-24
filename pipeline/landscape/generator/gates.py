@@ -1,23 +1,32 @@
 """The ladder of gates: stamina bands, the knacks that stretch them, and the two kinds of gate.
 
 The mechanics round (docs/game/MECHANICS.md sections 6 and 7; docs/runs/RUN-2-MECHANICS.md, packet M4) grows the
-player's stamina bar in ten bands of 0.4 m, and a climb costs the metres it rises. A *band gate* is a ledge's rise
+player's stamina bar in ten bands of 0.4 m. A climb costs bar, and a metre of bar buys more than a metre of rise: the
+pack's `climb_m_per_bar_m`, 1.5 (docs/game/MECHANICS.md, decision 65). So a bar of band b climbs `cap(b)`, its length times 1.5, and
+one band more is one *course* more, 0.6 m (`COURSE_M`; docs/runs/RUN-4.md, ruling 8). A *band gate* is a ledge's rise
 sized to one band: no knack opens it early, so the ladder is the same for everyone. A *knack shortcut* is a higher
 ledge sized so one knack at full rank opens it with a margin and the base body does not; it is worth a Fractal a little
 sooner, never a band, and nothing is reachable only with a knack.
 
 Every number here is the design's own provisional number, held in `game/rules/storybook_wild/v5.json` (`traits.stamina`
-and the `knacks` table); `tests/test_fractals.py` keeps these copies equal to the pack. The generator reads metres.
+and the `knacks` table); `tests/test_fractals.py` keeps these copies equal to the pack, and works `cap` out again from the
+pack alone. The generator reads metres.
 
-What the arithmetic allows (reported, never papered over): a gate one band up is `BAND_M` taller, and a knack stretches
+Until Run 4 (packet BODY-21) these gates were sized a metre of rise a metre of bar, as the pack stood before decision
+65, while the game's body climbed 1.5: a band-2 bar (0.8 m, 1.2 m of climb) topped band 3's gate (1.18 m), and so on up
+the ladder. Every gate now stands half as high again, and band b's own bar is the first that opens it.
+
+What the arithmetic allows (reported, never papered over): a gate one band up is a course taller, and a knack stretches
 the bar by up to a fifth, so from band 6 on Big bar or Steady climber at full rank opens the next band's gate from the
-band below (a fifth of 2.0 m is 0.4 m), and the strongest pair (both at full rank, 1.44) opens a gate from band 4 on.
-`early_open` lists exactly which, per gate, for the reach report.
+band below (a fifth of band 5's 3.0 m is a course), and the strongest pair (both at full rank, 1.44) opens a gate from
+band 4 on. `early_open` lists exactly which, per gate, for the reach report.
 """
 BAND_M = .4            # one band of the bar (traits.stamina.band_m)
 START_M = .4           # the starting bar (traits.stamina.start_m)
-BANDS = 10             # traits.stamina.bands: 0.4 m to 4.0 m
+BANDS = 10             # traits.stamina.bands: 0.4 m to 4.0 m of bar
 BANDS_PER_BAR = 5      # traits.stamina.bands_per_bar
+CLIMB_M_PER_BAR_M = 1.5   # traits.stamina.climb_m_per_bar_m: the metres a climber rises for each metre of bar
+COURSE_M = CLIMB_M_PER_BAR_M*BAND_M   # a course: what one band more climbs, 0.6 m (the land's beds and benches count in it)
 PER_BAND = 5           # fractals.per_band: the Fractals spent at a camp for the next band
 # The knacks that stretch a climb: Big bar (stamina per bar) and Steady climber (distance climbed for the same stamina)
 # multiply the metres a bar climbs (knacks.table, rank 3 is full rank). Slots stack: two knacks multiply.
@@ -32,11 +41,17 @@ GATE_SLACK_M = .02
 EPS = 1e-9
 
 
-def cap(band, factor=1.):
-    """The most a bar of `band` bands climbs in one go (metres of rise), stretched by `factor`."""
+def bar_m(band):
+    """The length of a bar of `band` bands (metres of bar, not of climb): 0.4 m at band 1, 4.0 m at band 10."""
     if not 1 <= band <= BANDS:
         raise ValueError('band %r is not 1 to %d' % (band, BANDS))
-    return factor*(START_M+(band-1)*BAND_M)
+    return START_M+(band-1)*BAND_M
+
+
+def cap(band, factor=1.):
+    """The most a bar of `band` bands climbs in one go (metres of rise), stretched by `factor`: the bar's length times
+    the pack's climb_m_per_bar_m (0.6 m at band 1, 6.0 m at band 10)."""
+    return factor*CLIMB_M_PER_BAR_M*bar_m(band)
 
 
 def band_for(rise, factor=1.):
@@ -109,11 +124,13 @@ def stair_bands(last_band, own):
 
 
 def describe_arithmetic():
-    """For the reach report: the gates' arithmetic, band by band."""
+    """For the reach report: the gates' arithmetic, band by band, and the climb a metre of bar buys that sized them (so
+    a reader holding another rules pack can tell whether these gates were sized for it)."""
     rows = []
     for band in range(1, BANDS+1):
         rise = gate_rise(band)
-        rows.append(dict(band=band, cap_m=round(cap(band), 4), gate_rise_m=round(rise, 4),
+        rows.append(dict(band=band, bar_m=round(bar_m(band), 4), cap_m=round(cap(band), 4), gate_rise_m=round(rise, 4),
                          opened_from=dict(early_open(rise, band)['early'])))
-    return dict(band_m=BAND_M, start_m=START_M, bands=BANDS, bands_per_bar=BANDS_PER_BAR, gate_slack_m=GATE_SLACK_M,
+    return dict(band_m=BAND_M, start_m=START_M, bands=BANDS, bands_per_bar=BANDS_PER_BAR,
+                climb_m_per_bar_m=CLIMB_M_PER_BAR_M, course_m=round(COURSE_M, 4), gate_slack_m=GATE_SLACK_M,
                 full_rank=FULL_RANK, pair=FULL_RANK*FULL_RANK, gates=rows)

@@ -18,6 +18,24 @@ ROOT = Path(__file__).resolve().parents[4]
 V5 = ROOT/'game'/'rules'/'storybook_wild'/'v5.json'
 
 
+def pack_stamina():
+    """The rules pack's stamina block (storybook_wild v5): the numbers the game's body climbs by."""
+    return json.loads(V5.read_text(encoding='utf-8'))['traits']['stamina']
+
+
+def pack_climb(band, stamina=None):
+    """The metres of rise the pack's own body climbs on a full bar of `band` bands, worked out from the pack alone: the
+    bar's length (start_m and a band_m more a band) times climb_m_per_bar_m (absent: 1, as the kernel reads it)."""
+    s = stamina or pack_stamina()
+    return (s['start_m']+(band-1)*s['band_m'])*s.get('climb_m_per_bar_m', 1)
+
+
+def pack_body():
+    """The pack's own body as a stretch of `gates.cap`: 1 while the gates carry the pack's climb_m_per_bar_m (before
+    BODY-21 they carried none, and this was 1.5: the body out-climbed every gate claim by half)."""
+    return pack_climb(1)/gates.cap(1)
+
+
 # ------------------------------------------------------------------------------------------- a synthetic island
 
 
@@ -92,11 +110,27 @@ class Island(unittest.TestCase):
 
     def test_the_ladder_is_the_same_for_everyone(self):
         """Band gates: bands 1, 2, 3 for the base body and one knack at full rank (no knack opens one early); the pair opens
-        none below band 4's arithmetic (it opens a gate early only from band 4 on)."""
+        none below band 4's arithmetic (it opens a gate early only from band 4 on). The rises are the mended gates': 0.58,
+        1.18 and 1.78 m, a course (0.6 m) more each."""
         ladder = next(r for r in self.block['routes'] if r['kind'] == 'ladder')
         for k, ledge in enumerate(ladder['ledges']):
             self.assertEqual(ledge['reached_from'], dict(base=k+1, one_knack=k+1, pair=k+1))
             self.assertEqual(ledge['opened_early_by'], {})
+        self.assertEqual([l['rise_m'] for l in ladder['ledges']], [.58, 1.18, 1.78])
+
+    def test_the_packs_own_body_takes_every_gate_from_the_band_it_was_built_as(self):
+        """BODY-21, by the exact walk: the body the rules pack describes (`pack_body`: its bar times climb_m_per_bar_m)
+        stands on every bench from the band it was built as, and on no Fractal from below the band it says. Before, that body
+        climbed half as far again as the gates were sized for: a band-2 bar stood on band 3's ledge."""
+        real = self.cr.run(pack_body())
+        for route in self.block['routes']:
+            for k, ledge in enumerate(route['ledges']):
+                x, _, z = ledge['bench_m']
+                self.assertEqual(real.band_at(x, z), ledge['expected_band'],
+                                 '%s ledge %d (rise %.2f m), built as band %d' % (route['id'], k+1, ledge['rise_m'], ledge['band']))
+        for item in self.block['items']:
+            x, _, z = item['position_m']
+            self.assertEqual(real.band_at(x, z), item.get('reach_band'), item)
 
     def test_a_shortcut_is_a_band_sooner_with_a_knack_and_never_for_the_base_body(self):
         self.assertEqual(len(self.block['shortcuts']), 2)
@@ -105,6 +139,8 @@ class Island(unittest.TestCase):
             self.assertEqual(s['base_band'], s['over_band']+1, s)
             self.assertGreater(s['base_falls_short_m'], .02)
             self.assertGreater(s['knack_clears_by_m'], .02)
+            # the pack's own body is the base body: it falls short too (before BODY-21 it cleared both shortcuts)
+            self.assertGreater(s['rise_m'], pack_climb(s['over_band'])+.02)
             # even the strongest pair does not carry a shortcut into the next band's gate
             self.assertGreaterEqual(s['pair_band'], s['one_knack_band']-1)
             self.assertGreaterEqual(s['pair_band'], 1)
@@ -199,7 +235,8 @@ class Island(unittest.TestCase):
 
 class Summit(unittest.TestCase):
     """The summit's corridor: a flight cut through a landmark's cliff to its top, walled in, upper ledges at the higher
-    bands, its platform reached only from the band its ladder needs."""
+    bands, its platform reached only from the band its ladder needs. The mesa stands 5.8 m over the plain: with the mended
+    gates (0.58, 1.18, 1.78 m) its ladder is four ledges, bands 1 to 4 (it was five when a gate was a metre of bar)."""
 
     @classmethod
     def setUpClass(cls):
@@ -223,9 +260,9 @@ class Summit(unittest.TestCase):
         cls.original = list(land.h)
         # The player arrives in the south, clear of the mesa.
         land.views = [(0., 12.)]
-        # An island whose own Fractals open band 4 at most (15 of them, five a band, from band 1): a corridor to band 5 is
+        # An island whose own Fractals open band 3 at most (10 of them, five a band, from band 1): a corridor to band 4 is
         # beyond them as it stands, so no stair is built above it.
-        cls.budget = dict(min=1, max=15, reachable_first_run=0, per_band=5)
+        cls.budget = dict(min=1, max=10, reachable_first_run=0, per_band=5)
         cls.plan = Fractals.plan(land, 3, (0., 12.), dict(ladders=(), shortcuts=(), steps=0), budget=cls.budget)
         cls.cr = climb_reach(land, cls.half, (0., 12.))
         cls.block = Fractals.finish(cls.plan, cls.cr, (0., 12.), budget=cls.budget)
@@ -236,7 +273,8 @@ class Summit(unittest.TestCase):
         self.assertEqual(summit.landmark, 'mesa_1')
         rises = [l.rise for l in summit.ledges]
         self.assertAlmostEqual(sum(rises), self.top-summit.z0, places=6)
-        self.assertEqual([l.band for l in summit.ledges][:4], [1, 2, 3, 4])
+        self.assertEqual([l.band for l in summit.ledges], [1, 2, 3, 4])
+        self.assertEqual([round(r, 2) for r in rises], [.58, 1.18, 1.78, 2.26], 'three gates and what is left')
         row = self.block['summit']
         self.assertEqual(row['landmark'], 'mesa_1')
         self.assertAlmostEqual(row['height_m'], self.top-summit.z0, places=3)
@@ -249,7 +287,7 @@ class Summit(unittest.TestCase):
         self.assertEqual(row['reached_from']['base'], top_band)
         self.assertEqual(top_band, row['top_band'])
         # the mesa's top beyond the corridor is reached from the corridor's top band, and from no lower one: the cliff
-        # all round it is 5.8 m, beyond the bar of every band but the ladder's last
+        # all round it is 5.8 m, which only the top band's bar climbs (6.0 m), long after the ladder's last ledge
         base = self.cr.run(1.)
         for x, z in ((0., -4.), (0., -7.), (-3., -9.)):
             self.assertEqual(base.band_at(x, z), top_band, (x, z))
@@ -259,7 +297,10 @@ class Summit(unittest.TestCase):
     def test_every_ledge_of_the_corridor_is_proved(self):
         ledges = self.block['routes'][0]['ledges']
         self.assertTrue(all(l['proved'] for l in ledges))
-        self.assertEqual([l['reached_from']['base'] for l in ledges][:4], [1, 2, 3, 4])
+        self.assertEqual([l['reached_from']['base'] for l in ledges], [1, 2, 3, 4])
+        # ... by the pack's own body too (BODY-21): no ledge of the corridor from below its band
+        real = self.cr.run(pack_body())
+        self.assertEqual([real.band_at(l['bench_m'][0], l['bench_m'][2]) for l in ledges], [1, 2, 3, 4])
 
     def test_the_summit_holds_a_fractal_on_its_platform(self):
         summit = [d for d in self.block['detail'] if d['why'] == 'summit']
@@ -268,15 +309,15 @@ class Summit(unittest.TestCase):
 
     def test_no_stair_where_the_corridor_is_beyond_the_islands_own_bands_already(self):
         self.assertIsNone(self.plan.summit.tower)
-        self.assertEqual(Fractals.top_band(self.plan.summit), 5)
+        self.assertEqual(Fractals.top_band(self.plan.summit), 4)
         self.assertGreater(Fractals.top_band(self.plan.summit), gates.own_band(self.budget['max']))
         row = self.block['summit']
-        self.assertEqual((row['built_ledges'], row['top_band'], row['own_band']), (0, 5, 4))
+        self.assertEqual((row['built_ledges'], row['top_band'], row['own_band']), (0, 4, 3))
         self.assertEqual(self.plan.notes, [])
 
     def test_a_plateau_a_bar_climbs_is_no_lift_place(self):
-        """The mesa stands 5.8 m over the plain: under a lift place's rim (6 m, more than any bar's tallest climb), so no
-        Fractal is put there as if nothing reached it."""
+        """The mesa stands 5.8 m over the plain and its corridor reaches the top, so no Fractal is put there as if nothing
+        reached it (and its cliff, 5.8 m, is one the top band's bar climbs: 6.0 m)."""
         base = self.cr.run(1.)
         spots = Fractals.lift_places(self.land, base, self.plan.keep, [], 4)
         g = self.land.grid
@@ -306,8 +347,9 @@ class Summit(unittest.TestCase):
 
 class SummitStair(unittest.TestCase):
     """Where the landmark's own ladder tops out at no more than the bands the island's own Fractals open (a mesa 5.8 m over
-    the plain: bands 1 to 5, against the 7 that 30 Fractals open), the ladder goes on above the corridor's platform as a
-    stair built on the landmark's top, one band more a ledge, so the summit needs a return visit (decided 15 October)."""
+    the plain: bands 1 to 4, against the 7 that 30 Fractals open), the ladder goes on above the corridor's platform as a
+    stair built on the landmark's top, one band more a ledge, so the summit needs a return visit (decided 15 October).
+    With the mended gates the stair is four ledges, bands 5 to 8: 15.5 m of it, 11.9 m long."""
 
     @classmethod
     def setUpClass(cls):
@@ -338,13 +380,13 @@ class SummitStair(unittest.TestCase):
         summit = self.plan.summit
         self.assertIsNotNone(summit.tower, self.plan.notes)
         self.assertEqual(self.plan.notes, [])
-        self.assertEqual([l.band for l in summit.ledges], [1, 2, 3, 4, 5])
-        self.assertEqual([l.band for l in summit.tower.ledges], [6, 7, 8])
+        self.assertEqual([l.band for l in summit.ledges], [1, 2, 3, 4])
+        self.assertEqual([l.band for l in summit.tower.ledges], [5, 6, 7, 8])
         own = gates.own_band(Fractals.BUDGET['max'])
         self.assertEqual(own, 7, '30 Fractals, five a band, from band 1')
         self.assertEqual(Fractals.top_band(summit), own+1)
         # each rise is the band's gate, the stair's first foot is the corridor's platform
-        self.assertEqual([round(l.rise, 2) for l in summit.tower.ledges], [2.38, 2.78, 3.18])
+        self.assertEqual([round(l.rise, 2) for l in summit.tower.ledges], [2.98, 3.58, 4.18, 4.78])
         self.assertAlmostEqual(summit.tower.z0, summit.levels[-1], places=9)
         self.assertEqual(self.plan.summit_routes(), [summit, summit.tower])
         self.assertEqual(summit.tower.id, 'summit_top')
@@ -370,9 +412,14 @@ class SummitStair(unittest.TestCase):
 
     def test_every_ledge_of_both_flights_is_proved_by_the_exact_walk(self):
         rows = {r['id']: r for r in self.block['routes']}
-        self.assertEqual([l['reached_from']['base'] for l in rows['summit']['ledges']], [1, 2, 3, 4, 5])
-        self.assertEqual([l['reached_from']['base'] for l in rows['summit_top']['ledges']], [6, 7, 8])
+        self.assertEqual([l['reached_from']['base'] for l in rows['summit']['ledges']], [1, 2, 3, 4])
+        self.assertEqual([l['reached_from']['base'] for l in rows['summit_top']['ledges']], [5, 6, 7, 8])
         self.assertTrue(all(l['proved'] for r in rows.values() for l in r['ledges']))
+        # the pack's own body (BODY-21) stands on the summit from band 8 and no sooner: beyond the 7 the island opens
+        real = self.cr.run(pack_body())
+        top_bench = rows['summit_top']['ledges'][-1]['bench_m']
+        self.assertEqual(real.band_at(top_bench[0], top_bench[2]), 8)
+        self.assertGreater(real.band_at(top_bench[0], top_bench[2]), gates.own_band(Fractals.BUDGET['max']))
         # the top is reached from band 8, and a knack at full rank does not carry it a band sooner than 7
         top = rows['summit_top']['ledges'][-1]['reached_from']
         self.assertEqual((top['base'], top['one_knack']), (8, 7))
@@ -388,17 +435,18 @@ class SummitStair(unittest.TestCase):
             i, j = g.nearest(x, z)
             return not any(b*g.nx+a in keep for b in range(j-10, j+11) for a in range(i-10, i+11))
         spot = next((x, z) for x in (-9., 9., -6., 6.) for z in (-3., -9., -6.) if clear_of_flights(x, z))
-        self.assertEqual(base.band_at(*spot), 5, "the mesa top beyond the stair is the corridor platform's level")
-        self.assertEqual(base.band_at(*tower.bench_centre(g, 0)), 6)
-        self.assertEqual(base.band_at(*tower.bench_centre(g, 1)), 7)
-        self.assertEqual(base.band_at(*tower.bench_centre(g, 2)), 8)
+        self.assertEqual(base.band_at(*spot), 4, "the mesa top beyond the stair is the corridor platform's level")
+        self.assertEqual(base.band_at(*tower.bench_centre(g, 0)), 5)
+        self.assertEqual(base.band_at(*tower.bench_centre(g, 1)), 6)
+        self.assertEqual(base.band_at(*tower.bench_centre(g, 2)), 7)
+        self.assertEqual(base.band_at(*tower.bench_centre(g, 3)), 8)
 
     def test_a_fractal_on_every_ledge_of_the_stair_and_the_summit_on_its_top(self):
         by_why = self.block['counts']['by_why']
-        self.assertEqual((by_why.get('stair'), by_why.get('summit')), (2, 1))
+        self.assertEqual((by_why.get('stair'), by_why.get('summit')), (3, 1))
         mine = {d['ledge']: d for d in self.block['detail'] if d.get('route') == 'summit_top'}
-        self.assertEqual({k: d['reach_band'] for k, d in mine.items()}, {1: 6, 2: 7, 3: 8})
-        self.assertEqual(mine[3]['why'], 'summit')
+        self.assertEqual({k: d['reach_band'] for k, d in mine.items()}, {1: 5, 2: 6, 3: 7, 4: 8})
+        self.assertEqual(mine[4]['why'], 'summit')
         self.assertFalse([d for d in self.block['detail'] if d.get('route') == 'summit'], 'none on the corridor itself')
 
     def test_the_summit_record_the_manifest_carries(self):
@@ -421,12 +469,12 @@ class SummitStair(unittest.TestCase):
         self.assertGreaterEqual(rec['radius_m'], worst+sites.SUMMIT_BODY_M-1e-6)
         self.assertLess(rec['radius_m'], worst+sites.SUMMIT_BODY_M+sites.SUMMIT_RADIUS_STEP_M+1e-6)
         row = self.block['summit']
-        self.assertEqual((row['cut_ledges'], row['built_ledges'], row['ledges'], row['top_band'], row['own_band']), (5, 3, 8, 8, 7))
+        self.assertEqual((row['cut_ledges'], row['built_ledges'], row['ledges'], row['top_band'], row['own_band']), (4, 4, 8, 8, 7))
 
     def test_the_landmark_still_reads_in_the_land_without_the_stair_the_island_built_over_it(self):
         """The room's reading rule (every object's footprint reads in the land: its top within a third of its height of the
         box's) is the room's, not the gate's: it is read without the ground under the stair, and with it the landmark is
-        lost (a stair 8.3 m over its top)."""
+        lost (a stair 15.5 m over its top)."""
         doc, meshes, room = written(self.land.grid, self.land.h, self.half)
         doc['x_generator']['fractals'] = self.block
         rects = checks.stair_rects(doc)
@@ -443,7 +491,7 @@ class SummitStair(unittest.TestCase):
         terrain = checks.Terrain(doc, meshes)
         lost, rows = checks.footprint_checks(inventory, terrain, room, 1.)
         self.assertFalse(lost, rows)
-        self.assertGreater(rows[0]['top_delta_m'], 8., "the stair stands 8.3 m over the box's top")
+        self.assertGreater(rows[0]['top_delta_m'], 15., "the stair stands 15.5 m over the box's top")
         reads, rows = checks.footprint_checks(inventory, terrain, room, 1., rects)
         self.assertTrue(reads, rows)
         self.assertLess(abs(rows[0]['top_delta_m']), 1., 'the mesa itself is where its box says')
@@ -469,8 +517,8 @@ class SummitStair(unittest.TestCase):
 
 
 class SummitShort(unittest.TestCase):
-    """A landmark with room for the corridor and none for the stair (a mesa 9 by 8 m: the corridor runs 8.8 m, the stair
-    7.6 m across it) keeps its corridor as it stands, and the island says so."""
+    """A landmark with room for the corridor and none for the stair (a mesa 9 by 8 m: the corridor runs 7.6 m, the stair
+    11.9 m across it) keeps its corridor as it stands, and the island says so."""
     half = 20.
 
     @classmethod
@@ -501,11 +549,11 @@ class SummitShort(unittest.TestCase):
     def test_the_corridor_stands_alone_and_the_report_says_the_island_cannot_make_it_wait(self):
         self.assertIsNotNone(self.plan.summit)
         self.assertIsNone(self.plan.summit.tower)
-        self.assertEqual(Fractals.top_band(self.plan.summit), 5)
+        self.assertEqual(Fractals.top_band(self.plan.summit), 4)
         self.assertTrue(any('beyond the 7 bands' in n for n in self.plan.notes), self.plan.notes)
         row = self.block['summit']
-        self.assertEqual((row['built_ledges'], row['top_band'], row['own_band']), (0, 5, 7))
-        self.assertEqual(Fractals.summit_record(self.block)['top_band'], 5)
+        self.assertEqual((row['built_ledges'], row['top_band'], row['own_band']), (0, 4, 7))
+        self.assertEqual(Fractals.summit_record(self.block)['top_band'], 4)
         self.assertIn('within them', Fractals.report_text(self.block))
 
     def test_a_stair_over_an_edge_is_refused(self):
@@ -513,7 +561,9 @@ class SummitShort(unittest.TestCase):
         siting = sites.Siting(land)
         corridor = sites.plan_summit(land, siting, land.objects[0], lambda height: gates.ladder_rises(height))
         stats = {}
-        self.assertIsNone(sites.plan_tower(land, siting, corridor, [6, 7, 8], land.objects[0], stats))
+        bands = gates.stair_bands(max(l.band for l in corridor.ledges), gates.own_band(Fractals.BUDGET['max']))
+        self.assertEqual(bands, [5, 6, 7, 8])
+        self.assertIsNone(sites.plan_tower(land, siting, corridor, bands, land.objects[0], stats))
         self.assertTrue(any(k.startswith('stair:') for k in stats), stats)
 
 
@@ -572,8 +622,8 @@ class LiftPlaces(unittest.TestCase):
                         land.h[j*nx+i] = top
         stand(-14., -12., 3., 9.)      # tall: a lift place
         stand(12., -14., 3., 9.5)      # tall, far from the first: another
-        stand(0., -4., 3., 3.5)        # low: a bar climbs it
-        stand(-19., 0., 3., 5.4)       # 4.4 m over the plain: no bar of the base body climbs it (4.0 m), yet its rim is under 4.5 m
+        stand(0., -4., 3., 3.5)        # low: a bar climbs it (it stands on the hill's long flank, half a metre over it)
+        stand(-19., 0., 3., 5.4)       # 4.4 m over the plain: a bar of band 8 climbs it (4.8 m), and its rim is under 4.5 m
         stand(-12., 12., 3., 8.)       # tall, but a flight stands on it (kept)
         # a hill the body walks up: a 20 degree flank to a flat top
         for j in range(g.nz):
@@ -597,12 +647,28 @@ class LiftPlaces(unittest.TestCase):
         self.assertEqual(len(got), 3, got)
         for t in [(-14., -12.), (12., -14.), (-12., 12.)]:
             self.assertTrue(any(near(p, t) for p in got), (t, got))
-        self.assertFalse(any(near(p, (-19., 0.)) for p in got), 'a cliff of 4.4 m is under the rim a lift place needs')
+        self.assertFalse(any(near(p, (-19., 0.)) for p in got), 'a cliff of 4.4 m: a bar climbs it, and it is under the rim a lift place needs')
+        # every lift place stands over the tallest climb of the pack's own body at the top band (6.0 m): BODY-21
+        for p in got:
+            i, j = self.land.grid.nearest(*p)
+            self.assertGreater(self.land.h[j*self.land.grid.nx+i]-1., pack_climb(gates.BANDS), p)
+        self.assertEqual(self.base.band_at(-19., 0.), 8)
         self.assertFalse(any(near(p, (0., -4.)) for p in got), 'a low mesa the walk reaches')
         g = self.land.grid
         for p in got:
             i, j = g.nearest(*p)
             self.assertGreater(self.land.h[j*g.nx+i], 7.5, 'on a tall top')
+
+    def test_the_strongest_pair_climbs_what_the_base_body_cannot_and_the_follow_goes_that_far(self):
+        """A sheer face is followed to the tallest rise anyone climbs (`reach.TOP_RISE_M`, 8.64 m: the strongest pair at the
+        top band), so the 8.5 m stand the base body never tops is the pair's at band 10, and each lower stand opens at the band
+        whose bar first covers it."""
+        pair = self.cr.run(gates.FULL_RANK**2)
+        self.assertIsNone(self.base.band_at(12., -14.), '8.5 m: over the 6.0 m of the base body at the top band')
+        self.assertEqual(pair.band_at(12., -14.), 10, '8.5 m: within the pair\'s 8.64 m at the top band')
+        self.assertIsNone(self.base.band_at(-14., -12.))
+        self.assertEqual(pair.band_at(-14., -12.), 10, '8 m: the pair climbs 7.78 m at band 9')
+        self.assertEqual(pair.band_at(-19., 0.), 6, '4.4 m: the pair climbs 5.18 m at band 6')
 
     def test_spread_apart_and_the_farthest_from_the_others_first(self):
         got = self.spots()
@@ -643,7 +709,7 @@ class LiftPlaces(unittest.TestCase):
 
 
 class FaceAngle(unittest.TestCase):
-    """The body grabs any face it cannot stand on (45 degrees), the generator's climb rule a face over 55: a 0.6 m scarp
+    """The body grabs any face it cannot stand on (45 degrees), the generator's climb rule a face over 55: a 0.96 m scarp
     at 50 degrees is no climb to the rule and a band-2 climb to the body (`reach.ClimbReach(face_deg=45)`, which
     `coverage.py` measures the island with)."""
 
@@ -656,7 +722,7 @@ class FaceAngle(unittest.TestCase):
         for j in range(g.nz):
             for i in range(nx):
                 z = g.zs[j]
-                land.h[j*nx+i] = 1.+.6*min(1., max(0., (z+.3)/.5))    # 0.6 m over half a metre, on the grid: 50 degrees
+                land.h[j*nx+i] = 1.+.96*min(1., max(0., (z+.3)/.8))    # 0.96 m over 0.8 m, on the grid: 50 degrees
         cls.land = land
         doc, meshes, room = written(g, land.h, cls.half)
         walker = checks.Walker(doc, meshes, checks.Terrain(doc, meshes), room)
@@ -672,7 +738,7 @@ class FaceAngle(unittest.TestCase):
 
     def test_it_is_a_climb_to_the_body_a_bar_of_band_two_opens(self):
         got = self.labels(45.)
-        self.assertEqual(got.band_at(0., 6.), 2, 'a rise of 0.6 m: over the 0.4 m the starting bar climbs, within 0.8 m')
+        self.assertEqual(got.band_at(0., 6.), 2, 'a rise of 0.96 m: over the 0.6 m the starting bar climbs, within 1.2 m')
         self.assertEqual(got.band_at(0., -6.), 1)
 
 
@@ -786,6 +852,9 @@ class Gates(unittest.TestCase):
         stamina = pack['traits']['stamina']
         self.assertEqual((gates.START_M, gates.BAND_M, gates.BANDS, gates.BANDS_PER_BAR),
                          (stamina['start_m'], stamina['band_m'], stamina['bands'], stamina['bands_per_bar']))
+        # the bar climbs more than its own length (decision 65): the gates carry the pack's number, never a copy of 1
+        self.assertEqual(gates.CLIMB_M_PER_BAR_M, stamina['climb_m_per_bar_m'])
+        self.assertEqual(gates.CLIMB_M_PER_BAR_M, 1.5)
         table = {k['knack']: k['ranks'] for k in pack['knacks']['table']}
         for knack in gates.CLIMB_KNACKS:
             self.assertEqual(tuple(table[knack]), gates.KNACK_RANKS, knack)
@@ -799,17 +868,73 @@ class Gates(unittest.TestCase):
         self.assertEqual((fx['budget_min'], fx['budget_max'], fx['reachable_first_run']), (25, 30, 15))
         self.assertFalse(fx['typed'], 'untyped is the default; typed stays behind the flag')
 
-    def test_a_climb_costs_the_metres_it_rises(self):
-        self.assertAlmostEqual(gates.cap(1), .4)
-        self.assertAlmostEqual(gates.cap(5), 2.)
-        self.assertAlmostEqual(gates.cap(10), 4.)
-        self.assertEqual(gates.band_for(.4), 1)
-        self.assertEqual(gates.band_for(.41), 2)
-        self.assertEqual(gates.band_for(4.), 10)
-        self.assertIsNone(gates.band_for(4.01))
-        self.assertEqual(gates.band_for(4.5, gates.FULL_RANK), 10)
-        self.assertEqual(gates.band_for(4.8, gates.FULL_RANK), 10)
-        self.assertIsNone(gates.band_for(4.81, gates.FULL_RANK))
+    def test_a_bar_climbs_what_the_pack_says(self):
+        """`gates.cap` is the pack's own arithmetic, band by band: the bar's length times climb_m_per_bar_m. Worked out here
+        from the pack alone, so a pack that moves and gates that do not (as when decision 65 made the bar climb 1.5) fail
+        this test."""
+        stamina = pack_stamina()
+        for band in range(1, stamina['bands']+1):
+            self.assertAlmostEqual(gates.cap(band), pack_climb(band, stamina), places=9, msg=band)
+            self.assertAlmostEqual(gates.bar_m(band), stamina['start_m']+(band-1)*stamina['band_m'], places=9, msg=band)
+        self.assertAlmostEqual(gates.COURSE_M, stamina['band_m']*stamina['climb_m_per_bar_m'], places=9)
+        self.assertAlmostEqual(gates.COURSE_M, .6, places=9, msg='a course, one band\'s climb')
+
+    def test_no_band_tops_the_next_bands_gate(self):
+        """BODY-21. A band gate is the same for everyone only if the band below falls short of it. The pack's own body (its
+        bar times climb_m_per_bar_m) opens its own band's gate and no base body opens the next one. Before, the gates were
+        sized a metre of climb a metre of bar: a band-2 bar (0.8 m, 1.2 m of climb) topped band 3's gate (1.18 m)."""
+        stamina = pack_stamina()
+        for band in range(1, stamina['bands']+1):
+            climbs = pack_climb(band, stamina)
+            self.assertGreaterEqual(climbs, gates.gate_rise(band), 'band %d opens its own gate' % band)
+            self.assertEqual(gates.band_for(gates.gate_rise(band), pack_body()), band)
+            if band < stamina['bands']:
+                self.assertLess(climbs, gates.gate_rise(band+1),
+                                'a band-%d bar (%.1f m, %.2f m of climb) tops band %d\'s gate (%.2f m)'
+                                % (band, climbs/stamina['climb_m_per_bar_m'], climbs, band+1, gates.gate_rise(band+1)))
+        # ... and no rise a ladder builds is opened from below its band by the pack's own body
+        for height in (3., 5.8, 7.6, 12., 20., 30.):
+            for rise, band in gates.ladder_rises(height):
+                self.assertEqual(gates.band_for(rise, pack_body()), band, (height, rise))
+
+    def test_a_bar_climbs_one_and_a_half_times_its_length(self):
+        self.assertAlmostEqual(gates.cap(1), .6)
+        self.assertAlmostEqual(gates.cap(2), 1.2)
+        self.assertAlmostEqual(gates.cap(5), 3.)
+        self.assertAlmostEqual(gates.cap(10), 6.)
+        self.assertEqual([round(gates.gate_rise(b), 2) for b in (1, 2, 3, 4)], [.58, 1.18, 1.78, 2.38],
+                         'every gate half as high again: band 2\'s gate is where band 3\'s stood')
+        self.assertEqual(gates.band_for(.6), 1)
+        self.assertEqual(gates.band_for(.61), 2)
+        self.assertEqual(gates.band_for(6.), 10)
+        self.assertIsNone(gates.band_for(6.01))
+        self.assertEqual(gates.band_for(6.75, gates.FULL_RANK), 10)
+        self.assertEqual(gates.band_for(7.2, gates.FULL_RANK), 10)
+        self.assertIsNone(gates.band_for(7.21, gates.FULL_RANK))
+        with self.assertRaises(ValueError):
+            gates.cap(0)
+        with self.assertRaises(ValueError):
+            gates.cap(gates.BANDS+1)
+
+    def test_a_climb_is_followed_as_far_as_the_tallest_bar_climbs(self):
+        """reach.py follows a face to the tallest rise anyone climbs (the strongest pair at the top band) and no farther, and
+        far enough along the ground that the rise always ends the follow first: past its first steep face a climb goes on
+        over any ground steeper than a lip (35 degrees)."""
+        self.assertAlmostEqual(reach.TOP_RISE_M, gates.cap(gates.BANDS, gates.FULL_RANK**2), places=9)
+        self.assertAlmostEqual(reach.TOP_RISE_M, 8.64, places=9)
+        self.assertGreaterEqual(reach.MAX_RUN_M, reach.TOP_RISE_M/math.tan(math.radians(climb.LIP_DEG)))
+
+    def test_the_arithmetic_block_names_the_number_the_gates_were_sized_with(self):
+        """The package's `x_generator.fractals.arithmetic` (and the reach report) carry the climb a metre of bar buys, so a
+        reader holding another pack can tell whether the island's gates were sized for it."""
+        got = gates.describe_arithmetic()
+        self.assertEqual(got['climb_m_per_bar_m'], pack_stamina()['climb_m_per_bar_m'])
+        self.assertAlmostEqual(got['course_m'], .6, places=9)
+        self.assertEqual([g['band'] for g in got['gates']], list(range(1, 11)))
+        for g in got['gates']:
+            self.assertAlmostEqual(g['bar_m'], .4*g['band'], places=4)
+            self.assertAlmostEqual(g['cap_m'], g['bar_m']*1.5, places=4)
+            self.assertAlmostEqual(g['gate_rise_m'], g['cap_m']-.02, places=4)
 
     def test_band_gates_and_the_arithmetic_that_gives_out(self):
         """No single knack opens a band gate early up to band 5; from band 6 on Big bar or Steady climber at full rank
@@ -845,31 +970,55 @@ class Gates(unittest.TestCase):
             self.assertLess(rise, gates.cap(band, gates.FULL_RANK)-.02, 'one knack clears it with a margin')
             self.assertLess(gates.cap(band, gates.FULL_RANK**2), gates.gate_rise(band+1),
                             'even the strongest pair does not carry it into the next gate (the arithmetic holds up to band 2)')
-        # ... and past band 2 it cannot: a pair at band 3 climbs 1.73 m, the next gate is 1.58 m
+        # ... and past band 2 it cannot: a pair at band 3 climbs 2.59 m, the next gate is 2.38 m
         self.assertGreater(gates.cap(3, gates.FULL_RANK**2), gates.gate_rise(4))
 
     def test_ladders_of_gates_one_band_more_each(self):
-        rises = gates.ladder_rises(7.6)
-        self.assertAlmostEqual(sum(r for r, _ in rises), 7.6)
+        rises = gates.ladder_rises(11.4)
+        self.assertAlmostEqual(sum(r for r, _ in rises), 11.4)
         self.assertEqual([b for _, b in rises][:5], [1, 2, 3, 4, 5])
+        self.assertEqual([round(r, 2) for r, _ in rises], [.58, 1.18, 1.78, 2.38, 2.98, 2.5])
         self.assertTrue(all(r <= gates.cap(b)+1e-9 for r, b in rises))
-        self.assertIsNone(gates.ladder_rises(23.))
-        top = gates.ladder_rises(21.79)
+        # the couch of the stand-in garage, 7.6 m: four gates and what is left (it was five and what was left)
+        self.assertEqual([(round(r, 2), b) for r, b in gates.ladder_rises(7.6)], [(.58, 1), (1.18, 2), (1.78, 3), (2.38, 4), (1.68, 3)])
+        self.assertIsNone(gates.ladder_rises(34.))
+        top = gates.ladder_rises(32.79)
         self.assertEqual(len(top), 10)
         self.assertEqual(top[-1][1], 10)
 
     def test_the_climb_rule_follows_a_tall_face_only_when_asked(self):
         g = Grid(-3, -3, 3, 3, .1)
         h = [0.]*g.n
-        route = R.Route('ladder', 20, 30, 1, 0, 0., R.make_ledges([(1.58, 4)], g.cell))
+        route = R.Route('ladder', 20, 30, 1, 0, 0., R.make_ledges([(gates.gate_rise(3), 3)], g.cell))
         route.apply(g, h)
         x, z = route.xz(g, -.5)
         up = climb.climb_from(g, h, x, z, 1., 0., 0.)
-        self.assertIsNone(up, 'the rule\'s 0.6 m follow does not top a 1.58 m face')
-        up = climb.climb_from(g, h, x, z, 1., 0., 0., reach=9., max_rise=4.)
+        self.assertIsNone(up, 'the rule\'s 0.6 m follow does not top a 1.78 m face')
+        up = climb.climb_from(g, h, x, z, 1., 0., 0., reach=reach.MAX_RUN_M, max_rise=reach.TOP_RISE_M)
         self.assertIsNotNone(up)
-        self.assertAlmostEqual(up['rise'], 1.58, places=1)
-        self.assertIsNone(climb.climb_from(g, h, x, z, 1., 0., 0., reach=9., max_rise=1.))
+        self.assertAlmostEqual(up['rise'], 1.78, places=2)
+        self.assertIsNone(climb.climb_from(g, h, x, z, 1., 0., 0., reach=reach.MAX_RUN_M, max_rise=1.))
+
+    def test_a_long_climb_over_scramble_ground_is_followed_to_its_top(self):
+        """Past its first steep face a climb goes on over any ground steeper than a lip. An 8 m rise at 40 degrees above a
+        60 degree foot runs 9.4 m along the ground: within what the strongest pair climbs at the top band (8.64 m), so the
+        follow reaches its top. Nine metres of follow, enough while the tallest rise was 5.76 m, gave it up as no climb."""
+        g = Grid(-10, -3, 10, 3, .1)
+        nx = g.nx
+        foot, face = math.tan(math.radians(60.)), math.tan(math.radians(40.))
+        h = [0.]*g.n
+        for j in range(g.nz):
+            for i in range(nx):
+                x = g.xs[i]
+                h[j*nx+i] = 0. if x <= -6. else min(8., (x+6.)*foot if x <= -5.8 else .2*foot+(x+5.8)*face)
+        up = climb.climb_from(g, h, -6.03, 0., 1., 0., 0., reach=reach.MAX_RUN_M, max_rise=reach.TOP_RISE_M)
+        self.assertIsNotNone(up)
+        self.assertTrue(up['topped'])
+        self.assertAlmostEqual(up['rise'], 8., places=1)
+        self.assertGreater(up['r'], 9.)
+        self.assertIsNone(climb.climb_from(g, h, -6.03, 0., 1., 0., 0., reach=9., max_rise=reach.TOP_RISE_M))
+        # ... and a rise no bar climbs is given up at the tallest rise, however far the follow goes
+        self.assertIsNone(climb.climb_from(g, h, -6.03, 0., 1., 0., 0., reach=reach.MAX_RUN_M, max_rise=gates.cap(gates.BANDS)))
 
 
 class Flights(unittest.TestCase):
@@ -905,7 +1054,7 @@ class Flights(unittest.TestCase):
             self.assertGreater(math.degrees(math.atan(side/g.cell)), 74)
 
     def test_a_riser_runs_at_least_66_degrees(self):
-        for rise in (.38, .78, 1.18, 1.58, 1.98, 2.38, 3.98, .44, .88):
+        for rise in (.38, .58, .78, 1.18, 1.58, 1.78, 1.98, 2.38, 2.98, 3.98, 5.98, .44, .66, .88, 1.32):
             run = R.riser_cells(rise, .1)*.1
             self.assertGreaterEqual(math.degrees(math.atan(rise/run)), 66-1e-6, rise)
 

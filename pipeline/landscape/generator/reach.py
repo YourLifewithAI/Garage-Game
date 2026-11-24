@@ -6,8 +6,10 @@ rise. That flood is the walk, exact; nothing here relaxes it.
 
 Climbs. A climb is one more kind of edge. From a standable foot a face steeper than 55 degrees (the climb rule,
 `climb.climb_from`) is followed up its fall line, no longer 0.6 m but as far as the tallest bar climbs, to its crest; a
-standable node within a body's reach of the crest is its top. A climb's cost is the metres it rises, so it is open to a
-bar of band b (`gates.cap`) when its rise is at most that. Stamina refills on standable ground, so the bar is full at
+standable node within a body's reach of the crest is its top. A climb costs bar, and a metre of bar buys the pack's
+`climb_m_per_bar_m` of rise (1.5), so a climb is open to a bar of band b when its rise is at most what that bar climbs
+(`gates.cap`: the bar's length times 1.5; before Run 4's BODY-21 the gates read a metre of rise a metre of bar, and the
+game's body topped every gate from a band or two below). Stamina refills on standable ground, so the bar is full at
 every foot: a climb is judged alone, never added to the one before.
 
 The answer is a label per node, the lowest band from which it is reached: band 1 (the starting bar) for everything
@@ -26,8 +28,12 @@ from . import climb, gates
 from .climb import FACE_DEG, FOOT_DEG
 from .field import face_slope_max
 
-TOP_RISE_M = gates.cap(gates.BANDS, gates.VARIANTS[-1][1])   # the tallest rise anyone climbs: the strongest pair, top band
-MAX_RUN_M = 9.          # how far a climb is followed along its heading (the follow ends at the tallest rise first)
+TOP_RISE_M = gates.cap(gates.BANDS, gates.VARIANTS[-1][1])   # the tallest rise anyone climbs: the strongest pair, top band (8.64 m)
+# How far a climb is followed along its heading: far enough that the follow always ends at the tallest rise first. Past
+# its first steep face a climb goes on over any ground steeper than a lip (`climb.LIP_DEG`, 35 degrees), where a rise of
+# TOP_RISE_M runs 12.3 m along the ground. It was 9 m while the tallest rise was 5.76 m (8.2 m of run); tests/test_fractals.py
+# holds the two together, so a pack that stretches the climb cannot cut a tall face short unseen.
+MAX_RUN_M = 13.
 FOOT_RADIUS_M = .13     # a foot's standable node lies within this of the foot (the disc keeps a node back from a face)
 FOOT_TOL_M = .03        # ... on ground within this of the foot's height
 TOP_SEARCH = 7          # ... a top's, of the crest
