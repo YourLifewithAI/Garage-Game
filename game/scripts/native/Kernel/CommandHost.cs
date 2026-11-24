@@ -339,6 +339,8 @@ public partial class CommandHost : Node
     public override void _ExitTree()
     {
         UnbindPlayerVitals();
+        // LOOK-3: the nature step's mark stops counting the tree's collision nodes (CommandHostNature.WatchColliders).
+        UnwatchColliders();
         if (Companion != null && IsInstanceValid(Companion)) Companion.CaughtUp -= NoteCatchUp;
         WishRunnerSession(false);
         // Nature first: its write carries the team block too when that waits.

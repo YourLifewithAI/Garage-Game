@@ -16,7 +16,7 @@ namespace GarageGame.Tests.Kernel;
 /// its saved block (NatureTest.Persistence), the review's blockers and majors through the command path
 /// (NatureTest.Review), and what the scene and the verbs make of fire (NatureTest.Scene). The ground under each cell is
 /// a test sampler (soil everywhere), except where a check needs the room's physics. Pass "-- --dump=DIR" to write every
-/// message and result for contracts/validate.py.
+/// message and result for contracts/validate.py, and "-- --labels" to print each passed check with its numbers.
 /// </summary>
 public partial class NatureTest : Node3D
 {
@@ -28,6 +28,7 @@ public partial class NatureTest : Node3D
     private int _ids;
     private int _dumped;
     private string? _dump;
+    private bool _labels;
     private ScriptErrors? _errors;
     private RoomData _room = null!;
     private Node3D? _world;
@@ -44,6 +45,7 @@ public partial class NatureTest : Node3D
             OS.AddLogger(_errors);
             _dump = OS.GetCmdlineUserArgs().FirstOrDefault(a => a.StartsWith("--dump=", StringComparison.Ordinal))?["--dump=".Length..];
             if (_dump != null) System.IO.Directory.CreateDirectory(_dump);
+            _labels = OS.GetCmdlineUserArgs().Contains("--labels");
             RemoveAll();
             _room = PlantedRoom();
             // "-- --only=grow" runs Grow's suites alone (while iterating on them); the runners run everything.
@@ -128,13 +130,15 @@ public partial class NatureTest : Node3D
     /// <param name="beforeRules">Runs as the host exists, before its rules load (a launch's vitals store: RoomWorld's order).</param>
     /// <param name="afterRules">Runs once the rules loaded, before nature and before any frame (a launch's knacks and set-mode).</param>
     /// <param name="learnFire">The team knows Fire, as after the first rest (decision 72), through the one helper every suite that lights fires uses.</param>
-    private async Task NewWorld(string savePath, bool challenge = false, RoomData? roomOverride = null, Action? beforeRules = null, Action? afterRules = null, bool learnFire = true)
+    /// <param name="built">Runs as the room's nodes enter the scene, before any frame (LOOK-3: the copies' view held back from colliding its far tiles).</param>
+    private async Task NewWorld(string savePath, bool challenge = false, RoomData? roomOverride = null, Action? beforeRules = null, Action? afterRules = null, bool learnFire = true, Action? built = null)
     {
         await FreeWorld();
         var room = roomOverride ?? _room;
         _world = new Node3D { Name = "World" };
         AddChild(_world);
         _world.AddChild(RoomBuilder.Build(room));
+        built?.Invoke();
         await Frames(2);
         _player = new SmallPlayerController { Name = "Player", ReadKeyboard = false, Position = room.SpawnFor("player").PositionM + Vector3.Up * 0.008f };
         _world.AddChild(_player);
@@ -275,6 +279,8 @@ public partial class NatureTest : Node3D
     private void Check(bool condition, string label)
     {
         _checks++;
+        // "-- --labels" prints every check that passed with its numbers (a failed one is always printed).
+        if (condition && _labels) GD.Print("NATURE_CHECK passed: " + label);
         if (condition) return;
         _failures++;
         GD.PushError("Nature: " + label);

@@ -26,11 +26,18 @@ public sealed record RepairSpentView(string Thing, Vector3 At, IReadOnlyList<Spe
 /// <summary>
 /// What the nature work of the host's physics ticks took (LOOK-3's headless measure; CommandHost.NatureTicks): for each tick the
 /// milliseconds of the simulation's part (a step, or the reading ahead of one), and apart from it the light probes and the
-/// throttled save, which were per tick and every few seconds already. It keeps the latest 8,192 ticks for the percentiles.
+/// throttled save, which were per tick and every few seconds already. It keeps the latest 8,192 ticks for the percentiles, and
+/// the longest tick (work, probes and save together) of each five seconds of ticks: a step is one tick in thirty and a save about
+/// one in five hundred, so the 95th of a hundred sees neither, and the longest of a window sees both.
 /// </summary>
 public sealed class NatureTickMeter
 {
+    /// <summary>The length of a window whose longest tick is kept (WindowLongest).</summary>
+    public const double WindowS = 5.0;
     private readonly float[] _work = new float[8192];
+    private readonly List<float> _windows = new();
+    private double _windowS;
+    private float _windowLongest;
     public int Ticks { get; private set; }
     /// <summary>Ticks that ran a step, and the longest and the sum of their work.</summary>
     public int StepTicks { get; private set; }
@@ -49,10 +56,35 @@ public sealed class NatureTickMeter
     {
         Ticks = StepTicks = Saves = 0;
         LongestStepMs = StepMs = LongestBetweenMs = BetweenMs = LongestProbesMs = ProbesMs = LongestSaveMs = SavesMs = 0;
+        _windows.Clear();
+        _windowS = 0;
+        _windowLongest = 0;
     }
 
-    internal void Note(int steps, double workMs, double probesMs, double saveMs)
+    /// <summary>The whole windows measured so far (WindowS of ticks each; the latest 4,096).</summary>
+    public int Windows => _windows.Count;
+
+    /// <summary>The longest tick (work, probes and save together) of the window at share q (0 to 1) of the whole windows, mildest first: 0.5 the median window, 1 the worst.</summary>
+    public double WindowLongest(double q)
     {
+        if (_windows.Count == 0) return 0;
+        var sorted = _windows.ToArray();
+        Array.Sort(sorted);
+        return sorted[(int)Math.Clamp(Math.Ceiling(q * sorted.Length) - 1, 0, sorted.Length - 1)];
+    }
+
+    internal void Note(int steps, double workMs, double probesMs, double saveMs, double delta = 0)
+    {
+        _windowLongest = Math.Max(_windowLongest, (float)(workMs + probesMs + saveMs));
+        _windowS += delta;
+        // A window of ticks is whole a hair early, so a clock that sums 1/60 three hundred times still ends it on the three hundredth.
+        if (_windowS >= WindowS - 1e-6)
+        {
+            if (_windows.Count >= 4096) _windows.RemoveAt(0);
+            _windows.Add(_windowLongest);
+            _windowS = 0;
+            _windowLongest = 0;
+        }
         _work[Ticks % _work.Length] = (float)workMs;
         Ticks++;
         if (steps > 0)
@@ -89,6 +121,14 @@ public sealed class NatureTickMeter
         $"{Ticks} ticks, work a tick p50 {WorkPercentile(0.5):0.000} p95 {WorkPercentile(0.95):0.000} p99 {WorkPercentile(0.99):0.000} longest {Math.Max(LongestStepMs, LongestBetweenMs):0.000} ms; ") + FormattableString.Invariant(
         $"{StepTicks} step ticks mean {StepMs / Math.Max(1, StepTicks):0.000} longest {LongestStepMs:0.000} ms; between steps mean {BetweenMs / Math.Max(1, Ticks - StepTicks):0.000} longest {LongestBetweenMs:0.000} ms; ") + FormattableString.Invariant(
         $"light probes mean {ProbesMs / Math.Max(1, Ticks):0.000} longest {LongestProbesMs:0.000} ms; {Saves} saves mean {SavesMs / Math.Max(1, Saves):0.00} longest {LongestSaveMs:0.00} ms");
+
+    /// <summary>
+    /// One line for a hitch: the longest tick of each window of WindowS, saves and all (the median window and the worst), and the
+    /// same with the saves left out is LongestStepMs. This is the headless shape of what the frame timing should compare, the
+    /// reading spread against --nature-spread=off, while a fire burns.
+    /// </summary>
+    public string WindowSummary() => FormattableString.Invariant(
+        $"the longest tick of each {WindowS:0} s ({Windows} windows, work, probes and save together): median {WindowLongest(0.5):0.00} ms, worst {WindowLongest(1):0.00} ms");
 }
 
 /// <summary>
@@ -211,10 +251,25 @@ public partial class CommandHost
     /// Off (this property, --nature-spread=off or GARAGE_GAME_NATURE_SPREAD=off at launch): the whole step in its tick, as before.
     /// A step due every tick (the tests' AdvanceNature(0.5)) has no tick before it and is done whole, as before; so is every step
     /// of a host not advanced once each physics frame.
+    /// What keeps a reading honest, in order: the mark (WorldMark, every part of it proved to void the readings on its own); the
+    /// tree's colliders, counted as they come and go, whoever adds them (NoteColliderNode); NoteWorldCollisionChanged, for a lane
+    /// that moves a collider where it stands; and the step's spot check (NatureSpotChecks), which casts a few of the readings again
+    /// and, if one no longer holds, switches the reading ahead off for this host and says so (NatureSpreadDistrusted).
     /// </summary>
     public bool NatureStepSpread { get; set; } = true;
     public const string NatureSpreadArgument = "--nature-spread=";
     public const string NatureSpreadVariable = "GARAGE_GAME_NATURE_SPREAD";
+
+    /// <summary>
+    /// Whether a launch switches the spread off: "--nature-spread=off" among the user arguments; with no such argument (or an empty
+    /// one) the variable's "off". An argument that says anything else keeps the spread on, whatever the variable says.
+    /// </summary>
+    internal static bool NatureSpreadOff(IEnumerable<string> userArguments, string? variable)
+    {
+        var spread = userArguments.FirstOrDefault(a => a.StartsWith(NatureSpreadArgument, StringComparison.Ordinal))?[NatureSpreadArgument.Length..];
+        if (string.IsNullOrEmpty(spread)) spread = variable;
+        return spread == "off";
+    }
 
     /// <summary>The ticks a share of the reading keeps in hand before the step is due (the tick's length may wander a little).</summary>
     private const int AheadSpareTicks = 2;
@@ -226,23 +281,78 @@ public partial class CommandHost
     /// <summary>What the room's physics answered: the ground there (its height, what it lies on, its material and what that gives fire).</summary>
     private readonly record struct GroundRead(float Y, string Surface, string Material, bool Fertile, float Fuel);
     /// <summary>
+    /// The parts of the world's mark, one for each thing it reads (WorldMark's fields in their order), and Moving: a running
+    /// animation that turns a collider, during which there is no mark at all. NatureTest.Spread shows for each that it alone
+    /// voids the readings held when its own change comes, and the host counts which parts moved (NatureMarkMoved).
+    /// </summary>
+    [Flags]
+    internal enum WorldMarkPart
+    {
+        None = 0,
+        Nature = 1 << 0, Revision = 1 << 1, Permissions = 1 << 2, Hands = 1 << 3, Plants = 1 << 4, Scene = 1 << 5,
+        TerrainBuilds = 1 << 6, TerrainTiles = 1 << 7, CopiesView = 1 << 8, CopiesTiles = 1 << 9, RoomNode = 1 << 10,
+        Colliders = 1 << 11, Noted = 1 << 12, Moving = 1 << 13,
+        All = (1 << 14) - 1,
+    }
+
+    private const int WorldMarkParts = 14;
+
+    /// <summary>
     /// Everything the host knows that can change what a world-layer ray hits, read in a few calls. While it stays equal, a ground
     /// reading stands: the same nature (every durable nature change and every load replaces it), the same room and permission
     /// revision (creations and things placed, moved, removed, locked), the same things in hands (a held thing collides with nothing),
     /// the same plants and burnt things in the scene, the same terrain and plant collision tiles (they come and go with the bodies),
-    /// the same room and runtime nodes. A creation's spinning part moves its collision by itself: while any animation runs there is
-    /// no mark (MarkWorld), and nothing is read ahead.
+    /// the same room node, as many collision nodes come into and gone from the tree (every body, area and shape, whoever made it:
+    /// a creation's assembly, a bridge, a leaf on the water, and whatever a later lane adds), and nothing noted by a lane that moves
+    /// a collider where it stands (NoteWorldCollisionChanged). The runtime node is not here: it lives as long as the host, and its
+    /// creations' colliders are counted with the tree's. A running animation that turns a part holding a collider moves that
+    /// collision tick by tick: while one runs there is no mark (MarkWorld), and nothing is read ahead. A light moves nothing, and a
+    /// rotor is drawn arms with no collision (creation_visuals.gd), so neither stops the reading.
     /// </summary>
-    private readonly record struct WorldMark(NatureState Nature, int Revision, int Permissions, string Hands, int Plants, string Scene,
-        long TerrainBuilds, long TerrainTiles, ulong CopiesView, int CopiesTiles, ulong RoomNode, ulong RuntimeNode);
+    private readonly record struct WorldMark(NatureState? Nature, int Revision, int Permissions, string Hands, int Plants, string Scene,
+        long TerrainBuilds, long TerrainTiles, ulong CopiesView, int CopiesTiles, ulong RoomNode, long Colliders, long Noted)
+    {
+        /// <summary>The parts in which another mark differs from this one (none exactly when the two are equal).</summary>
+        public WorldMarkPart Differs(WorldMark other) =>
+            (ReferenceEquals(Nature, other.Nature) ? 0 : WorldMarkPart.Nature) | (Revision == other.Revision ? 0 : WorldMarkPart.Revision) |
+            (Permissions == other.Permissions ? 0 : WorldMarkPart.Permissions) | (Hands == other.Hands ? 0 : WorldMarkPart.Hands) |
+            (Plants == other.Plants ? 0 : WorldMarkPart.Plants) | (Scene == other.Scene ? 0 : WorldMarkPart.Scene) |
+            (TerrainBuilds == other.TerrainBuilds ? 0 : WorldMarkPart.TerrainBuilds) | (TerrainTiles == other.TerrainTiles ? 0 : WorldMarkPart.TerrainTiles) |
+            (CopiesView == other.CopiesView ? 0 : WorldMarkPart.CopiesView) | (CopiesTiles == other.CopiesTiles ? 0 : WorldMarkPart.CopiesTiles) |
+            (RoomNode == other.RoomNode ? 0 : WorldMarkPart.RoomNode) | (Colliders == other.Colliders ? 0 : WorldMarkPart.Colliders) |
+            (Noted == other.Noted ? 0 : WorldMarkPart.Noted);
+
+        /// <summary>This mark with the parts a test is blind to left empty, so that they never move it.</summary>
+        public WorldMark Without(WorldMarkPart blind) => blind == WorldMarkPart.None ? this : new WorldMark(
+            (blind & WorldMarkPart.Nature) != 0 ? null : Nature, (blind & WorldMarkPart.Revision) != 0 ? 0 : Revision,
+            (blind & WorldMarkPart.Permissions) != 0 ? 0 : Permissions, (blind & WorldMarkPart.Hands) != 0 ? "" : Hands,
+            (blind & WorldMarkPart.Plants) != 0 ? 0 : Plants, (blind & WorldMarkPart.Scene) != 0 ? "" : Scene,
+            (blind & WorldMarkPart.TerrainBuilds) != 0 ? 0 : TerrainBuilds, (blind & WorldMarkPart.TerrainTiles) != 0 ? 0 : TerrainTiles,
+            (blind & WorldMarkPart.CopiesView) != 0 ? 0 : CopiesView, (blind & WorldMarkPart.CopiesTiles) != 0 ? 0 : CopiesTiles,
+            (blind & WorldMarkPart.RoomNode) != 0 ? 0 : RoomNode, (blind & WorldMarkPart.Colliders) != 0 ? 0 : Colliders,
+            (blind & WorldMarkPart.Noted) != 0 ? 0 : Noted);
+    }
     /// <summary>The grid squares a plant could catch from at one size: its bounds grown by PlantLaws.CatchM, as BurnPlants' Catches walks them.</summary>
     private readonly record struct PlantBox(float Factor, int X0, int Z0, int X1, int Z1);
 
     private static readonly StringName RuntimeAnimations = "animations";
+    private static readonly Variant AnimationOp = "op";
+    private static readonly Variant AnimationPart = "part";
     private WorldMark? _aheadMark;
     /// <summary>The mark the tick before saw, and that tick's physics frame: a reading is taken only once the mark has stood a whole tick.</summary>
     private WorldMark? _markSeen;
     private ulong _markSeenFrame;
+    /// <summary>The mark looked at last, on whichever tick: what the next one is held against to count the parts that moved.</summary>
+    private WorldMark? _markLast;
+    private readonly long[] _markMoved = new long[WorldMarkParts];
+    /// <summary>Collision nodes (bodies, areas, shapes) come into or gone from the tree since this host began to watch it.</summary>
+    private long _colliderNodes;
+    private long _worldNoted;
+    private SceneTree? _collidersWatched;
+    private SceneTree.NodeAddedEventHandler? _colliderAdded;
+    private SceneTree.NodeRemovedEventHandler? _colliderRemoved;
+    private long _spotTurn;
+    private bool _spreadAlarmed;
     private NatureState? _aheadPlannedFor;
     private readonly Dictionary<GroundAt, GroundRead?> _aheadGround = new();
     private readonly List<GroundAt> _aheadWanted = new();
@@ -270,7 +380,68 @@ public partial class CommandHost
     /// <summary>Test seams: the ground readings held for the next step now, and whether a tick of this length would run a step.</summary>
     internal int NatureGroundHeld => _aheadGround.Count;
     internal bool NatureStepsNext(double delta) => _natureElapsed + delta >= NatureLaws.StepS;
+    /// <summary>Test seam: the ticks of this length until a step runs, this one counted (1: this tick steps), summed as AdvanceNature sums them.</summary>
+    internal int NatureTicksToStep(double delta)
+    {
+        var elapsed = _natureElapsed;
+        for (var ticks = 1; ticks <= 100_000 && double.IsFinite(delta) && delta > 0; ticks++)
+        {
+            elapsed += delta;
+            if (elapsed >= NatureLaws.StepS) return ticks;
+        }
+        return int.MaxValue;
+    }
     internal long NatureAheadMismatches { get; private set; }
+    /// <summary>Test seams: the plants measured for the fire now, and whether one of them is.</summary>
+    internal int NaturePlantsMeasured => _plantBoxes.Count;
+    internal bool NaturePlantMeasured(string id) => _plantBoxes.ContainsKey(id);
+    /// <summary>
+    /// Test seam: parts of the mark the host is blind to (they never move it; Moving: an animated collider no longer voids it), to
+    /// show what each part is for: with one part alone seeing, its own change voids the readings; with all of them blind, a play
+    /// that changes the ground under a fire comes out wrong, and the audit counts it.
+    /// </summary>
+    internal WorldMarkPart NatureMarkBlindForTests { get; set; }
+    /// <summary>How often each of these parts of the mark was seen to move since the host started (Moving: the ticks an animated collider left no mark).</summary>
+    internal long NatureMarkMoved(WorldMarkPart parts)
+    {
+        long moved = 0;
+        for (var bit = 0; bit < WorldMarkParts; bit++)
+            if (((int)parts & (1 << bit)) != 0) moved += _markMoved[bit];
+        return moved;
+    }
+    /// <summary>Which parts of the mark moved, and how often, in words ("revision 3, hands 2"; "nothing"): why readings were dropped, for the measure.</summary>
+    public string NatureMarkMoves
+    {
+        get
+        {
+            var moved = Enumerable.Range(0, WorldMarkParts).Where(bit => _markMoved[bit] > 0).Select(bit => $"{((WorldMarkPart)(1 << bit)).ToString().ToLowerInvariant()} {_markMoved[bit]}").ToList();
+            return moved.Count == 0 ? "nothing" : string.Join(", ", moved);
+        }
+    }
+
+    /// <summary>
+    /// The step's spot check: this many of the readings a step is about to take are cast for again first (others each step, in
+    /// turn; a tenth of a millisecond for four). They cannot differ while the mark is whole. If one does, something changed the
+    /// world's collision that the mark does not see (a collider a later lane moves, re-layers or reshapes without the tree, the
+    /// room revision or NoteWorldCollisionChanged hearing of it): the step casts for everything itself, as before LOOK-3, the
+    /// reading ahead is off for the rest of this host's life (NatureSpreadDistrusted), and a warning names the cell. 0: no check.
+    /// </summary>
+    public int NatureSpotChecks { get; set; } = 4;
+    /// <summary>A spot check found a reading that no longer held: this host reads nothing ahead any more, and every step casts for itself.</summary>
+    public bool NatureSpreadDistrusted { get; private set; }
+    /// <summary>Readings cast again by the spot check, and the ones that no longer held (counts since the host started).</summary>
+    internal long NatureGroundSpotChecked { get; private set; }
+    internal long NatureSpotCheckFailures { get; private set; }
+    /// <summary>Test seam: where the spot check's warning goes instead of the engine's log (a suite fails on anything in its error stream).</summary>
+    internal Action<string>? NatureSpreadAlarmForTests { get; set; }
+
+    /// <summary>
+    /// For whoever moves, re-layers or reshapes a collider on the world layer where it stands, outside a command (which moves the
+    /// room revision) and outside the tree (a collision node coming or going is counted by itself): call this when it happens, and
+    /// the nature step drops what it read ahead of it. A collider that moves every tick should not be on the world layer at all.
+    /// </summary>
+    public void NoteWorldCollisionChanged() => _worldNoted++;
+
     /// <summary>What the nature work of each physics tick took (AdvanceNature), kept by the host: LOOK-3's headless measure.</summary>
     public NatureTickMeter NatureTicks { get; } = new();
 
@@ -281,9 +452,7 @@ public partial class CommandHost
     {
         NatureConfigured = true;
         // LOOK-3's off switch for a launch (the frame timing's before and after): the argument first, then the variable.
-        var spread = OS.GetCmdlineUserArgs().FirstOrDefault(a => a.StartsWith(NatureSpreadArgument, StringComparison.Ordinal))?[NatureSpreadArgument.Length..];
-        if (string.IsNullOrEmpty(spread)) spread = OS.GetEnvironment(NatureSpreadVariable);
-        if (spread == "off") NatureStepSpread = false;
+        if (NatureSpreadOff(OS.GetCmdlineUserArgs(), OS.GetEnvironment(NatureSpreadVariable))) NatureStepSpread = false;
         LoadNature();
     }
 
@@ -982,7 +1151,7 @@ public partial class CommandHost
         var saved = _natureDirty && (fireEnded || _natureSaveClock >= NatureSaveIntervalS);
         if (saved) SaveNature();
         NatureTicks.Note(steps, System.Diagnostics.Stopwatch.GetElapsedTime(began, worked).TotalMilliseconds, System.Diagnostics.Stopwatch.GetElapsedTime(worked, probed).TotalMilliseconds,
-            saved ? System.Diagnostics.Stopwatch.GetElapsedTime(probed).TotalMilliseconds : 0);
+            saved ? System.Diagnostics.Stopwatch.GetElapsedTime(probed).TotalMilliseconds : 0, delta);
     }
 
     /// <summary>
@@ -1164,8 +1333,9 @@ public partial class CommandHost
     /// </summary>
     private void ReadGroundAhead(int ticks)
     {
-        // Nothing asks the room's physics while a test's sampler stands in for it, or outside the tree.
-        if (NatureSampleForTests != null || !IsInsideTree())
+        // Nothing asks the room's physics while a test's sampler stands in for it, or outside the tree; and nothing is read ahead
+        // once a spot check found the mark blind to something in this world (the step casts for itself from then on).
+        if (NatureSampleForTests != null || NatureSpreadDistrusted || !IsInsideTree())
         {
             if (_aheadPlannedFor != null || _aheadGround.Count > 0) ForgetGroundAhead();
             _markSeen = null;
@@ -1243,21 +1413,19 @@ public partial class CommandHost
 
     /// <summary>
     /// The world as far as a ground ray can tell, now (WorldMark); null while it cannot be vouched for: outside the tree, or while a
-    /// creation's animation runs (a spinning part turns its own collision, tick by tick, and stays where it stopped).
+    /// running animation turns a part that holds a collider (it moves its collision tick by tick, and stays where it stopped).
+    /// Each look counts the parts that moved since the look before (NatureMarkMoved).
     /// </summary>
     private WorldMark? MarkWorld()
     {
         if (!IsInsideTree() || Room == null || Authority == null) return null;
-        ulong runtime = 0;
-        if (Runtime != null && IsInstanceValid(Runtime))
+        var blind = NatureMarkBlindForTests;
+        WatchColliders();
+        if ((blind & WorldMarkPart.Moving) == 0 && Runtime != null && IsInstanceValid(Runtime) && AnimatesCollider())
         {
-            runtime = Runtime.GetInstanceId();
-            using var running = Runtime.Get(RuntimeAnimations);
-            if (running.VariantType == Variant.Type.Array)
-            {
-                using var animations = running.AsGodotArray();
-                if (animations.Count > 0) return null;
-            }
+            _markMoved[WorldMarkParts - 1]++;
+            _markLast = null;
+            return null;
         }
         var hands = _held.Count == 0 ? "" : string.Join("|", _held.OrderBy(h => h.Key, StringComparer.Ordinal).Select(h => h.Key + ">" + h.Value.Target));
         // Terrain collision is built and released round the bodies: every build counts up, and a release alone leaves fewer built.
@@ -1270,18 +1438,134 @@ public partial class CommandHost
         // The plant copies' collision is built tile by tile as the bodies come near, and never released.
         var copies = GetParent()?.GetNodeOrNull<PlantCopiesView>(CopiesPath);
         var room = GetParent()?.GetNodeOrNull<Node3D>(RoomNodePath);
-        return new WorldMark(Nature, Revision, PermissionRevision, hands, _plantsVersion, _natureSceneKey, builds, tiles,
+        var mark = new WorldMark(Nature, Revision, PermissionRevision, hands, _plantsVersion, _natureSceneKey, builds, tiles,
             copies != null && IsInstanceValid(copies) ? copies.GetInstanceId() : 0, copies != null && IsInstanceValid(copies) ? copies.CollisionTilesBuilt : 0,
-            room != null && IsInstanceValid(room) ? room.GetInstanceId() : 0, runtime);
+            room != null && IsInstanceValid(room) ? room.GetInstanceId() : 0, _colliderNodes, _worldNoted).Without(blind);
+        if (_markLast is { } last && last != mark)
+        {
+            var moved = (int)last.Differs(mark);
+            for (var bit = 0; bit < WorldMarkParts; bit++)
+                if ((moved & (1 << bit)) != 0) _markMoved[bit]++;
+        }
+        _markLast = mark;
+        return mark;
     }
 
-    /// <summary>The readings taken ahead for the step that runs now, if the world is still as it was when they were taken; else none, and the step casts.</summary>
+    /// <summary>
+    /// Whether a running animation of the runtime turns a part that holds a collider. A light changes a lamp's energy and moves
+    /// nothing. A spin turns its part, and with it whatever collides under that part: none today (the compiler lets only a rotor
+    /// spin, and a rotor is drawn arms), so this is the guard for the day a part with a body may turn. An animation this cannot
+    /// read counts as one that moves a collider.
+    /// </summary>
+    private bool AnimatesCollider()
+    {
+        using var running = Runtime.Get(RuntimeAnimations);
+        if (running.VariantType != Variant.Type.Array) return false;
+        using var animations = running.AsGodotArray();
+        for (var i = 0; i < animations.Count; i++)
+        {
+            using var entry = animations[i];
+            if (entry.VariantType != Variant.Type.Dictionary) return true;
+            using var animation = entry.AsGodotDictionary();
+            if (!animation.TryGetValue(AnimationOp, out var kind)) return true;
+            using (kind)
+                if (kind.VariantType == Variant.Type.String && kind.AsString() == "light") continue;
+            if (!animation.TryGetValue(AnimationPart, out var holder)) return true;
+            using (holder)
+            {
+                // A part already freed turns nothing (the runtime drops its animation on its next tick).
+                if (holder.VariantType != Variant.Type.Object || holder.AsGodotObject() is not Node part || !IsInstanceValid(part)) continue;
+                if (HoldsCollider(part)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool HoldsCollider(Node node)
+    {
+        if (node is CollisionObject3D) return true;
+        for (var i = node.GetChildCount() - 1; i >= 0; i--)
+            if (HoldsCollider(node.GetChild(i))) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// The tree's collision nodes are counted as they come and go, from the first look at the mark on: a body, an area or a shape
+    /// entering or leaving the tree is the one thing every node-made collider has in common, whoever makes it (the runtime's
+    /// assemblies, a bridge, a leaf on the water, a village's house, a lane not written yet). Colliders made on the physics server
+    /// with no node (the land's tiles, the plant copies') have their own parts of the mark.
+    /// </summary>
+    private void WatchColliders()
+    {
+        var tree = GetTree();
+        if (ReferenceEquals(_collidersWatched, tree)) return;
+        UnwatchColliders();
+        _colliderAdded ??= NoteColliderNode;
+        _colliderRemoved ??= NoteColliderNode;
+        tree.NodeAdded += _colliderAdded;
+        tree.NodeRemoved += _colliderRemoved;
+        _collidersWatched = tree;
+        // Whatever came or went while nobody watched is not known: the count starts on another number.
+        _colliderNodes++;
+    }
+
+    /// <summary>The host leaves the tree (CommandHost._ExitTree): it stops listening to it.</summary>
+    private void UnwatchColliders()
+    {
+        if (_collidersWatched is { } tree && IsInstanceValid(tree))
+        {
+            if (_colliderAdded != null) tree.NodeAdded -= _colliderAdded;
+            if (_colliderRemoved != null) tree.NodeRemoved -= _colliderRemoved;
+        }
+        _collidersWatched = null;
+    }
+
+    private void NoteColliderNode(Node node)
+    {
+        if (node is CollisionObject3D or CollisionShape3D or CollisionPolygon3D) _colliderNodes++;
+    }
+
+    /// <summary>
+    /// The readings taken ahead for the step that runs now, if the world is still as it was when they were taken; else none, and the
+    /// step casts. The world is vouched for only when the host looked at the mark on the physics tick just before this one and saw
+    /// the readings' own (a host not advanced on a tick cannot speak for it), the mark is still that now, and the spot check holds.
+    /// </summary>
     private Dictionary<GroundAt, GroundRead?>? GroundReadAhead()
     {
         if (_aheadGround.Count == 0) return null;
-        if (NatureStepSpread && NatureSampleForTests == null && _aheadMark != null && MarkWorld() == _aheadMark) return _aheadGround;
+        if (NatureStepSpread && !NatureSpreadDistrusted && NatureSampleForTests == null && _aheadMark != null &&
+            _markSeen == _aheadMark && _markSeenFrame + 1 == Engine.GetPhysicsFrames() && MarkWorld() == _aheadMark && SpotCheckGround()) return _aheadGround;
         NatureGroundDropped += _aheadGround.Count;
         return null;
+    }
+
+    /// <summary>
+    /// NatureSpotChecks of the readings held are cast for again, others each step in turn. True while each is what was read. One that
+    /// differs under an unchanged mark means the mark is blind to something in this world: no reading is trusted from then on.
+    /// </summary>
+    private bool SpotCheckGround()
+    {
+        var read = Math.Min(_aheadNext, _aheadWanted.Count);
+        var checks = Math.Min(NatureSpotChecks, read);
+        if (checks <= 0) return true;
+        var first = _spotTurn++ % read;
+        for (var i = 0; i < checks; i++)
+        {
+            var at = _aheadWanted[(int)((first + (long)i * read / checks) % read)];
+            if (!_aheadGround.TryGetValue(at, out var ahead)) continue;
+            NatureGroundSpotChecked++;
+            if (ReadGround(at.X, at.Z, at.Top) == ahead) continue;
+            NatureSpotCheckFailures++;
+            NatureSpreadDistrusted = true;
+            if (_spreadAlarmed) return false;
+            _spreadAlarmed = true;
+            var alarm = $"NATURE_SPREAD a ground reading taken ahead no longer holds at cell ({at.X}, {at.Z}) though the world's mark stood: something changed the world's collision unseen " +
+                        "(CommandHost.WorldMark; a lane that moves a collider calls NoteWorldCollisionChanged). The nature step reads for itself from here on, as before LOOK-3.";
+            if (NatureSpreadAlarmForTests != null) NatureSpreadAlarmForTests(alarm);
+            else GD.PushWarning(alarm);
+            return false;
+        }
+        return true;
     }
 
     /// <summary>The ground read ahead is for one step: once it ran (or the nature it was planned for is gone), all of it goes.</summary>
