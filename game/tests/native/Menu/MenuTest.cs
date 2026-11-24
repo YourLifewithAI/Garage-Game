@@ -42,6 +42,7 @@ public partial class MenuTest : Node
             _rules = IslandRules.Load(RoomWorld.DefaultRulesId, RoomWorld.DefaultRulesVersion);
             _layout = new TeamLayout(Path.Combine(root, "model"));
             TestCatalog();
+            await TestLandPicture();
             TestTeamMaker();
             TestModel();
             TestCopy();

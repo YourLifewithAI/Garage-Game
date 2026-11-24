@@ -23,6 +23,9 @@ public sealed record IslandEntry(string RoomId, string DisplayName, string Direc
     /// <summary>The longest island name a card shows (the contract's display_text cap for a name).</summary>
     public const int MaxNameLength = 40;
 
+    /// <summary>The name the picture and the title page show: the room's name without the word "Landscape", or the room's id spoken plainly.</summary>
+    public string LandName => IslandNames.Land(DisplayName, RoomId);
+
     /// <summary>The shape data a thumbnail is drawn from, read again from the manifest (null when the room has none or it does not read).</summary>
     public IntroSource? ReadShape()
     {
@@ -30,6 +33,21 @@ public sealed record IslandEntry(string RoomId, string DisplayName, string Direc
         try { return IntroSource.FromManifest(FileAccess.GetFileAsBytes(Directory + "/room.json")); }
         catch (IntroSourceException) { return null; }
     }
+}
+
+/// <summary>How a land is called on screen. Every name in a manifest is untrusted: it is cleaned as display text, then freed of "Landscape".</summary>
+public static class IslandNames
+{
+    public static string Land(string displayName, string roomId)
+    {
+        var name = Strip(KernelText.DisplayText(displayName, IslandEntry.MaxNameLength));
+        if (name.Length == 0 || name == "Refused.") name = Strip(roomId.Replace('_', ' ').Replace('-', ' '));
+        if (name.Length == 0) return "This land";
+        return KernelText.DisplayText(char.ToUpperInvariant(name[0]) + name[1..], IslandEntry.MaxNameLength);
+    }
+
+    private static string Strip(string text) =>
+        string.Join(' ', text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(w => !w.Trim(':', '-', ',', '.', '(', ')').Equals("landscape", StringComparison.OrdinalIgnoreCase)));
 }
 
 /// <summary>
