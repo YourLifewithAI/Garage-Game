@@ -35,19 +35,36 @@ public sealed record IslandEntry(string RoomId, string DisplayName, string Direc
     }
 }
 
-/// <summary>How a land is called on screen. Every name in a manifest is untrusted: it is cleaned as display text, then freed of "Landscape".</summary>
+/// <summary>
+/// How a land is called on screen. Every name in a manifest is untrusted: it is cleaned as display text, freed of the word
+/// "Landscape" (the exporter's "Landscape garage nominal" is "Garage nominal"), and only then cut to forty characters, so a long name
+/// keeps what fits. A name the family typed keeps its own letters ("iPad room" stays so): the first letter is raised only where a
+/// leading "Landscape" was taken off, or where the name is the room's id spoken plainly.
+/// </summary>
 public static class IslandNames
 {
+    /// <summary>The most of a manifest's name that is read before the cut to forty.</summary>
+    private const int MaxRead = 160;
+
     public static string Land(string displayName, string roomId)
     {
-        var name = Strip(KernelText.DisplayText(displayName, IslandEntry.MaxNameLength));
-        if (name.Length == 0 || name == "Refused.") name = Strip(roomId.Replace('_', ' ').Replace('-', ' '));
+        var read = KernelText.DisplayText(displayName, MaxRead);
+        var (name, led) = read == "Refused." ? ("", false) : Strip(read);
+        if (name.Length == 0) (name, led) = (Strip(roomId.Replace('_', ' ').Replace('-', ' ')).Name, true);
         if (name.Length == 0) return "This land";
-        return KernelText.DisplayText(char.ToUpperInvariant(name[0]) + name[1..], IslandEntry.MaxNameLength);
+        if (led) name = char.ToUpperInvariant(name[0]) + name[1..];
+        var shown = KernelText.DisplayText(name, IslandEntry.MaxNameLength);
+        return shown == "Refused." ? "This land" : shown;
     }
 
-    private static string Strip(string text) =>
-        string.Join(' ', text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(w => !w.Trim(':', '-', ',', '.', '(', ')').Equals("landscape", StringComparison.OrdinalIgnoreCase)));
+    /// <summary>The words without "Landscape" (any letter case, any space between words, its own punctuation), and whether the first word was one taken off.</summary>
+    private static (string Name, bool Led) Strip(string text)
+    {
+        var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        static bool Dropped(string word) => word.Trim(':', '-', ',', '.', '(', ')').Equals("landscape", StringComparison.OrdinalIgnoreCase);
+        var kept = string.Join(' ', words.Where(w => !Dropped(w))).Trim(' ', '-', ':', ',');
+        return (kept, words.Length > 0 && Dropped(words[0]));
+    }
 }
 
 /// <summary>
@@ -82,7 +99,9 @@ public static class IslandCatalog
                     found.Add(entry);
             }
         }
-        return found.OrderBy(e => e.Tutorial ? 0 : 1).ThenBy(e => e.Shipped ? 1 : 0).ThenBy(e => e.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
+        // By the name a card shows once it shows the land's (LandName); for names without "Landscape" that is the manifest's name, as before.
+        return found.OrderBy(e => e.Tutorial ? 0 : 1).ThenBy(e => e.Shipped ? 1 : 0).ThenBy(e => e.LandName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(e => e.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     /// <summary>One room folder's card, or null when it is not a room the game can save (no manifest, not readable, an id that is not one).</summary>

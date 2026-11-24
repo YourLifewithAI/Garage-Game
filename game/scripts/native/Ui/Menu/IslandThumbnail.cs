@@ -14,27 +14,32 @@ namespace GarageGame.Native.Ui;
 /// </summary>
 public partial class IslandThumbnail : Control
 {
-    /// <summary>At most this many boxes are drawn, the biggest footprints first.</summary>
-    public const int MaxBoxes = 400;
-    public static readonly Color Ground = new("e6d9b4");
-    public static readonly Color WallInk = new("f0e6cf");
+    /// <summary>At most this many boxes are drawn, the biggest footprints first (LandPicture's own limit).</summary>
+    public const int MaxBoxes = LandPicture.MaxThings;
 
     private IntroSource? _shape;
-    /// <summary>What was drawn: floor triangles, wall strokes and boxes (the test reads these to know the picture is the island's).</summary>
-    public int FloorTriangles { get; private set; }
-    public int WallStrokes { get; private set; }
-    public int BoxesDrawn { get; private set; }
+    private LandPicture? _land;
+
+    /// <summary>What the last draw sent to the canvas, stroke by stroke as each was drawn (the test reads these to know the picture is the land's).</summary>
+    public IReadOnlyList<LandStroke> DrawnStrokes { get; private set; } = Array.Empty<LandStroke>();
+    /// <summary>What was drawn, counted: cliff bands, landforms, cliff-side things, things on tops, bays, notches, sea.</summary>
+    public LandCounts Drawn => LandCounts.Of(DrawnStrokes);
+    /// <summary>What was drawn: floor triangles, wall strokes (cliff bands) and boxes (things).</summary>
+    public int FloorTriangles => DrawnStrokes.Count(s => s.Part == LandPart.Floor);
+    public int WallStrokes => Drawn.Bands;
+    public int BoxesDrawn => Drawn.Things;
     public bool HasShape => _shape != null;
 
     public IslandThumbnail()
     {
         MouseFilter = MouseFilterEnum.Ignore;
         CustomMinimumSize = new Vector2(220, 130);
+        // Shape data is untrusted: whatever it holds, nothing is drawn outside the card.
+        ClipContents = true;
     }
 
-    /// <summary>The land as the picture draws it (null for a room without shape data); its Counts are what the test reads.</summary>
+    /// <summary>The land as the picture draws it (null for a room without shape data).</summary>
     public LandPicture? Land => _land;
-    private LandPicture? _land;
 
     /// <param name="rim">A land made with the rim record gives its notches and bays here (it has no sea; none is drawn either way).</param>
     public void SetShape(IntroSource? shape, IReadOnlyList<RimOpening>? rim = null)
@@ -46,31 +51,7 @@ public partial class IslandThumbnail : Control
 
     public override void _Draw()
     {
-        FloorTriangles = WallStrokes = BoxesDrawn = 0;
-        var size = Size;
-        if (_land == null)
-        {
-            DrawRect(new Rect2(Vector2.Zero, size), LandPicture.Sand);
-            DrawStandIn(size);
-            return;
-        }
-        _land.Draw(this, size);
-        foreach (var floor in _land.Floors)
-            FloorTriangles += Math.Max(floor.Length - 2, 0);
-        WallStrokes = _land.Counts.Bands;
-        BoxesDrawn = _land.Counts.Things;
-    }
-
-    /// <summary>The picture of a room that has no shape data: a house in outline.</summary>
-    private void DrawStandIn(Vector2 size)
-    {
-        var centre = size * 0.5f;
-        var half = new Vector2(Math.Min(size.X, size.Y * 1.6f) * 0.22f, size.Y * 0.2f);
-        var body = new Rect2(centre - half + new Vector2(0, size.Y * 0.08f), half * 2);
-        DrawRect(body, new Color("3b6a63"));
-        DrawRect(body, WallInk, false, 2f);
-        var roof = new[] { new Vector2(body.Position.X - 8, body.Position.Y), new Vector2(centre.X, body.Position.Y - size.Y * 0.22f), new Vector2(body.End.X + 8, body.Position.Y) };
-        DrawColoredPolygon(roof, new Color("c98562"));
-        DrawRect(new Rect2(centre.X - 9, body.End.Y - 26, 18, 26), new Color("1b2f2c"));
+        DrawnStrokes = Array.Empty<LandStroke>();
+        DrawnStrokes = LandPicture.Replay(this, _land != null ? _land.Strokes(Size) : LandPicture.StandIn(Size));
     }
 }
