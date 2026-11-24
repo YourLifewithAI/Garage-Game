@@ -8,7 +8,12 @@ import math
 
 from pipeline.landscape.harness.views import overview_camera
 from .field import Noise, bell, clamp, lerp, rr_dist, smax, smooth
+from . import parts, scale as world
 
+# On a magnified room every box is raised as its own parts (parts.py: a chair a seat under a back wall, a desk a flat
+# top with sheer sides), each under a hard cap the weather spares. False: the melted forms below there too (the land
+# before Run 4's WORLD-1). At true size the land is the melted forms either way: its bytes are as they were.
+BLOCKS = True
 CONFIDENT = .5
 # Kind -> landform. Unknown or low-confidence kinds fall back to proportions.
 FORMS = {
@@ -247,8 +252,76 @@ def territory_cap(o, others, x, z):
     return cap
 
 
+class Heights(list):
+    """The land's heights, with what `raise_blocks` knows of them for `weather`: `cap`, per vertex, 1 where the
+    weather spares the land (a block's flat cap bed, every block's face and the plain at its foot), 0 on soft tops and
+    the open plain."""
+    cap = None
+
+
+def raise_blocks(grid, objects, base, owner):
+    """Each object raised as its own parts (parts.py) on the plain, inside its true box; record who formed each
+    vertex. Returns Heights (their `cap` says what the weather spares).
+
+    A thing on the floor stands on the plain under its middle, level, so its top is as far over its own ground as the
+    box is tall; a thing that rests on another stands on that one's top, so a laptop still shows on its desk. Nothing
+    spreads past its box but the face itself, one cell wide. `grid` and `objects` are the room at true size, as
+    `uplift` is handed them at every world scale (generate.py shapes the landforms there and magnifies them)."""
+    h = Heights(base)
+    cap = [0.]*grid.n
+    index = {o['id']: k for k, o in enumerate(objects)}
+    order = sorted(objects, key=lambda o: (o['parent'] is not None, o['base'], o['id']))
+    stand = {}    # id: how far over its box's own base an object's land stands (the plain under a floor thing's middle)
+    cell = grid.cell
+    nx = grid.nx
+    raised = set()
+    for o in order:
+        k = index[o['id']]
+        parent = objects[index[o['parent']]] if o['parent'] else None
+        stand[o['id']] = grid.sample(base, o['cx'], o['cz']) if parent is None else stand[parent['id']]
+        level = o['base']+stand[o['id']]
+        blocks = parts.blocks(o, cell)
+        least = parts.ROUND_GRAINS*cell    # a thing thinner than the grain stands is as wide as that
+        R = math.hypot(max(o['sx'], least), max(o['sz'], least))/2+cell
+        rx, rz = grid.span(o['cx']-R, o['cx']+R, o['cz']-R, o['cz']+R)
+        phase = o.get('phase', 0.)
+        for j in rz:
+            z = grid.zs[j]
+            for i in rx:
+                x = grid.xs[i]
+                lx, lz = local(o, x, z)
+                p, hard = parts.surface(blocks, lx, lz, cell, phase)
+                if p <= 0:
+                    continue
+                if parent is not None:
+                    # Only over its support: a box scanned past its support's edge raises no pillar beside it.
+                    plx, plz = local(parent, x, z)
+                    if rr_dist(plx, plz, parent['sx']/2, parent['sz']/2, .05) > -.01:
+                        continue
+                q = j*nx+i
+                if level+p > h[q]+1e-9:
+                    h[q] = level+p
+                    cap[q] = hard
+                    owner[q] = k
+                    raised.add(q)
+    # The plain at a face's foot is spared too: the weather reads a face's steepness there and would cut a moat along
+    # every cliff (1.2 m deep on the ten-times garage). A cliff meets level ground, where a climb's foot is.
+    for q in raised:
+        i, j = q % nx, q//nx
+        for dj in (-1, 0, 1):
+            for di in (-1, 0, 1):
+                ii, jj = i+di, j+dj
+                if 0 <= ii < nx and 0 <= jj < grid.nz and jj*nx+ii not in raised:
+                    cap[jj*nx+ii] = 1.
+    h.cap = cap
+    return h
+
+
 def uplift(grid, objects, base, noise, owner):
-    """Merge object landforms into the base plain; record who formed each vertex."""
+    """Merge object landforms into the base plain; record who formed each vertex. On a magnified room each object
+    is raised as its own parts instead (`raise_blocks`)."""
+    if BLOCKS and world.W != 1:
+        return raise_blocks(grid, objects, base, owner)
     h = base[:]
     contrib = [0.]*grid.n
     order = sorted(objects, key=lambda o: (o['parent'] is not None, o['base'], o['id']))
@@ -670,15 +743,19 @@ def flow_accumulation(grid, h):
 def weather(grid, h, outside, slope, noise, rounds=3):
     """Erosion signature: a few rounds of stream-power incision, so gullies
     gather into branching drainage and the ground between them stands as
-    spurs; then softened crests and talus below steep faces."""
+    spurs; then softened crests and talus below steep faces. Where the land
+    carries caps (`Heights.cap`: a magnified room's blocks) a cap bed, a
+    face and the plain at its foot are spared: the weather cuts and rounds
+    only soft tops and the open plain."""
     from .field import slope_field
+    cap = getattr(h, 'cap', None)
     out = h[:]
     for r in range(rounds):
         acc, _ = flow_accumulation(grid, out)
         s_now = slope_field(grid, out) if r else slope
         for q in range(grid.n):
             s = s_now[q]
-            if s < 10:
+            if s < 10 or (cap is not None and cap[q]):
                 continue
             a = min(acc[q], 600.)
             out[q] -= .0016*math.sqrt(a)*smooth((s-10)/25)*(1.25 if r == 0 else 1.)
@@ -688,6 +765,8 @@ def weather(grid, h, outside, slope, noise, rounds=3):
     for j in range(1, grid.nz-1):
         for i in range(1, nx-1):
             q = j*nx+i
+            if cap is not None and cap[q]:
+                continue
             avg = (out[q-1]+out[q+1]+out[q-nx]+out[q+nx])*.25
             if avg < out[q]:
                 soft[q] = out[q]+(avg-out[q])*.45*smooth(slope[q]/30)
