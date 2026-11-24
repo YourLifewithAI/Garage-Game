@@ -80,7 +80,8 @@ public partial class MenuCapture : Node
             menu.Model.ChooseMode("creative");
             menu.Refresh();
             await Frames(4);
-            menu.PlayButton.EmitSignal(BaseButton.SignalName.Pressed);
+            // Mira's Creative island here has a save: Continue opens it (where there is none, New game starts one).
+            (menu.ContinueButton.Visible ? menu.ContinueButton : menu.NewGameButton).EmitSignal(BaseButton.SignalName.Pressed);
             var world = _boot.World;
             for (var booting = System.Diagnostics.Stopwatch.StartNew(); world != null && booting.Elapsed.TotalSeconds < 120 && !world.WorldReady && world.LoadError.Length == 0;) await Frames(1);
             await Frames(90);

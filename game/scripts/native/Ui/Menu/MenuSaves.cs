@@ -79,6 +79,107 @@ public sealed record LastGame(string TeamId, string RoomId, string Mode, string?
     }
 }
 
+/// <summary>What the start rule finds for a team, an island and a mode (docs/game/MECHANICS.md section 3, "One rule for every start").</summary>
+public enum StartCase
+{
+    /// <summary>A team, an island or a mode is not chosen yet: nothing starts.</summary>
+    NotChosen,
+    /// <summary>No game in this mode: New game, and nothing is asked.</summary>
+    NoGame,
+    /// <summary>A save here: Continue, or New game.</summary>
+    SaveHere,
+    /// <summary>No save here, a game of this mode on another island: bring that game here, or New game.</summary>
+    GameElsewhere,
+    /// <summary>The island was rebuilt since its save (a save only under an older manifest): New game alone, and the old game is kept.</summary>
+    Rebuilt,
+}
+
+/// <summary>
+/// What a start offers (the rule's buttons): Continue only where its save is, "Bring my game here" only for a game that is on
+/// another island, New game always; and whether New game asks first, which it does over a game, once, before anything moves.
+/// </summary>
+public sealed record StartOffer(StartCase Case, DateTime? LastSavedUtc)
+{
+    public static StartOffer None { get; } = new(StartCase.NotChosen, null);
+    public bool Continue => Case == StartCase.SaveHere;
+    public bool Bring => Case == StartCase.GameElsewhere;
+    public bool NewGame => Case != StartCase.NotChosen;
+    /// <summary>New game would put a game away: it asks once first.</summary>
+    public bool Asks => Case is StartCase.SaveHere or StartCase.GameElsewhere or StartCase.Rebuilt;
+}
+
+/// <summary>
+/// The start rule read from the team's folder (Run 4, MENU-3; docs/game/MECHANICS.md section 3, "Starting and continuing"):
+/// one game is one team in one mode, and what a start may do with it depends only on what is on disk now. Nothing here opens,
+/// moves or writes a save; the one thing it mends is a put-away that the process ending cut short (Mend), which the next start
+/// would put back anyway.
+/// </summary>
+public static class StartRule
+{
+    /// <summary>At most this many files of a mode's folder are looked at for the date its game was last saved.</summary>
+    public const int MaxFilesRead = 4096;
+
+    public static StartOffer For(TeamLayout layout, string team, IslandEntry island, string mode)
+    {
+        if (!TeamLayout.ValidTeamId(team) || mode is not ("creative" or "challenge")) return StartOffer.None;
+        if (IslandSaveInfo.One(layout, team, island, mode).Exists) return new StartOffer(StartCase.SaveHere, LastSaved(layout, team, mode));
+        if (SaveOfAnEarlierIsland(layout, team, island, mode)) return new StartOffer(StartCase.Rebuilt, LastSaved(layout, team, mode));
+        // Anything New game would put away is a game (GameSetAside.HasGame: in doubt there is one, and New game asks).
+        if (GameSetAside.HasGame(layout, team, mode)) return new StartOffer(StartCase.GameElsewhere, LastSaved(layout, team, mode));
+        return new StartOffer(StartCase.NoGame, null);
+    }
+
+    /// <summary>Whether this team has a save of this island in this mode under another manifest: the island as it was before it was rebuilt.</summary>
+    public static bool SaveOfAnEarlierIsland(TeamLayout layout, string team, IslandEntry island, string mode)
+    {
+        try
+        {
+            var room = Path.Combine(layout.IslandsRoot(team, mode), island.RoomId);
+            if (!Directory.Exists(room)) return false;
+            return Directory.EnumerateDirectories(room).Any(folder => Path.GetFileName(folder) is { } prefix && prefix != island.ManifestPrefix &&
+                                                                  TeamLayout.ValidManifestPrefix(prefix) && File.Exists(Path.Combine(folder, "inventions.json")));
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return false; }
+    }
+
+    /// <summary>When this team's game in this mode was last saved: its newest file (null: nothing is there, or it cannot be listed). Links are not followed.</summary>
+    public static DateTime? LastSaved(TeamLayout layout, string team, string mode)
+    {
+        try
+        {
+            var home = layout.ModeFolder(team, mode);
+            if (!Directory.Exists(home)) return null;
+            DateTime? newest = null;
+            var read = 0;
+            var options = new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint, IgnoreInaccessible = true };
+            foreach (var file in Directory.EnumerateFiles(home, "*", options))
+            {
+                if (++read > MaxFilesRead) break;
+                if (file.EndsWith(".lock", StringComparison.OrdinalIgnoreCase)) continue;
+                var written = File.GetLastWriteTimeUtc(file);
+                // A file system that keeps no time answers with the year 1601: no time at all.
+                if (written.Year >= 1980 && (newest == null || written > newest)) newest = written;
+            }
+            return newest;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    /// <summary>
+    /// A put-away that the process ending cut short is put back, when nobody has the team up (GameSetAside.Recover under the
+    /// team's lease held alone, exactly as a room's boot does it): so the menu shows the game as it is, and Continue finds its
+    /// save. True when something was put back. A fault changes nothing here: the next start, or New game, tries again.
+    /// </summary>
+    public static bool Mend(TeamLayout layout, string team)
+    {
+        if (!TeamLayout.ValidTeamId(team) || GameSetAside.PendingPutAway(layout, team) == null) return false;
+        if (PlayLease.TryAlone(layout, team) is not { } alone) return false;
+        try { return GameSetAside.Recover(alone, layout).Length > 0; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or TeamFileException or SetAsideException or SetAsideLedgerException) { return false; }
+        finally { alone.Dispose(); }
+    }
+}
+
 /// <summary>One Creative island copied into Challenge by a team: which island, when, at what difficulty, and the builds it carried over.</summary>
 public sealed record CarriedCopy(string RoomId, string ManifestPrefix, string Difficulty, string CopiedUtc, IReadOnlyList<string> Builds);
 

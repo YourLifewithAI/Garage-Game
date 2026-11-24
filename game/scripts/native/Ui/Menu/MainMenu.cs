@@ -9,7 +9,7 @@ using GarageGame.Native.Saves;
 namespace GarageGame.Native.Ui;
 
 /// <summary>
-/// The opening menu (docs/game/MECHANICS.md section 3; scenes/menu.tscn): three rows of big cards and one big button.
+/// The opening menu (docs/game/MECHANICS.md section 3; scenes/menu.tscn): three rows of big cards and the start rule's buttons.
 /// <list type="number">
 /// <item><b>Choose your character.</b> One card per team (the avatar, its name, its trait stats, the islands visited, the Gubble with its
 /// colour and expertise count, and Trust in words), and "New team" (MainMenu.NewTeam.cs).</item>
@@ -18,7 +18,12 @@ namespace GarageGame.Native.Ui;
 /// <item><b>Mode.</b> Creative, Challenge (Gentle, Standard, Brave) or "Live (for now just a solo preview)", shown and refused while the island
 /// rules say it is not available; on an island with a Creative save and no Challenge one, "Start fresh" or "Copy my Creative island
 /// into Challenge", once per island per team.</item>
-/// <item><b>Continue</b>: "Mira on the Garage, Challenge" in one click. Beside it, Play for the choice made above.</item>
+/// <item><b>The start rule's buttons</b>, where Play was (Run 4, MENU-3; section 3, "Starting and continuing"), for the team, the island
+/// and the mode chosen above: <b>Continue</b> (two lines: the word, and under it "Mira on the Garage, Challenge"), only where its
+/// save is; "Bring my game here" where this mode's game is on another island; and <b>New game</b>, always. New game over a game asks once: the question
+/// stands where the hint was, "Go back" takes the focus, and New game pressed again puts the old game away (kept, never deleted)
+/// and starts a first one. Nothing else opens a save. The menu opens with the last game chosen, so Continue is one click; while a
+/// room of the team is still leaving, the buttons wait for it.</item>
 /// </list>
 /// The menu is MenuModel drawn: every click goes to the model and the rows show what it says. A launch is handed to <see cref="Launch"/>
 /// (MenuBoot boots the room with the team, island, mode and difficulty, through the same boot that --team --mode --difficulty take).
@@ -28,7 +33,7 @@ public partial class MainMenu : Control
     public MenuModel Model { get; set; } = null!;
     /// <summary>The shipped characters (ids, names, thumbnails) for the avatars and the New team panel; read when the menu opens.</summary>
     public Func<IReadOnlyList<CharacterChoice>?>? Characters { get; set; }
-    /// <summary>Told the game to start (Play or Continue).</summary>
+    /// <summary>Told the game to start (Continue, "Bring my game here" or New game).</summary>
     public Action<MenuLaunch>? Launch { get; set; }
     public Action? QuitGame { get; set; }
 
@@ -48,7 +53,19 @@ public partial class MainMenu : Control
     private Button _startFresh = null!, _copyIt = null!;
     private Label _copyNote = null!;
     private Label _notice = null!, _hint = null!;
-    private Button _play = null!, _continue = null!, _quit = null!, _newTeam = null!, _editTeam = null!;
+    private Button _newGame = null!, _continue = null!, _bring = null!, _goBack = null!, _quit = null!, _newTeam = null!, _editTeam = null!;
+    /// <summary>The foot: the menu's words and the start rule's buttons.</summary>
+    private HBoxContainer _foot = null!;
+    /// <summary>The start buttons wait for a room of the team that is still leaving: the lease is asked again a few times a second.</summary>
+    private bool _waiting;
+    private double _sinceAsked;
+    /// <summary>When New game's question went up (the engine's milliseconds).</summary>
+    private ulong _questionAt;
+    private bool _newGameLeads;
+    /// <summary>Continue's two lines (the word, then the game it opens), and what the start rule offers as last read from the team's folder.</summary>
+    private Label _continueLine = null!;
+    private VBoxContainer _continueLines = null!;
+    private StartOffer _offer = StartOffer.None;
     private IReadOnlyList<CharacterChoice> _characters = Array.Empty<CharacterChoice>();
     private IslandRules? Rules => Model.Rules;
 
@@ -67,8 +84,22 @@ public partial class MainMenu : Control
     public HBoxContainer CopyRow => _copyRow;
     public Label NoticeLabel => _notice;
     public Label HintLabel => _hint;
-    public Button PlayButton => _play;
+    /// <summary>New game: always there, shut while something is not chosen or the team's room is still leaving.</summary>
+    public Button NewGameButton => _newGame;
+    /// <summary>Continue: shown only where the chosen team, island and mode have a save. Two lines: the word, and the game it opens (ContinueLine).</summary>
     public Button ContinueButton => _continue;
+    /// <summary>Continue's second line: "Mira on the Garage, Challenge (Brave)".</summary>
+    public Label ContinueLine => _continueLine;
+    /// <summary>"Bring my game here": shown only where this mode's game is on another island.</summary>
+    public Button BringButton => _bring;
+    /// <summary>"Go back": shown only while New game's question is up.</summary>
+    public Button GoBackButton => _goBack;
+    public HBoxContainer Foot => _foot;
+    /// <summary>
+    /// For this long after New game's question goes up, New game pressed again does nothing: a double click is one press, never
+    /// the question and its answer. Provisional; a test shortens it.
+    /// </summary>
+    public int ConfirmGuardMs { get; set; } = 400;
     public Button QuitButton => _quit;
     public OptionButton KnackSwap => _knackSwap;
 
@@ -204,28 +235,52 @@ public partial class MainMenu : Control
         _copyNote = Wrapped("", 14, MenuStyle.Muted, 560, "CopyNote");
         _modeDetail.AddChild(_copyNote);
 
-        // The foot: what the menu has to say, Continue (one click) and Play (what was chosen above).
-        var foot = new HBoxContainer { Name = "Foot" };
-        foot.AddThemeConstantOverride("separation", 14);
-        column.AddChild(foot);
-        var speech = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, Alignment = BoxContainer.AlignmentMode.Center };
-        foot.AddChild(speech);
+        // The foot: what the menu has to say, and the start rule's buttons where Play was (MENU-3): "Go back" while New game's question
+        // is up, Continue where its save is, "Bring my game here" where the game is on another island, and New game, last.
+        _foot = new HBoxContainer { Name = "Foot" };
+        _foot.AddThemeConstantOverride("separation", 14);
+        column.AddChild(_foot);
+        var speech = new VBoxContainer { Name = "Speech", SizeFlagsHorizontal = SizeFlags.ExpandFill, Alignment = BoxContainer.AlignmentMode.Center };
+        _foot.AddChild(speech);
         _notice = Wrapped("", 16, MenuStyle.Refused, 380, "Notice");
         speech.AddChild(_notice);
         _hint = Wrapped("", 15, MenuStyle.Muted, 380, "Hint");
         speech.AddChild(_hint);
-        _continue = new Button { Name = "Continue", FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(430, 58), ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
+        _goBack = new Button { Name = "GoBack", Text = MenuModel.GoBackWords, Visible = false, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(180, 58) };
+        MenuStyle.Big(_goBack);
+        _goBack.Pressed += GoBack;
+        _foot.AddChild(_goBack);
+        // Continue is two lines, so its word is never cut: "Continue", then the game it opens in smaller letters; it takes the foot's
+        // spare width, so a team's and an island's names fit.
+        _continue = new Button { Name = "Continue", Visible = false, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(430, 58), SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 4 };
         MenuStyle.Big(_continue);
-        _continue.Pressed += () => Start(Model.Continue());
-        foot.AddChild(_continue);
-        _play = new Button { Name = "Play", Text = "Play", FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(180, 58) };
-        MenuStyle.Big(_play);
-        _play.Pressed += () => Start(Model.Play());
-        foot.AddChild(_play);
+        _continueLines = new VBoxContainer { Name = "ContinueLines", Alignment = BoxContainer.AlignmentMode.Center };
+        _continueLines.AddThemeConstantOverride("separation", -2);
+        var word = MenuStyle.Unclipped(MenuStyle.Text("Continue", 20, name: "ContinueWord"));
+        word.HorizontalAlignment = HorizontalAlignment.Center;
+        _continueLines.AddChild(word);
+        _continueLine = MenuStyle.Text("", 14, name: "ContinueLine");
+        _continueLine.HorizontalAlignment = HorizontalAlignment.Center;
+        _continueLines.AddChild(_continueLine);
+        Inside(_continue, _continueLines, 12, 3);
+        _continue.Pressed += () => Start(Model.ContinueHere());
+        _foot.AddChild(_continue);
+        _bring = new Button { Name = "BringGame", Text = MenuModel.BringWords, Visible = false, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(280, 58) };
+        MenuStyle.Big(_bring);
+        _bring.Pressed += () => Start(Model.BringHere());
+        _foot.AddChild(_bring);
+        _newGame = new Button { Name = "NewGame", Text = MenuModel.NewGameWords, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(180, 58) };
+        MenuStyle.Big(_newGame);
+        _newGameLeads = true;
+        _newGame.Pressed += PressNewGame;
+        _foot.AddChild(_newGame);
 
         BuildNewTeam();
+        // What the command line left open is the last game's: the menu opens on its Continue and New game.
+        Model.ChooseFromLastGame();
         Refresh();
-        var focus = Model.ContinueWords() != null ? _continue : Model.Teams.Count > 0 && _teamButtons.TryGetValue(Model.Teams[0].TeamId, out var first) ? first : _newTeam;
+        var focus = _continue.Visible ? _continue : Model.TeamId != null && _teamButtons.TryGetValue(Model.TeamId, out var chosen) ? chosen
+            : Model.Teams.Count > 0 && _teamButtons.TryGetValue(Model.Teams[0].TeamId, out var first) ? first : _newTeam;
         focus.GrabFocus();
     }
 
@@ -270,9 +325,10 @@ public partial class MainMenu : Control
 
     // ---- drawing the model ----
 
-    /// <summary>Every row as the model says it is now: the cards chosen, what the mode needs, Play and Continue.</summary>
+    /// <summary>Every row as the model says it is now: the cards chosen, what the mode needs, and the start rule's buttons.</summary>
     public void Refresh()
     {
+        _offer = Model.Offer;
         RefreshTeams();
         RefreshIslands();
         RefreshMode();
@@ -435,8 +491,9 @@ public partial class MainMenu : Control
         _difficultyRow.Visible = challenge;
         if (challenge)
         {
-            var kept = Model.FixedDifficulty;
-            _difficultyLabel.Text = kept != null ? "This save plays at:" : "How hard:";
+            // While New game's question is up the save's difficulty is only the one offered first: the new game may take another.
+            var kept = Model.Asking ? null : Model.FixedDifficulty;
+            _difficultyLabel.Text = kept != null ? "This save plays at:" : Model.Asking ? "How hard, this time:" : "How hard:";
             foreach (var (difficulty, chip) in _difficultyButtons)
             {
                 var offered = Model.Offers("challenge", difficulty) && (kept == null || kept == difficulty);
@@ -465,9 +522,9 @@ public partial class MainMenu : Control
         if (Model.Mode == "live") return "";
         var save = Model.SaveOf(Model.Mode);
         var name = MenuModel.ModeWords(Model.Mode);
-        return save is { Exists: true }
-            ? $"Your {name} island here, saved {Day(save.WrittenUtc)}: Play opens it. A save keeps its mode."
-            : $"No {name} island here yet: Play makes one.";
+        return save is { Exists: true } ? $"Your {name} island here, saved {Day(save.WrittenUtc)}: Continue opens it. A save keeps its mode."
+            : _offer.Bring ? $"No {name} island here yet: bring your game here, or start a new one."
+            : $"No {name} island here yet: New game makes one.";
     }
 
     private void RefreshFoot()
@@ -475,11 +532,37 @@ public partial class MainMenu : Control
         _notice.Text = Model.Notice;
         _notice.Visible = Model.Notice.Length > 0;
         var why = Model.WhyNotReady;
-        _play.Disabled = why != null;
-        _hint.Text = why ?? $"{Model.Team!.DisplayName} on {Model.Island!.DisplayName}, {MenuModel.ModeWords(Model.Mode!)}" + (Model.Mode == "challenge" ? $" ({MenuModel.DifficultyWords(Model.Difficulty ?? "standard")})" : "") + (Model.CopyCreative ? ", with your Creative island" : "");
-        var words = Model.ContinueWords();
-        _continue.Disabled = words == null;
-        _continue.Text = words == null ? "Continue (no game yet)" : "Continue: " + words;
+        var offer = _offer;
+        var hold = why == null ? Model.Hold() : TeamHold.Free;
+        _waiting = hold == TeamHold.Leaving;
+        var asking = Model.Asking;
+        _goBack.Visible = asking;
+        _continue.Visible = offer.Continue && !asking;
+        _bring.Visible = offer.Bring && !asking;
+        _continue.Disabled = _waiting;
+        _bring.Disabled = _waiting;
+        _newGame.Disabled = why != null || _waiting;
+        if (offer.Continue)
+        {
+            _continueLine.Text = Model.ChoiceWords ?? "";
+            _continue.TooltipText = "Continue: " + _continueLine.Text;
+        }
+        _continueLines.Modulate = _waiting ? new Color(1, 1, 1, 0.55f) : Colors.White;
+        // New game leads (the warm fill) where it stands alone; beside Continue, "Bring my game here" or "Go back" it is the quiet one.
+        var leads = !offer.Continue && !offer.Bring && !asking;
+        if (leads != _newGameLeads)
+        {
+            _newGameLeads = leads;
+            if (leads) MenuStyle.Big(_newGame);
+            else
+            {
+                MenuStyle.AsCard(_newGame, 14);
+                _newGame.AddThemeFontSizeOverride("font_size", 22);
+            }
+        }
+        _hint.Text = why ?? (asking ? Model.Question : _waiting ? MenuModel.StillClosingWords : offer.Case == StartCase.Rebuilt ? MenuModel.RebuiltWords
+            : hold == TeamHold.StillOpen ? MenuModel.OpenElsewhereWords : Model.ChoiceWords ?? "");
+        _hint.AddThemeColorOverride("font_color", asking ? MenuStyle.Ink : MenuStyle.Muted);
     }
 
     private void Start(MenuLaunch? launch)
@@ -489,11 +572,56 @@ public partial class MainMenu : Control
         Launch?.Invoke(launch);
     }
 
+    /// <summary>
+    /// New game: over a game the first press puts the question up and gives "Go back" the focus; the next press, not sooner than
+    /// ConfirmGuardMs after it, puts the old game away and starts. Where there is no game it starts at once.
+    /// </summary>
+    private void PressNewGame()
+    {
+        var asked = Model.Asking;
+        if (asked && Time.GetTicksMsec() - _questionAt < (ulong)Math.Max(0, ConfirmGuardMs)) return;
+        var launch = Model.NewGame();
+        if (!asked && Model.Asking)
+        {
+            _questionAt = Time.GetTicksMsec();
+            Refresh();
+            _goBack.GrabFocus();
+            return;
+        }
+        Start(launch);
+    }
+
+    /// <summary>"Go back": the question goes, nothing was moved, and the focus returns to the button that leads.</summary>
+    private void GoBack()
+    {
+        Model.GoBack();
+        Refresh();
+        (_continue.Visible ? _continue : _bring.Visible ? _bring : _newGame).GrabFocus();
+    }
+
+    /// <summary>While the buttons wait for a room that is leaving, the team's lease is asked again ten times a second; they open as soon as it is free.</summary>
+    public override void _Process(double delta)
+    {
+        if (!_waiting) return;
+        _sinceAsked += delta;
+        if (_sinceAsked < 0.1) return;
+        _sinceAsked = 0;
+        if (Model.Hold() == TeamHold.Leaving) return;
+        // The wait is over: its word goes with it.
+        if (Model.Notice == MenuModel.StillClosingWords) Model.SetNotice("");
+        Refresh();
+    }
+
     public override void _UnhandledInput(InputEvent @event)
     {
         if (@event is InputEventKey { Pressed: true, Echo: false } key && key.Keycode == Key.Escape && _newTeamOpen)
         {
             CloseNewTeam();
+            GetViewport().SetInputAsHandled();
+        }
+        else if (@event is InputEventKey { Pressed: true, Echo: false } escape && escape.Keycode == Key.Escape && Model.Asking)
+        {
+            GoBack();
             GetViewport().SetInputAsHandled();
         }
         else if (InputMap.HasAction(Act.ViewFullscreen) && PlayerControls.Hit(@event, Act.ViewFullscreen) && @event.IsPressed() && !@event.IsEcho())

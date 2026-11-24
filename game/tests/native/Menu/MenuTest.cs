@@ -17,9 +17,10 @@ namespace GarageGame.Tests;
 /// The opening menu (docs/runs/RUN-2-MECHANICS.md, packet M7; docs/game/MECHANICS.md section 3 and decisions 1, 3, 4, 44, 49, 66):
 /// the islands it lists (the tutorial first, a thumbnail from the shape data), the teams it shows and makes (the New team panel
 /// writes the team file), the mode and difficulty it offers through the island rules (Live shown, refused), "Copy my Creative island into
-/// Challenge" once per island per team with the carried builds written down, Continue, and the headless walk from the menu to the
-/// fixture room: a team written, the choices driven as a player drives them, the room booted with that team, island, mode and
-/// difficulty through the boot --team --mode --difficulty take. Headless, --fixed-fps 60. Run: res://tests/native/Menu/native_menu.tscn.
+/// Challenge" once per island per team with the carried builds written down, the start rule's Continue and New game (Run 4, MENU-3:
+/// MenuTest.Start.cs), and the headless walk from the menu to the fixture room: a team written, the choices driven as a player drives
+/// them, the room booted with that team, island, mode and difficulty through the boot --team --mode --difficulty take. Headless,
+/// --fixed-fps 60. Run: res://tests/native/Menu/native_menu.tscn.
 /// Its files go under user://tests/menu (the runner's user folder).
 /// </summary>
 public partial class MenuTest : Node
@@ -47,14 +48,19 @@ public partial class MenuTest : Node
             TestModel();
             TestCopy();
             TestLastGame();
+            TestStartRule();
+            TestStartLease();
+            TestStartCutShort();
+            TestStartChoices();
             TestBootChoices();
             await TestMenuToRoom();
             if (OS.GetCmdlineUserArgs().Contains("--broken-room")) await TestBrokenIsland();
             await TestCopyThroughTheMenu();
+            await TestStartOnThePage();
             TestLinkWords();
             GC.Collect();
             GC.WaitForPendingFinalizers();
-            GD.Print($"NATIVE_MENU: {_checks - _failures}/{_checks} checks passed; the islands listed (the tutorial first, the player's before the shipped stand-ins, names cleaned, an island that cannot be saved left out), a team made in the New team panel and written, the mode and difficulty offered through the island rules (Live shown and refused, Gentle suggested on a first Challenge, a save's difficulty kept), \"Copy my Creative island into Challenge\" once per island per team with its builds written down and the Creative original untouched, Continue, and the walk from the menu to the fixture room with the team, island, mode and difficulty reaching its boot; the land's picture counted from its strokes, the card's from what it sent to its canvas, and painted by the test's own painter (MENU-5); not the look of the cards on a screen");
+            GD.Print($"NATIVE_MENU: {_checks - _failures}/{_checks} checks passed; the islands listed (the tutorial first, the player's before the shipped stand-ins, names cleaned, an island that cannot be saved left out), a team made in the New team panel and written, the mode and difficulty offered through the island rules (Live shown and refused, Gentle suggested on a first Challenge, a save's difficulty kept), \"Copy my Creative island into Challenge\" once per island per team with its builds written down and the Creative original untouched, and the walk from the menu to the fixture room with the team, island, mode and difficulty reaching its boot; the start rule (MENU-3): no Continue without its save, the four cases (no game, a game in this mode, a game in the other mode, both), a game on another island and an island rebuilt, New game over a game asking once and then putting it away whole, the buttons waiting on the team's lease, and on today's page Continue and New game where Play was; the land's picture counted from its strokes, the card's from what it sent to its canvas, and painted by the test's own painter (MENU-5); not the look of the cards on a screen");
             GetTree().Quit(_failures == 0 ? 0 : 1);
         }
         catch (Exception error)
@@ -309,10 +315,10 @@ public partial class MenuTest : Node
         Check(!model.CopyOffered && model.ChooseMode("challenge") && model.CopyOffered && !model.CopyUsed && !model.CopyCreative && model.Difficulty == "gentle",
             "Challenge on an island with a Creative save and no Challenge one offers the copy (and Gentle: a first Challenge); in Creative it is not offered");
         Check(model.ChooseCopy(true) && model.CopyCreative && model.ChooseCopy(false) && !model.CopyCreative && model.ChooseCopy(true), "\"Start fresh\" and \"Copy my Creative island\" are the two answers");
-        var launch = model.Play();
+        var launch = model.NewGame();
         var target = layout.IslandSave("mira", "challenge", island.RoomId, island.ManifestPrefix);
         Check(launch != null && launch.Mode == "challenge" && launch.Difficulty == "gentle" && launch.Arguments.SequenceEqual(new[] { "--team=mira", "--mode=challenge", "--difficulty=gentle" }) && File.Exists(target),
-            "playing with the copy chosen makes the Challenge save, then launches with the team, mode and difficulty: " + (launch == null ? model.Notice : string.Join(" ", launch.Arguments)));
+            "New game with the copy chosen (no Challenge game yet: nothing is asked) makes the Challenge save, then launches with the team, mode and difficulty: " + (launch == null ? model.Notice : string.Join(" ", launch.Arguments)));
         var copy = JsonNode.Parse(File.ReadAllText(target))!.AsObject();
         var nature = copy["nature"]!.AsObject();
         Check(copy["team"]!["mode"]!.GetValue<string>() == "challenge" && copy["team"]!["difficulty"]!.GetValue<string>() == "gentle" && copy["team"]!["team_id"]!.GetValue<string>() == "mira" &&

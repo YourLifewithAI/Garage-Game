@@ -15,9 +15,9 @@ namespace GarageGame.Tests;
 /// <summary>
 /// The walk from the menu to the room, headless: the menu opens over a user folder with no team, a team is made in the New team panel
 /// (its name, the plain-figure-or-drawn avatar, the Gubble's name and colour, a knack), the island, the mode and the difficulty are
-/// chosen by pressing the cards, and Play boots the fixture room (the shipped test room) through the game's own boot with that team,
-/// island, mode and difficulty; then Continue boots the last game again. And the copy of a Creative island into Challenge, pressed
-/// from the menu, then booted.
+/// chosen by pressing the cards, and New game (a first game: nothing is asked) boots the fixture room (the shipped test room) through
+/// the game's own boot with that team, island, mode and difficulty; then Continue boots the last game again. And the copy of a
+/// Creative island into Challenge, pressed from the menu, then booted. The start rule itself is in MenuTest.Start.cs.
 /// </summary>
 public partial class MenuTest
 {
@@ -79,9 +79,9 @@ public partial class MenuTest
         var layout = SceneLayout("walk");
         var menu = await OpenMenu();
         var model = menu.Model;
-        Check(model.Teams.Count == 0 && menu.TeamButtons.Count == 0 && menu.NewTeamButton.IsVisibleInTree() && menu.ContinueButton.Disabled && menu.ContinueButton.Text.StartsWith("Continue", StringComparison.Ordinal) &&
-              menu.PlayButton.Disabled && menu.HintLabel.Text == "Choose your character first.",
-            "the menu opens on a machine with no team: only \"New team\", no Continue, no Play, and it says what to choose first");
+        Check(model.Teams.Count == 0 && menu.TeamButtons.Count == 0 && menu.NewTeamButton.IsVisibleInTree() && !menu.ContinueButton.Visible && !menu.BringButton.Visible && !menu.GoBackButton.Visible &&
+              menu.NewGameButton.Visible && menu.NewGameButton.Disabled && menu.HintLabel.Text == "Choose your character first.",
+            "the menu opens on a machine with no team: only \"New team\", no Continue, New game shut, and it says what to choose first");
         Check(menu.IslandButtons.Keys.SequenceEqual(new[] { "tutorial_isle", "plain_isle", "test_room" }) && menu.IslandButtons["tutorial_isle"].FindChild("TutorialTag", true, false) is Label { Text: "tutorial" },
             "one card per island, the tutorial first and marked");
         var thumbnail = menu.Thumbnails["tutorial_isle"];
@@ -133,22 +133,23 @@ public partial class MenuTest
         await Click(menu.IslandButtons["test_room"]);
         Check(model.RoomId == "test_room" && menu.IslandButtons["test_room"].ButtonPressed, "a real click on an island's card chooses it (the card's own labels let the mouse through)");
         await Click(menu.ModeButtons["live"]);
-        Check(model.Mode == null && menu.NoticeLabel.Visible && menu.NoticeLabel.Text.StartsWith(CommandHost.LiveNotYet, StringComparison.Ordinal) && menu.PlayButton.Disabled && !menu.ModeButtons["live"].ButtonPressed,
-            $"Live is refused on pressing it, with the words, and Play stays shut: \"{menu.NoticeLabel.Text}\"");
+        Check(model.Mode == null && menu.NoticeLabel.Visible && menu.NoticeLabel.Text.StartsWith(CommandHost.LiveNotYet, StringComparison.Ordinal) && menu.NewGameButton.Disabled && !menu.ModeButtons["live"].ButtonPressed,
+            $"Live is refused on pressing it, with the words, and New game stays shut: \"{menu.NoticeLabel.Text}\"");
         await Click(menu.ModeButtons["challenge"]);
         var gentle = menu.DifficultyButtons["gentle"];
-        Check(model.Mode == "challenge" && model.Difficulty == "gentle" && menu.DifficultyRow.Visible && gentle.ButtonPressed && gentle.Text.Contains("suggested", StringComparison.Ordinal) && !menu.PlayButton.Disabled &&
+        Check(model.Mode == "challenge" && model.Difficulty == "gentle" && menu.DifficultyRow.Visible && gentle.ButtonPressed && gentle.Text.Contains("suggested", StringComparison.Ordinal) && !menu.NewGameButton.Disabled && !menu.ContinueButton.Visible &&
               menu.DifficultyButtons.Values.All(b => b.Visible) && !menu.CopyRow.Visible,
             "Challenge shows Gentle, Standard and Brave with Gentle suggested for a first Challenge; there is no Creative island to copy, so no copy row");
         await Click(menu.DifficultyButtons["brave"]);
         Check(model.Difficulty == "brave" && menu.DifficultyButtons["brave"].ButtonPressed && !gentle.ButtonPressed && menu.HintLabel.Text.Contains("Brave", StringComparison.Ordinal),
             "Brave chosen: " + menu.HintLabel.Text);
-        Press(menu.PlayButton);
+        Press(menu.NewGameButton);
         var room = await WaitForRoom();
         if (room is not { } running) return;
         var (world, host) = running;
-        Check(host.ModeFixed && host.Mode == "challenge" && host.Difficulty == "brave" && host.SaveTeamIdentity == new SaveTeam("mira-quinn", "challenge", "brave") && world.Room.RoomId == "test_room",
-            $"Play boots the room with the team, island, mode and difficulty the menu chose: {host.SaveTeamIdentity}, {world.Room.RoomId}");
+        Check(host.ModeFixed && host.Mode == "challenge" && host.Difficulty == "brave" && host.SaveTeamIdentity == new SaveTeam("mira-quinn", "challenge", "brave") && world.Room.RoomId == "test_room" &&
+              !model.Asking && !Directory.Exists(GameSetAside.Root(layout)),
+            $"New game on a team with no game asks nothing and boots the room with the team, island, mode and difficulty the menu chose: {host.SaveTeamIdentity}, {world.Room.RoomId}");
         static string Os(string godot) => Path.GetFullPath(ProjectSettings.GlobalizePath(godot));
         Check(Os(CommandHost.SaveRoot) == layout.IslandsRoot("mira-quinn", "challenge") && Os(CommandHost.DefaultPlayerVitalsPath) == layout.VitalsFile("mira-quinn", "challenge") && (!GodotObject.IsInstanceValid(menu) || menu.GetParent() == null),
             "the host's stores are in the team's folder, under the mode the menu chose, and the menu has gone");
@@ -168,11 +169,12 @@ public partial class MenuTest
         Check(world.GetNode<RoomHud>("RoomHud").Fullscreen == false && world.GetNode<RoomHud>("RoomHud").SettingsPanel != null, "(the HUD is the game's, with the settings panel)");
         await CloseGame();
 
-        // Continue: the last team, island and mode, in one press.
+        // Continue: the last team, island and mode, in one press (the menu opens with the last game chosen).
         var again = await OpenMenu();
-        Check(again.Model.ContinueWords() == "Mira Quinn on Test room, Challenge (Brave)" && !again.ContinueButton.Disabled && again.ContinueButton.Text == "Continue: Mira Quinn on Test room, Challenge (Brave)" &&
-              again.TeamButtons.Count == 1,
-            $"the menu opens with Continue: \"{again.ContinueButton.Text}\"");
+        Check(again.Model.ContinueWords() == "Mira Quinn on Test room, Challenge (Brave)" && again.ContinueButton.Visible && !again.ContinueButton.Disabled &&
+              again.ContinueLine.Text == "Mira Quinn on Test room, Challenge (Brave)" && again.ContinueButton.HasFocus() && again.NewGameButton.Visible && !again.NewGameButton.Disabled &&
+              again.TeamButtons.Count == 1 && again.Model.TeamId == "mira-quinn" && again.Model.RoomId == "test_room" && again.Model.Mode == "challenge",
+            $"the menu opens with the last game chosen and Continue ready, New game beside it: \"Continue: {again.ContinueLine.Text}\"");
         Press(again.ContinueButton);
         var second = await WaitForRoom();
         if (second is { } playing)
@@ -182,7 +184,7 @@ public partial class MenuTest
 
         // The command line chooses first: --menu with a team, a room and a mode.
         var named = await OpenMenu("--team=mira-quinn", "--room=test_room", "--mode=creative");
-        Check(named.Model.TeamId == "mira-quinn" && named.Model.RoomId == "test_room" && named.Model.Mode == "creative" && named.Model.Notice.Length == 0 && !named.PlayButton.Disabled,
+        Check(named.Model.TeamId == "mira-quinn" && named.Model.RoomId == "test_room" && named.Model.Mode == "creative" && named.Model.Notice.Length == 0 && !named.NewGameButton.Disabled && !named.ContinueButton.Visible,
             "a launch with --menu keeps what the command line asked: the team, the room, the mode");
 
         // "Redraw yourself any day; keep everything": the panel again, filled with the team, to change its name, costume and Gubble.
@@ -224,7 +226,7 @@ public partial class MenuTest
         broken.Model.SelectTeam("mira-quinn");
         broken.Model.SelectIsland("plain_isle");
         broken.Model.ChooseMode("creative");
-        Press(broken.PlayButton);
+        Press(broken.NewGameButton);
         MainMenu? back = null;
         for (var waiting = System.Diagnostics.Stopwatch.StartNew(); waiting.Elapsed.TotalSeconds < 30 && (back = _boot!.Menu) == null;) await Frames(2);
         await Frames(3);
@@ -266,7 +268,7 @@ public partial class MenuTest
         menu.Model.ChooseMode("creative");
         menu.Refresh();
         Check(!menu.CopyRow.Visible && menu.SavesLine.Text.StartsWith("No Creative island here yet", StringComparison.Ordinal), "a Creative game on a new island: \"" + menu.SavesLine.Text + "\"");
-        Press(menu.PlayButton);
+        Press(menu.NewGameButton);
         var first = await WaitForRoom();
         if (first is not { } creative) return;
         var placed = JsonNode.Parse(creative.Host.Handle(Creation("Menu totem"), CommandHost.PlayerPrincipal))!.AsObject();
@@ -308,7 +310,8 @@ public partial class MenuTest
         Press(again.CopyButton);
         Check(again.CopyButton.ButtonPressed && again.Model.CopyCreative && again.CopyNote.Text.Contains("count for no Challenge first", StringComparison.Ordinal) && again.HintLabel.Text.Contains("with your Creative island", StringComparison.Ordinal),
             "the copy chosen says what it carries and what it does not: " + again.CopyNote.Text);
-        Press(again.PlayButton);
+        // No Challenge game yet: New game asks nothing, makes the copy and starts.
+        Press(again.NewGameButton);
         var second = await WaitForRoom();
         if (second is not { } challenge) return;
         var copy = JsonNode.Parse(File.ReadAllBytes(challengeSave))!.AsObject();
