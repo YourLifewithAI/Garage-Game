@@ -83,6 +83,14 @@ Each with the lead's recommendation. No new build work starts until Ben says.
   - Shelves, cabinets and anything else on or against a wall are part of those cliffs: ledges, buttresses and hanging terraces.
   - The top of the cliffs can be reached. Up there a sandy desert runs on without end, and a player who wanders far enough is brought back, as the open sea brings a swimmer back today.
   - Water is only where the land puts it: lakes, streams and pools, by the ground's shape.
+- **Ben's charter for this project (23 November, 21:05, word for word).** It governs how every Run 4 lane reads his words:
+
+  > "I've noticed you're being very literal with all of my instructions. Instead of being exactly literal, can you please extrapolate off the intent and spirit of my instructions instead for this project specifically. We're building a game world. That requires expansive creativity. I want you to exemplify that. When I give you ideas, I want you to take them as suggestions but also feel free to expand upon them. I can vet the ideas more exactly and specifically after playthroughs. But when you're building the world and revising the ideas, be expansive, be creative, do research, and go beyond what I initially propose, but keep the themes intact."
+
+  - His examples are themes and a floor, not a checklist and not a ceiling. The readings listed above are a starting point.
+  - Lanes research the real world (geology, botany, ecology, how small creatures live, how settlements sit in land) and invent beyond what he asked.
+  - What goes beyond his words is built in as provisional and marked so. He vets it in play, so ideas are not turned into questions for him.
+  - The hard limits do not loosen: pushing, publishing, spending, deleting and downloads still need his own words, and the family writes every word a player reads.
 - **Found on the way.** The game's window is titled "Garage-Game (DEBUG)", and the GPU courtesy check looked for `Garage Game*`, so it never saw a game in play. AGENTS.md and the two capture tools now match both.
 
 ## Where things stood (8 November 2026)
