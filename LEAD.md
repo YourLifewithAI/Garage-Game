@@ -56,6 +56,21 @@ Each with the lead's recommendation. No new build work starts until Ben says.
     - The gamepad as a first-class way to play. Recommended: yes, as provisionally built.
     - Whether a child's live talk with a character may run on the family's plan: a question for Anthropic, and nothing waits on it.
 
+### Ben's direction (23 November, typed in the lead's session)
+
+- **Stay on the Godot game for now.** That answers item 8 above: the Unreal slice parks as it is.
+- **A large upgrade, Run 4,** with a team of agents:
+  - an opening menu that is good to look at;
+  - a New game and a Continue, so nothing old comes back unasked;
+  - a world that is plainly the room, with floors as plains, lakes or savannah by their colours;
+  - the player effectively 1 cm tall against the room, with physics and movement rewritten to match;
+  - real-looking trees of several kinds, up to ten grasses each with its niche, bushes with fruit and nuts;
+  - little villages with people living their lives;
+  - substantial improvements to the graphics and to movement.
+- **Run 3's story lanes park** (the quest ledger, the tale, voice) until the new world exists, because a story pack is tied to an island's places. Its look, plant, UI and character lanes fold into Run 4.
+- **Where it is.** A design team mapped the code and is writing `docs/runs/RUN-4.md` and six `RUN-4-*.md` design pages; build lanes start from that brief, in `C:\dev\Garage-Game-run4\<lane>`.
+- **Found on the way.** The game's window is titled "Garage-Game (DEBUG)", and the GPU courtesy check looked for `Garage Game*`, so it never saw a game in play. AGENTS.md and the two capture tools now match both.
+
 ## Where things stood (8 November 2026)
 
 - **The Godot game.** `main` is at `f7af65f`: pull request #19's code (merged by Ben on 25 October, with both Windows runners and the Linux suite green) plus #20's two docs-only commits, merged on 8 November. Nothing has been built since 25 October.

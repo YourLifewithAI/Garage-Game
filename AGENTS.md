@@ -55,7 +55,7 @@ Lanes run side by side in `C:\dev\EnFractal-run<n>\<lane>` git worktrees (Run 2:
 - **Stay in your worktree.** Never build, run or write in the integrator's checkout or another lane's worktree.
 - **Absolute paths for .NET file APIs.** PowerShell `cd` does not move .NET's working directory, which stays at the integrator's checkout. A relative `[System.IO.File]` path writes there.
 - **Godot needs `DOTNET_ROOT`.** When you launch Godot directly instead of through the runners, first set `$env:DOTNET_ROOT` to your worktree's `.cache\dotnet` and prepend it to `PATH`. Otherwise a modal dialog blocks the founder's screen.
-- **GPU courtesy.** Before a windowed render, capture or timing, check for a window titled `Garage Game*` (or `EnFractal*` from a build before 21 October 2026). If the founder is playing, don't render.
+- **GPU courtesy.** Before a windowed render, capture or timing, check for a window titled `Garage-Game*` (the game's window is "Garage-Game (DEBUG)"; also `Garage Game*`, or `EnFractal*` from a build before 21 October 2026). If the founder is playing, don't render.
 - **Leave other processes alone.** Never change another process's priority, affinity or state, and never stop one you did not start: other lanes and the founder share the machine.
 - **Lean testing.**
   - While iterating, run only the tests for what you change, and the full runners once at the end.

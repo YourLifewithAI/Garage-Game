@@ -57,7 +57,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # Someone playing the game on this GPU: never capture or time over them.
-$openGame = Get-Process | Where-Object { $_.MainWindowTitle -like 'Garage Game*' -or $_.MainWindowTitle -like 'EnFractal*' }
+$openGame = Get-Process | Where-Object { $_.MainWindowTitle -like 'Garage-Game*' -or $_.MainWindowTitle -like 'Garage Game*' -or $_.MainWindowTitle -like 'EnFractal*' }
 if ($openGame -and -not $AllowOpenGame) {
     throw "A game window is open ($(($openGame | ForEach-Object { "$($_.ProcessName) $($_.Id): $($_.MainWindowTitle)" }) -join '; ')). Captures and timings wait for a quiet GPU; close the game or pass -AllowOpenGame."
 }
