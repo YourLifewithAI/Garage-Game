@@ -17,7 +17,7 @@ public partial class NativeGameBoot : Node
             return;
         }
         // The saves made before the rename, copied once into this build's user:// folder before anything reads it (phase 3).
-        Saves.UserFolderMove.RunOnce();
+        Saves.TeamBoot.BringOldSaves();
         var world =GD.Load<PackedScene>("res://scenes/room.tscn").Instantiate<RoomWorld>();
         var room = arguments.FirstOrDefault(a => a.StartsWith("--room="))?["--room=".Length..];
         if (!string.IsNullOrWhiteSpace(room)) world.RoomDirectory = RoomWorld.ResolveRoom(room);
