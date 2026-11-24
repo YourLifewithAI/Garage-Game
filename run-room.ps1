@@ -12,7 +12,10 @@
 # -Room, -Team, -Mode and -Difficulty named beside it are the menu's first choices. With a -Room and no -Menu the game goes straight into the room, as before.
 # -Knack quick_feet:3 (or -Knack quick_feet:3,cat_feet:2, up to three; the rank 1 to 3, 1 when left off) overrides the team file's
 # knacks for this play only, as --knack= (a test's override, M5); the team file keeps the knacks knack.set chose.
-param([string]$Style, [string]$Room, [string]$Profile, [string]$Team, [string]$Mode, [string]$Difficulty, [string[]]$Knack, [switch]$NoRecord, [switch]$Fullscreen, [switch]$Menu)
+# -Hour HH:MM and -Date YYYY-MM-DD (the preview clock, Run 4's R4-6) show this play's sky, sun and season at that hour and day, as
+# --look-clock= and --look-date= (Look/LookClock.cs, ClockOverride): the look only. Nothing is saved and the kernel keeps the real
+# clock, so an evening player can see the land at dawn or noon. Either may be given alone.
+param([string]$Style, [string]$Room, [string]$Profile, [string]$Team, [string]$Mode, [string]$Difficulty, [string[]]$Knack, [switch]$NoRecord, [switch]$Fullscreen, [switch]$Menu, [string]$Hour, [string]$Date)
 $ErrorActionPreference = 'Stop'
 if ($Profile -and $Profile -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$') { throw '-Profile takes a short name of letters, digits, - and _.' }
 if ($Team -and $Team -cnotmatch '^[a-z][a-z0-9_-]{0,63}$') { throw '-Team takes a team id: lowercase letters, digits, - and _, starting with a letter.' }
@@ -22,6 +25,8 @@ if ($Difficulty -and ($Difficulty -cnotin @('gentle', 'standard', 'brave') -or $
 $knackArgs = @($Knack | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 if ($knackArgs.Count -gt 3) { throw '-Knack takes up to three knacks, one for each slot.' }
 foreach ($knackArg in $knackArgs) { if ($knackArg -cnotmatch '^[a-z][a-z0-9_-]{0,63}(:[1-3])?$') { throw "-Knack takes a knack id and a rank, like quick_feet:3 (rank 1 to 3, 1 when left off): '$knackArg'." } }
+if ($Hour -and ($Hour -notmatch '^([01]?\d|2[0-3]):[0-5]\d$')) { throw "-Hour takes a time of day as HH:MM, like 06:30 or 12:00: '$Hour'." }
+if ($Date) { $parsedDate = [datetime]::MinValue; if (-not [datetime]::TryParseExact($Date, 'yyyy-MM-dd', [cultureinfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$parsedDate)) { throw "-Date takes a day as YYYY-MM-DD, like 2026-06-21: '$Date'." } }
 . (Join-Path $PSScriptRoot 'tools/native-toolchain.ps1')
 $nativeToolchain = Get-GarageGameNativeToolchain
 if ($Room -eq 'landscape' -or $Room -eq 'landscape10') {
@@ -48,6 +53,8 @@ if ($Team) { $userArgs += "--team=$Team" }
 if ($Mode) { $userArgs += "--mode=$Mode" }
 if ($Difficulty) { $userArgs += "--difficulty=$Difficulty" }
 foreach ($knackArg in $knackArgs) { $userArgs += "--knack=$knackArg" }
+if ($Hour) { $userArgs += "--look-clock=$Hour" }
+if ($Date) { $userArgs += "--look-date=$Date" }
 if ($userArgs) { $userArgs = @('--') + $userArgs }
 $priorRoaming = $env:APPDATA
 $priorLocal = $env:LOCALAPPDATA
