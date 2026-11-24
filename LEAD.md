@@ -194,6 +194,8 @@ If the gate says move, items 4 to 10 become port stages, and the Godot game stay
   - `run2/scale-experiment`;
   - `codex/gubble-growth` (the same work as #12);
   - `codex/daily-journal`: the weekly "making journal", seven commits up to 1 November, never merged. Should it keep going, and should it merge?
+- **H6. Before any push, read the range.** This repository is public, and a push publishes every commit in its range, not only the tip. Before each push the lead has every added line read for details of the household or the home, and where one is found the unpushed commits are rebuilt without it: a fix on top would still publish the old line.
+- **H7. Run 4's first branches stay on this laptop.** On 24 November, on Ben's word to back the work up, the lead pushed `run3/integration` and `run4/integration` after rebuilding their eight unpushed commits under H6 (same messages, authors and dates; a few lines of wording changed). The line as first written stays here as `run4/integration-pre-clean`, and wave 1's first four lane branches (`run4/kernel`, `run4/menu`, `run4/world`, `run4/flora`) were cut from it. None of those five is ever pushed; the lanes' commits reach `run4/integration` by cherry-pick. Lanes cut after that day merge as usual.
 
 ## Done
 
