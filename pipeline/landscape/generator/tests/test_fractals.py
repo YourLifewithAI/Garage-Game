@@ -11,6 +11,7 @@ read as the folder of a ten-times package of corpus/rooms/garage_nominal made al
     $env:LANDSCAPE_TEN_TIMES = 'generate'    # PowerShell; in sh, LANDSCAPE_TEN_TIMES=generate before the command
     python -B -m unittest pipeline.landscape.generator.tests.test_fractals.TenTimesGarage -v
 """
+import atexit
 import hashlib
 import json
 import math
@@ -26,11 +27,14 @@ from unittest import mock
 from pipeline.landscape.generator import checks, climb, firepits as Firepits, fractals as Fractals, gates, reach, routes as R, sites
 from pipeline.landscape.generator.field import Grid, face_slope_max
 from pipeline.landscape.generator.generate import generate
-from pipeline.landscape.generator.tests.test_generator import ROOMS, garage, workdir
+from pipeline.landscape.generator.tests.test_generator import ROOMS, RUN_DIR, garage, workdir
 
 ROOT = Path(__file__).resolve().parents[4]
 V5 = ROOT/'game'/'rules'/'storybook_wild'/'v5.json'
 TEN_TIMES = os.environ.get('LANDSCAPE_TEN_TIMES', '')
+# The packages made here lie in test_generator's run folder, which its own teardown removes. Run alone, this module left
+# the 1x garage (10 MB) in the temp folder every time: the folder goes when Python does, whichever module ran last.
+atexit.register(shutil.rmtree, RUN_DIR, ignore_errors=True)
 
 
 def pack_stamina():
