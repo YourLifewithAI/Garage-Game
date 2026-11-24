@@ -69,6 +69,15 @@ Each with the lead's recommendation. No new build work starts until Ben says.
   - substantial improvements to the graphics and to movement.
 - **Run 3's story lanes park** (the quest ledger, the tale, voice) until the new world exists, because a story pack is tied to an island's places. Its look, plant, UI and character lanes fold into Run 4.
 - **Where it is.** A design team mapped the code and is writing `docs/runs/RUN-4.md` and six `RUN-4-*.md` design pages; build lanes start from that brief, in `C:\dev\Garage-Game-run4\<lane>`.
+- **Ben on what the world should look like (23 November, 20:20, word for word).** This came after the six design pages were begun, so `RUN-4-WORLD.md`, `RUN-4-FLORA.md`, `RUN-4-LOOK.md` and the brief must be brought into line with it:
+
+  > "So when I'm thinking of what I want the Garage Games map to look like, I want it to look like the room, but from the centimeter scale, from the player look being that small. But, you know, the chairs would be landscape that's covered in vines that they have to scale, or the rocky cliffs that clearly look like a chair but are still also obviously landscape. Desks would be high mesas that they have to scale up to get to. I want the floors and everything to have some form of geographical context, you know, following the basic physics of geology. I would want there to be forests scattered throughout, and meadows and paths worn by animals, things of that nature, to kind of make the whole area, the world, feel lived in."
+
+  The lead's reading of it:
+  - The map is the room itself at the player's scale: every object stands where it stands in the room, at its true size against a 1 cm body, and keeps its shape. A chair is a chair-shaped cliff or a vine-covered climb; a desk is a high mesa.
+  - Each object is plainly landscape as well: rock, soil, vines and plants, not furniture with a texture.
+  - The ground obeys simple geology: water runs downhill and pools in low places, cliffs shed scree, soil gathers where it would, and the floor's regions have a reason to be plain, lake or savannah.
+  - The world is lived in: forests in places, meadows, and paths worn by animals.
 - **Found on the way.** The game's window is titled "Garage-Game (DEBUG)", and the GPU courtesy check looked for `Garage Game*`, so it never saw a game in play. AGENTS.md and the two capture tools now match both.
 
 ## Where things stood (8 November 2026)
