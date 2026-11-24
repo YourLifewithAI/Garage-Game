@@ -35,9 +35,13 @@ public partial class MenuTest
         return new TeamLayout(ProjectSettings.GlobalizePath(_scene));
     }
 
-    /// <summary>The menu as the main scene opens it (MenuBoot.Open), over the scene's user folder.</summary>
+    /// <summary>
+    /// The menu as the main scene opens it (MenuBoot.Open), over the scene's user folder. The arguments are the launch's command
+    /// line: the boot's, and the page's own reading of it (MainMenu.LaunchArguments), which in a real launch are one and the same.
+    /// </summary>
     private async Task<MainMenu> OpenMenu(params string[] arguments)
     {
+        MainMenu.LaunchArguments = () => arguments;
         _boot = new MenuBoot { AutoOpen = false };
         AddChild(_boot);
         var menu = _boot.Open(arguments);
@@ -61,12 +65,15 @@ public partial class MenuTest
         await Frames(4);
     }
 
-    /// <summary>A click as the GUI receives a real one (a card with its contents on top reads it itself).</summary>
-    private async Task Click(Control control)
+    /// <summary>
+    /// A click as the GUI receives a real one (a card with its contents on top reads it itself); <paramref name="secondOfDouble"/>
+    /// marks it as the system marks the second click of a double click.
+    /// </summary>
+    private async Task Click(Control control, bool secondOfDouble = false)
     {
         var point = control.GetGlobalRect().GetCenter();
         GetViewport().PushInput(new InputEventMouseMotion { Position = point, GlobalPosition = point }, true);
-        GetViewport().PushInput(new InputEventMouseButton { Position = point, GlobalPosition = point, ButtonIndex = MouseButton.Left, ButtonMask = MouseButtonMask.Left, Pressed = true }, true);
+        GetViewport().PushInput(new InputEventMouseButton { Position = point, GlobalPosition = point, ButtonIndex = MouseButton.Left, ButtonMask = MouseButtonMask.Left, Pressed = true, DoubleClick = secondOfDouble }, true);
         GetViewport().PushInput(new InputEventMouseButton { Position = point, GlobalPosition = point, ButtonIndex = MouseButton.Left, Pressed = false }, true);
         await Frames(2);
     }
@@ -233,6 +240,28 @@ public partial class MenuTest
         Check(back != null && _boot!.World == null && back.NoticeLabel.Visible && back.NoticeLabel.Text.StartsWith("That island could not be opened (", StringComparison.Ordinal) && back.NoticeLabel.Text.EndsWith("It was left as it was.", StringComparison.Ordinal) &&
               LastGame.Read(layout) is { RoomId: "test_room" },
             "an island that cannot be loaded brings the menu back with a word about it, and Continue still opens the last game that was played: " + back?.NoticeLabel.Text);
+        await CloseGame();
+
+        // New game over a game, on an island that then does not open: the old game is put away all the same (kept whole), and the
+        // page that comes back says where it went.
+        var over = await OpenMenu();
+        over.ConfirmGuardMs = 0;
+        over.Model.SelectTeam("mira-quinn");
+        over.Model.SelectIsland("plain_isle");
+        over.Model.ChooseMode("challenge");
+        over.Refresh();
+        var elsewhere = over.Model.Offer.Case;
+        Press(over.NewGameButton);
+        var asked = over.Model.Asking && _boot!.World == null && !Directory.Exists(GameSetAside.Root(layout));
+        Press(over.NewGameButton);
+        MainMenu? again = null;
+        for (var waiting = System.Diagnostics.Stopwatch.StartNew(); waiting.Elapsed.TotalSeconds < 30 && (again = _boot!.Menu) == null;) await Frames(2);
+        await Frames(3);
+        var away = GameSetAside.List(layout, "mira-quinn");
+        Check(elsewhere == StartCase.GameElsewhere && asked && again != null && _boot!.World == null && again.NoticeLabel.Text.StartsWith("That island could not be opened (", StringComparison.Ordinal) &&
+              away.Count == 1 && away[0].Ledger.Mode == "challenge" && GameSetAside.Problems(away[0].Folder).Count == 0 && again.Model.Mode == "challenge" && again.Model.Offer.Case == StartCase.NoGame &&
+              !again.ContinueButton.Visible && again.SavesLine.Text == "Your last Challenge game is put away: New game makes a new one.",
+            "New game over a game on an island that then cannot be opened: the old game is put away whole, and the page that comes back says so: " + again?.SavesLine.Text);
         await CloseGame();
     }
 

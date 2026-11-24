@@ -75,11 +75,14 @@ public sealed class MenuModel
 
     // What a player reads on the start rule's buttons and lines (every word is the family's to reword): plain and short.
     public const string NewGameWords = "New game";
+    /// <summary>New game's own words while its question is up: the press that answers it says so.</summary>
+    public const string YesNewGameWords = "Yes, new game";
     public const string BringWords = "Bring my game here";
     public const string GoBackWords = "Go back";
     public const string RebuiltWords = "This room was rebuilt. Your old game is kept.";
     public const string StillClosingWords = "The last game is still closing. One moment.";
-    public const string OpenElsewhereWords = "That game is still open in another window.";
+    /// <summary>After the wait a team still held is a game still open: in another window, or a room that is slow to leave. True of both.</summary>
+    public const string OpenElsewhereWords = "That game is still open. New game waits until it is closed.";
     public const string NoSaveHereWords = "There is no game to continue here.";
     public const string NoGameToBringWords = "There is no game to bring here.";
     public const string PutAwayWords = "Your old game is put away.";
@@ -89,6 +92,13 @@ public sealed class MenuModel
     public bool Asking { get; private set; }
     /// <summary>The question's words while it is up ("New game? Your Challenge game from 25 Oct is put away, not deleted.").</summary>
     public string Question { get; private set; } = "";
+    /// <summary>
+    /// Whose game the question was asked of: the team, the island and the mode chosen when it went up. New game answers a
+    /// question only for that same choice; for any other it asks afresh, so no game is put away that nobody was asked about.
+    /// </summary>
+    private string? _askedOf;
+    /// <summary>The listed islands a launch's own room took the place of (SelectRoom): still here, though not in the list.</summary>
+    private readonly List<IslandEntry> _replaced = new();
     /// <summary>The game New game put away last in this menu (null: none yet, or there was no game to put away).</summary>
     public PutAwayGame? LastPutAway { get; private set; }
     /// <summary>
@@ -199,10 +209,19 @@ public sealed class MenuModel
         var islands = Islands.ToList();
         var at = islands.FindIndex(i => i.RoomId == entry.RoomId);
         if (at < 0) islands.Insert(0, entry);
-        else if (islands[at].ManifestPrefix != entry.ManifestPrefix || !SameFolder(islands[at].Directory, entry.Directory)) islands[at] = entry;
+        else if (islands[at].ManifestPrefix != entry.ManifestPrefix || !SameFolder(islands[at].Directory, entry.Directory))
+        {
+            // The island it takes the place of is still here: its saves are a game on another island, not this one's earlier self.
+            if (_replaced.All(known => known.ManifestPrefix != islands[at].ManifestPrefix)) _replaced.Add(islands[at]);
+            islands[at] = entry;
+        }
         Islands = islands;
         return SelectIsland(entry.RoomId);
     }
+
+    /// <summary>The manifests of the other islands that carry this island's id and are still here (StartRule.SaveOfAnEarlierIsland).</summary>
+    private IReadOnlyCollection<string> Standing(IslandEntry island) =>
+        _replaced.Where(other => other.RoomId == island.RoomId && other.ManifestPrefix != island.ManifestPrefix).Select(other => other.ManifestPrefix).ToList();
 
     private static bool SameFolder(string a, string b)
     {
@@ -288,7 +307,10 @@ public sealed class MenuModel
         Mode == "challenge" && Difficulty == null ? "Choose how hard." : null;
 
     /// <summary>What the start rule offers for the team, the island and the mode chosen, read from the team's folder now (StartRule.For).</summary>
-    public StartOffer Offer => WhyNotReady == null ? StartRule.For(Layout, Team!.TeamId, Island!, Mode!) : StartOffer.None;
+    public StartOffer Offer => WhyNotReady == null ? StartRule.For(Layout, Team!.TeamId, Island!, Mode!, Standing(Island!)) : StartOffer.None;
+
+    /// <summary>Whether a game of the chosen team in the chosen mode was put away before (the page says so where there is none in play).</summary>
+    public bool GamePutAway => Team is { Readable: true } team && Mode is ("creative" or "challenge") && GameSetAside.WasPutAway(Layout, team.TeamId, Mode);
 
     /// <summary>"Mira on the Garage, Challenge (Brave)": the game the buttons would start; null while something is not chosen.</summary>
     public string? ChoiceWords =>
@@ -332,11 +354,12 @@ public sealed class MenuModel
 
     /// <summary>
     /// New game. Over a game it asks once: the first press only puts the question up (Asking, Question) and returns null with
-    /// nothing moved. Pressed again, or where there is no game in this mode, it puts that mode's game away whole
-    /// (GameSetAside.PutAway, always called: a put-away that was cut short is put back first and then put away whole; kept, never
-    /// deleted; the team, the Gubble and the other mode's game stay) and starts a first game: with the difficulty the old game had
-    /// unless another was chosen while the question was up, and with the Creative copy when that was chosen. Null, with Notice and
-    /// the old game whole, while the team's room is still leaving, when its game is open in another window, or when the put-away fails.
+    /// nothing moved. Pressed again for the same team, island and mode, it puts that mode's game away whole (GameSetAside.PutAway:
+    /// a put-away that was cut short is put back first and then put away whole; kept, never deleted; the team, the Gubble and the
+    /// other mode's game stay) and starts a first game: with the difficulty the old game had unless another was chosen while the
+    /// question was up, and with the Creative copy when that was chosen. Where there is no game in this mode (StartRule.HasGame)
+    /// it asks nothing, puts nothing away and starts at once. Null, with Notice and the old game whole, while the team's room is
+    /// still leaving, when its game is still open, or when the put-away fails.
     /// </summary>
     public MenuLaunch? NewGame()
     {
@@ -345,9 +368,15 @@ public sealed class MenuModel
         var team = Team!;
         var island = Island!;
         var mode = Mode!;
-        if (!Asking && Offer is { Asks: true } offer)
+        // The question was about one game. Every other choice takes it down (SelectTeam, SelectIsland, ChooseMode); one that got
+        // by all the same is asked afresh here, never answered.
+        var asking = team.TeamId + "|" + island.RoomId + "|" + island.ManifestPrefix + "|" + mode;
+        if (Asking && _askedOf != asking) TakeQuestionDown();
+        var offer = Offer;
+        if (!Asking && offer.Asks)
         {
             Asking = true;
+            _askedOf = asking;
             Question = QuestionFor(mode, offer.LastSavedUtc);
             Notice = "";
             return null;
@@ -359,10 +388,15 @@ public sealed class MenuModel
             return null;
         }
         var difficulty = mode == "challenge" ? Difficulty : null;
-        PutAwayGame? away;
-        try { away = GameSetAside.PutAway(Layout, team.TeamId, mode, Clock(), TimeSpan.Zero); }
-        // The question stays up: once what is in the way is gone (a game closed), New game pressed again goes on.
-        catch (SetAsideException error) { Notice = error.Message; return null; }
+        PutAwayGame? away = null;
+        // No game, nothing to put away: a first body that a boot of the other mode left stays where it is, and no put-away
+        // folder is made for a game nobody played.
+        if (offer.Case != StartCase.NoGame)
+        {
+            try { away = GameSetAside.PutAway(Layout, team.TeamId, mode, Clock(), TimeSpan.Zero); }
+            // The question stays up: once what is in the way is gone (a game closed), New game pressed again goes on.
+            catch (SetAsideException error) { Notice = error.Message; return null; }
+        }
         TakeQuestionDown();
         if (away != null)
         {
@@ -389,6 +423,7 @@ public sealed class MenuModel
     {
         Asking = false;
         Question = "";
+        _askedOf = null;
     }
 
     private static string QuestionFor(string mode, DateTime? savedUtc) =>
@@ -443,7 +478,11 @@ public sealed class MenuModel
         return $"{team.DisplayName} on {island.DisplayName}, {ModeWords(last.Mode)}" + (kept != null ? $" ({DifficultyWords(kept)})" : "");
     }
 
-    /// <summary>Continue the last game: its team, island and mode chosen and its save opened. Null, with Notice, when its save is not there, or while its room is still leaving.</summary>
+    /// <summary>
+    /// Continue the last game: its team, island and mode chosen and its save opened. Null, with Notice, when its save is not there, or
+    /// while its room is still leaving. Today's page does not call this (its Continue is ContinueHere, for the choice it shows, and it
+    /// opens on the last game's choice): it is kept for a one-press Continue of the last game (the title page, MENU-4).
+    /// </summary>
     public MenuLaunch? Continue()
     {
         if (LastGameToContinue() is not { } last) { Notice = "There is no game to continue yet."; return null; }
@@ -459,6 +498,26 @@ public sealed class MenuModel
         if (Hold() == TeamHold.Leaving) { Notice = StillClosingWords; return null; }
         Notice = "";
         return new MenuLaunch(last.TeamId, island, last.Mode, difficulty, MenuLaunch.ArgumentsFor(last.TeamId, last.Mode, difficulty));
+    }
+
+    /// <summary>
+    /// What a launch names is chosen first (--team=, --room=, --mode= and --difficulty=, as run-room.ps1 -Team -Room -Mode
+    /// -Difficulty passes them): the room by its id or by its folder (SelectRoom: the launch's own room is the one that starts,
+    /// though a listed island carries its id), and the mode even where no team is named (the team is then the last game's:
+    /// ChooseFromLastGame). So a room shortcut that opens the menu lands on that room's Continue and New game, and opens nothing
+    /// by itself. A choice that does not take is no message at the door (Notice is left as it was), and choosing the same things
+    /// twice changes nothing.
+    /// </summary>
+    public void ChooseFromLaunch(IReadOnlyList<string> arguments)
+    {
+        // The last one named, as the boot reads the line; an empty one names nothing.
+        static string? Named(IReadOnlyList<string> all, string name) =>
+            all.LastOrDefault(a => a != null && a.StartsWith(name, StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(a[name.Length..]))?[name.Length..];
+        var notice = Notice;
+        if (Named(arguments, "--team=") is { } team && team != TeamId) SelectTeam(team);
+        if (Named(arguments, "--room=") is { } room) SelectRoom(room);
+        if (Named(arguments, "--mode=") is { } mode && !ChooseMode(mode, Named(arguments, "--difficulty="))) ChooseMode(mode);
+        Notice = notice;
     }
 
     /// <summary>

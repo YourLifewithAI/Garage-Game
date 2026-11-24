@@ -56,11 +56,15 @@ public partial class MainMenu : Control
     private Button _newGame = null!, _continue = null!, _bring = null!, _goBack = null!, _quit = null!, _newTeam = null!, _editTeam = null!;
     /// <summary>The foot: the menu's words and the start rule's buttons.</summary>
     private HBoxContainer _foot = null!;
-    /// <summary>The start buttons wait for a room of the team that is still leaving: the lease is asked again a few times a second.</summary>
+    /// <summary>The start buttons wait for a room of the team that is still leaving.</summary>
     private bool _waiting;
+    /// <summary>How the team is held as the foot last showed it: while it is held at all, the lease is asked again a few times a second.</summary>
+    private TeamHold _hold = TeamHold.Free;
     private double _sinceAsked;
     /// <summary>When New game's question went up (the engine's milliseconds).</summary>
     private ulong _questionAt;
+    /// <summary>The mouse press now on New game is the second of a double click, as the system counts one.</summary>
+    private bool _secondOfDouble;
     private bool _newGameLeads;
     /// <summary>Continue's two lines (the word, then the game it opens), and what the start rule offers as last read from the team's folder.</summary>
     private Label _continueLine = null!;
@@ -97,9 +101,15 @@ public partial class MainMenu : Control
     public HBoxContainer Foot => _foot;
     /// <summary>
     /// For this long after New game's question goes up, New game pressed again does nothing: a double click is one press, never
-    /// the question and its answer. Provisional; a test shortens it.
+    /// the question and its answer. Longer than the system's usual double click (half a second); a click the system itself counts
+    /// as the second of a double click is never the answer either, however slow (PressNewGame). Provisional; a test shortens it.
     /// </summary>
-    public int ConfirmGuardMs { get; set; } = 400;
+    public int ConfirmGuardMs { get; set; } = 700;
+    /// <summary>
+    /// The command line this launch was started with, whose room and mode the page chooses first (MenuModel.ChooseFromLaunch): the
+    /// process's own user arguments, the ones MenuBoot opens the menu with. Null is the process's; a test names its own.
+    /// </summary>
+    public static Func<IReadOnlyList<string>>? LaunchArguments { get; set; }
     public Button QuitButton => _quit;
     public OptionButton KnackSwap => _knackSwap;
 
@@ -272,11 +282,17 @@ public partial class MainMenu : Control
         _newGame = new Button { Name = "NewGame", Text = MenuModel.NewGameWords, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(180, 58) };
         MenuStyle.Big(_newGame);
         _newGameLeads = true;
+        _newGame.GuiInput += input =>
+        {
+            if (input is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click) _secondOfDouble = click.DoubleClick;
+        };
         _newGame.Pressed += PressNewGame;
         _foot.AddChild(_newGame);
 
         BuildNewTeam();
-        // What the command line left open is the last game's: the menu opens on its Continue and New game.
+        // The room and the mode this launch names (a room shortcut: a room's folder, a mode, no team) are chosen first; what that
+        // leaves open is the last game's. So the menu opens on that room's Continue and New game, and opens no game by itself.
+        Model.ChooseFromLaunch(LaunchArguments?.Invoke() ?? OS.GetCmdlineUserArgs());
         Model.ChooseFromLastGame();
         Refresh();
         var focus = _continue.Visible ? _continue : Model.TeamId != null && _teamButtons.TryGetValue(Model.TeamId, out var chosen) ? chosen
@@ -523,7 +539,11 @@ public partial class MainMenu : Control
         var save = Model.SaveOf(Model.Mode);
         var name = MenuModel.ModeWords(Model.Mode);
         return save is { Exists: true } ? $"Your {name} island here, saved {Day(save.WrittenUtc)}: Continue opens it. A save keeps its mode."
+            // The line agrees with the hint: on a rebuilt island there is a save, of the island as it was.
+            : _offer.Case == StartCase.Rebuilt ? $"Your {name} island here is from before this room was rebuilt: New game makes a new one."
             : _offer.Bring ? $"No {name} island here yet: bring your game here, or start a new one."
+            // No game in play, and one put away (New game's own doing, also when the room then did not open): the page says where it went.
+            : Model.GamePutAway ? $"Your last {name} game is put away: New game makes a new one."
             : $"No {name} island here yet: New game makes one.";
     }
 
@@ -534,8 +554,12 @@ public partial class MainMenu : Control
         var why = Model.WhyNotReady;
         var offer = _offer;
         var hold = why == null ? Model.Hold() : TeamHold.Free;
+        _hold = hold;
         _waiting = hold == TeamHold.Leaving;
         var asking = Model.Asking;
+        // While the question is up, the button that answers it says so, and the question is in a child's size.
+        _newGame.Text = asking ? MenuModel.YesNewGameWords : MenuModel.NewGameWords;
+        _hint.AddThemeFontSizeOverride("font_size", asking ? 18 : 15);
         _goBack.Visible = asking;
         _continue.Visible = offer.Continue && !asking;
         _bring.Visible = offer.Bring && !asking;
@@ -574,12 +598,15 @@ public partial class MainMenu : Control
 
     /// <summary>
     /// New game: over a game the first press puts the question up and gives "Go back" the focus; the next press, not sooner than
-    /// ConfirmGuardMs after it, puts the old game away and starts. Where there is no game it starts at once.
+    /// ConfirmGuardMs after it and never the second click of a double click, puts the old game away and starts. Where there is
+    /// no game it starts at once.
     /// </summary>
     private void PressNewGame()
     {
         var asked = Model.Asking;
-        if (asked && Time.GetTicksMsec() - _questionAt < (ulong)Math.Max(0, ConfirmGuardMs)) return;
+        var second = _secondOfDouble;
+        _secondOfDouble = false;
+        if (asked && (second || Time.GetTicksMsec() - _questionAt < (ulong)Math.Max(0, ConfirmGuardMs))) return;
         var launch = Model.NewGame();
         if (!asked && Model.Asking)
         {
@@ -599,16 +626,21 @@ public partial class MainMenu : Control
         (_continue.Visible ? _continue : _bring.Visible ? _bring : _newGame).GrabFocus();
     }
 
-    /// <summary>While the buttons wait for a room that is leaving, the team's lease is asked again ten times a second; they open as soon as it is free.</summary>
+    /// <summary>
+    /// While the team is held (a room that is leaving, or after the wait a game still open), its lease is asked again ten times
+    /// a second: the buttons open as soon as a leaving room has let go, and the page stops saying a game is open as soon as it
+    /// is closed. Nothing is asked while nobody holds the team.
+    /// </summary>
     public override void _Process(double delta)
     {
-        if (!_waiting) return;
+        if (_hold == TeamHold.Free) return;
         _sinceAsked += delta;
         if (_sinceAsked < 0.1) return;
         _sinceAsked = 0;
-        if (Model.Hold() == TeamHold.Leaving) return;
-        // The wait is over: its word goes with it.
-        if (Model.Notice == MenuModel.StillClosingWords) Model.SetNotice("");
+        var hold = Model.Hold();
+        if (hold == _hold) return;
+        // The hold changed: the words that were about it go with it (the wait's, and once the game is closed, the refusal's).
+        if (Model.Notice == MenuModel.StillClosingWords || (hold == TeamHold.Free && Model.Notice == PlayLease.StillOpen)) Model.SetNotice("");
         Refresh();
     }
 

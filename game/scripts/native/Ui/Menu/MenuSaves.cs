@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using GarageGame.Native.Kernel;
 using GarageGame.Native.Saves;
 
 namespace GarageGame.Native.Ui;
@@ -84,7 +85,7 @@ public enum StartCase
 {
     /// <summary>A team, an island or a mode is not chosen yet: nothing starts.</summary>
     NotChosen,
-    /// <summary>No game in this mode: New game, and nothing is asked.</summary>
+    /// <summary>No game in this mode (StartRule.HasGame): New game, nothing is asked and nothing is put away.</summary>
     NoGame,
     /// <summary>A save here: Continue, or New game.</summary>
     SaveHere,
@@ -119,25 +120,90 @@ public static class StartRule
     /// <summary>At most this many files of a mode's folder are looked at for the date its game was last saved.</summary>
     public const int MaxFilesRead = 4096;
 
-    public static StartOffer For(TeamLayout layout, string team, IslandEntry island, string mode)
+    /// <summary>
+    /// The rule for a team, an island and a mode. <paramref name="standing"/> names the manifests of other islands that carry
+    /// this island's id and are still here (SaveOfAnEarlierIsland): a save under one of them is that island's.
+    /// </summary>
+    public static StartOffer For(TeamLayout layout, string team, IslandEntry island, string mode, IReadOnlyCollection<string>? standing = null)
     {
         if (!TeamLayout.ValidTeamId(team) || mode is not ("creative" or "challenge")) return StartOffer.None;
         if (IslandSaveInfo.One(layout, team, island, mode).Exists) return new StartOffer(StartCase.SaveHere, LastSaved(layout, team, mode));
-        if (SaveOfAnEarlierIsland(layout, team, island, mode)) return new StartOffer(StartCase.Rebuilt, LastSaved(layout, team, mode));
-        // Anything New game would put away is a game (GameSetAside.HasGame: in doubt there is one, and New game asks).
-        if (GameSetAside.HasGame(layout, team, mode)) return new StartOffer(StartCase.GameElsewhere, LastSaved(layout, team, mode));
+        if (SaveOfAnEarlierIsland(layout, team, island, mode, standing)) return new StartOffer(StartCase.Rebuilt, LastSaved(layout, team, mode));
+        if (HasGame(layout, team, mode)) return new StartOffer(StartCase.GameElsewhere, LastSaved(layout, team, mode));
         return new StartOffer(StartCase.NoGame, null);
     }
 
-    /// <summary>Whether this team has a save of this island in this mode under another manifest: the island as it was before it was rebuilt.</summary>
-    public static bool SaveOfAnEarlierIsland(TeamLayout layout, string team, IslandEntry island, string mode)
+    /// <summary>
+    /// Whether this team has a game in this mode, as the rule counts one: anything New game would put away (GameSetAside.HasGame)
+    /// that a first game does not have already. A room that boots writes the body of the mode its store opens on as well as the
+    /// body it plays: a team that has only ever played Challenge has modes/creative/vitals.json too, holding a body nothing has
+    /// happened to. So a mode's folder that holds its vitals file and nothing else, with a first body in it (FirstBody), is no
+    /// game: nobody played it, and New game there asks nothing and puts nothing away. An island save, a stray file, a body that
+    /// was hurt or has grown, something in that mode's pockets or hand, a put-away cut short, or anything that does not read is
+    /// a game: in doubt there is one, and New game asks before anything moves.
+    /// </summary>
+    public static bool HasGame(TeamLayout layout, string team, string mode) =>
+        GameSetAside.HasGame(layout, team, mode) && !OnlyAFirstBody(layout, team, mode);
+
+    /// <summary>A body nothing has happened to: whole and rested, no climb counted, never knocked out, no Fractal found.</summary>
+    public static bool FirstBody(PlayerVitals body) =>
+        body.Health >= body.MaxHealth && body.Stamina >= body.MaxStamina && body.CompletedClimbs == 0 && body.Recoveries == 0 &&
+        body.Fractals is { Found: 0, Unspent: 0, Hearts: 0, Bands: 0 };
+
+    /// <summary>
+    /// Whether all this team has of this mode is a first body: the mode's vitals file (this team's, this mode's, FirstBody), no
+    /// other file in the mode's folder but the stores' empty leases, nothing in that mode's pockets or hand, no put-away cut
+    /// short. Anything else, a link among the files or a file that does not read, answers false.
+    /// </summary>
+    private static bool OnlyAFirstBody(TeamLayout layout, string team, string mode)
+    {
+        try
+        {
+            if (GameSetAside.PendingPutAway(layout, team) == mode) return false;
+            var home = layout.ModeFolder(team, mode);
+            var vitals = layout.VitalsFile(team, mode);
+            if (!Directory.Exists(home) || !File.Exists(vitals)) return false;
+            var seen = 0;
+            var folders = new Stack<(string Path, bool Home)>();
+            folders.Push((home, true));
+            while (folders.Count > 0)
+            {
+                var (folder, isHome) = folders.Pop();
+                foreach (var entry in new DirectoryInfo(folder).EnumerateFileSystemInfos())
+                {
+                    if (++seen > MaxFilesRead || (entry.Attributes & FileAttributes.ReparsePoint) != 0) return false;
+                    if ((entry.Attributes & FileAttributes.Directory) != 0) { folders.Push((entry.FullName, false)); continue; }
+                    // A store's lease is an empty file beside what it guards.
+                    if (entry.Name.EndsWith(".lock", StringComparison.OrdinalIgnoreCase) && entry is FileInfo { Length: 0 }) continue;
+                    if (!isHome || entry.Name != Path.GetFileName(vitals)) return false;
+                }
+            }
+            var teamFile = new FileInfo(layout.TeamFile(team));
+            if (!teamFile.Exists || teamFile.Length is 0 or > TeamFile.MaxBytes) return false;
+            var file = TeamFile.Parse(File.ReadAllBytes(teamFile.FullName));
+            if (!file.PocketsOf(mode).IsEmpty || !file.HandOf(mode).IsNone) return false;
+            if (new FileInfo(vitals).Length is 0 or > LocalPlayerVitalsStore.MaxBytes) return false;
+            var document = LocalPlayerVitalsStore.ParseMode(File.ReadAllBytes(vitals));
+            return document.TeamId == team && document.Mode == mode && FirstBody(document.Vitals);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException or TeamFileException or PlayerVitalsException) { return false; }
+    }
+
+    /// <summary>
+    /// Whether this team has a save of this island in this mode under another manifest: the island as it was before it was
+    /// rebuilt. A save under a manifest in <paramref name="standing"/> is not one: two islands can carry one id (the fixture
+    /// cache's island at ten times its size carries the installed island's), and a save of the other, which is still here, is
+    /// a game on another island and never this island's earlier self.
+    /// </summary>
+    public static bool SaveOfAnEarlierIsland(TeamLayout layout, string team, IslandEntry island, string mode, IReadOnlyCollection<string>? standing = null)
     {
         try
         {
             var room = Path.Combine(layout.IslandsRoot(team, mode), island.RoomId);
             if (!Directory.Exists(room)) return false;
             return Directory.EnumerateDirectories(room).Any(folder => Path.GetFileName(folder) is { } prefix && prefix != island.ManifestPrefix &&
-                                                                  TeamLayout.ValidManifestPrefix(prefix) && File.Exists(Path.Combine(folder, "inventions.json")));
+                                                                  TeamLayout.ValidManifestPrefix(prefix) && standing?.Contains(prefix) != true &&
+                                                                  File.Exists(Path.Combine(folder, "inventions.json")));
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return false; }
     }

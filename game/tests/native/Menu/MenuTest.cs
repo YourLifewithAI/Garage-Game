@@ -49,6 +49,7 @@ public partial class MenuTest : Node
             TestCopy();
             TestLastGame();
             TestStartRule();
+            TestStartFirstBody();
             TestStartLease();
             TestStartCutShort();
             TestStartChoices();
@@ -57,10 +58,11 @@ public partial class MenuTest : Node
             if (OS.GetCmdlineUserArgs().Contains("--broken-room")) await TestBrokenIsland();
             await TestCopyThroughTheMenu();
             await TestStartOnThePage();
+            await TestStartFromAShortcut();
             TestLinkWords();
             GC.Collect();
             GC.WaitForPendingFinalizers();
-            GD.Print($"NATIVE_MENU: {_checks - _failures}/{_checks} checks passed; the islands listed (the tutorial first, the player's before the shipped stand-ins, names cleaned, an island that cannot be saved left out), a team made in the New team panel and written, the mode and difficulty offered through the island rules (Live shown and refused, Gentle suggested on a first Challenge, a save's difficulty kept), \"Copy my Creative island into Challenge\" once per island per team with its builds written down and the Creative original untouched, and the walk from the menu to the fixture room with the team, island, mode and difficulty reaching its boot; the start rule (MENU-3): no Continue without its save, the four cases (no game, a game in this mode, a game in the other mode, both), a game on another island and an island rebuilt, New game over a game asking once and then putting it away whole, the buttons waiting on the team's lease, and on today's page Continue and New game where Play was; the land's picture counted from its strokes, the card's from what it sent to its canvas, and painted by the test's own painter (MENU-5); not the look of the cards on a screen");
+            GD.Print($"NATIVE_MENU: {_checks - _failures}/{_checks} checks passed; the islands listed (the tutorial first, the player's before the shipped stand-ins, names cleaned, an island that cannot be saved left out), a team made in the New team panel and written, the mode and difficulty offered through the island rules (Live shown and refused, Gentle suggested on a first Challenge, a save's difficulty kept), \"Copy my Creative island into Challenge\" once per island per team with its builds written down and the Creative original untouched, and the walk from the menu to the fixture room with the team, island, mode and difficulty reaching its boot; the start rule (MENU-3): no Continue without its save, the four cases (no game, a game in this mode, a game in the other mode, both), a game on another island and an island rebuilt, the first body a boot of the other mode leaves being no game, New game over a game asking once and then putting it away whole, its question taken down by another mode or team, the buttons waiting on the team's lease, on today's page Continue and New game where Play was, and a room shortcut's command line opening the menu on its own room and nothing else; the land's picture counted from its strokes, the card's from what it sent to its canvas, and painted by the test's own painter (MENU-5); not the look of the cards on a screen");
             GetTree().Quit(_failures == 0 ? 0 : 1);
         }
         catch (Exception error)
@@ -73,6 +75,7 @@ public partial class MenuTest : Node
             (CommandHost.SaveRoot, CommandHost.DefaultGlowProgressPath, CommandHost.DefaultPlayerVitalsPath, CommandHost.DefaultWishSaveRoot, RoomHud.ProfilePath) = previous;
             IslandCatalog.RootsOverride = null;
             TeamBoot.UserRootOverride = null;
+            MainMenu.LaunchArguments = null;
         }
     }
 
