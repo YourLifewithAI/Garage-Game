@@ -13,8 +13,12 @@ namespace GarageGame.Tests;
 /// <summary>
 /// Pictures of the opening menu for the founder's eye (windowed; the GPU): the menu with two teams and the installed islands, the New
 /// team panel filled in, Challenge with the copy of a Creative island on offer, the room a moment after Play (the link line), and the
-/// settings. Run it on a scratch profile (APPDATA and LOCALAPPDATA under the lane's scratch, the island copied into its rooms folder), windowed:
+/// settings. It reads and writes the user folder (it makes two teams there, lists the rooms installed there and sets the profile), so it
+/// runs only on a scratch one: APPDATA and LOCALAPPDATA set to folders under the lane's .cache (a stand-in island copied into its rooms
+/// folder), DOTNET_ROOT set to the worktree's .cache/dotnet, then, windowed:
 /// Godot --path game --resolution 1280x720 res://tests/native/Menu/native_menu_capture.tscn -- --out=&lt;folder&gt; --no-playtest-record
+/// On any other user folder it refuses and ends, touching nothing (the player's teams and rooms are never pictured). The title page's
+/// pictures, and the picture of this page as it was before the title page, are capture-title.ps1's (MenuTitleCapture), which needs no setting up.
 /// Nothing here is a check; the headless suite (MenuTest) is the test.
 /// </summary>
 public partial class MenuCapture : Node
@@ -28,6 +32,14 @@ public partial class MenuCapture : Node
         try
         {
             var args = OS.GetCmdlineUserArgs();
+            // Only ever a scratch user folder (one under a .cache): the player's own teams, rooms and profile are not this scene's to read, write or picture.
+            var userFolder = ProjectSettings.GlobalizePath("user://").Replace((char)92, '/');
+            if (!userFolder.Contains("/.cache/", StringComparison.OrdinalIgnoreCase))
+            {
+                GD.Print("MENU_CAPTURE refused: the user folder is not a scratch one (" + userFolder + "). Set APPDATA and LOCALAPPDATA to folders under the worktree's .cache first; nothing was read or written.");
+                GetTree().Quit(2);
+                return;
+            }
             // The game started again by "Back to the menu" carries --menu: this stand-in says so and ends (it never starts the room again).
             if (args.Contains("--menu"))
             {
