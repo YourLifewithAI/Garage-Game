@@ -4,9 +4,10 @@
 
 The grammar (parts.py) on made-up boxes; the land a magnified room raises from it (land.py), read on the stand-in
 garage at ten times as generate.py makes it, stopped where the coast is cut (six seconds: the landforms are whole
-there); the likeness measure, on the stand-in's twelve floor boxes and against unlike families; and true size, whose
-bytes are as they were. A written ten-times package is measured too when one is named (LANDSCAPE_TEN_TIMES, as in
-test_fractals.py: `generate`, or a package folder of corpus/rooms/garage_nominal).
+there); the likeness measure, on the stand-in's twelve floor boxes and against unlike families, each of its five views
+checked against a plain reference; the summit the stand-in keeps (the same room stopped where the flights are planned:
+two minutes); and true size, whose bytes are as they were. A written ten-times package is measured too when one is
+named (LANDSCAPE_TEN_TIMES, as in test_fractals.py: `generate`, or a package folder of corpus/rooms/garage_nominal).
 """
 import contextlib
 import io
@@ -18,7 +19,7 @@ import sys
 import unittest
 from unittest import mock
 
-from pipeline.landscape.generator import generate as G, land, parts, scale as world
+from pipeline.landscape.generator import fractals as Fractals, gates, generate as G, land, parts, scale as world, sites
 from pipeline.landscape.generator.field import Grid, Noise, rr_dist, slope_field
 from pipeline.landscape.generator.tests import test_generator
 from pipeline.landscape.generator.tests.test_fractals import GARAGE_1X_FILES, package_digests
@@ -87,13 +88,76 @@ def landforms(blocks=True):
     return _LANDS[blocks]
 
 
+_PLANS = {}
+
+
+def planned():
+    """The same room at ten times, stopped where the flights are planned (fractals.plan: two minutes): the land the
+    summit's corridor is sought on (sites.Land), which landmarks the melted forms would have offered and whether any
+    of them takes a corridor (`melted`: [(id, found)], sought before anything is built), and the plan as it is made."""
+    if not _PLANS:
+        got = {}
+        real = Fractals.plan
+
+        def stop(fx, seed, spawn, *rest, **more):
+            own = gates.own_band(Fractals.BUDGET['max'], gates.PER_BAND)
+            rises = lambda height: gates.ladder_rises(height) if height >= Fractals.SUMMIT_MIN_M else None
+            siting = sites.Siting(fx, seed_bits=seed & 0xffff)
+            melted = [o for o in sorted(fx.objects, key=lambda o: (-o['top'], o['id']))
+                      if o['parent'] is None and o['sy'] >= Fractals.SUMMIT_MIN_M and melted_form(o) not in ('dome', 'knoll')]
+            got.update(land=fx, melted=[(o['id'], sites.plan_summit(fx, siting, o, rises, own_band=own) is not None)
+                                        for o in melted if Fractals._near_reach(fx, o)])
+            got['plan'] = real(fx, seed, spawn, *rest, **more)
+            raise Stop()
+        world.set_world(W10)
+        try:
+            with mock.patch.object(Fractals, 'plan', stop), contextlib.redirect_stdout(io.StringIO()):
+                try:
+                    G.generate(ROOMS/'garage_nominal', os.path.join(workdir('never'), 'pkg'))
+                except Stop:
+                    pass
+        finally:
+            world.set_world(1.)
+        _PLANS.update(got)
+    return _PLANS
+
+
+def melted_form(o):
+    """The form land.py melted an object to before the blocks (and still does at true size)."""
+    sure = o['confidence'] >= land.CONFIDENT and o['kind'] in land.FORMS
+    return land.FORMS[o['kind']] if sure else land.proportion_form(o)
+
+
 def stands_on(got, o):
     """The level an object's land stands on: the plain under a floor thing's middle, its support's for one that rests."""
-    by_id = {p['id']: p for p in got['objects']}
-    foot = o
-    while foot['parent'] is not None:
-        foot = by_id[foot['parent']]
+    foot = land.floor_under(o, {p['id']: p for p in got['objects']}) or o
     return o['base']+got['grid'].sample(got['base'], foot['cx'], foot['cz'])
+
+
+def plain_sides(top, n=48, levels=48):
+    """The four side views written plainly from the view from above (parts.reliefs's lattice, a row an x): for every
+    line of the lattice and every height, walk in from each end to the first cell that stands that high; the view is
+    how much of the line lies behind it, 0 where the ray passes over. The reference parts.reliefs is tested against."""
+    hs = [top[i*n:(i+1)*n] for i in range(n)]
+
+    def behind(line, y):
+        for k, v in enumerate(line):
+            if v >= y:
+                return (n-k)/n
+        return 0.
+    out = dict(front=[], back=[], left=[], right=[])
+    marks = [(k+.5)/levels for k in range(levels)]
+    for i in range(n):
+        line = hs[i]                           # one x, from the front (-z) to the back (+z)
+        for y in marks:
+            out['front'].append(behind(line, y))
+            out['back'].append(behind(line[::-1], y))
+    for j in range(n):
+        line = [hs[i][j] for i in range(n)]    # one z, from the left (-x) to the right (+x)
+        for y in marks:
+            out['left'].append(behind(line, y))
+            out['right'].append(behind(line[::-1], y))
+    return out
 
 
 def land_of(got, o):
@@ -170,6 +234,85 @@ class Grammar(unittest.TestCase):
             (b,) = parts.blocks(o)
             self.assertEqual((b.x0, b.x1, b.z0, b.z1, b.y0, b.y1), (-o['sx']/2, o['sx']/2, -o['sz']/2, o['sz']/2, 0., o['sy']))
             self.assertFalse(b.soft or b.round or b.cut)
+
+    def test_a_facing_the_scan_did_not_find_is_not_raised(self):
+        """A chair whose front the scan did not find is its box, a couch a soft block: no back wall on a guessed
+        side (before: the back stood on local +z whatever the scan said). A thing with no facing keeps its grammar,
+        and an object that does not say is taken as found."""
+        open_laptop = (.36, .24, .26)
+        for kind, size in [(k, SIZES[k]) for k in ('chair', 'office chair', 'step ladder', 'easel', 'bicycle')]+[('laptop', open_laptop)]:
+            known, lost = thing(kind, *size, front_known=True), thing(kind, *size, front_known=False)
+            self.assertIn(parts.family(known), parts.FACING, kind)
+            self.assertGreater(len(parts.blocks(known)), 1, kind)
+            self.assertEqual(parts.family(lost), 'box', kind)
+            (b,) = parts.blocks(lost)
+            self.assertEqual((b.x0, b.x1, b.z0, b.z1, b.y0, b.y1), (-size[0]/2, size[0]/2, -size[2]/2, size[2]/2, 0., size[1]))
+            self.assertFalse(b.soft or b.round or b.cut)
+            self.assertEqual(parts.form(lost), ('mesa', 'box'))
+            self.assertEqual(parts.form(known)[1], 'kind')
+        for kind in ('couch', 'sofa', 'bed'):
+            lost = thing(kind, *SIZES[kind], front_known=False)
+            self.assertEqual(parts.family(lost), 'cushion', kind)
+            (b,) = parts.blocks(lost)
+            self.assertTrue(b.soft and not b.round, 'a soft thing stays soft')
+            self.assertEqual(parts.form(lost), ('sugarloaf', 'box'))
+        for kind in ('desk', 'table', 'bean bag', 'bin', 'shelving unit', 'monitor', 'lamp', 'plant', 'cardboard box'):
+            self.assertEqual(parts.blocks(thing(kind, *SIZES[kind])), parts.blocks(thing(kind, *SIZES[kind], front_known=False)), kind)
+        self.assertEqual(parts.family(thing('chair', *SIZES['chair'])), 'seat', 'an object that does not say')
+
+    def test_the_facing_families_are_those_a_half_turn_changes(self):
+        """FACING against the grammar itself: a family's land turned half round is another land (it fails likeness
+        against itself) exactly where the family is one that faces."""
+        sizes = dict(SIZES, **{'laptop': (.36, .24, .26)})    # an open one: shut, a laptop is a slab either way
+        turned = set()
+        for kind, (sx, sy, sz) in sizes.items():
+            o = thing(kind, sx, sy, sz)
+            f = parts.shape(o, .03)
+            a, b = o['sx']/2, o['sz']/2
+            got = parts.likeness(parts.reliefs(f, a, b, sy), parts.reliefs(lambda lx, lz: f(-lx, -lz), a, b, sy))['least']
+            turned.add(parts.family(o))
+            self.assertEqual(got < parts.MATCH, parts.family(o) in parts.FACING, (kind, got))
+            if parts.family(o) not in parts.FACING:
+                self.assertGreater(got, .97, kind)
+        self.assertEqual(turned, set(parts.GRAMMAR), 'every family was turned')
+        self.assertEqual(set(parts.UNFACED)-parts.FACING, set())
+
+    def test_on_a_magnified_room_the_form_is_what_the_blocks_make(self):
+        """land.parse_objects on the stand-in: at true size and with the blocks off, the melted forms; on a magnified
+        room raised as blocks, what the blocks make. No block landform is one fractals.landmarks leaves out as a hill
+        a body walks up (`dome`, `knoll`): before, the chair was a knoll and the bean bags domes there."""
+        from pipeline.landscape.harness.common import load_json
+        inventory = load_json(ROOMS/'garage_nominal'/'inventory.json')
+        true = {o['id']: (o['form'], o['form_basis']) for o in land.parse_objects(inventory)}
+        self.assertEqual((true['office_chair_1'], true['bean_bag_1'], true['couch_1'], true['bicycle_1']),
+                         (('knoll', 'kind'), ('dome', 'kind'), ('ridge', 'kind'), ('fin', 'kind')))
+        world.set_world(W10)
+        try:
+            ten = land.parse_objects(world.magnify_inventory(inventory, W10))
+            with mock.patch.object(land, 'BLOCKS', False):
+                off = {o['id']: (o['form'], o['form_basis']) for o in land.parse_objects(world.magnify_inventory(inventory, W10))}
+        finally:
+            world.set_world(1.)
+        self.assertEqual(off, true)
+        forms = {o['id']: (o['form'], o['form_basis']) for o in ten}
+        self.assertEqual((forms['office_chair_1'], forms['bean_bag_1'], forms['couch_1'], forms['bicycle_1'], forms['desk_1'],
+                          forms['easel_1'], forms['bin_1'], forms['monitor_1']),
+                         (('seat', 'kind'), ('sugarloaf', 'kind'), ('couch', 'kind'), ('fin', 'kind'), ('mesa', 'kind'),
+                          ('flatiron', 'kind'), ('crater', 'kind'), ('wall', 'kind')))
+        for o in ten:
+            self.assertEqual((o['form'], o['form_basis']), parts.form(o))
+            self.assertNotIn(o['form'], ('dome', 'knoll'), o['id'])
+            self.assertEqual(o['front_known'], o['kind'] not in ('bean bag', 'bin', 'french press', 'jar'), o['id'])
+        self.assertEqual(set(parts.LANDFORMS), set(parts.GRAMMAR))
+        self.assertFalse({'dome', 'knoll'} & set(parts.LANDFORMS.values()))
+        # Soft is soft either way: the surface grows a soft landform's slopes over (life.surface reads land.SOFT).
+        self.assertTrue(parts.SOFT_LANDFORMS <= land.SOFT and {'dome', 'ridge', 'knoll'} <= land.SOFT)
+        self.assertEqual({parts.LANDFORMS[f] for f in ('couch', 'bed', 'beanbag', 'cushion', 'plant')}, set(parts.SOFT_LANDFORMS))
+        self.assertFalse({parts.LANDFORMS[f] for f in ('seat', 'table', 'box', 'bicycle', 'easel', 'vessel')} & land.SOFT)
+        # The scan's word on the front is carried; an entry that does not say is taken as found.
+        entry = dict(inventory['objects'][0], placement=dict(inventory['objects'][0]['placement']))
+        del entry['placement']['front_known']
+        self.assertTrue(land.parse_objects(dict(inventory, objects=[entry]))[0]['front_known'])
 
     def test_a_chair_is_a_seat_under_a_back_wall(self):
         for kind in ('chair', 'office chair'):
@@ -273,13 +416,65 @@ class Likeness(unittest.TestCase):
         self.assertEqual(got['least'], 1.)
 
     def test_the_four_sides_are_four_views(self):
-        """A chair turned round is the same from above and another thing from the front and the back: a view from a
-        side reads the first surface the eye meets, not an outline."""
+        """A chair turned round is another thing from the front and from the back: a view from a side reads the first
+        surface the eye meets, not an outline. Its front is the turned chair's back, to the ray."""
         o = thing('chair', .45, .9, .45)
-        got = parts.likeness(self.reliefs(o), self.reliefs(o, turn=True))
+        one, other = self.reliefs(o), self.reliefs(o, turn=True)
+        got = parts.likeness(one, other)
         self.assertLess(got['front'], parts.MATCH)
         self.assertLess(got['back'], parts.MATCH)
         self.assertLess(got['least'], parts.MATCH)
+        # A chair is the same from its left and its right (ray for ray, but for a cell where a face's height lies on a
+        # mark), and not from its front and its back; its front is the turned chair's back.
+        swapped = parts.likeness(one, dict(one, left=one['right'], right=one['left'], front=one['back'], back=one['front']))
+        self.assertGreater(swapped['left'], .99)
+        self.assertGreater(swapped['right'], .99)
+        self.assertLess(swapped['front'], parts.MATCH)
+        self.assertLess(swapped['back'], parts.MATCH)
+        self.assertAlmostEqual(sum(one['front']), sum(other['back']), delta=.01*sum(one['front']))
+        self.assertAlmostEqual(sum(one['back']), sum(other['front']), delta=.01*sum(one['back']))
+        self.assertGreater(abs(sum(one['front'])-sum(one['back'])), .1*sum(one['back']))
+
+    def test_each_side_sees_its_own_side(self):
+        """Hand sums, on a lattice of 48 by 48 at 48 heights. A wall along the front quarter of a box, as tall as the
+        box: from the front the whole box lies behind the first surface (1), from the back a quarter of it (0.25); from
+        the left and from the right a quarter of the rays meet it at the box's own face (1) and the rest pass over
+        (0). The same wall along the left quarter: left 1, right 0.25. Half as tall, the upper rays pass over.
+        (A measure that looked from fewer sides, the back a copy of the front or a side blind, fails here.)"""
+        a, b, H, n = .5, .4, 1., 48
+        got = parts.reliefs(lambda lx, lz: H if lz < -b/2 else 0., a, b, H)
+        self.assertEqual({v: len(got[v]) for v in parts.VIEWS}, dict(top=n*n, front=n*n, back=n*n, left=n*n, right=n*n))
+        self.assertEqual(got['front'], [1.]*(n*n))
+        self.assertEqual(got['back'], [.25]*(n*n))
+        # From a side the lines run one z each, front to back: the first twelve lie in the wall.
+        quarter = [1.]*(12*n)+[0.]*(36*n)
+        self.assertEqual((got['left'], got['right']), (quarter, quarter))
+        self.assertEqual(sum(got['top']), 12*n)
+        got = parts.reliefs(lambda lx, lz: H if lx < -a/2 else 0., a, b, H)
+        self.assertEqual(got['left'], [1.]*(n*n))
+        self.assertEqual(got['right'], [.25]*(n*n))
+        self.assertEqual((got['front'], got['back']), (quarter, quarter))
+        # Far walls: along the back, along the right.
+        got = parts.reliefs(lambda lx, lz: H if lz > b/2 else 0., a, b, H)
+        self.assertEqual((got['front'], got['back']), ([.25]*(n*n), [1.]*(n*n)))
+        got = parts.reliefs(lambda lx, lz: H if lx > a/2 else 0., a, b, H)
+        self.assertEqual((got['left'], got['right']), ([.25]*(n*n), [1.]*(n*n)))
+        # Half as tall: a ray over the wall meets nothing.
+        got = parts.reliefs(lambda lx, lz: H/2 if lz < -b/2 else 0., a, b, H)
+        self.assertEqual(got['front'], ([1.]*24+[0.]*24)*n)
+        self.assertEqual(got['back'], ([.25]*24+[0.]*24)*n)
+        # The front wall against the back wall is another thing from every side: from the front and the back a
+        # quarter of the solid is shared, from above and from the left and the right none.
+        front, back = (parts.reliefs(lambda lx, lz, s=s: H if s*lz < -b/2 else 0., a, b, H) for s in (1, -1))
+        score = parts.likeness(front, back)
+        self.assertEqual((score['left'], score['right'], score['front'], score['back'], score['top'], score['least']),
+                         (0., 0., .25, .25, 0., 0.))
+
+    def test_the_views_are_the_plain_reference_on_every_grammar(self):
+        """parts.reliefs's four side views against the reference written plainly (`plain_sides`), for every kind."""
+        for kind, (sx, sy, sz) in SIZES.items():
+            got = self.reliefs(thing(kind, sx, sy, sz))
+            self.assertEqual({v: got[v] for v in ('front', 'back', 'left', 'right')}, plain_sides(got['top']), kind)
 
     def test_unlike_families_fail_and_like_ones_do_not(self):
         chair = thing('office chair', .6, 1.05, .6)
@@ -305,9 +500,9 @@ class Likeness(unittest.TestCase):
 class RaisedLand(unittest.TestCase):
     """land.raise_blocks and the weather's caps, on made-up plains."""
 
-    def raised(self, objects, cell=.03, half=1.5, plain=.05):
+    def raised(self, objects, cell=.03, half=1.5, plain=.05, tilt=0.):
         grid = Grid(-half, -half, half, half, cell)
-        base = [plain]*grid.n
+        base = [plain+tilt*grid.xs[q % grid.nx] for q in range(grid.n)]    # `tilt`: the plain rises this much a metre of x
         owner = [-1]*grid.n
         world.set_world(W10)
         try:
@@ -356,6 +551,58 @@ class RaisedLand(unittest.TestCase):
         self.assertAlmostEqual(at(.1, 0.), .84, places=9, msg='the laptop shows on it, its own height over the desk\'s top')
         self.assertEqual(owner[grid.nearest(.1, 0.)[1]*grid.nx+grid.nearest(.1, 0.)[0]], 1)
         self.assertAlmostEqual(at(.63, 0.), .05, places=9, msg='no pillar beside the desk')
+
+    def test_a_stack_stands_on_its_floor_thing_however_deep_and_in_whatever_order(self):
+        """A mug on a book on a desk, the mug scanned a centimetre under the book's base, so it is raised before the
+        book; and two things each resting on the other, which nothing on the floor holds (the scan links any two tops
+        within reach). Neither stops the land. Before the fix both were KeyError('book') on a magnified room, where
+        true size raised them."""
+        desk = thing('desk', 1.05, .75, .5)
+        book = thing('book', .3, .04, .22, base=.75, top=.79, parent='desk')
+        mug = thing('mug', .09, .1, .09, base=.74, top=.84, parent='book')
+        grid, h, owner = self.raised([desk, book, mug])
+        q = lambda x, z: grid.nearest(x, z)[1]*grid.nx+grid.nearest(x, z)[0]
+        self.assertAlmostEqual(h[q(0., 0.)], .05+.74+.1, places=9, msg='the mug: its own base over the plain under the desk')
+        self.assertAlmostEqual(h[q(.12, 0.)], .05+.75+.04, places=9, msg='the book beside it')
+        self.assertAlmostEqual(h[q(-.4, 0.)], .05+.75, places=9, msg='the desk')
+        self.assertEqual(owner[q(0., 0.)], 2)
+        self.assertAlmostEqual(max(h), .89, places=9)
+        # The same land whatever order the scan lists them in.
+        self.assertEqual(list(self.raised([mug, book, desk])[1]), list(h))
+        # A stack four deep, each thing listed before its support.
+        coin = thing('jar', .09, .02, .09, base=.84, top=.86, parent='mug', id='coin', confidence=.3)
+        grid, deep, _ = self.raised([coin, mug, book, desk])
+        self.assertAlmostEqual(deep[q(0., 0.)], .05+.84+.02, places=9)
+        # On a tilted plain the whole stack stands on the plain under the desk's middle, not under its own things'.
+        far = dict(cx=.3)
+        things = [thing('desk', 1.05, .75, .5), thing('book', .3, .04, .22, base=.75, top=.79, parent='desk', **far),
+                  thing('mug', .09, .1, .09, base=.74, top=.84, parent='book', **far)]
+        grid, tilted, _ = self.raised(things, tilt=.1)
+        self.assertAlmostEqual(tilted[q(.3, 0.)], .05+.74+.1, places=9, msg='the plain under the desk (0.05), not under the mug (0.08)')
+        self.assertAlmostEqual(tilted[q(.42, 0.)], .05+.75+.04, places=9)
+        # A ring: each stands on the plain under its own middle, and only over the other.
+        book = thing('book', .3, .04, .22, base=.75, top=.79, parent='mug')
+        mug = thing('mug', .09, .1, .09, base=.74, top=.84, parent='book')
+        grid, ring, _ = self.raised([book, mug])
+        self.assertAlmostEqual(ring[q(0., 0.)], .05+.74+.1, places=9)
+        self.assertAlmostEqual(max(ring), .89, places=9)
+        self.assertAlmostEqual(ring[q(.12, 0.)], .05, places=9, msg='the book only over the mug')
+        # A thing that names itself, and one whose support is not in the room.
+        alone = thing('mug', .09, .1, .09, base=.3, top=.4, parent='mug')
+        lost = thing('jar', .09, .12, .09, cx=.5, base=.3, top=.42, parent='a shelf nobody scanned', id='jar')
+        grid, odd, _ = self.raised([alone, lost])
+        self.assertAlmostEqual(max(odd), .05+.3+.12, places=9)
+
+    def test_the_floor_thing_under_a_stack(self):
+        by_id = {o['id']: o for o in (thing('desk', 1., .7, .5), thing('book', .3, .04, .2, parent='desk'),
+                                      thing('mug', .09, .1, .09, parent='book'), thing('cup', .08, .09, .08, parent='jar'),
+                                      thing('jar', .09, .12, .09, parent='cup'), thing('vase', .1, .3, .1, parent='nothing here'),
+                                      thing('kettle', .2, .24, .16, parent='kettle'))}
+        self.assertIs(land.floor_under(by_id['desk'], by_id), by_id['desk'])
+        self.assertIs(land.floor_under(by_id['book'], by_id), by_id['desk'])
+        self.assertIs(land.floor_under(by_id['mug'], by_id), by_id['desk'])
+        for ident in ('cup', 'jar', 'vase', 'kettle'):
+            self.assertIsNone(land.floor_under(by_id[ident], by_id), ident)
 
     def test_the_weather_spares_a_cap_and_works_soft_ground(self):
         box, bag = thing('cardboard box', .6, .5, .6, cx=-.6), thing('bean bag', .6, .5, .6, cx=.6, id='bag')
@@ -414,9 +661,11 @@ class StandIn(unittest.TestCase):
 
     def test_unlike_families_fail(self):
         """Each box's land against the blocks of every other family of the room, stood in the same box: where that
-        family's shape is another shape there (parts.unlike), the land fails it."""
+        family's shape is another shape there (parts.unlike), the land fails it. One pair of unlike landforms is not
+        tried, and the land does match it: the bin (a crater) against a bean bag's blocks (a sugarloaf), 0.89. The
+        measure cannot tell a dish 0.55 m deep from a domed top on a drum 5 m tall (parts.py says so)."""
         self.assertEqual(self.families, ['beanbag', 'bicycle', 'box', 'couch', 'easel', 'seat', 'shelf', 'table', 'vessel'])
-        tried, passed = [], []
+        tried, passed, sides = [], [], 0
         for o in self.boxes:
             for other in self.families:
                 if other == parts.family(o) or not parts.unlike(o, other, GRAIN10, W10):
@@ -425,14 +674,61 @@ class StandIn(unittest.TestCase):
                 got = parts.measure(o, land_of(self.got, o), GRAIN10, W10, kind=other)
                 if got['least'] >= parts.MATCH:
                     passed.append((o['id'], other, got))
+                sides += any(got[v] < parts.MATCH for v in ('front', 'back', 'left', 'right'))
         self.assertEqual(passed, [], 'a land that matches an unlike family\'s blocks')
-        self.assertGreaterEqual(len(tried), 70, 'of %d pairs' % (12*8))
+        self.assertGreaterEqual(len(tried), 80, 'of %d pairs' % (12*8))    # 85 today
         self.assertEqual([pair for pair in UNLIKE if pair not in tried], [], 'pairs the proof may not lose')
+        # Most fail from a side as well as from above: the proof does not rest on the view from above alone.
+        self.assertGreaterEqual(sides, 70, 'of %d' % len(tried))
         # What is left out is alike by its own blocks, and of one landform but for a tall drum and a tall soft one.
-        alike = sorted({(parts.family(o), other) for o in self.boxes for other in self.families
-                        if other != parts.family(o) and (o['id'], other) not in tried})
-        for a, b in alike:
-            self.assertTrue(parts.LANDFORMS[a] == parts.LANDFORMS[b] or {a, b} == {'vessel', 'beanbag'}, (a, b))
+        left = sorted((o['id'], other) for o in self.boxes for other in self.families
+                      if other != parts.family(o) and (o['id'], other) not in tried)
+        by = {o['id']: o for o in self.boxes}
+        odd = [(ident, other) for ident, other in left if parts.LANDFORMS[parts.family(by[ident])] != parts.LANDFORMS[other]]
+        self.assertEqual(odd, [('bin_1', 'beanbag')], 'the one pair of unlike landforms the measure cannot tell apart')
+        score = parts.measure(by['bin_1'], land_of(self.got, by['bin_1']), GRAIN10, W10, kind='beanbag')['least']
+        self.assertTrue(parts.MATCH <= score < .9, score)
+
+    def test_the_proof_reads_each_of_the_five_sides(self):
+        """The clause says five sides, so the stand-in's own proof must fail if the measure looked from fewer.
+        Every view of every floor box's land is the plain reference's (`plain_sides`); and the stand-in holds pairs
+        only one side tells apart from its opposite: a mesa seen from behind is a chair seen from behind and from the
+        front it is not, and a bicycle (its bars at one end) is nearer a mesa from its right than from its left.
+        (With the back view a copy of the front and the right of the left, or the four sides blind, this fails; the
+        tests above passed.)"""
+        by = {o['id']: o for o in self.boxes}
+        for o in self.boxes:
+            a, b, H = o['sx']/2, o['sz']/2, o['sy']
+            for name, f in (('land', land_of(self.got, o)), ('blocks', parts.shape(o, GRAIN10, W10))):
+                got = parts.reliefs(f, a, b, H)
+                self.assertEqual({v: got[v] for v in ('front', 'back', 'left', 'right')}, plain_sides(got['top']), (o['id'], name))
+        for ident in ('desk_1', 'table_1', 'shelving_unit_1', 'cardboard_box_1', 'storage_tote_1'):
+            got = parts.measure(by[ident], land_of(self.got, by[ident]), GRAIN10, W10, kind='seat')
+            self.assertGreater(got['back'], .95, ident)
+            self.assertLess(got['front'], .7, ident)
+        for ident in ('desk_1', 'table_1', 'cardboard_box_1', 'bean_bag_1'):
+            got = parts.measure(by[ident], land_of(self.got, by[ident]), GRAIN10, W10, kind='bicycle')
+            self.assertGreater(got['right']-got['left'], .15, ident)
+        # The chair's own land: its front is not its blocks' back, nor its back their front.
+        chair = by['office_chair_1']
+        a, b, H = chair['sx']/2, chair['sz']/2, chair['sy']
+        mine, theirs = parts.reliefs(land_of(self.got, chair), a, b, H), parts.reliefs(parts.shape(chair, GRAIN10, W10), a, b, H)
+        crossed = parts.likeness(dict(mine, front=mine['back'], back=mine['front']), theirs)
+        self.assertLess(crossed['front'], parts.MATCH)
+        self.assertLess(crossed['back'], parts.MATCH)
+        self.assertEqual((crossed['top'], crossed['left'], crossed['right']),
+                         tuple(self.scores['office_chair_1'][v] for v in ('top', 'left', 'right')))
+
+    def test_what_the_grain_costs_is_said(self):
+        """The twelve match their blocks as the 30 cm grain stands them. Against their true parts (grain 0) eleven
+        still do and the bicycle does not: a wheel 0.5 m thick stands 0.9 m thick, and from above that is another
+        shape. The cure is the blocks replayed on the finer grids (not this packet's files); until then this is the
+        number, and parts.py's report prints it beside the others."""
+        true = {o['id']: parts.measure(o, land_of(self.got, o), 0., W10) for o in self.boxes}
+        self.assertEqual(sorted(k for k, v in true.items() if v['least'] < parts.MATCH), ['bicycle_1'], true)
+        self.assertLess(true['bicycle_1']['top'], .65)
+        self.assertGreaterEqual(min(true['bicycle_1'][v] for v in ('front', 'back', 'left', 'right')), parts.MATCH)
+        self.assertGreaterEqual(sum(1 for v in true.values() if v['least'] >= .93), 6, 'the broad things lose little')
 
     def test_the_land_before_this_packet_fails(self):
         """Failing before: the melted forms of the same room (the blocks switched off) are not their blocks."""
@@ -508,6 +804,65 @@ class StandIn(unittest.TestCase):
             self.assertAlmostEqual(f(0., 0.), o['sy'], delta=.12*o['sy']+.02, msg=ident)
 
 
+class Summit(unittest.TestCase):
+    """The stand-in at ten times keeps a summit (docs/runs/RUN-4.md: `x_summit` on a landform's top is kept; the
+    second knack slot, the overview and "past the tutorial" hang on it). The first block land had none: every landmark
+    the melted forms offered had lost its corridor (a thin wall, a pillar, or a mesa with a thing resting on it), and
+    the soft drums a corridor can be cut into were still named hills. No suite failed."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.got = planned()
+        cls.plan = cls.got['plan']
+        cls.by = {o['id']: o for o in cls.got['land'].objects}
+
+    def test_the_landmarks_the_melted_forms_offered_take_no_corridor(self):
+        """Failing before: sites.plan_summit on each landmark fractals.landmarks listed while the forms were the
+        melted ones (no bean bag: a dome; no chair: a knoll)."""
+        melted = self.got['melted']
+        self.assertEqual([ident for ident, _ in melted],
+                         ['shelving_unit_1', 'easel_1', 'bicycle_1', 'couch_1', 'desk_1', 'table_1', 'bin_1'])
+        self.assertEqual([ident for ident, found in melted if found], [])
+
+    def test_the_soft_drums_are_landmarks_now(self):
+        names = [o['id'] for o in Fractals.landmarks(self.got['land'])]
+        self.assertEqual(names, ['shelving_unit_1', 'easel_1', 'bicycle_1', 'office_chair_1', 'couch_1', 'desk_1', 'table_1',
+                                 'bean_bag_1', 'bean_bag_2', 'bin_1'])
+
+    def test_the_stand_in_keeps_a_summit_on_a_landforms_top(self):
+        summit = self.plan.summit
+        self.assertIsNotNone(summit, self.plan.notes)
+        o = self.by[summit.landmark]
+        self.assertIsNone(o['parent'], 'a thing that stands on the floor')
+        self.assertGreaterEqual(o['sy'], Fractals.SUMMIT_MIN_M)
+        # Its top bench lies on the landmark, within sites.SUMMIT_BELOW_M of the landmark's own top.
+        grid = self.got['land'].grid
+        top = self.plan.summit_routes()[-1]
+        x, z = top.bench_centre(grid, len(top.ledges)-1)
+        self.assertLess(rr_dist(*land.local(o, x, z), o['sx']/2, o['sz']/2, 0.), 0., 'the top bench is on the landmark')
+        self.assertGreater(top.levels[-1], o['top']-sites.SUMMIT_BELOW_M)
+        self.assertLess(top.levels[-1], o['top']+.5)
+        # A ladder of gates to a band a first-run body has not got: band 4 at the least.
+        self.assertGreaterEqual(Fractals.top_band(summit), 4, [(l.rise, l.band) for l in summit.ledges])
+        self.assertEqual([l.band for l in summit.ledges][:3], [1, 2, 3])
+        self.assertGreaterEqual(sum(l.rise for l in summit.ledges), Fractals.SUMMIT_MIN_M)
+
+    def test_the_twelve_still_match_where_the_flights_are_planned(self):
+        """The proof that runs by default, carried past the landforms: the same twelve on the land after the coast,
+        the water, the hamlet, the graded ways and the flights (the summit's corridor cut into its landmark), on the
+        base grid. What is left to the written package (LANDSCAPE_TEN_TIMES) is the 2.5 cm ground and its lips."""
+        fx, first = self.got['land'], landforms()
+        self.assertEqual((fx.grid.nx, fx.grid.nz, fx.grid.cell), (first['grid'].nx, first['grid'].nz, first['grid'].cell))
+        later = dict(grid=fx.grid, h=fx.h, base=first['base'], objects=fx.objects)
+        scores = {o['id']: parts.measure(o, land_of(later, o), GRAIN10, W10) for o in floor_boxes(later)}
+        self.assertEqual(tuple(sorted(scores)), FLOOR_BOXES)
+        self.assertEqual({k: v for k, v in scores.items() if v['least'] < parts.MATCH}, {})
+        # The land did move since the landforms: the summit's landmark carries its corridor.
+        cut = scores[self.plan.summit.landmark]['least']
+        self.assertLess(cut, parts.measure(self.by[self.plan.summit.landmark], land_of(first, self.by[self.plan.summit.landmark]),
+                                           GRAIN10, W10)['least'])
+
+
 def true_size_garage():
     """test_generator's stand-in garage at true size; made again where that suite, run before this one in the same
     process, has taken its folder down with it."""
@@ -554,12 +909,31 @@ class TenTimesPackage(unittest.TestCase):
                            stdout=subprocess.DEVNULL)
         else:
             folder = TEN_TIMES
+        cls.folder = folder
         cls.rows = parts.package_rows(folder, room)
 
     def test_twelve_floor_boxes_match_their_blocks_on_the_written_land(self):
         floor = {r['id']: r for r in self.rows if r['floor']}
         self.assertEqual(tuple(sorted(floor)), FLOOR_BOXES)
         self.assertEqual({k: r['least'] for k, r in floor.items() if not r['match']}, {})
+        # Against the true parts the grain costs the bicycle (and on the written land, at most the two thin things
+        # beside it: the easel and the chair, which pass by a hair where the coast is cut).
+        short = sorted(k for k, r in floor.items() if r['true'] < parts.MATCH)
+        self.assertIn('bicycle_1', short)
+        self.assertLessEqual(set(short), {'bicycle_1', 'easel_1', 'office_chair_1'})
+
+    def test_the_written_land_keeps_its_summit(self):
+        """What the exporter writes as the manifest's `x_summit`: on a floor box's top, its top band 4 or more; and
+        the package's forms say what the blocks make."""
+        from pipeline.landscape.generator import checks
+        doc = checks.read_package(self.folder, ROOMS/'garage_nominal')[0]
+        summit = doc['x_generator'].get('summit')
+        self.assertIsNotNone(summit, 'the stand-in at ten times has no summit')
+        self.assertIn(summit['landmark'], FLOOR_BOXES)
+        self.assertGreaterEqual(summit['top_band'], 4)
+        self.assertEqual(doc['x_generator']['fractals']['summit']['landmark'], summit['landmark'])
+        forms = doc['x_generator']['forms']
+        self.assertEqual((forms['office_chair_1'][0], forms['bean_bag_1'][0], forms['couch_1'][0]), ('seat', 'sugarloaf', 'couch'))
 
 
 if __name__ == '__main__':

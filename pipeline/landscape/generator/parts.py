@@ -25,15 +25,32 @@ What the blocks say, and what the land reads of them today:
 - **The grain.** `blocks(o, grain)` gives the blocks as land of that grain stands them: a part thinner than three
   grains is widened to three (a wall two grid cells wide tops out on a knife edge), and a hollow the grain cannot
   hold is left out. `blocks(o)` gives the true parts.
+- **The facing.** Some families say which way a thing faces (a chair's back, a couch's, a bed's headboard, a ladder's
+  treads: `FACING`). The scan says whether it found the front (`placement.front_known`); where it did not, the thing
+  is raised without one: a soft block for a soft thing, else its box. A back wall on a guessed side is a false room.
+- **The form.** On a magnified room the other stages read what the blocks make (`form`: land.py's `form` there), not
+  the melted form the blocks replaced: a chair is hard rock, and a bean bag is a steep-sided dome a body cannot walk
+  up (a `sugarloaf`), so the summit's corridor may be cut into it.
 
 The proof is `likeness`: a shape seen from five sides (above, front, back, left, right), each view a relief (how
 much solid lies behind the first surface the eye meets), two shapes compared view by view as the solid they share
 over the solid either has. A land matches its blocks when the least of the five is `MATCH` or more; the blocks of an
 unlike family, stood in the same box, fail it (tests/test_parts.py, on the stand-in garage's twelve floor boxes).
 
+What the measure does not see, said plainly:
+
+- It compares a land with its blocks as the land's grain stands them (`blocks(o, grain)`: no part thinner than three
+  grains, 0.9 m on a ten-times room), so it does not count what the grain costs. Against the true parts
+  (`measure(..., grain=0)`: the `true` column below) the stand-in's bicycle fails: a wheel 0.5 m thick stands 0.9 m
+  thick. The cure is the blocks replayed on the finer grids (generate.py and detail.py: not this packet's).
+- It cannot tell a shallow dish from a domed top on a tall drum: the stand-in's bin (a crater, its dish 0.55 m deep
+  in a drum 5 m tall) scores 0.89 against a bean bag's blocks stood in its box. Every other pair of unlike landforms
+  on the stand-in fails.
+
     python -B -m pipeline.landscape.generator.parts --package <package> --room <room folder>
 
-prints the five scores of every box of a written package (a ten-times one reads its own world scale).
+prints the five scores of every box of a written package (a ten-times one reads its own world scale), and its least
+score against its true parts.
 """
 import argparse
 import math
@@ -76,11 +93,17 @@ FAMILIES = {
 }
 # What a family's land is, to the eye: families of one landform are alike as land (a table, a shelving unit and a box
 # are each a flat top with sheer sides until the hollows are opened), families of two are unlike.
+# A soft drum is a `sugarloaf`: a dome with a sheer foot, not the hill a body walks up that land.py's melted `dome` is.
 LANDFORMS = {
     'box': 'mesa', 'table': 'mesa', 'shelf': 'mesa', 'seat': 'seat', 'couch': 'couch', 'bed': 'bed',
-    'beanbag': 'dome', 'cushion': 'dome', 'plant': 'dome', 'ladder': 'stair', 'easel': 'flatiron', 'bicycle': 'fin',
-    'screen': 'wall', 'laptop': 'mesa', 'vessel': 'crater', 'bottle': 'stack', 'lamp': 'stack',
+    'beanbag': 'sugarloaf', 'cushion': 'sugarloaf', 'plant': 'sugarloaf', 'ladder': 'stair', 'easel': 'flatiron',
+    'bicycle': 'fin', 'screen': 'wall', 'laptop': 'mesa', 'vessel': 'crater', 'bottle': 'stack', 'lamp': 'stack',
 }
+SOFT_LANDFORMS = frozenset(('couch', 'bed', 'sugarloaf'))    # landforms whose tops are soft ground (land.py's SOFT)
+# Families whose blocks say which way the thing faces (the same thing turned half round is another land), and what a
+# thing of that family is raised as where the scan did not find its front: a soft block for a soft thing, else its box.
+FACING = frozenset(('seat', 'couch', 'bed', 'ladder', 'easel', 'bicycle', 'laptop'))
+UNFACED = {'couch': 'cushion', 'bed': 'cushion'}
 
 
 class Block(namedtuple('Block', 'name x0 x1 z0 z1 y0 y1 round soft cut')):
@@ -116,10 +139,25 @@ def _b(name, x0, x1, z0, z1, y0, y1, round=False, soft=False, cut=False):
 
 
 def family(o):
-    """The grammar an object takes: its kind's, when the scan is sure of the kind; else `box`."""
-    if o.get('confidence', 0.) >= CONFIDENT:
-        return FAMILIES.get(o['kind'], 'box')
-    return 'box'
+    """The grammar an object takes: its kind's, when the scan is sure of the kind; else `box`. A family that says
+    which way the thing faces (`FACING`) is kept only where the scan found the front (`front_known`; an object that
+    does not say is taken as found): else the thing is a soft block or its box (`UNFACED`), never a guessed facing."""
+    if o.get('confidence', 0.) < CONFIDENT:
+        return 'box'
+    name = FAMILIES.get(o['kind'], 'box')
+    if name in FACING and not o.get('front_known', True):
+        return UNFACED.get(name, 'box')
+    return name
+
+
+def form(o):
+    """What an object's blocks make, for the stages that read land.py's `form` on a magnified room (the summit's
+    landmarks, the surface, the planting, the package's `forms`): (the landform, its basis). The basis is `kind` where
+    the kind gave the grammar, `box` where the thing is its box alone (a kind the scan is not sure of, or does not
+    know, or a facing it did not find)."""
+    name = family(o)
+    sure = o.get('confidence', 0.) >= CONFIDENT and FAMILIES.get(o['kind']) == name
+    return LANDFORMS[name], 'kind' if sure else 'box'
 
 
 # ------------------------------------------------------------------------------------------- the grammar
@@ -477,10 +515,11 @@ def unlike(o, kind, grain=0., W=1., n=48):
 
 def package_rows(package, room_dir, n=48):
     """Every box of a written package against its own blocks: [{id, kind, family, floor, top, front, back, left,
-    right, least, match}]. The land is read as the game loads it (checks.Terrain). A box's base is the ground round
-    it: the middle height of a ring half a true metre out for a thing on the floor (inside the room's floor, clear of
-    every other box), and of a ring on its support's top for a thing that rests on another. A ten-times package is
-    read at its own scale."""
+    right, least, match, true}] (`true`: its least score against its true parts, so what the grain costs it shows;
+    the rest against its blocks as the grain stands them). The land is read as the game loads it (checks.Terrain). A
+    box's base is the ground round it: the middle height of a ring half a true metre out for a thing on the floor
+    (inside the room's floor, clear of every other box), and of a ring on its support's top for a thing that rests on
+    another. A ten-times package is read at its own scale."""
     from pathlib import Path
     from pipeline.landscape.harness.common import load_json
     from . import checks, scale as world
@@ -525,12 +564,20 @@ def package_rows(package, room_dir, n=48):
         ring.sort()
         return ring[len(ring)//2] if ring else None
 
+    def depth(o):
+        """How many supports stand under an object (a ring of supports: as many as it has links)."""
+        k, seen = 0, set()
+        while o is not None and o['parent'] is not None and o['id'] not in seen:
+            seen.add(o['id'])
+            o, k = by_id.get(o['parent']), k+1
+        return k
+
     rows, tops = [], {}
-    for o in sorted(objects, key=lambda o: (o['parent'] is not None, o['id'])):
+    for o in sorted(objects, key=lambda o: (depth(o), o['id'])):    # a support before what rests on it
         base = ground(o)
         if base is None:
             # Nothing to stand a ring on: its box's own base, on its support's top where it rests on one.
-            base = o['base'] if o['parent'] is None else tops[o['parent']]
+            base = tops.get(o['parent'], o['base'])
         tops[o['id']] = base+o['sy']
 
         def land(lx, lz, o=o, base=base):
@@ -538,7 +585,7 @@ def package_rows(package, room_dir, n=48):
             return (y-base) if y == y else 0.
         got = measure(o, land, grain, W, n=n)
         rows.append(dict(id=o['id'], kind=o['kind'], family=family(o), floor=o['parent'] is None,
-                         match=got['least'] >= MATCH, **got))
+                         match=got['least'] >= MATCH, true=measure(o, land, 0., W, n=n)['least'], **got))
     return rows
 
 
@@ -549,12 +596,15 @@ def main():
     args = parser.parse_args()
     rows = package_rows(args.package, args.room)
     for r in rows:
-        print('LIKENESS %-18s %-14s %-8s %s top %.2f front %.2f back %.2f left %.2f right %.2f least %.2f %s' % (
+        print('LIKENESS %-18s %-14s %-8s %s top %.2f front %.2f back %.2f left %.2f right %.2f least %.2f %s true %.2f' % (
             r['id'], r['kind'], r['family'], 'floor' if r['floor'] else 'rests', r['top'], r['front'], r['back'],
-            r['left'], r['right'], r['least'], 'matches' if r['match'] else 'UNLIKE'))
+            r['left'], r['right'], r['least'], 'matches' if r['match'] else 'UNLIKE', r['true']))
     floor = [r for r in rows if r['floor']]
     print('LIKENESS_FLOOR %d of %d floor boxes match their blocks from five sides (%.2f or more on each)' % (
         sum(1 for r in floor if r['match']), len(floor), MATCH))
+    short = sorted(r['id'] for r in floor if r['true'] < MATCH)
+    print('LIKENESS_TRUE %d of %d floor boxes match their true parts too; the grain costs the rest: %s' % (
+        len(floor)-len(short), len(floor), ', '.join(short) or 'none'))
     raise SystemExit(0 if all(r['match'] for r in floor) else 1)
 
 

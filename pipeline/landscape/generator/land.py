@@ -28,7 +28,7 @@ FORMS = {
     'chest of drawers': 'mesa', 'suitcase': 'mesa', 'paint can': 'stack', 'speaker': 'stack',
     'kettle': 'cap', 'plant': 'knoll',
 }
-SOFT = {'dome', 'ridge', 'knoll'}
+SOFT = {'dome', 'ridge', 'knoll'} | parts.SOFT_LANDFORMS   # the melted soft forms, and the blocks' soft landforms
 
 
 def srgb_lin(c):
@@ -61,6 +61,11 @@ def proportion_form(o):
 
 
 def parse_objects(inventory):
+    """The inventory's boxes as the generator reads them. `front_known` is the scan's word on whether it found which
+    way the thing faces (an entry that does not say is taken as found): parts.py raises no facing the scan did not
+    find. On a magnified room raised as blocks, `form` and `form_basis` say what the blocks make (parts.form), not the
+    melted form: the stages that read them (the summit's landmarks, the surface, the planting, the package's `forms`)
+    read the land that is there."""
     objects = []
     for e in inventory['objects']:
         b = e['box']
@@ -72,7 +77,8 @@ def parse_objects(inventory):
         o = dict(id=e['id'], kind=e['kind'], confidence=float(e.get('confidence', 0)),
                  cx=cx, cz=cz, base=cy-sy/2, top=cy+sy/2, sx=sx, sy=sy, sz=sz,
                  yaw=float(b['yaw_deg']), colour=colour,
-                 parent=support.get('target_id') if support['kind'] == 'object' else None)
+                 parent=support.get('target_id') if support['kind'] == 'object' else None,
+                 front_known=bool(e['placement'].get('front_known', True)))
         confident = o['confidence'] >= CONFIDENT and o['kind'] in FORMS
         o['form'] = FORMS[o['kind']] if confident else proportion_form(o)
         o['form_basis'] = 'kind' if confident else 'proportions'
@@ -92,6 +98,11 @@ def parse_objects(inventory):
     for o in objects:
         kids = [c['confidence'] for c in objects if c['parent'] == o['id']]
         o['support_conf'] = max([o['confidence']]+[.9*k for k in kids])
+    if BLOCKS and world.W != 1:
+        # The land is the blocks (`raise_blocks`): a chair is rock under a back wall, not the knoll it was melted to,
+        # and a bean bag a dome with a sheer foot, not a hill a body walks up.
+        for o in objects:
+            o['form'], o['form_basis'] = parts.form(o)
     return objects
 
 
@@ -259,27 +270,44 @@ class Heights(list):
     cap = None
 
 
+def floor_under(o, by_id):
+    """The thing on the floor an object's stack stands on: itself for a thing on the floor, else its support's
+    support, and so on down. None where nothing on the floor holds it: its supports run in a ring (the scan links any
+    two tops within reach of each other, so two floating boxes can each name the other), or one is not in the room."""
+    seen = set()
+    while o is not None and o['parent'] is not None:
+        if o['id'] in seen:
+            return None
+        seen.add(o['id'])
+        o = by_id.get(o['parent'])
+    return o
+
+
 def raise_blocks(grid, objects, base, owner):
     """Each object raised as its own parts (parts.py) on the plain, inside its true box; record who formed each
     vertex. Returns Heights (their `cap` says what the weather spares).
 
     A thing on the floor stands on the plain under its middle, level, so its top is as far over its own ground as the
-    box is tall; a thing that rests on another stands on that one's top, so a laptop still shows on its desk. Nothing
-    spreads past its box but the face itself, one cell wide. `grid` and `objects` are the room at true size, as
-    `uplift` is handed them at every world scale (generate.py shapes the landforms there and magnifies them)."""
+    box is tall; a thing that rests on another stands on that one's top, so a laptop still shows on its desk: its
+    stack's own floor thing gives the plain, however deep the stack and whatever order the scan's heights put it in
+    (a mug scanned a centimetre under the book it rests on), and a thing nothing on the floor holds (`floor_under`)
+    takes the plain under its own middle. Nothing spreads past its box but the face itself, one cell wide. `grid` and
+    `objects` are the room at true size, as `uplift` is handed them at every world scale (generate.py shapes the
+    landforms there and magnifies them)."""
     h = Heights(base)
     cap = [0.]*grid.n
     index = {o['id']: k for k, o in enumerate(objects)}
+    by_id = {o['id']: o for o in objects}
     order = sorted(objects, key=lambda o: (o['parent'] is not None, o['base'], o['id']))
-    stand = {}    # id: how far over its box's own base an object's land stands (the plain under a floor thing's middle)
     cell = grid.cell
     nx = grid.nx
     raised = set()
     for o in order:
         k = index[o['id']]
-        parent = objects[index[o['parent']]] if o['parent'] else None
-        stand[o['id']] = grid.sample(base, o['cx'], o['cz']) if parent is None else stand[parent['id']]
-        level = o['base']+stand[o['id']]
+        parent = by_id.get(o['parent']) if o['parent'] else None
+        foot = floor_under(o, by_id) or o
+        # How far over its box's own base an object's land stands: the plain under its stack's foot.
+        level = o['base']+grid.sample(base, foot['cx'], foot['cz'])
         blocks = parts.blocks(o, cell)
         least = parts.ROUND_GRAINS*cell    # a thing thinner than the grain stands is as wide as that
         R = math.hypot(max(o['sx'], least), max(o['sz'], least))/2+cell
