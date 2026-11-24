@@ -17,8 +17,10 @@ public static class MenuRoots
 
 /// <summary>
 /// The game's main scene (scenes/menu.tscn): a NativeGameBoot that opens the opening menu when the game starts without a room (or with
-/// <c>--menu</c>), and otherwise boots the room straight away exactly as NativeGameBoot does (so run-room.ps1 -Room and the founder's
-/// shortcut still go straight in, and so does any boot check). Being a NativeGameBoot, the room it starts is the game's own boot:
+/// <c>--menu</c>), and otherwise boots the room straight away exactly as NativeGameBoot does (a bare <c>--room=</c>, with no
+/// <c>--menu</c>, goes straight in, and so does any boot check). The menu opens on the title page (TitleScreen, MENU-4), whose small
+/// "Choose" opens the Choose page (MainMenu) and whose Esc on the Choose page comes back; <c>--choose</c> opens the Choose page
+/// first. Being a NativeGameBoot, the room it starts is the game's own boot:
 /// the team's boot (TeamBoot) honours the team, island, mode and difficulty the menu chose, through the same arguments --team=, --mode=
 /// and --difficulty= take, and the HUD sees the game's boot for the window it remembers.
 /// <list type="bullet">
@@ -33,6 +35,10 @@ public partial class MenuBoot : NativeGameBoot
     /// <summary>False in a test that opens the menu itself (Open) instead of letting the scene decide.</summary>
     public bool AutoOpen { get; set; } = true;
     public MainMenu? Menu { get; private set; }
+    /// <summary>The title page, while it is the page that is up (null on the Choose page and in a room).</summary>
+    public TitleScreen? Title { get; private set; }
+    /// <summary>The page that opens first is the Choose page: <c>--choose</c> on the command line.</summary>
+    public const string ChooseArgument = "--choose";
     public MenuModel? Model { get; private set; }
     public RoomWorld? World { get; private set; }
     private IReadOnlyList<CharacterChoice>? _characters;
@@ -62,7 +68,7 @@ public partial class MenuBoot : NativeGameBoot
         World = null;
         _comeBackWith = $"That island could not be opened ({why}). It was left as it was.";
         GD.Print("MENU_BACK_FROM_FAILED_ROOM " + why);
-        Open(_openedWith);
+        OpenFirst(_openedWith);
     }
 
     public override void _Ready()
@@ -72,13 +78,81 @@ public partial class MenuBoot : NativeGameBoot
         if (!ShowsMenu(arguments, DisplayServer.GetName())) { base._Ready(); return; }
         // The saves made before the rename, copied once into this build's user:// folder before the menu reads the teams (phase 3).
         TeamBoot.BringOldSaves();
-        Open(arguments);
+        OpenFirst(arguments);
     }
 
-    /// <summary>The menu, over this machine's teams and islands, with the command line's choices made first.</summary>
-    public MainMenu Open(IReadOnlyList<string> arguments)
+    /// <summary>The page a launch opens first: the title page, or the Choose page where <c>--choose</c> says so.</summary>
+    public void OpenFirst(IReadOnlyList<string> arguments)
+    {
+        if (arguments.Contains(ChooseArgument)) Open(arguments);
+        else OpenTitle(arguments);
+    }
+
+    /// <summary>The title page, over this machine's teams and islands, with the command line's choices made first.</summary>
+    public TitleScreen OpenTitle(IReadOnlyList<string> arguments)
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();
+        var model = BuildModel(arguments);
+        _titleFirst = true;
+        TakeDownPages();
+        Model = model;
+        Title = NewTitle(model);
+        AddChild(Title);
+        GD.Print(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"MENU_OPEN title teams={model.Teams.Count} islands={model.Islands.Count} in {clock.Elapsed.TotalMilliseconds:0} ms"));
+        return Title;
+    }
+
+    private TitleScreen NewTitle(MenuModel model) =>
+        new() { Model = model, Launch = launch => StartRoom(launch), Choose = () => ShowChoose(), QuitGame = () => GetTree().Quit() };
+
+    /// <summary>The Choose page, over the model the title page was using (its choices stand).</summary>
+    public MainMenu ShowChoose()
+    {
+        var model = Model!;
+        TakeDownPages();
+        Menu = NewChoose(model);
+        AddChild(Menu);
+        return Menu;
+    }
+
+    private MainMenu NewChoose(MenuModel model) =>
+        new() { Model = model, Characters = ShippedCharacters, Launch = launch => StartRoom(launch), QuitGame = () => GetTree().Quit() };
+
+    /// <summary>Esc on the Choose page, when the title page came first, goes back to it. The Choose page keeps its own Esc (a panel, a question) first.</summary>
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (Menu == null || Title != null || !_titleFirst || Model == null) return;
+        if (@event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
+        {
+            ShowTitle();
+            GetViewport().SetInputAsHandled();
+        }
+    }
+
+    /// <summary>The title page again, over the same model (nothing is read again but what the pages show).</summary>
+    public TitleScreen ShowTitle()
+    {
+        var model = Model!;
+        model.Reload();
+        TakeDownPages();
+        Title = NewTitle(model);
+        AddChild(Title);
+        return Title;
+    }
+
+    private bool _titleFirst;
+
+    private void TakeDownPages()
+    {
+        foreach (var page in new Node?[] { Menu, Title })
+            if (page != null && IsInstanceValid(page)) { RemoveChild(page); page.QueueFree(); }
+        Menu = null;
+        Title = null;
+    }
+
+    private MenuModel BuildModel(IReadOnlyList<string> arguments)
+    {
+        _titleFirst = false;
         DisplayServer.WindowSetTitle("Garage Game");
         if (RoomHud.StartsFullscreen(DisplayServer.GetName(), arguments.ToArray(), true, RoomHud.LoadFullscreen(RoomHud.ProfilePath)) && DisplayServer.GetName() != "headless")
         {
@@ -92,9 +166,17 @@ public partial class MenuBoot : NativeGameBoot
         Preselect(model, arguments);
         _openedWith = arguments;
         if (_comeBackWith.Length > 0) { model.SetNotice(_comeBackWith); _comeBackWith = ""; }
-        if (Menu != null && IsInstanceValid(Menu)) { RemoveChild(Menu); Menu.QueueFree(); }
+        return model;
+    }
+
+    /// <summary>The Choose page, over this machine's teams and islands, with the command line's choices made first (the page a test opens, and <c>--choose</c>).</summary>
+    public MainMenu Open(IReadOnlyList<string> arguments)
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var model = BuildModel(arguments);
+        TakeDownPages();
         Model = model;
-        Menu = new MainMenu { Model = model, Characters = ShippedCharacters, Launch = launch => StartRoom(launch), QuitGame = () => GetTree().Quit() };
+        Menu = NewChoose(model);
         AddChild(Menu);
         GD.Print(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"MENU_OPEN teams={model.Teams.Count} islands={model.Islands.Count} in {clock.Elapsed.TotalMilliseconds:0} ms"));
         return Menu;
@@ -124,12 +206,7 @@ public partial class MenuBoot : NativeGameBoot
     /// <summary>The game starts: the menu goes, and the room is built under this node as NativeGameBoot builds it, booted with the menu's choices.</summary>
     public RoomWorld StartRoom(MenuLaunch launch)
     {
-        if (Menu != null)
-        {
-            RemoveChild(Menu);
-            Menu.QueueFree();
-            Menu = null;
-        }
+        TakeDownPages();
         var arguments = OS.GetCmdlineUserArgs();
         var world = GD.Load<PackedScene>("res://scenes/room.tscn").Instantiate<RoomWorld>();
         world.RoomDirectory = launch.Island.Directory;
