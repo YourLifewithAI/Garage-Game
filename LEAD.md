@@ -78,6 +78,11 @@ Each with the lead's recommendation. No new build work starts until Ben says.
   - Each object is plainly landscape as well: rock, soil, vines and plants, not furniture with a texture.
   - The ground obeys simple geology: water runs downhill and pools in low places, cliffs shed scree, soil gathers where it would, and the floor's regions have a reason to be plain, lake or savannah.
   - The world is lived in: forests in places, meadows, and paths worn by animals.
+- **Ben on the world's edge (23 November, 20:30).** Asked whether the world ends at the room's walls or keeps a sea, word for word: "great cliffs with water only where the land puts it. And be sure any objects on or against the walls become parts of the great cliffs. If someone gets to the top that's where a sandy desert extends forever (but brings them back if they wander off long enough as the ocean water does now)". So:
+  - The sea and the island ring go. The room's walls are great cliffs at the edge of the world.
+  - Shelves, cabinets and anything else on or against a wall are part of those cliffs: ledges, buttresses and hanging terraces.
+  - The top of the cliffs can be reached. Up there a sandy desert runs on without end, and a player who wanders far enough is brought back, as the open sea brings a swimmer back today.
+  - Water is only where the land puts it: lakes, streams and pools, by the ground's shape.
 - **Found on the way.** The game's window is titled "Garage-Game (DEBUG)", and the GPU courtesy check looked for `Garage Game*`, so it never saw a game in play. AGENTS.md and the two capture tools now match both.
 
 ## Where things stood (8 November 2026)
