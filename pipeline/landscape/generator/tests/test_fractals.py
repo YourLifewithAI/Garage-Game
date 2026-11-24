@@ -1,21 +1,36 @@
 """Fractals and gates (the mechanics round, packet M4): the stamina bands and the two kinds of gate, the flights built into
-the grid, the climb-aware reach proved by the exact walk, the Fractals' ids, and the 1x world left as it was.
+the grid, the climb-aware reach proved by the exact walk, the Fractals' ids, and the 1x world left as it was (its
+firepits' rows and every file's digest pinned: `TrueSize`).
 
     python -B -m unittest pipeline.landscape.generator.tests.test_fractals -v
+
+A real ten-times room takes seven minutes to make, so its walk (`TenTimesGarage`) stands aside unless the environment
+variable LANDSCAPE_TEN_TIMES asks for it: `generate` makes the stand-in garage at ten times and walks it; anything else is
+read as the folder of a ten-times package of corpus/rooms/garage_nominal made already.
+
+    $env:LANDSCAPE_TEN_TIMES = 'generate'    # PowerShell; in sh, LANDSCAPE_TEN_TIMES=generate before the command
+    python -B -m unittest pipeline.landscape.generator.tests.test_fractals.TenTimesGarage -v
 """
+import hashlib
 import json
 import math
+import os
 import re
+import shutil
+import subprocess
+import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from pipeline.landscape.generator import checks, climb, fractals as Fractals, gates, reach, routes as R, sites
+from pipeline.landscape.generator import checks, climb, firepits as Firepits, fractals as Fractals, gates, reach, routes as R, sites
 from pipeline.landscape.generator.field import Grid, face_slope_max
 from pipeline.landscape.generator.generate import generate
-from pipeline.landscape.generator.tests.test_generator import ROOMS, garage
+from pipeline.landscape.generator.tests.test_generator import ROOMS, garage, workdir
 
 ROOT = Path(__file__).resolve().parents[4]
 V5 = ROOT/'game'/'rules'/'storybook_wild'/'v5.json'
+TEN_TIMES = os.environ.get('LANDSCAPE_TEN_TIMES', '')
 
 
 def pack_stamina():
@@ -604,8 +619,29 @@ class StairLedges(unittest.TestCase):
 
 
 class LiftPlaces(unittest.TestCase):
-    """Places only the Gubble's lift or a built ladder reaches: on a plateau cliffs close in all round, whose rim stands
-    over every bar's tallest climb, spread over the island; never on a hill, a low mesa, a flight or the water."""
+    """Places only the Gubble's lift or a built ladder reaches: on a plateau cliffs close in all round, that no band's
+    climb reaches and whose rim stands `fractals.LIFT_RIM_M` over the foot of its cliffs, spread over the island; never on
+    a hill, a low mesa, a flight or the water.
+
+    Two rules keep a bar's own climb off a lift place, and each has a stand of its own here. The reach: a sheer stand a
+    bar climbs carries a band (the 4.4 m stand, band 8). The rim: the walk models no face between 20 and 55 degrees, so
+    a mound with sides in between carries no band at all, though the game's body grabs any face over 45 (`FaceAngle`); only
+    its rim's height keeps a lift place off it (the 4 m mound). The rim is meant to stand over the top band's climb: it is
+    4.5 m, right while that climb was 4.0 m and 1.5 m short of today's 6.0 (`test_no_lift_place_where_the_bodys_own_bar_climbs`)."""
+
+    MOUND = (-2., -17.)     # the mound's middle: a flat top 2 m in radius, then 48 degree sides down to the plain
+    MOUND_M = 4.            # its top over the plain
+
+    @staticmethod
+    def mound(land, cx, cz, top, radius=2., deg=48.):
+        """Raise a round mound: a flat top of `radius`, sides of `deg` degrees all round (round, so no corner is steeper)."""
+        g = land.grid
+        nx = g.nx
+        fall = math.tan(math.radians(deg))
+        for j in range(g.nz):
+            for i in range(nx):
+                d = max(math.hypot(g.xs[i]-cx, g.zs[j]-cz)-radius, 0.)
+                land.h[j*nx+i] = max(land.h[j*nx+i], top-d*fall)
 
     @classmethod
     def setUpClass(cls):
@@ -623,8 +659,10 @@ class LiftPlaces(unittest.TestCase):
         stand(-14., -12., 3., 9.)      # tall: a lift place
         stand(12., -14., 3., 9.5)      # tall, far from the first: another
         stand(0., -4., 3., 3.5)        # low: a bar climbs it (it stands on the hill's long flank, half a metre over it)
-        stand(-19., 0., 3., 5.4)       # 4.4 m over the plain: a bar of band 8 climbs it (4.8 m), and its rim is under 4.5 m
+        stand(-19., 0., 3., 5.4)       # 4.4 m over the plain, sheer: a bar of band 8 climbs it (4.8 m), so it carries a band
         stand(-12., 12., 3., 8.)       # tall, but a flight stands on it (kept)
+        # 4 m over the plain with 48 degree sides: no band reaches it, cliffs close it in, and its rim is under LIFT_RIM_M
+        cls.mound(land, cls.MOUND[0], cls.MOUND[1], 1.+cls.MOUND_M)
         # a hill the body walks up: a 20 degree flank to a flat top
         for j in range(g.nz):
             for i in range(nx):
@@ -647,17 +685,63 @@ class LiftPlaces(unittest.TestCase):
         self.assertEqual(len(got), 3, got)
         for t in [(-14., -12.), (12., -14.), (-12., 12.)]:
             self.assertTrue(any(near(p, t) for p in got), (t, got))
-        self.assertFalse(any(near(p, (-19., 0.)) for p in got), 'a cliff of 4.4 m: a bar climbs it, and it is under the rim a lift place needs')
+        self.assertFalse(any(near(p, (-19., 0.)) for p in got), 'a sheer cliff of 4.4 m: a bar climbs it, so a band reaches it')
         # every lift place stands over the tallest climb of the pack's own body at the top band (6.0 m): BODY-21
         for p in got:
             i, j = self.land.grid.nearest(*p)
             self.assertGreater(self.land.h[j*self.land.grid.nx+i]-1., pack_climb(gates.BANDS), p)
         self.assertEqual(self.base.band_at(-19., 0.), 8)
         self.assertFalse(any(near(p, (0., -4.)) for p in got), 'a low mesa the walk reaches')
+        self.assertFalse(any(near(p, self.MOUND) for p in got), 'a mound no band reaches, its rim under what a lift place needs')
         g = self.land.grid
         for p in got:
             i, j = g.nearest(*p)
             self.assertGreater(self.land.h[j*g.nx+i], 7.5, 'on a tall top')
+
+    def test_the_rim_alone_keeps_a_lift_place_off_a_mound_no_band_reaches(self):
+        """The rim rule, on its own (BODY-21 fix: the 4.4 m stand that used to show it is climbed from band 8 now, so its
+        band rules it out whatever the rim says). The 4 m mound's sides are 48 degrees: too steep to walk, too gentle for
+        the climb rule, so no band reaches its top (nor the strongest pair's: the test below). Cliffs close it in. All that
+        stands between it and a lift place is its rim, 4 m over the plain and under `LIFT_RIM_M`: lower that bar and the
+        mound is a lift place."""
+        near = lambda p: math.hypot(p[0]-self.MOUND[0], p[1]-self.MOUND[1]) < 5.
+        self.assertIsNone(self.base.band_at(*self.MOUND), 'no band reaches it: its label does not rule it out')
+        i, j = self.land.grid.nearest(*self.MOUND)
+        closed, region = Fractals.enclosed(self.land, i, j)
+        self.assertTrue(closed, 'cliffs close it in: that does not rule it out either')
+        drop = Fractals.rim_drop(self.land, region)
+        self.assertGreater(drop, self.MOUND_M-.25)
+        self.assertLess(drop, Fractals.LIFT_RIM_M, 'its rim is under the rim a lift place needs')
+        self.assertFalse(any(near(p) for p in self.spots()))
+        with mock.patch.object(Fractals, 'LIFT_RIM_M', self.MOUND_M-.5):
+            lower = self.spots()
+        self.assertEqual(len(lower), 4, lower)
+        self.assertTrue(any(near(p) for p in lower), 'with a rim of 3.5 m the mound is a lift place: the rim is the rule that kept it out')
+
+    def test_no_lift_place_where_the_bodys_own_bar_climbs(self):
+        """What the rim is for, held against the pack: a lift place waits for the Gubble's lift or a built ladder, so its
+        rim stands over the tallest climb of the pack's own body (6.0 m at the top band). A mound 0.3 m under that with 52
+        degree sides is no climb to the rule and a band-10 climb to the body, which grabs any face over 45 degrees: no
+        lift place may rest on it.
+
+        `fractals.LIFT_RIM_M` is 4.5 m, set over the 4.0 m the top bar climbed before decision 65 and BODY-21, and
+        fractals.py is not BODY-21's to edit (its change request: 6.5 m). With the rim at 4.5 m this mound is a lift
+        place; while it is still that 4.5 m this test stands aside and says so, and at any other value it runs."""
+        top = pack_climb(gates.BANDS)
+        if Fractals.LIFT_RIM_M == 4.5:
+            self.skipTest('fractals.LIFT_RIM_M is still 4.5 m, under the %.1f m the top band climbs: a 5.7 m mound the '
+                          'body climbs at band 10 is a lift place (BODY-21\'s change request: 6.5 m)' % top)
+        self.assertGreater(Fractals.LIFT_RIM_M, top)
+        from pipeline.landscape.generator.field import slope_field
+        half = 14.
+        land = synthetic_land(half, level=1.)
+        self.mound(land, 0., -5., 1.+top-.3, deg=52.)
+        land.fslope = slope_field(land.grid, land.h)
+        rule = climb_reach(land, half, (0., 10.))
+        self.assertIsNone(rule.run(1.).band_at(0., -5.), 'no climb to the rule')
+        body = reach.ClimbReach(rule.w, rule.reach0, land.grid, land.h, face_deg=45.).run(pack_body())
+        self.assertEqual(body.band_at(0., -5.), gates.BANDS, 'the body\'s own bar climbs it at the top band')
+        self.assertEqual(Fractals.lift_places(land, rule.run(1.), (), [(0., 10.)], 4), [])
 
     def test_the_strongest_pair_climbs_what_the_base_body_cannot_and_the_follow_goes_that_far(self):
         """A sheer face is followed to the tallest rise anyone climbs (`reach.TOP_RISE_M`, 8.64 m: the strongest pair at the
@@ -669,6 +753,7 @@ class LiftPlaces(unittest.TestCase):
         self.assertIsNone(self.base.band_at(-14., -12.))
         self.assertEqual(pair.band_at(-14., -12.), 10, '8 m: the pair climbs 7.78 m at band 9')
         self.assertEqual(pair.band_at(-19., 0.), 6, '4.4 m: the pair climbs 5.18 m at band 6')
+        self.assertIsNone(pair.band_at(*self.MOUND), 'the mound\'s 48 degree sides are no climb to the rule, however long the bar')
 
     def test_spread_apart_and_the_farthest_from_the_others_first(self):
         got = self.spots()
@@ -897,6 +982,19 @@ class Gates(unittest.TestCase):
             for rise, band in gates.ladder_rises(height):
                 self.assertEqual(gates.band_for(rise, pack_body()), band, (height, rise))
 
+    def test_the_gates_as_they_stood_were_topped_from_up_to_three_bands_below(self):
+        """What BODY-21 mended, worked out (the comments in gates.py and reach.py lean on it): a gate sized a metre of rise a
+        metre of bar, the bar's length less the slack, against the pack's own body. The first two gates held; band 3's was
+        opened from band 2, and by the top the body was three bands early (band 10's gate, 3.98 m, from band 7)."""
+        stamina = pack_stamina()
+        bands = range(1, gates.BANDS+1)
+        old = [gates.bar_m(band)-gates.GATE_SLACK_M for band in bands]
+        self.assertEqual([round(rise, 2) for rise in old[:3]+old[-1:]], [.38, .78, 1.18, 3.98])
+        opened = [next(k for k in bands if pack_climb(k, stamina) >= rise-gates.EPS) for rise in old]
+        self.assertEqual(opened, [1, 2, 2, 3, 4, 4, 5, 6, 6, 7])
+        # ... and the mended gates open each from its own band
+        self.assertEqual([gates.band_for(gates.gate_rise(band), pack_body()) for band in bands], list(bands))
+
     def test_a_bar_climbs_one_and_a_half_times_its_length(self):
         self.assertAlmostEqual(gates.cap(1), .6)
         self.assertAlmostEqual(gates.cap(2), 1.2)
@@ -1060,11 +1158,11 @@ class Flights(unittest.TestCase):
 
 
 class FractalsAreTenTimesThings(unittest.TestCase):
-    """At world scale 1 nothing changes: the corpus stays byte-identical (the generator at 1x writes no Fractals and no
-    tutorial mark, and refuses to be made to)."""
+    """Fractals, gates and the tutorial mark are ten-times things: at world scale 1 the generator writes none and refuses
+    to be made to. That is not the same as a 1x package reading nothing of them: its firepits read the reach the gates
+    size (`TrueSize`, below, where the 1x bytes are pinned)."""
 
     def test_the_1x_garage_has_no_fractals_and_no_tutorial_mark(self):
-        import os
         doc = json.loads(Path(garage(), 'package.json').read_text(encoding='utf-8'))
         self.assertNotIn('fractals', doc['x_generator'])
         self.assertNotIn('tutorial', doc['x_generator'])
@@ -1072,6 +1170,201 @@ class FractalsAreTenTimesThings(unittest.TestCase):
     def test_fractals_cannot_be_asked_for_at_1x(self):
         with self.assertRaises(ValueError):
             generate(ROOMS/'near_empty_nominal', Path(garage()).parent/'never', fractals=True)
+
+
+# ------------------------------------------------------------------------------------------- true size, pinned
+
+# The stand-in garage at world scale 1: its firepits as the package says them (x_generator.firepits.items) ...
+GARAGE_1X_FIREPITS = [
+    dict(position_m=[2.175, .0935, -.375], reach_band=1, landmark='storage_tote_1', why='first-run reach, by storage_tote_1'),
+    dict(position_m=[-2.425, .1084, -.375], reach_band=1, landmark='cardboard_box_1', hamlet=True,
+         why='near the hamlet, first-run reach, by cardboard_box_1'),
+    dict(position_m=[-.375, .1119, 3.2], reach_band=1, landmark='office_chair_1', why='first-run reach, by office_chair_1'),
+]
+# ... and the sha256 of every file of its package, taken on the founder's laptop (Windows, CPython 3.14) with the generator
+# as BODY-21 left it; the generator before BODY-21 wrote the same eighteen.
+GARAGE_1X_FILES = {
+    'brook_0.glb': '9b85411edec9c9148245a936c252cb0d9ea024f9036b0c4908fd39ac3ef5f480',
+    'distant_islands.glb': '31a193178991d6cb0c26f300ea1bf6462c09e55b3cbab4bac034a9705f58c3ff',
+    'jetty.glb': '6b0bb5e3a7924ac2ef53b6eafd495f1a477527e3e7f7af97dadc49a4a639a781',
+    'land.glb': '678fcba9c7f3146b66c908fddf8bbbb0b3546b141075ebae8758ba071766d6b9',
+    'package.json': '2964cdaad66156e2c3a6f535b166cbc107da800c457a5bd3acd8dbeb60ad33c2',
+    'proto_buttercups.glb': 'ab348b69efe676f31d6af72d1515a5dbf799e5dc17a3e1f88a11f8b178df42d2',
+    'proto_daisies.glb': '7699466906d905476fb9ab19da6ae91eb0fb22d06fff894fd99d5ee36d59eee5',
+    'proto_drying_line.glb': '9a80702cd6d6d3e53a3a4071f998944bfd4063ba69696c2626598b2de49aa240',
+    'proto_footbridge.glb': '7c2e8f04f2ba8fd65dc8429ad4627fc3675e6976c3280ef730d04f4c8c23f181',
+    'proto_grass.glb': '1287b9546b89882ce98ce6c3fdb9a0d6a9a06d05710baaeb31fca8f51a101f5b',
+    'proto_heather.glb': '6948aff88789e088ff1f6d7678b084b6282d647f1cdb9578199992315e131cf6',
+    'proto_reeds.glb': '630f962c3fd27766c6f7f525a047107e7ef5bea8ba0b9291b78e2841e8ee71ff',
+    'proto_wildflowers.glb': '7102d412e5ed3ace898025a4563ee007d5c7b89713bc67614573343510d5911f',
+    'proto_woodpile.glb': '2ad55adf67785f69fcf70d8eb339e1524e66fdddf42286c773a1b37f3b89d91d',
+    'river_0.glb': 'd9bf1b64e514f8fd2b01eea3c4531e4fa3df931755ed3175a3a59493990d576b',
+    'river_1.glb': '59e3e083755630cb5844335388e56b561c4d6d39a12f6cd1c59667d17c4cf78e',
+    'sea.glb': '53480c4e2eb7e1c90f101d769f024d6aaf59d8872a4bec8267bc6f674f4daab6',
+    'tarn.glb': '7d582fb79b889c632b64239f9ff2bd8bbdb7bfa12bebc289783f6cf590f8d7db',
+}
+
+
+def package_digests(folder):
+    """{file: sha256} of every file of a package."""
+    folder = Path(folder)
+    return {p.relative_to(folder).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in sorted(folder.rglob('*')) if p.is_file()}
+
+
+class TrueSize(unittest.TestCase):
+    """True-size output bytes, pinned (BODY-21's "true-size output bytes unchanged", which no suite held).
+
+    A 1x package holds no Fractal and no gate, and still it reads the gates: generate.py stands its firepits on the
+    climb-aware reach (`checks._base_reach`, so `reach.ClimbReach` on `gates.cap`), each spot labelled with its band and
+    first-run ground counted nearer (`firepits.REACH_PULL_M`). BODY-21 moved that reach on the stand-in garage: 239 nodes
+    that took band 2 are band 1's. No byte moved with it, on this land or any room of the corpus, because the garage's
+    three firepits stand where the feet alone get. That is a fact about these lands, not a rule of the generator: a firepit
+    on a ledge, or the next change to the gates, moves true-size bytes. So the garage's 1x package is held three ways: its
+    firepits' rows, every file's digest, and the same bytes again under another climb."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.room = ROOMS/'garage_nominal'
+        cls.package = garage()
+        cls.doc = json.loads(Path(cls.package, 'package.json').read_text(encoding='utf-8'))
+
+    def test_the_garages_firepits_are_where_they_were(self):
+        """Position, reach band and why, row for row (the manifest's x_firepits, which the kernel numbers in this order)."""
+        self.assertEqual(self.doc['x_generator']['firepits']['items'], GARAGE_1X_FIREPITS)
+
+    def test_the_reach_its_firepits_read_moved_with_the_gates_and_no_firepit_with_it(self):
+        """The reach a 1x firepit reads is the gates' own, and BODY-21 did move it: under a metre of rise a metre of bar
+        (the gates as they stood) some of the garage's ground took a band more. Every firepit says the same band under
+        both, because each stands on ground the feet reach with no climb at all."""
+        doc, meshes, room, _ = checks.read_package(self.package, self.room)
+        _, now = checks._base_reach(doc, meshes, checks.Terrain(doc, meshes), room)
+        was = now.reach.run(1./gates.CLIMB_M_PER_BAR_M)
+        self.assertAlmostEqual(gates.cap(1, 1./gates.CLIMB_M_PER_BAR_M), gates.bar_m(1), places=9)
+        moved = sum(1 for a, b in zip(was.label, now.label) if a != b)
+        self.assertGreater(moved, 0, 'the 1x reach reads the gates: BODY-21 moved 239 of the garage\'s nodes from band 2 to band 1')
+        self.assertEqual(sum(1 for b in was.label if b), sum(1 for b in now.label if b), 'the same ground, other bands')
+        feet = now.reach.reach0.parent
+        for item in doc['x_generator']['firepits']['items']:
+            x, _, z = item['position_m']
+            self.assertEqual((was.band_at(x, z), now.band_at(x, z)), (item['reach_band'], item['reach_band']), item)
+            self.assertNotEqual(feet[now.node(x, z)], -2, 'a firepit on climbed ground: its row reads the gates (%r)' % item)
+
+    def test_a_firepit_on_a_ledge_reads_the_gates(self):
+        """Why the pins. The garage's bytes held because none of its firepits stands on climbed ground, and that is no rule
+        of the generator. A made-up land, half of it a terrace 0.5 m up (over the old first gate's reach, 0.4 m, under
+        today's 0.6), gets a firepit up there, and its row reads the gates: first-run ground now, band 2 as they stood."""
+        half, start = 14., (-8., 0.)
+        land = synthetic_land(half)
+        g = land.grid
+        for j in range(g.nz):
+            for i in range(g.nx):
+                if g.xs[i] > 2.:
+                    land.h[j*g.nx+i] = 1.5
+        cr = climb_reach(land, half, start)
+        now, was = cr.run(1.), cr.run(1./gates.CLIMB_M_PER_BAR_M)
+        step = Firepits.SAMPLE_M
+        samples = [(-12.+step/2+a*step, -12.+step/2+b*step) for a in range(48) for b in range(48)]
+
+        def firepits(labels):
+            spots = [Firepits.Spot(x, g.tri_height(land.h, x, z), z, labels.band_at(x, z)) for x, z in samples
+                     if labels.band_at(x, z) is not None]
+            return Firepits.choose(samples, len(samples)*step*step, spots, start)['items']
+        today, before = firepits(now), firepits(was)
+        up = [item for item in today if item['position_m'][0] > 2.]
+        self.assertTrue(up, today)
+        for item in up:
+            self.assertEqual((item['reach_band'], item['why']), (1, 'first-run reach'))
+        self.assertTrue(all(item['reach_band'] == 2 and item['why'] == 'reached from band 2'
+                            for item in before if item['position_m'][0] > 2.), before)
+        self.assertNotEqual(today, before, 'the same land, other gates, other rows: true-size bytes are not blind to the gates')
+
+    def test_the_garage_is_the_same_bytes(self):
+        """Every file of the 1x garage, by its sha256. A packet that means to change true-size output pins the new digests
+        here and says so; any other change that lands here is the fault this test is for."""
+        got = package_digests(self.package)
+        moved = sorted(name for name in set(got) | set(GARAGE_1X_FILES) if got.get(name) != GARAGE_1X_FILES.get(name))
+        self.assertEqual(moved, [], 'true-size output bytes changed in %d of %d files. If the firepits\' rows and the test under '
+                         'another climb still pass and this is another system or Python than the pin\'s (Windows, CPython 3.14; '
+                         'this is %s, %s), take the pin again there. As written now:\n%s'
+                         % (len(moved), len(got), sys.platform, sys.version.split()[0],
+                            '\n'.join('    %r: %r,' % (name, got[name]) for name in sorted(got))))
+
+    def test_the_garage_is_the_same_bytes_whatever_a_bar_climbs(self):
+        """BODY-21's own clause, on any system: the garage generated again with a bar that climbs its own length (the
+        gates before BODY-21: `gates.cap` is read as the land is made) is the same bytes, file for file."""
+        folder = workdir('true_size_old_gates')
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        with mock.patch.object(gates, 'CLIMB_M_PER_BAR_M', 1.):
+            self.assertAlmostEqual(gates.cap(2), .8, places=9, msg='the gates as they stood: a band-2 bar climbs 0.8 m')
+            generate(self.room, os.path.join(folder, 'pkg'))
+        self.assertAlmostEqual(gates.cap(2), 1.2, places=9)
+        self.assertEqual(package_digests(os.path.join(folder, 'pkg')), package_digests(self.package))
+
+
+# ------------------------------------------------------------------------------------------- a real ten-times room
+
+
+@unittest.skipUnless(TEN_TIMES, 'a real ten-times room takes seven minutes to make: set LANDSCAPE_TEN_TIMES=generate, or to the '
+                                'folder of a ten-times package of corpus/rooms/garage_nominal')
+class TenTimesGarage(unittest.TestCase):
+    """BODY-21 on a real room: the stand-in garage at ten times, every gate walked by the body the rules pack describes.
+    The synthetic islands above hold the arithmetic; this holds a land the game loads (what `tools/test-room.ps1 -Scale`
+    builds, whose own walk never climbs). On the land the generator made before BODY-21 the pack's body stood on 12 of 26
+    benches, and on 8 of 28 Fractals, from below the band they say; on the land it makes now, on none."""
+
+    @classmethod
+    def setUpClass(cls):
+        room = ROOMS/'garage_nominal'
+        if TEN_TIMES.lower() in ('1', 'generate'):
+            folder = os.path.join(workdir('ten_times'), 'pkg')
+            cls.addClassCleanup(shutil.rmtree, os.path.dirname(folder), ignore_errors=True)
+            subprocess.run([sys.executable, '-B', '-m', 'pipeline.landscape.generator.generate', '--room', str(room),
+                            '--world-scale', '10', '--tutorial', '--out', folder], cwd=str(ROOT), check=True,
+                           stdout=subprocess.DEVNULL)
+        else:
+            folder = TEN_TIMES
+        cls.doc, cls.meshes, cls.room, _ = checks.read_package(folder, room)
+        cls.terrain = checks.Terrain(cls.doc, cls.meshes)
+        cls.floods = {}
+        _, cls.base = checks._base_reach(cls.doc, cls.meshes, cls.terrain, cls.room, cls.floods)
+        cls.real = cls.base.reach.run(pack_body())    # the pack's own body: its bar times climb_m_per_bar_m
+        cls.fx = cls.doc['x_generator']['fractals']
+
+    def test_it_is_a_ten_times_land_whose_gates_were_sized_with_the_packs_climb(self):
+        self.assertEqual(self.doc['x_generator'].get('world_scale'), 10.)
+        self.assertEqual(self.fx.get('arithmetic', {}).get('climb_m_per_bar_m'), pack_stamina()['climb_m_per_bar_m'],
+                         'this land\'s gates were sized for another climb than the pack\'s')
+        built = [ledge['band'] for row in self.fx['routes'] for ledge in row['ledges']]
+        self.assertGreaterEqual(len(built), 10)
+        self.assertGreaterEqual(max(built), 3, 'a ladder to band 3 at least: the gate a band-2 bar used to top')
+
+    def test_the_packs_own_body_takes_every_gate_from_the_band_it_was_built_as(self):
+        """Every bench from the band the package says, and that the band it was built as (a way round a summit's corridor
+        that the package itself reports aside: checks.fractal_checks's own rule)."""
+        wrong = []
+        for row in self.fx['routes']:
+            for k, ledge in enumerate(row['ledges']):
+                x, _, z = ledge['bench_m']
+                want = max(l['band'] for l in row['ledges'][:k+1])
+                got, said = self.real.band_at(x, z), ledge['reached_from']['base']
+                if got != said or (got != want and not ledge.get('bypassed')):
+                    wrong.append('%s ledge %d (rise %.2f m), built as band %d: the package says band %s, the pack\'s body stands '
+                                 'on it from band %s' % (row['id'], k+1, ledge['rise_m'], want, said, got))
+        self.assertEqual(wrong, [], '%d benches' % len(wrong))
+
+    def test_every_fractal_is_reached_from_the_band_it_says(self):
+        wrong = [(item['id'], item.get('reach_band'), self.real.band_at(item['position_m'][0], item['position_m'][2]))
+                 for item in self.fx['items']
+                 if self.real.band_at(item['position_m'][0], item['position_m'][2]) != item.get('reach_band')]
+        self.assertEqual(wrong, [], '(Fractal, the band it says, the band the pack\'s body reaches it from)')
+
+    def test_the_generators_own_check_passes_walked_by_the_packs_body(self):
+        floods = dict(self.floods)
+        floods[next(key for key in floods if key[0] == 'base')] = self.real    # checks._base_reach's own key for the reach
+        ok, rows = checks.fractal_checks(self.doc, self.meshes, self.terrain, self.room, floods)
+        self.assertTrue(ok, rows)
+        self.assertEqual((rows['failing'], rows['benches']), (0, sum(len(row['ledges']) for row in self.fx['routes'])))
 
 
 if __name__ == '__main__':

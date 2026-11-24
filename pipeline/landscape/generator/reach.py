@@ -9,8 +9,9 @@ Climbs. A climb is one more kind of edge. From a standable foot a face steeper t
 standable node within a body's reach of the crest is its top. A climb costs bar, and a metre of bar buys the pack's
 `climb_m_per_bar_m` of rise (1.5), so a climb is open to a bar of band b when its rise is at most what that bar climbs
 (`gates.cap`: the bar's length times 1.5; before Run 4's BODY-21 the gates read a metre of rise a metre of bar, and the
-game's body topped every gate from a band or two below). Stamina refills on standable ground, so the bar is full at
-every foot: a climb is judged alone, never added to the one before.
+game's body held at the first two gates and topped every one above them early: band 3's from one band below, band
+10's, 3.98 m, from three, at band 7). Stamina refills on standable ground, so the bar is full at every foot: a climb is
+judged alone, never added to the one before.
 
 The answer is a label per node, the lowest band from which it is reached: band 1 (the starting bar) for everything
 the feet reach with no climb. Bands are flooded in turn, each from the tops the band's climbs open, so every node is
