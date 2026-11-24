@@ -1,6 +1,8 @@
 """Determinism and principle checks for the landscape generator.
 
     python -B -m unittest pipeline.landscape.generator.tests.test_generator -v
+
+Named whole like this, the module brings the rim's tests with it (`load_tests`, below).
 """
 import math
 import os
@@ -44,6 +46,36 @@ def garage():
 
 def tearDownModule():
     shutil.rmtree(RUN_DIR, ignore_errors=True)
+
+
+def load_tests(loader, tests, pattern):
+    """The rim's tests (test_rim, Run 4's WORLD-2) run with these when this module is named whole and theirs is not:
+    the runners' line names this module and test_firepits (tools/linux/test-all.sh), and a land made with
+    `--edge rim` is the same generator. Named beside it on the command line, or found by discovery, test_rim runs on
+    its own and nothing is added here; a single class or test of this module named alone brings nothing with it."""
+    import sys
+    if pattern is None and not any('test_rim' in arg for arg in sys.argv):
+        from pipeline.landscape.generator.tests import test_rim
+        tests.addTests(loader.loadTestsFromModule(test_rim))
+    return tests
+
+
+class RunnersLine(unittest.TestCase):
+    def test_this_module_named_whole_brings_the_rim_s_tests(self):
+        """Named beside it, or found by discovery, it adds nothing: no test runs twice."""
+        from unittest import mock
+        here = 'pipeline.landscape.generator.tests.'
+
+        def brought(argv, pattern=None):
+            with mock.patch('sys.argv', ['unittest']+argv):
+                suite = load_tests(unittest.TestLoader(), unittest.TestSuite(), pattern)
+            return {type(t).__module__ for group in suite for t in group}, suite.countTestCases()
+        modules, count = brought([here+'test_generator', here+'test_firepits'])
+        self.assertEqual(modules, {here+'test_rim'})
+        self.assertGreater(count, 30)
+        self.assertEqual(brought([here+'test_generator', here+'test_rim'])[1], 0)
+        self.assertEqual(brought([here+'test_generator', here+'test_rim.StandIn'])[1], 0)
+        self.assertEqual(brought([here+'test_generator'], pattern='test*.py')[1], 0)
 
 
 def tree(folder):
