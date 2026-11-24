@@ -7,6 +7,20 @@ using FileAccess = System.IO.FileAccess;
 
 namespace GarageGame.Native.Saves;
 
+/// <summary>What asking for a team's play lease gave (PlayLease.Ask).</summary>
+public enum PlayLeaseAnswer
+{
+    /// <summary>The hold was given.</summary>
+    Taken,
+    /// <summary>Someone else holds the team in a way that refuses this hold: a room that is up, or a put-away at work.</summary>
+    Held,
+    /// <summary>
+    /// The lease file could not be opened at all (a folder that cannot be written, a folder standing where the file belongs):
+    /// nobody is known to hold the team, and waiting would not help.
+    /// </summary>
+    CannotOpen,
+}
+
 /// <summary>
 /// The team's play lease (Run 4, MENU-2; docs/game/MECHANICS.md section 3, "Never under a running room"): one empty file,
 /// <c>teams/&lt;team_id&gt;/in_play.lock</c>, held open by whoever must not have the team's saves moved under it.
@@ -18,6 +32,9 @@ namespace GarageGame.Native.Saves;
 /// room never opens a game that is half moved.</item>
 /// <item><b>A crash frees it.</b> The hold is an open file handle and nothing else: the operating system closes it when the
 /// process ends, however it ends. Nothing is written in the file, and the game never deletes it.</item>
+/// <item><b>Held is not the same as cannot be opened.</b> Only a sharing refusal means someone holds the team. Every hold opens
+/// the file to read, never to write, so a lease file that came back read-only (a restored backup, a sync tool) is held and let
+/// go like any other. A file that cannot be opened at all answers CannotOpen at once: no wait, and never "still open".</item>
 /// </list>
 /// A lease is the menu's and the boot's alone: not a command, nothing a request carries reaches it, and the companion surface
 /// never sees it. On Windows the sharing rules are the file system's; on Linux they are .NET's advisory locks, which every
@@ -53,30 +70,37 @@ public sealed class PlayLease : IDisposable
 
     public static string PathFor(TeamLayout layout, string team) => Path.Combine(layout.TeamFolder(team), FileName);
 
-    /// <summary>A room's hold, shared with other rooms of the team; null while a put-away holds the team alone.</summary>
-    public static PlayLease? TryPlay(TeamLayout layout, string team) => Take(layout, team, alone: false);
+    /// <summary>A room's hold, shared with other rooms of the team; null while a put-away holds the team alone (or the file cannot be opened: Ask tells which).</summary>
+    public static PlayLease? TryPlay(TeamLayout layout, string team) => Take(layout, team, alone: false, out var lease) == PlayLeaseAnswer.Taken ? lease : null;
 
-    /// <summary>The put-away's hold; null while a room of the team is up, or another put-away is at work.</summary>
-    public static PlayLease? TryAlone(TeamLayout layout, string team) => Take(layout, team, alone: true);
+    /// <summary>The put-away's hold; null while a room of the team is up, or another put-away is at work (or the file cannot be opened: Ask tells which).</summary>
+    public static PlayLease? TryAlone(TeamLayout layout, string team) => Take(layout, team, alone: true, out var lease) == PlayLeaseAnswer.Taken ? lease : null;
 
     /// <summary>
     /// The hold, waited for at most <paramref name="upTo"/> (asked again every few hundredths of a second; the caller's thread
-    /// waits, so keep it short). Null when it is still refused then. A wait of zero asks once.
+    /// waits, so keep it short). Null when it is still refused then, or cannot be opened. A wait of zero asks once.
     /// </summary>
-    public static PlayLease? Wait(TeamLayout layout, string team, bool alone, TimeSpan upTo)
+    public static PlayLease? Wait(TeamLayout layout, string team, bool alone, TimeSpan upTo) => Ask(layout, team, alone, upTo, out var lease) == PlayLeaseAnswer.Taken ? lease : null;
+
+    /// <summary>
+    /// The hold, and why not when it is not given. While someone holds the team it is asked for again, for at most
+    /// <paramref name="upTo"/>; a lease file that cannot be opened answers at once, since waiting changes nothing.
+    /// </summary>
+    public static PlayLeaseAnswer Ask(TeamLayout layout, string team, bool alone, TimeSpan upTo, out PlayLease? lease)
     {
         var clock = Stopwatch.StartNew();
         while (true)
         {
-            if (Take(layout, team, alone) is { } lease) return lease;
-            if (clock.Elapsed >= upTo) return null;
+            var answer = Take(layout, team, alone, out lease);
+            if (answer != PlayLeaseAnswer.Held || clock.Elapsed >= upTo) return answer;
             Thread.Sleep(Poll);
         }
     }
 
     /// <summary>
     /// Whether anyone holds the team now: a room that is up (or still leaving), or a put-away at work. For the menu's buttons,
-    /// which wait for a leaving room before they start anything. Asking makes nothing: a team with no folder is not in use.
+    /// which wait for a leaving room before they start anything. Asking makes nothing: a team with no folder is not in use, and
+    /// neither is one whose lease file merely cannot be opened (nobody holds it; New game then says what is wrong).
     /// </summary>
     public static bool InUse(TeamLayout layout, string team)
     {
@@ -84,27 +108,26 @@ public sealed class PlayLease : IDisposable
         if (!File.Exists(path)) return false;
         try
         {
-            using var probe = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            using var probe = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
             return false;
         }
-        catch (FileNotFoundException) { return false; }
-        catch (DirectoryNotFoundException) { return false; }
-        catch (Exception error) when (FileError(error)) { return true; }
+        catch (Exception error) when (FileError(error)) { return SomeoneHolds(error); }
     }
 
-    private static PlayLease? Take(TeamLayout layout, string team, bool alone)
+    private static PlayLeaseAnswer Take(TeamLayout layout, string team, bool alone, out PlayLease? lease)
     {
+        lease = null;
         var path = PathFor(layout, team);
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             // Alone: no other handle may be open at all. To play: other rooms may hold it to play too, and none may hold it alone.
-            var file = alone
-                ? new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None)
-                : new FileStream(path, FileMode.OpenOrCreate, FileAccess.Read, FileShare.Read);
-            return new PlayLease(team, alone, file);
+            // Both open the file to read only: nothing is ever written in it, and a read-only lease file is held like any other.
+            var file = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Read, alone ? FileShare.None : FileShare.Read);
+            lease = new PlayLease(team, alone, file);
+            return PlayLeaseAnswer.Taken;
         }
-        catch (Exception error) when (FileError(error)) { return null; }
+        catch (Exception error) when (FileError(error)) { return SomeoneHolds(error) ? PlayLeaseAnswer.Held : PlayLeaseAnswer.CannotOpen; }
     }
 
     /// <summary>Lets the team go. Safe to call twice.</summary>
@@ -115,6 +138,15 @@ public sealed class PlayLease : IDisposable
     }
 
     private static bool FileError(Exception error) => error is IOException or UnauthorizedAccessException or System.Security.SecurityException;
+
+    /// <summary>
+    /// Whether an open was refused because someone else has the file open (a sharing refusal), and not for any other reason. On
+    /// Windows that is the system's own answer (ERROR_SHARING_VIOLATION 32, ERROR_LOCK_VIOLATION 33). Elsewhere .NET's advisory
+    /// lock refuses with a plain IOException, and what is denied, missing or too long comes as its own kind.
+    /// </summary>
+    private static bool SomeoneHolds(Exception error) =>
+        error is IOException and not (FileNotFoundException or DirectoryNotFoundException or PathTooLongException or DriveNotFoundException) &&
+        (!OperatingSystem.IsWindows() || (error.HResult & 0xFFFF) is 32 or 33);
 }
 
 /// <summary>

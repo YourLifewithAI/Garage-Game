@@ -47,12 +47,16 @@ public partial class NewGameTest : Node3D
             TestTheLease();
             await TestANewGame();
             TestFaults();
+            TestAGameChangedWhileItMoved();
             TestThePowerGoingOut();
+            TestNewGamePressedAgain();
             TestWhatIsRefused();
+            TestTheOldFolderStaysOut();
+            await TestTheSavesFromBeforeTeamsStayOut();
             await TestABootAndAPutAway();
             GC.Collect();
             GC.WaitForPendingFinalizers();
-            GD.Print($"NATIVE_NEW_GAME: {_checks - _failures}/{_checks} checks passed; a start that puts nothing away opens the old game as it was left (health 50, the fire out); after New game the next start has full hearts, a lit fire, empty pockets and hand and no room save; the put-away's bytes match by SHA-256 and its folder is one the contract accepts (the contract's example reads and writes back byte for byte, its ten broken folders are refused); the team's rest, the other mode and the other team untouched; nothing brings a put-away game back (boots, a second New game, the migration, a recovery with nothing to recover); a held lease refuses (New game under a room that is up, until the host has written as it leaves; a second put-away; a room while a put-away is at work); a fault at each step and the process ending at each step leave the old game whole, byte for byte, and the next start plays it; a newer game is never moved over; the link check: {_linkCheck}");
+            GD.Print($"NATIVE_NEW_GAME: {_checks - _failures}/{_checks} checks passed; a start that puts nothing away opens the old game as it was left (health 50, the fire out); after New game the next start has full hearts, a lit fire, empty pockets and hand and no room save; the put-away's bytes match by SHA-256 and its folder is one the contract accepts (the contract's example reads and writes back byte for byte, its ten broken folders are refused); the team's rest, the other mode and the other team untouched; nothing brings a put-away game back (boots, a second New game, a recovery with nothing to recover; the save folder's move and the saves from before teams are held off while they would refill its place, their ledgers never written); a held lease refuses (New game under a room that is up, until the host has written as it leaves; a second put-away; a room while a put-away is at work), and a lease that is read-only or cannot be opened is not taken for a held one; a fault at each step and the process ending at each step leave the old game whole, byte for byte, with nothing left under set_aside, and the next start plays it; New game pressed again after a cut puts the old game back first and away whole; a room never opens a game half put away; a newer game is never moved over; the link check: {_linkCheck}");
             GetTree().Quit(_failures == 0 ? 0 : 1);
         }
         catch (Exception error)
@@ -193,6 +197,34 @@ public partial class NewGameTest : Node3D
         Check(waited is { Held: true } && clock.Elapsed.TotalSeconds < 4, $"a start that waits takes the lease when the other lets go ({clock.Elapsed.TotalMilliseconds:0} ms)");
         waited?.Dispose();
         Check(!PlayLease.InUse(layout, "pilot") && File.Exists(PlayLease.PathFor(layout, "pilot")), "let go, the team is free; the lease file stays (the game deletes nothing)");
+
+        // Held is not the same as cannot be opened. A lease file that came back read-only (a restored backup, a sync tool) is
+        // held and let go like any other: nothing is ever written in it.
+        var path = PlayLease.PathFor(layout, "pilot");
+        File.SetAttributes(path, FileAttributes.ReadOnly);
+        try
+        {
+            var free = !PlayLease.InUse(layout, "pilot");
+            var answer = PlayLease.Ask(layout, "pilot", alone: true, TimeSpan.Zero, out var readOnly);
+            var heldAlone = readOnly is { Held: true, Alone: true } && PlayLease.InUse(layout, "pilot") && PlayLease.TryPlay(layout, "pilot") == null &&
+                            PlayLease.Ask(layout, "pilot", alone: false, TimeSpan.Zero, out _) == PlayLeaseAnswer.Held;
+            readOnly?.Dispose();
+            var room = PlayLease.TryPlay(layout, "pilot");
+            var heldToPlay = room is { Held: true } && PlayLease.InUse(layout, "pilot") && PlayLease.Ask(layout, "pilot", alone: true, TimeSpan.Zero, out _) == PlayLeaseAnswer.Held;
+            room?.Dispose();
+            Check(free && answer == PlayLeaseAnswer.Taken && heldAlone && heldToPlay && !PlayLease.InUse(layout, "pilot"),
+                $"a read-only lease file is held and let go like any other: free with nobody on it ({free}), taken alone ({answer}, {heldAlone}), taken to play ({heldToPlay})");
+        }
+        finally { File.SetAttributes(path, FileAttributes.Normal); }
+        // A lease that cannot be opened at all (here a folder stands where the file belongs) is nobody's hold: the answer comes
+        // at once, however long the caller would have waited, and the team is not "in use".
+        Directory.CreateDirectory(PlayLease.PathFor(layout, "blocked"));
+        clock.Restart();
+        var alone2 = PlayLease.Ask(layout, "blocked", alone: true, TimeSpan.FromSeconds(5), out var none);
+        var play2 = PlayLease.Ask(layout, "blocked", alone: false, TimeSpan.FromSeconds(5), out var none2);
+        Check(alone2 == PlayLeaseAnswer.CannotOpen && play2 == PlayLeaseAnswer.CannotOpen && none == null && none2 == null && clock.Elapsed.TotalSeconds < 2 && !PlayLease.InUse(layout, "blocked") &&
+              PlayLease.TryAlone(layout, "blocked") == null && PlayLease.Wait(layout, "blocked", alone: false, TimeSpan.FromSeconds(5)) == null && clock.Elapsed.TotalSeconds < 2,
+            $"a lease that cannot be opened answers so at once, with no wait, and is not a held one ({alone2}, {play2}, {clock.Elapsed.TotalMilliseconds:0} ms)");
     }
 
     private static bool Let(PlayLease lease)
@@ -410,8 +442,9 @@ public partial class NewGameTest : Node3D
             Check(Creations(host) == 1 && host.PocketContents.Units("stone") == 2, "the team's Creative game is as it was: " + Body(host));
             await Unboot();
 
-            // Nothing brings the put-away game back: not the boots, not the migration, not a recovery with nothing to recover, not a second New game.
-            var migration = SaveMigration.Run(layout, DateTime.UtcNow);
+            // Nothing brings the put-away game back: not the boots, not a recovery with nothing to recover, not a second New game
+            // (old saves that would refill its place: TestTheOldFolderStaysOut, TestTheSavesFromBeforeTeamsStayOut).
+            var migration = TeamBoot.MigrateOldSaves(layout, DateTime.UtcNow);
             string recovered;
             using (var alone = PlayLease.TryAlone(layout, "pilot")!) recovered = GameSetAside.Recover(alone, layout);
             var second = GameSetAside.PutAway(layout, "pilot", "challenge", now);
@@ -452,27 +485,27 @@ public partial class NewGameTest : Node3D
                 var words = Refused(() => GameSetAside.PutAway(layout, "faulty", "challenge", at));
                 GameSetAside.AtStep = null;
                 var after = Hashes(layout.TeamsRoot);
-                var good = words == GameSetAside.Failed && Same(before, after) && GameSetAside.List(layout).Count == 0 && !PlayLease.InUse(layout, "faulty") &&
-                           !Directory.GetFiles(GameSetAside.Root(layout), SetAsideLedger.FileName, SearchOption.AllDirectories).Any();
+                // "Nothing was changed": the game as it was, and nothing left under set_aside either (the folder the put-away
+                // made, with its copy of the team file, goes once the game is home).
+                var left = Directory.Exists(GameSetAside.Root(layout)) ? Directory.GetFileSystemEntries(GameSetAside.Root(layout)).Length : 0;
+                var good = words == GameSetAside.Failed && Same(before, after) && GameSetAside.List(layout).Count == 0 && !PlayLease.InUse(layout, "faulty") && left == 0 &&
+                           GameSetAside.HasGame(layout, "faulty", "challenge") && GameSetAside.PendingPutAway(layout, "faulty") == null;
                 if (good) whole++;
-                else seen.Add($"{step}: \"{words}\" {Differences(before, after)}");
+                else seen.Add($"{step}: \"{words}\" {Differences(before, after)}; {left} left under set_aside");
             }
         }
         finally { GameSetAside.AtStep = null; }
         Check(whole == 5 && before.Count == 7,
-            $"a fault after each step (the note, the copy, the move, the check, the pockets) is refused with \"{GameSetAside.Failed}\" and leaves the old game whole, byte for byte, with no note, no ledger and the lease free ({whole}/5): {string.Join(" | ", seen)}");
-        var stubs = Directory.GetDirectories(GameSetAside.Root(layout));
-        Check(stubs.Length == 4 && stubs.All(s => Directory.GetFiles(s, "*", SearchOption.AllDirectories).Select(Path.GetFileName).SequenceEqual(new[] { "team.json" }) && GameSetAside.Problems(s).Count == 1),
-            "what a fault leaves under set_aside is a folder without a ledger, holding a copy of the team file and nothing of the game: never a put-away game, and never removed");
-        // Then it works, in the next free second's folder, and the ledger holds the strays beside the save too.
+            $"a fault after each step (the note, the copy, the move, the check, the pockets) is refused with \"{GameSetAside.Failed}\" and leaves the old game whole, byte for byte, with no note, no ledger, nothing under set_aside and the lease free ({whole}/5): {string.Join(" | ", seen)}");
+        // Then it works, in that same second's folder (nothing was left in its way), and the ledger holds the strays beside the save too.
         var put = GameSetAside.PutAway(layout, "faulty", "challenge", at);
-        Check(put != null && put.Ledger.SetAsideUtc == "2026-11-24T09:30:19Z" && put.Ledger.LastPlayedUtc == "2026-10-25T17:00:00Z" && GameSetAside.Problems(put.Folder).Count == 0 &&
+        Check(put != null && put.Ledger.SetAsideUtc == "2026-11-24T09:30:15Z" && put.Ledger.LastPlayedUtc == "2026-10-25T17:00:00Z" && GameSetAside.Problems(put.Folder).Count == 0 &&
               put.Ledger.Files.Select(f => f.Path).SequenceEqual(new[]
               {
                   "modes/challenge/islands/test_room/0123456789abcdef/inventions - Copy.json", "modes/challenge/islands/test_room/0123456789abcdef/inventions.json",
                   "modes/challenge/islands/test_room/0123456789abcdef/inventions.json.pending", "modes/challenge/vitals.json", "team.json",
               }) && GameSetAside.List(layout).Count == 1,
-            "the put-away then works, in the next free second's folder; a stray copy and a writer's pending file beside the save are put away with it; last played is the newest write among its files");
+            "the put-away then works, in the folder of the second it was asked in; a stray copy and a writer's pending file beside the save are put away with it; last played is the newest write among its files");
         var team = TeamFile.Parse(File.ReadAllBytes(layout.TeamFile("faulty")));
         Check(team.PocketsOf("challenge").IsEmpty && team.HandOf("challenge").IsNone && team.PocketsOf("live").Units("log") == 1 && File.Exists(layout.VitalsFile("faulty", "creative")) &&
               File.Exists(layout.ExpertiseFile("faulty")), "and only that mode's pockets and hand are emptied; the Live pockets, the Creative vitals and the expertise stay");
@@ -505,28 +538,34 @@ public partial class NewGameTest : Node3D
                 GameSetAside.AtStep = null;
                 var midway = File.Exists(GameSetAside.NotePath(layout, team)) && !PlayLease.InUse(layout, team);
                 var gone = !Directory.Exists(layout.ModeFolder(team, "challenge"));
+                // Until it is put back the game is still this mode's game (the menu offers Continue, and asks before New game),
+                // though its folder may be gone and its pockets empty; past the ledger it is put away, and the mode has none.
+                var waits = GameSetAside.PendingPutAway(layout, team) == (step == "ledger" ? null : "challenge") && GameSetAside.HasGame(layout, team, "challenge") == (step != "ledger") &&
+                            GameSetAside.PendingPutAway(layout, "nobody") == null;
                 string line;
                 using (var alone = PlayLease.TryAlone(layout, team)!) line = GameSetAside.Recover(alone, layout);
                 var after = Hashes(layout.TeamFolder(team));
+                var folders = Directory.GetDirectories(GameSetAside.Root(layout), "*-" + team + "-challenge").Length;
                 bool good;
                 if (step == "ledger")
                 {
                     // Past the line the put-away had finished: the next start drops the note and brings nothing back.
                     var put = GameSetAside.List(layout, team);
-                    good = cut && midway && gone && line.EndsWith("had finished", StringComparison.Ordinal) && put.Count == 1 && GameSetAside.Problems(put[0].Folder).Count == 0 &&
+                    good = cut && midway && gone && waits && line.EndsWith("had finished", StringComparison.Ordinal) && put.Count == 1 && folders == 1 && GameSetAside.Problems(put[0].Folder).Count == 0 &&
                            !Directory.Exists(layout.ModeFolder(team, "challenge")) && !File.Exists(GameSetAside.NotePath(layout, team)) &&
                            TeamFile.Parse(File.ReadAllBytes(layout.TeamFile(team))).PocketsOf("challenge").IsEmpty;
                 }
                 else
-                    good = cut && midway && gone == (step is "moved" or "checked" or "emptied") && line.EndsWith("was put back", StringComparison.Ordinal) && Same(before, after) &&
-                           GameSetAside.List(layout, team).Count == 0 && !File.Exists(GameSetAside.NotePath(layout, team));
+                    good = cut && midway && waits && gone == (step is "moved" or "checked" or "emptied") && line.EndsWith("was put back", StringComparison.Ordinal) && Same(before, after) &&
+                           GameSetAside.List(layout, team).Count == 0 && !File.Exists(GameSetAside.NotePath(layout, team)) && folders == 0 &&
+                           GameSetAside.PendingPutAway(layout, team) == null && GameSetAside.HasGame(layout, team, "challenge");
                 if (good) whole++;
-                else seen.Add($"{step}: cut {cut}, midway {midway}, gone {gone}, \"{line}\" {Differences(before, after)}");
+                else seen.Add($"{step}: cut {cut}, midway {midway}, gone {gone}, waits {waits}, {folders} folders under set_aside, \"{line}\" {Differences(before, after)}");
             }
         }
         finally { GameSetAside.AtStep = null; }
         Check(whole == 6,
-            $"the process ending after each step leaves a note; the next start puts the old game back whole, byte for byte (the folder home, the pockets returned), or, past the ledger, finds the put-away finished ({whole}/6): {string.Join(" | ", seen)}");
+            $"the process ending after each step leaves a note, and the game is still that mode's game while it waits; the next start puts the old game back whole, byte for byte (the folder home, the pockets returned, nothing left under set_aside), or, past the ledger, finds the put-away finished ({whole}/6): {string.Join(" | ", seen)}");
 
         try
         {
@@ -546,6 +585,27 @@ public partial class NewGameTest : Node3D
                   File.ReadAllBytes(layout.VitalsFile("newer", "challenge")).AsSpan().SequenceEqual(fresh) && Directory.GetFiles(layout.ModeFolder("newer", "challenge"), "*", SearchOption.AllDirectories).Length == 1 &&
                   !File.Exists(GameSetAside.NotePath(layout, "newer")),
                 $"a newer game standing where the old one stood is never moved over: the old game's put-away is finished where it lies, whole and listed (\"{line}\")");
+            // The cut came before the pockets were emptied, so the team file still held the old game's things under the newer
+            // game: they are the old game's (its copy of the team file keeps them), and the newer game does not carry them too.
+            var newerTeam = TeamFile.Parse(File.ReadAllBytes(layout.TeamFile("newer")));
+            var keptTeam = kept.Count == 1 ? TeamFile.Parse(File.ReadAllBytes(Path.Combine(kept[0].Folder, "team.json"))) : newerTeam;
+            Check(newerTeam.PocketsOf("challenge").IsEmpty && newerTeam.HandOf("challenge").IsNone && newerTeam.PocketsOf("live").Units("log") == 1 &&
+                  keptTeam.PocketsOf("challenge").Units("apple") == 5 && keptTeam.PocketsOf("challenge").Units("stone") == 2 && !keptTeam.HandOf("challenge").IsNone,
+                $"and the old game's pockets and hand go with it: the newer game's are empty ({newerTeam.PocketsOf("challenge").Entries} kinds left), the put-away copy holds the 5 apples and 2 stones, the Live pockets stay");
+            // Once the newer game has changed its pockets, what is in them cannot be told apart: they are left as they are.
+            Craft(layout, "mixed", "challenge");
+            GameSetAside.AtStep = name => { if (name == "moved") throw new GameSetAside.PowerCut(); };
+            try { GameSetAside.PutAway(layout, "mixed", "challenge", at); }
+            catch (GameSetAside.PowerCut) { }
+            GameSetAside.AtStep = null;
+            Directory.CreateDirectory(Path.GetDirectoryName(layout.VitalsFile("mixed", "challenge"))!);
+            File.WriteAllBytes(layout.VitalsFile("mixed", "challenge"), fresh);
+            var mixedStore = new TeamStore(layout.TeamFile("mixed"), "mixed");
+            mixedStore.Save(mixedStore.Load()!.WithPockets("challenge", InventoryContents.Empty.WithUnits("apple", 6).WithUnits("stone", 2)));
+            using (var alone = PlayLease.TryAlone(layout, "mixed")!) line = GameSetAside.Recover(alone, layout);
+            var mixed = TeamFile.Parse(File.ReadAllBytes(layout.TeamFile("mixed")));
+            Check(line.Contains("was finished", StringComparison.Ordinal) && GameSetAside.List(layout, "mixed").Count == 1 && mixed.PocketsOf("challenge").Units("apple") == 6 && !mixed.HandOf("challenge").IsNone,
+                $"pockets the newer game has changed since are left as they are ({mixed.PocketsOf("challenge").Units("apple")} apples)");
 
             // Empty folders where the game stood are no game: they make way, and the old game goes home.
             Craft(layout, "hollow", "challenge");
@@ -619,6 +679,19 @@ public partial class NewGameTest : Node3D
             try { GameSetAside.PutAway(layout, team, mode, at); }
             catch (ArgumentException) { refusedIds++; }
         Check(refusedIds == 3, "a path for a team, a mode that is none and a device's name are never a put-away's");
+        // A lease that cannot be opened at all (a folder stands where the file belongs) is a fault, said as one and at once:
+        // never "that game is still open", which nobody could ever close.
+        Craft(layout, "blocked", "challenge");
+        Directory.CreateDirectory(PlayLease.PathFor(layout, "blocked"));
+        before = Hashes(layout.TeamsRoot);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        words = Refused(() => GameSetAside.PutAway(layout, "blocked", "challenge", at, TimeSpan.FromSeconds(5)));
+        Check(words == GameSetAside.Failed && clock.Elapsed.TotalSeconds < 2 && Same(before, Hashes(layout.TeamsRoot)) && GameSetAside.HasGame(layout, "blocked", "challenge") &&
+              !PlayLease.InUse(layout, "blocked") && GameSetAside.List(layout, "blocked").Count == 0,
+            $"a lease that cannot be opened refuses the put-away as a fault (\"{words}\"), at once ({clock.Elapsed.TotalMilliseconds:0} ms), and nothing moves");
+        Check(GameSetAside.TeamUnreadable.Contains("team", StringComparison.Ordinal) && new[] { GameSetAside.Failed, GameSetAside.FailedPutBackLater, GameSetAside.TeamUnreadable, GameSetAside.NotAsItIs, GameSetAside.NotPutBack, PlayLease.StillOpen, PlayLease.BeingPutAway }
+                  .All(line => line.Length <= 90 && !line.Contains("file", StringComparison.OrdinalIgnoreCase) && !line.Contains("folder", StringComparison.OrdinalIgnoreCase) && !line.Contains('/') && !line.Contains('\\')),
+            "every line a player reads is short and names no file, folder or path");
     }
 
     /// <summary>A link to a folder: a symbolic link where this machine lets a test make one, else (Windows) a junction.</summary>
@@ -676,6 +749,49 @@ public partial class NewGameTest : Node3D
             await Frames(2);
             Check(boot.Lease is { Held: false } && !PlayLease.InUse(layout, "waiter"), "the room gone, the lease is let go");
             TeamBoot.LeaseWait = wait;
+
+            // A game half put away that cannot be put back: the room is refused. It never opens a fresh game over the old one.
+            Craft(layout, "stuck", "challenge");
+            var stuckGame = Hashes(layout.TeamFolder("stuck"));
+            GameSetAside.AtStep = name => { if (name == "moved") throw new GameSetAside.PowerCut(); };
+            try { GameSetAside.PutAway(layout, "stuck", "challenge", DateTime.UtcNow); }
+            catch (GameSetAside.PowerCut) { }
+            GameSetAside.AtStep = null;
+            // Something stands where the game's folder must go home (a file of its name), so the put-back fails.
+            var inTheWay = layout.ModeFolder("stuck", "challenge");
+            File.WriteAllText(inTheWay, "in the way\n");
+            TeamBoot.ArgumentsOverride = new[] { "--team=stuck", "--mode=challenge" };
+            room = new Node { Name = "RoomStandInStuck" };
+            AddChild(room);
+            before = Hashes(root);
+            words = "";
+            try { TeamBoot.Prepare(room, Array.Empty<string>()); }
+            catch (InvalidOperationException error) { words = error.Message; }
+            Check(words == GameSetAside.NotPutBack && room.GetChildCount() == 0 && !PlayLease.InUse(layout, "stuck") && Same(before, Hashes(root)) &&
+                  GameSetAside.PendingPutAway(layout, "stuck") == "challenge" && GameSetAside.HasGame(layout, "stuck", "challenge") && GameSetAside.List(layout, "stuck").Count == 0,
+                $"a room that finds its team's game half put away and cannot put it back is refused (\"{words}\"): nothing is read or written, no lease is kept, and the game still waits to be put back");
+            File.Delete(inTheWay);
+            var back = TeamBoot.Prepare(room, Array.Empty<string>());
+            Check(back.Lease is { Held: true } && back.Notices.Any(n => n.EndsWith("was put back", StringComparison.Ordinal)) && GameSetAside.PendingPutAway(layout, "stuck") == null &&
+                  Same(stuckGame, Hashes(layout.TeamFolder("stuck"))) && GameSetAside.List(layout, "stuck").Count == 0 && Directory.GetDirectories(GameSetAside.Root(layout), "*-stuck-challenge").Length == 0,
+                "with the way clear the next start puts the old game back whole, byte for byte, and then holds its lease to play: " + Differences(stuckGame, Hashes(layout.TeamFolder("stuck"))));
+            room.QueueFree();
+            await Frames(2);
+
+            // A lease that cannot be opened at all is no put-away at work: the room boots at once, as it did before the lease,
+            // with a notice and no hold (it does not wait five seconds and then say the game is being put away).
+            Craft(layout, "nolease", "challenge");
+            Directory.CreateDirectory(PlayLease.PathFor(layout, "nolease"));
+            TeamBoot.ArgumentsOverride = new[] { "--team=nolease", "--mode=challenge" };
+            room = new Node { Name = "RoomStandInNoLease" };
+            AddChild(room);
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var unheld = TeamBoot.Prepare(room, Array.Empty<string>());
+            Check(unheld is { GameBoot: true, TeamId: "nolease", Mode: "challenge", Lease: null } && room.GetChildCount() == 0 && clock.Elapsed.TotalSeconds < 2 &&
+                  unheld.Notices.Any(n => n.Contains("play lease could not be opened", StringComparison.Ordinal)),
+                $"a room whose team's lease cannot be opened boots at once ({clock.Elapsed.TotalMilliseconds:0} ms) with a notice and no hold");
+            room.QueueFree();
+            await Frames(2);
 
             // The process ends part-way through New game; the next start puts the old game back and plays it.
             SeedTeam(layout, "pilot", file => file.WithPockets("challenge", InventoryContents.Empty.WithUnits("berries", 4)));

@@ -214,9 +214,13 @@ public sealed record SetAsideLedger(string TeamId, string Mode, string SetAsideU
 /// puts everything back (the folder moved home, the pockets returned byte for byte) and leaves the old game whole. A note in
 /// the team's folder (put_away.pending), written before anything moves and removed after, lets the next start do the same if
 /// the process itself ended part-way (Recover). Once the ledger stands, nothing undoes it.</item>
-/// <item><b>The set-aside folder is only ever added to.</b> No file under user://set_aside/ is removed or rewritten. A
-/// put-away that did not finish leaves its folder there without a ledger, holding a copy of the team file and nothing of the
-/// game; no reader lists it.</item>
+/// <item><b>A put-away game is only ever added.</b> Once its ledger stands, no file of its folder under user://set_aside/ is
+/// removed or rewritten. A put-away that did not finish and was put back leaves nothing there: its folder held only its own
+/// copy of the team file, and goes once the game is home (DropStub), so "Nothing was changed" is true of a refused one.</item>
+/// <item><b>Nothing brings a put-away game back unasked.</b> Two things copy old saves into the user folder wherever a file is
+/// missing: the save folder's move from the room-era name (UserFolderMove) and the migration of the saves from before teams
+/// (SaveMigration). Each is held off for as long as it would write where New game put a game away, or is putting one away
+/// (OldFolderWouldRefill, LegacyWouldRefill; TeamBoot asks before it runs either).</item>
 /// </list>
 /// System.IO only, on whatever user folder it is given, so it runs the same on a test's folder.
 /// </summary>
@@ -225,24 +229,28 @@ public static class GameSetAside
     public const string RootName = "set_aside";
     /// <summary>The put-away's note in the team's folder, while one is at work: the name of the folder it fills.</summary>
     public const string NoteName = "put_away.pending";
+    // What a player reads (the family's to reword): plain, short, never a path, never a file's name.
     public const string Failed = "The game could not be put away. Nothing was changed.";
     public const string FailedPutBackLater = "The game could not be put away. It is put back when the game next starts.";
-    public const string TeamUnreadable = "The team file could not be read. Nothing was changed.";
+    public const string TeamUnreadable = "This team could not be read. Nothing was changed.";
     public const string NotAsItIs = "This game's saves could not be put away as they are. Nothing was changed.";
+    /// <summary>What the player reads when a room starts and a game that New game left half put away cannot be put back.</summary>
+    public const string NotPutBack = "The game that was being put away could not be put back. Try again in a moment.";
     /// <summary>At most this many put-away games are listed (the newest); they are kept without limit.</summary>
     public const int MaxListed = 512;
     private const int MaxNoteBytes = 256;
     private static readonly Regex NamePattern = new(@"\A(?<at>[0-9]{8}T[0-9]{6}Z)-(?<team>[a-z][a-z0-9_-]{0,63})-(?<mode>creative|challenge|live)\z", RegexOptions.Compiled);
 
     /// <summary>
-    /// Test seam: called after each step of a put-away with the step's name (Steps). An exception thrown from it is a fault at
-    /// that step, put back like any other. A <see cref="PowerCut"/> is the process ending there: nothing is put back, as nothing would be.
+    /// Test seam (the tests are in this assembly; nothing outside it sets this): called after each step of a put-away with the
+    /// step's name (Steps). An exception thrown from it is a fault at that step, put back like any other. A
+    /// <see cref="PowerCut"/> is the process ending there: nothing is put back, as nothing would be.
     /// </summary>
-    public static Action<string>? AtStep { get; set; }
+    internal static Action<string>? AtStep { get; set; }
     /// <summary>The steps AtStep hears, in order. Up to "emptied" a fault puts everything back; "ledger" is after the line.</summary>
     public static readonly IReadOnlyList<string> Steps = Array.AsReadOnly(new[] { "noted", "copied", "moved", "checked", "emptied", "ledger" });
     /// <summary>A test's stand-in for the process ending at a step (AtStep).</summary>
-    public sealed class PowerCut() : Exception("the process ended here (a test)");
+    internal sealed class PowerCut() : Exception("the process ended here (a test)");
 
     public static string Root(TeamLayout layout) => Path.Combine(layout.Root, RootName);
     public static string NotePath(TeamLayout layout, string team) => Path.Combine(layout.TeamFolder(team), NoteName);
@@ -250,13 +258,16 @@ public static class GameSetAside
 
     /// <summary>
     /// Whether this team has a game in this mode: anything New game would put away (a file in the mode's folder, or something in
-    /// that mode's pockets or hand). In doubt (a file that does not read) there is one: New game asks before anything moves.
+    /// that mode's pockets or hand), or a game that a put-away cut short still holds (PendingPutAway: the next start, or the
+    /// next New game, puts it back first, so it is this mode's game all along). In doubt (a file that does not read) there is
+    /// one: New game asks before anything moves.
     /// </summary>
     public static bool HasGame(TeamLayout layout, string team, string mode)
     {
         if (!TeamLayout.ValidTeamId(team) || !TeamLayout.ValidMode(mode)) return false;
         try
         {
+            if (PendingPutAway(layout, team) == mode) return true;
             var home = layout.ModeFolder(team, mode);
             if (Directory.Exists(home) && Entries(home, "").Any(e => !e.IsFolder)) return true;
             if (ReadBounded(layout.TeamFile(team), TeamFile.MaxBytes) is not { } bytes) return false;
@@ -267,8 +278,25 @@ public static class GameSetAside
     }
 
     /// <summary>
-    /// Whether a game of this team and mode was ever put away (a finished folder stands for it). For anything that copies old
-    /// saves into the user folder: a game New game put away is never copied back in.
+    /// The mode of this team's game that a put-away left half done (the process ended during New game: its note stands and its
+    /// ledger does not), or null. Until it is put back (Recover: the next room boot of the team, or the next PutAway) the game
+    /// is neither in play nor put away. A note that does not read names nothing, and is none.
+    /// </summary>
+    public static string? PendingPutAway(TeamLayout layout, string team)
+    {
+        if (!TeamLayout.ValidTeamId(team)) return null;
+        try
+        {
+            var note = NotePath(layout, team);
+            if (!File.Exists(note) || ReadNote(note) is not { } name || ParseName(name) is not { } parsed || parsed.Team != team) return null;
+            return File.Exists(Path.Combine(Root(layout), name, SetAsideLedger.FileName)) ? null : parsed.Mode;
+        }
+        catch (Exception error) when (FileError(error)) { return null; }
+    }
+
+    /// <summary>
+    /// Whether a game of this team and mode was ever put away (a finished folder stands for it). What copies old saves into
+    /// the user folder asks PutAwayPlaces, which counts a put-away that was cut short as well.
     /// </summary>
     public static bool WasPutAway(TeamLayout layout, string team, string mode)
     {
@@ -282,16 +310,107 @@ public static class GameSetAside
         catch (Exception error) when (FileError(error)) { return false; }
     }
 
+    // ---- old saves stay out of a put-away game's place ----
+
+    /// <summary>
+    /// The places New game has put a game away from, or is putting one away from: one team's one mode each (its folder
+    /// teams/&lt;team&gt;/modes/&lt;mode&gt;/). A finished put-away's folder stands for its place for good; a note stands for one that
+    /// was cut short, until it is put back.
+    /// </summary>
+    public static IReadOnlyCollection<(string Team, string Mode)> PutAwayPlaces(TeamLayout layout)
+    {
+        var places = new HashSet<(string, string)>();
+        try
+        {
+            var root = Root(layout);
+            if (Directory.Exists(root))
+                foreach (var folder in Directory.EnumerateDirectories(root))
+                    if (ParseName(Path.GetFileName(folder)) is { } name && File.Exists(Path.Combine(folder, SetAsideLedger.FileName))) places.Add((name.Team, name.Mode));
+            if (Directory.Exists(layout.TeamsRoot))
+                foreach (var folder in Directory.EnumerateDirectories(layout.TeamsRoot))
+                    if (Path.GetFileName(folder) is { } team && PendingPutAway(layout, team) is { } mode) places.Add((team, mode));
+        }
+        catch (Exception error) when (FileError(error)) { }
+        return places;
+    }
+
+    /// <summary>
+    /// For the save folder's move from the room-era name (UserFolderMove: until its ledger stands, every launch copies each file
+    /// of the old folder that is missing here): the old folder's files it would copy into a put-away game's place, each by its
+    /// path in the folder. None when the move is done, or when nothing of those places is missing here. While there are any the
+    /// move is held off whole (TeamBoot.BringOldSaves): the old folder is never changed, so nothing is lost by waiting, and a
+    /// game New game put away is never copied back in.
+    /// </summary>
+    public static IReadOnlyList<string> OldFolderWouldRefill(string oldFolder, string userFolder)
+    {
+        var found = new List<string>();
+        try
+        {
+            oldFolder = Path.GetFullPath(oldFolder);
+            userFolder = Path.GetFullPath(userFolder);
+            if (!Directory.Exists(oldFolder) || !Directory.Exists(userFolder) || File.Exists(Path.Combine(userFolder, UserFolderMove.LedgerName))) return found;
+            if (string.Equals(Path.TrimEndingDirectorySeparator(oldFolder), Path.TrimEndingDirectorySeparator(userFolder), StringComparison.OrdinalIgnoreCase)) return found;
+            foreach (var (team, mode) in PutAwayPlaces(new TeamLayout(userFolder)).OrderBy(p => p.Team, StringComparer.Ordinal).ThenBy(p => p.Mode, StringComparer.Ordinal))
+            {
+                var place = Path.Combine("teams", team, "modes", mode);
+                var old = Path.Combine(oldFolder, place);
+                if (!Directory.Exists(old)) continue;
+                foreach (var file in Directory.EnumerateFiles(old, "*", SearchOption.AllDirectories).OrderBy(f => f, StringComparer.Ordinal))
+                {
+                    // What the move itself never copies: the stores' lease files and its own half-written copies.
+                    if (file.EndsWith(".lock", StringComparison.OrdinalIgnoreCase) || file.EndsWith(".moving", StringComparison.Ordinal)) continue;
+                    var relative = Path.Combine(place, Path.GetRelativePath(old, file));
+                    if (!File.Exists(Path.Combine(userFolder, relative))) found.Add(relative.Replace('\\', '/'));
+                }
+            }
+        }
+        catch (Exception error) when (FileError(error)) { }
+        return found;
+    }
+
+    /// <summary>
+    /// For the migration of the saves from before teams (SaveMigration: until its ledger stands, a launch writes each old save's
+    /// copy wherever the team has no file): whether it would write into a put-away game's place of its team. That is so while
+    /// the ledger is missing, the place's vitals are missing with an old vitals file to make them from, or an old room save has
+    /// no island save there. While it would, the migration is held off whole (TeamBoot.Prepare): its old files stay where they
+    /// are, and a game New game put away is never copied back in.
+    /// </summary>
+    public static bool LegacyWouldRefill(TeamLayout layout, string team = TeamLayout.DefaultTeamId)
+    {
+        try
+        {
+            if (File.Exists(layout.MigrationLedger)) return false;
+            foreach (var (_, mode) in PutAwayPlaces(layout).Where(p => p.Team == team))
+            {
+                if (!File.Exists(layout.VitalsFile(team, mode)) && (File.Exists(layout.LegacyVitalsV2(mode)) || File.Exists(layout.LegacyVitalsV1))) return true;
+                // The old room saves go to the mode that was played last, which only the migration works out: any mode but Live.
+                if (mode == "live" || !Directory.Exists(layout.LegacyRooms)) continue;
+                foreach (var room in Directory.EnumerateDirectories(layout.LegacyRooms).Where(r => TeamLayout.ValidRoomId(Path.GetFileName(r))))
+                    foreach (var manifest in Directory.EnumerateDirectories(room).Where(m => TeamLayout.ValidManifestPrefix(Path.GetFileName(m))))
+                        if (File.Exists(Path.Combine(manifest, "inventions.json")) && !File.Exists(layout.IslandSave(team, mode, Path.GetFileName(room), Path.GetFileName(manifest)))) return true;
+            }
+            return false;
+        }
+        // In doubt the old saves stay out: they are never touched by waiting.
+        catch (Exception error) when (FileError(error)) { return PutAwayPlaces(layout).Any(p => p.Team == team); }
+    }
+
     /// <summary>
     /// The put-away. Null when the team has no game in this mode (nothing is made). Throws SetAsideException, with the old game
     /// whole, when a room of the team is up (after waiting <paramref name="wait"/> for one that is leaving) or anything fails.
+    /// <para>
+    /// New game always calls this, whatever HasGame said: a put-away that the process ending cut short is put back first, and
+    /// then put away whole, so a game half moved is never left behind a new one.
+    /// </para>
     /// </summary>
     public static PutAwayGame? PutAway(TeamLayout layout, string team, string mode, DateTime nowUtc, TimeSpan wait = default)
     {
         if (!TeamLayout.ValidTeamId(team)) throw new ArgumentException("Not a team id.", nameof(team));
         if (!TeamLayout.ValidMode(mode)) throw new ArgumentException("Not a mode.", nameof(mode));
         if (!Directory.Exists(layout.TeamFolder(team))) return null;
-        using var lease = PlayLease.Wait(layout, team, alone: true, wait) ?? throw new SetAsideException(PlayLease.StillOpen);
+        // Held: a room of the team is up. A lease that cannot be opened at all is a fault like any other, never "still open".
+        var answer = PlayLease.Ask(layout, team, alone: true, wait, out var taken);
+        using var lease = taken ?? throw new SetAsideException(answer == PlayLeaseAnswer.Held ? PlayLease.StillOpen : Failed);
         return PutAway(lease, layout, mode, nowUtc);
     }
 
@@ -386,8 +505,10 @@ public static class GameSetAside
             {
                 try
                 {
-                    Undo(layout, team, mode, folder, at);
+                    var putBack = Undo(layout, team, mode, folder, at) == PutBack;
                     File.Delete(note);
+                    // Nothing was changed: the folder this put-away made, holding only its own copy of the team file, goes too.
+                    if (putBack) DropStub(layout, team, folder);
                 }
                 catch (Exception again) when (FileError(again) || again is TeamFileException or SetAsideException or SetAsideLedgerException)
                 {
@@ -426,8 +547,11 @@ public static class GameSetAside
         var folder = Path.Combine(Root(layout), name);
         var did = File.Exists(Path.Combine(folder, SetAsideLedger.FileName)) ? "had finished" : Undo(layout, team, parsed.Mode, folder, parsed.At);
         File.Delete(note);
+        if (did == PutBack) DropStub(layout, team, folder);
         return $"the put-away {name} {did}";
     }
+
+    private const string PutBack = "was put back";
 
     /// <summary>Puts back what an unfinished put-away moved into <paramref name="folder"/> (see Recover). Safe to run twice.</summary>
     private static string Undo(TeamLayout layout, string team, string mode, string folder, DateTime at)
@@ -448,7 +572,33 @@ public static class GameSetAside
             Directory.Move(moved, home);
         }
         ReturnPockets(layout, team, mode, folder);
-        return "was put back";
+        return PutBack;
+    }
+
+    /// <summary>
+    /// What a put-away that did not finish leaves under set_aside once its game is home again: the folder it made, holding its
+    /// own copy of the team file and the empty folders the move left. It goes, so a put-away that was refused or put back has
+    /// changed nothing. Only ever exactly that: a folder of this team directly under set_aside with no ledger and no other file,
+    /// whose copy is byte for byte the team file that stands (so nothing is removed that is not still there). Anything else
+    /// stays as it is, and a fault here is no fault of the put-away.
+    /// </summary>
+    private static void DropStub(TeamLayout layout, string team, string folder)
+    {
+        try
+        {
+            if (!Directory.Exists(folder) || ParseName(Path.GetFileName(folder)) is not { } named || named.Team != team) return;
+            if (!string.Equals(Path.GetDirectoryName(Path.GetFullPath(folder)), Root(layout), StringComparison.Ordinal)) return;
+            var entries = Entries(folder, "");
+            if (entries.Any(e => !e.IsFolder && e.Relative != SetAsideLedger.TeamFileName)) return;
+            var copy = Path.Combine(folder, SetAsideLedger.TeamFileName);
+            if (File.Exists(copy))
+            {
+                if (ReadBounded(copy, TeamFile.MaxBytes) is not { } copied || ReadBounded(layout.TeamFile(team), TeamFile.MaxBytes) is not { } stands || !copied.AsSpan().SequenceEqual(stands)) return;
+                File.Delete(copy);
+            }
+            foreach (var empty in entries.Where(e => e.IsFolder).Select(e => e.Full).OrderByDescending(p => p.Length).Append(folder)) Directory.Delete(empty, recursive: false);
+        }
+        catch (Exception error) when (FileError(error) || error is SetAsideException) { }
     }
 
     /// <summary>That mode's pockets and hand back in the team file, from the copy made before they were emptied; nothing else of the team file changes.</summary>
@@ -469,7 +619,10 @@ public static class GameSetAside
         ReplaceTeamFile(teamPath, liveBytes, back);
     }
 
-    /// <summary>An unfinished put-away finished where it lies: the ledger of what the folder holds, written last (see Recover).</summary>
+    /// <summary>
+    /// An unfinished put-away finished where it lies: the old game's pockets emptied if the team file still holds them, then
+    /// the ledger of what the folder holds, written last (see Recover). Safe to run twice.
+    /// </summary>
     private static void Finish(TeamLayout layout, string team, string mode, string folder, DateTime at)
     {
         var copy = Path.Combine(folder, SetAsideLedger.TeamFileName);
@@ -478,7 +631,31 @@ public static class GameSetAside
         var newest = scan.Newest ?? SafeWriteTime(copy) ?? at;
         var files = scan.Files.Append(new SetAsideFile(SetAsideLedger.TeamFileName, Sha256(teamBytes), teamBytes.Length)).OrderBy(f => f.Path, CanonicalJson.KeyOrder).ToList();
         var ledger = new SetAsideLedger(team, mode, SetAsideLedger.Stamp(at), SetAsideLedger.Stamp(newest > at ? at : newest), files);
-        PlaceLedger(layout, team, folder, ledger.Serialize());
+        var ledgerBytes = ledger.Serialize();
+        EmptyOldPockets(layout, team, mode, teamBytes);
+        PlaceLedger(layout, team, folder, ledgerBytes);
+    }
+
+    /// <summary>
+    /// The old game's pockets and hand are the old game's, and its copy of the team file keeps them. Where the put-away was cut
+    /// before it emptied them, the team file still holds them under the newer game: emptied now, as the put-away would have,
+    /// so the newer game never carries the old game's things as well. Only while they are exactly what the copy holds: once the
+    /// newer game has changed its pockets, what is in them cannot be told apart, and they are left as they are.
+    /// </summary>
+    private static void EmptyOldPockets(TeamLayout layout, string team, string mode, byte[] copyBytes)
+    {
+        var teamPath = layout.TeamFile(team);
+        if (ReadBounded(teamPath, TeamFile.MaxBytes) is not { } liveBytes) return;
+        TeamFile copy, live;
+        try
+        {
+            copy = TeamFile.Parse(copyBytes);
+            live = TeamFile.Parse(liveBytes);
+        }
+        catch (TeamFileException) { return; }
+        if (copy.TeamId != team || (copy.PocketsOf(mode).IsEmpty && copy.HandOf(mode).IsNone)) return;
+        if (!live.PocketsOf(mode).Same(copy.PocketsOf(mode)) || live.HandOf(mode) != copy.HandOf(mode)) return;
+        ReplaceTeamFile(teamPath, liveBytes, live.WithPockets(mode, InventoryContents.Empty).WithHand(mode, HandSelection.None).Serialize());
     }
 
     /// <summary>
