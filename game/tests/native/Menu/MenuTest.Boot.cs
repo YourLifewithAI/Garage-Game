@@ -223,8 +223,9 @@ public partial class MenuTest
     }
 
     /// <summary>
-    /// An island that cannot be loaded sends the player back to the menu with a word about it, never to a blank window. Run by hand
-    /// (-- --broken-room): the room's own refusal is an engine error on stderr, which the runners treat as a failure.
+    /// An island that cannot be loaded sends the player back to the menu with a word about it, never to a blank window: back to the
+    /// page the game was started from, here the Choose page (the title page's own is MenuTest.Title.cs, TestTitleBrokenRoom). Run by
+    /// hand (-- --broken-room): the room's own refusal is an engine error on stderr, which the runners treat as a failure.
     /// </summary>
     private async Task TestBrokenIsland()
     {
@@ -237,7 +238,7 @@ public partial class MenuTest
         MainMenu? back = null;
         for (var waiting = System.Diagnostics.Stopwatch.StartNew(); waiting.Elapsed.TotalSeconds < 30 && (back = _boot!.Menu) == null;) await Frames(2);
         await Frames(3);
-        Check(back != null && _boot!.World == null && back.NoticeLabel.Visible && back.NoticeLabel.Text.StartsWith("That island could not be opened (", StringComparison.Ordinal) && back.NoticeLabel.Text.EndsWith("It was left as it was.", StringComparison.Ordinal) &&
+        Check(back != null && _boot!.World == null && back.NoticeLabel.Visible && back.NoticeLabel.Text.StartsWith("That land could not be opened (", StringComparison.Ordinal) && back.NoticeLabel.Text.EndsWith("It was left as it was.", StringComparison.Ordinal) &&
               LastGame.Read(layout) is { RoomId: "test_room" },
             "an island that cannot be loaded brings the menu back with a word about it, and Continue still opens the last game that was played: " + back?.NoticeLabel.Text);
         await CloseGame();
@@ -258,7 +259,7 @@ public partial class MenuTest
         for (var waiting = System.Diagnostics.Stopwatch.StartNew(); waiting.Elapsed.TotalSeconds < 30 && (again = _boot!.Menu) == null;) await Frames(2);
         await Frames(3);
         var away = GameSetAside.List(layout, "mira-quinn");
-        Check(elsewhere == StartCase.GameElsewhere && asked && again != null && _boot!.World == null && again.NoticeLabel.Text.StartsWith("That island could not be opened (", StringComparison.Ordinal) &&
+        Check(elsewhere == StartCase.GameElsewhere && asked && again != null && _boot!.World == null && again.NoticeLabel.Text.StartsWith("That land could not be opened (", StringComparison.Ordinal) &&
               away.Count == 1 && away[0].Ledger.Mode == "challenge" && GameSetAside.Problems(away[0].Folder).Count == 0 && again.Model.Mode == "challenge" && again.Model.Offer.Case == StartCase.NoGame &&
               !again.ContinueButton.Visible && again.SavesLine.Text == "Your last Challenge game is put away: New game makes a new one.",
             "New game over a game on an island that then cannot be opened: the old game is put away whole, and the page that comes back says so: " + again?.SavesLine.Text);

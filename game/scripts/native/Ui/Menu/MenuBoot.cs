@@ -20,7 +20,8 @@ public static class MenuRoots
 /// <c>--menu</c>), and otherwise boots the room straight away exactly as NativeGameBoot does (a bare <c>--room=</c>, with no
 /// <c>--menu</c>, goes straight in, and so does any boot check). The menu opens on the title page (TitleScreen, MENU-4), whose small
 /// "Choose" opens the Choose page (MainMenu) and whose Esc on the Choose page comes back; <c>--choose</c> opens the Choose page
-/// first. Being a NativeGameBoot, the room it starts is the game's own boot:
+/// first. The two pages share one model: what a launch names is chosen once, when the first page opens, and what the player chooses
+/// on either page stands on the other. Being a NativeGameBoot, the room it starts is the game's own boot:
 /// the team's boot (TeamBoot) honours the team, island, mode and difficulty the menu chose, through the same arguments --team=, --mode=
 /// and --difficulty= take, and the HUD sees the game's boot for the window it remembers.
 /// <list type="bullet">
@@ -54,10 +55,15 @@ public partial class MenuBoot : NativeGameBoot
 
     private IReadOnlyList<string> _openedWith = Array.Empty<string>();
     private string _comeBackWith = "";
+    /// <summary>The page the room was started from, and whether the title page had come first: a room that fails comes back to them.</summary>
+    private bool _startedFromTitle, _startedTitleFirst;
+    /// <summary>A test's hand on each title page before it enters the tree (its clock, its zone, its environment).</summary>
+    public Action<TitleScreen>? OnNewTitle { get; set; }
 
     /// <summary>
-    /// A room that cannot be loaded (a manifest that fails its checks, a folder gone) must not leave a blank window: the menu comes
-    /// back, with a plain word about it, and the island is left as it was.
+    /// A room that cannot be loaded (a manifest that fails its checks, a folder gone) must not leave a blank window: the page the
+    /// game was started from comes back, with a plain word about it, and the land is left as it was. A game New game put away on
+    /// the way stays put away (kept whole), and the page says so (the Choose page's saves line, the title page's line under its buttons).
     /// </summary>
     public override void _Process(double delta)
     {
@@ -66,9 +72,14 @@ public partial class MenuBoot : NativeGameBoot
         RemoveChild(world);
         world.QueueFree();
         World = null;
-        _comeBackWith = $"That island could not be opened ({why}). It was left as it was.";
+        _comeBackWith = TitleWords.CouldNotOpen(why);
         GD.Print("MENU_BACK_FROM_FAILED_ROOM " + why);
-        OpenFirst(_openedWith);
+        if (_startedFromTitle) OpenTitle(_openedWith);
+        else
+        {
+            Open(_openedWith);
+            _titleFirst = _startedTitleFirst;
+        }
     }
 
     public override void _Ready()
@@ -96,22 +107,37 @@ public partial class MenuBoot : NativeGameBoot
         _titleFirst = true;
         TakeDownPages();
         Model = model;
-        Title = NewTitle(model);
+        Title = NewTitle(model, choosesFromLaunch: true);
         AddChild(Title);
         GD.Print(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"MENU_OPEN title teams={model.Teams.Count} islands={model.Islands.Count} in {clock.Elapsed.TotalMilliseconds:0} ms"));
         return Title;
     }
 
-    private TitleScreen NewTitle(MenuModel model) =>
-        new() { Model = model, Launch = launch => StartRoom(launch), Choose = () => ShowChoose(), QuitGame = () => GetTree().Quit() };
+    private TitleScreen NewTitle(MenuModel model, bool choosesFromLaunch)
+    {
+        var page = new TitleScreen
+        {
+            Model = model, ChoosesFromLaunch = choosesFromLaunch, LaunchArguments = () => _openedWith,
+            Launch = launch => StartRoom(launch), Choose = () => ShowChoose(), QuitGame = () => GetTree().Quit(),
+        };
+        OnNewTitle?.Invoke(page);
+        return page;
+    }
 
-    /// <summary>The Choose page, over the model the title page was using (its choices stand).</summary>
+    /// <summary>
+    /// The Choose page, over the model the title page was using: its choices stand. The Choose page chooses from the launch's line
+    /// as it opens (MainMenu reads it itself); that was done when the title page opened, so here it is given an empty line, and
+    /// what the player chose since is not thrown away.
+    /// </summary>
     public MainMenu ShowChoose()
     {
         var model = Model!;
         TakeDownPages();
         Menu = NewChoose(model);
-        AddChild(Menu);
+        var launch = MainMenu.LaunchArguments;
+        MainMenu.LaunchArguments = () => Array.Empty<string>();
+        try { AddChild(Menu); }
+        finally { MainMenu.LaunchArguments = launch; }
         return Menu;
     }
 
@@ -129,13 +155,16 @@ public partial class MenuBoot : NativeGameBoot
         }
     }
 
-    /// <summary>The title page again, over the same model (nothing is read again but what the pages show).</summary>
+    /// <summary>
+    /// The title page again, over the same model, with what the player chose on the Choose page standing: the launch's own choices
+    /// were made when the title page first opened and are not made again.
+    /// </summary>
     public TitleScreen ShowTitle()
     {
         var model = Model!;
         model.Reload();
         TakeDownPages();
-        Title = NewTitle(model);
+        Title = NewTitle(model, choosesFromLaunch: false);
         AddChild(Title);
         return Title;
     }
@@ -206,6 +235,8 @@ public partial class MenuBoot : NativeGameBoot
     /// <summary>The game starts: the menu goes, and the room is built under this node as NativeGameBoot builds it, booted with the menu's choices.</summary>
     public RoomWorld StartRoom(MenuLaunch launch)
     {
+        _startedFromTitle = Title != null;
+        _startedTitleFirst = _titleFirst;
         TakeDownPages();
         var arguments = OS.GetCmdlineUserArgs();
         var world = GD.Load<PackedScene>("res://scenes/room.tscn").Instantiate<RoomWorld>();
