@@ -424,6 +424,9 @@ public partial class NorthMark : Control
 /// the buttons' height, the pages' top and bottom edges), and never trims a word. A plain game gives nothing way.</item>
 /// <item>A thin wash of the hour's light lies over the paper (HourWash; <c>--no-hour-wash</c> leaves the paper plain); the inks on
 /// the paper keep their reading contrast under it (MenuTheme.Legible).</item>
+/// <item>New game's question is read before its answers: it stands over "Go back" and "Yes, new game", which stand where Continue
+/// and New game were, with what is asked on a line of its own (PlaceHint, QuestionLines). Every other line the page says stands
+/// under the buttons.</item>
 /// </list>
 /// </summary>
 public partial class TitleScreen : Control
@@ -466,7 +469,7 @@ public partial class TitleScreen : Control
     private Button _continue = null!, _bring = null!, _newGame = null!, _goBack = null!, _choose = null!, _quit = null!;
     private Label _continueWord = null!, _continueLine = null!, _notice = null!, _hint = null!, _landName = null!, _caption = null!;
     private Label _date = null!, _hour = null!, _title = null!, _tagline = null!, _journal = null!;
-    private VBoxContainer _continueLines = null!;
+    private VBoxContainer _continueLines = null!, _rightColumn = null!, _buttons = null!, _speech = null!;
     private MarginContainer _margin = null!;
     private HourDial _dial = null!;
     private ColorRect _wash = null!;
@@ -561,7 +564,8 @@ public partial class TitleScreen : Control
         Resized += () => _refit = 2;
 
         Refresh();
-        (_continue.Visible ? _continue : _newGame).GrabFocus();
+        // The keyboard starts on the button that leads: Continue, else "Bring my game here", else New game.
+        (_continue.Visible ? _continue : _bring.Visible ? _bring : _newGame).GrabFocus();
     }
 
     private static MarginContainer Page(string name, float share, int outer, int gutter)
@@ -613,6 +617,7 @@ public partial class TitleScreen : Control
 
     private void BuildRight(VBoxContainer column)
     {
+        _rightColumn = column;
         var head = new HBoxContainer { Name = "Head" };
         head.AddThemeConstantOverride("separation", 14);
         column.AddChild(head);
@@ -635,6 +640,7 @@ public partial class TitleScreen : Control
         column.AddChild(new Control { Name = "Gap", SizeFlagsVertical = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore });
 
         var buttons = new VBoxContainer { Name = "Buttons" };
+        _buttons = buttons;
         buttons.AddThemeConstantOverride("separation", 12);
         column.AddChild(buttons);
         _goBack = Make("GoBack", MenuModel.GoBackWords, ButtonHeight);
@@ -672,11 +678,13 @@ public partial class TitleScreen : Control
         buttons.AddChild(_newGame);
 
         var speech = new VBoxContainer { Name = "Speech" };
+        _speech = speech;
         speech.AddThemeConstantOverride("separation", 2);
         column.AddChild(speech);
         _notice = OnThePaper(MenuTheme.Text("", MenuTheme.Book, 18, MenuTheme.Warning, "Notice", wrap: true, width: ButtonWidth - 20), MenuTheme.Warning, MenuTheme.SoftLeast);
         speech.AddChild(_notice);
-        // The hint's ink is the soft one, and the main one while it is New game's question (RefreshButtons).
+        // The hint's ink is the soft one, and the main one while it is New game's question (RefreshButtons). It stands under the
+        // buttons, and over them while it is the question (PlaceHint).
         _hint = MenuTheme.Text("", MenuTheme.Book, 18, MenuTheme.InkSoft, "Hint", wrap: true, width: ButtonWidth - 20);
         speech.AddChild(_hint);
 
@@ -789,7 +797,7 @@ public partial class TitleScreen : Control
         _notice.Visible = _notice.Text.Length > 0;
         _hint.AddThemeFontSizeOverride("font_size", asking ? 20 : MenuTheme.SmallestText);
         // Continue already says which game it opens, so the line under the buttons does not say it twice.
-        var said = why != null ? TitleSky.Plain(why) : asking ? TitleSky.Plain(Model.Question) : waiting ? TitleSky.Plain(MenuModel.StillClosingWords)
+        var said = why != null ? TitleSky.Plain(why) : asking ? QuestionLines(TitleSky.Plain(Model.Question)) : waiting ? TitleSky.Plain(MenuModel.StillClosingWords)
             : offer.Case == StartCase.Rebuilt ? TitleSky.Plain(MenuModel.RebuiltWords) : hold == TeamHold.StillOpen ? TitleSky.Plain(MenuModel.OpenElsewhereWords)
             : offer.Continue ? "" : GameWords() ?? "";
         // No game in play and one put away (New game's own doing, also when the land then did not open): the page says where it went.
@@ -797,7 +805,34 @@ public partial class TitleScreen : Control
             said = (said.Length > 0 ? said + "\n" : "") + TitleWords.PutAway(MenuModel.ModeWords(Model.Mode!));
         _hint.Text = said;
         _hint.Visible = said.Length > 0;
+        PlaceHint(over: asking && why == null);
         InkTheHint();
+    }
+
+    /// <summary>
+    /// A question is read before its answers: while the line is New game's question it stands over the buttons ("Go back" and
+    /// "Yes, new game" under it, where Continue and New game were); any other line stands under them, where it always did.
+    /// </summary>
+    private void PlaceHint(bool over)
+    {
+        Node home = over ? _rightColumn : _speech;
+        if (_hint.GetParent() == home) return;
+        _hint.GetParent()?.RemoveChild(_hint);
+        home.AddChild(_hint);
+        // Added last, then put where the buttons are: the buttons move down one place, under it.
+        if (over) _rightColumn.MoveChild(_hint, _buttons.GetIndex());
+    }
+
+    /// <summary>
+    /// New game's question as the page writes it: what is asked on a line of its own, and under it what becomes of the old game
+    /// ("New game?" / "Your Creative game from 24 Nov is put away, not deleted."). No word is changed; a question that is one
+    /// sentence stays one line.
+    /// </summary>
+    public static string QuestionLines(string question)
+    {
+        var words = question ?? "";
+        var at = words.IndexOf("? ", StringComparison.Ordinal);
+        return at < 0 || at + 2 >= words.Length ? words : words[..(at + 1)] + "\n" + words[(at + 2)..];
     }
 
     private void InkTheHint()

@@ -240,6 +240,11 @@ public partial class MenuTest
             problem = TitleProblem(view, page);
             Check(model.Asking && Shown(page.GoBackButton) && !Shown(page.ContinueButton) && problem == null && page.HintLabel.GetThemeFontSize("font_size") >= 20 && !Shown(page.Tagline),
                 $"{size.X}x{size.Y}: with New game's question up the page still fits" + (problem != null ? ": " + problem : ""));
+            // The question is read before its answers: it stands over the two buttons, what is asked on a line of its own.
+            var (asked, answer) = (page.HintLabel.GetGlobalRect(), page.GoBackButton.GetGlobalRect());
+            Check(Shown(page.HintLabel) && asked.End.Y <= answer.Position.Y + 0.5f && page.HintLabel.Text == TitleScreen.QuestionLines(model.Question) &&
+                  page.HintLabel.Text.StartsWith("New game?\nYour Challenge game from ", StringComparison.Ordinal) && page.HintLabel.Text.Count(c => c == '\n') == 1,
+                $"{size.X}x{size.Y}: the question stands over its two answers (its foot at {asked.End.Y:0}, \"Go back\" from {answer.Position.Y:0}), what is asked on its own line: {page.HintLabel.Text.Replace("\n", " / ")}");
             view.QueueFree();
             await Frames(2);
         }
@@ -333,7 +338,7 @@ public partial class MenuTest
         askPage.ConfirmGuardMs = 0;
         Press(askPage.NewGameButton);
         await Frames(3);
-        Check(asking.Asking && !HasIsland(askPage) && askPage.HintLabel.Text.StartsWith("New game? Your Challenge game", StringComparison.Ordinal), "nor while New game's question is up: " + askPage.HintLabel.Text);
+        Check(asking.Asking && !HasIsland(askPage) && askPage.HintLabel.Text.StartsWith("New game?\nYour Challenge game", StringComparison.Ordinal), "nor while New game's question is up: " + askPage.HintLabel.Text.Replace("\n", " / "));
         askView.QueueFree();
 
         // A name is shown as it is: the page rewords the game's sentences, never what the family called a team or a land.
@@ -496,6 +501,8 @@ public partial class MenuTest
         Check(Shown(page.NewGameButton) && !page.NewGameButton.Disabled && page.NewGameButton.Text == "New game" && !Shown(page.ContinueButton) && !Shown(page.BringButton) && !Shown(page.GoBackButton) &&
               page.HintLabel.Text == "Jets on Test room, Challenge (Standard)" && page.NewGameButton.HasFocus() && page.LandName.Text == "Test room",
             "a launch that names a room opens the title page on it, with the team, the game it would start in words, and New game alone and focused: " + page.HintLabel.Text);
+        Check(Shown(page.HintLabel) && page.HintLabel.GetGlobalRect().Position.Y >= page.NewGameButton.GetGlobalRect().End.Y - 0.5f,
+            $"a line that is no question stands under the buttons (from {page.HintLabel.GetGlobalRect().Position.Y:0}, New game's foot at {page.NewGameButton.GetGlobalRect().End.Y:0})");
         await Click(page.NewGameButton);
         var firstGame = await WaitForRoom();
         if (firstGame is not { } game) return;
@@ -547,7 +554,7 @@ public partial class MenuTest
                 "once the wait is over a game still open in another window is said so; New game asks, then is refused with the words, and nothing moves: " + opened.NoticeLabel.Text);
         }
         await Frames(30);
-        Check(!Shown(opened.NoticeLabel) && opened.Model.Asking && opened.HintLabel.Text == opened.Model.Question, "and once it is closed the refusal's words go by themselves; the question stays, for New game to go on");
+        Check(!Shown(opened.NoticeLabel) && opened.Model.Asking && opened.HintLabel.Text == TitleScreen.QuestionLines(opened.Model.Question), "and once it is closed the refusal's words go by themselves; the question stays, for New game to go on");
         await Click(opened.GoBackButton);
         await CloseGame();
 
@@ -557,9 +564,9 @@ public partial class MenuTest
         await Click(third.NewGameButton);
         var savedOn = MenuModel.Day(NewestWrite(layout, "jets", "challenge"));
         Check(third.Model.Asking && Shown(third.GoBackButton) && third.GoBackButton.HasFocus() && !Shown(third.ContinueButton) && third.NewGameButton.Text == "Yes, new game" &&
-              third.HintLabel.Text == $"New game? Your Challenge game from {savedOn} is put away, not deleted." && third.HintLabel.GetThemeFontSize("font_size") >= 18 && _boot!.World == null &&
-              Same(before, Hashes(folder)) && NothingPutAway(layout),
-            "New game over a game asks once: the question stands by the buttons, \"Go back\" has the focus, and nothing has moved: " + third.HintLabel.Text);
+              third.HintLabel.Text == $"New game?\nYour Challenge game from {savedOn} is put away, not deleted." && third.HintLabel.GetThemeFontSize("font_size") >= 18 && _boot!.World == null &&
+              third.HintLabel.GetGlobalRect().End.Y <= third.GoBackButton.GetGlobalRect().Position.Y + 0.5f && Same(before, Hashes(folder)) && NothingPutAway(layout),
+            "New game over a game asks once: the question stands over the buttons that answer it, \"Go back\" has the focus, and nothing has moved: " + third.HintLabel.Text.Replace("\n", " / "));
         await Click(third.NewGameButton);
         Check(third.Model.Asking && _boot.World == null && Same(before, Hashes(folder)) && NothingPutAway(layout), "a second click straight after the first is not the answer");
         await PressKey(Key.Escape);
@@ -609,7 +616,10 @@ public partial class MenuTest
         scene.ConfirmGuardMs = 0;
         await Click(scene.NewGameButton);
         Check(model.Asking && Shown(scene.GoBackButton) && _boot!.World == null && GameSetAside.List(layout, "jets").Count == 1, "over a rebuilt room's old game New game asks first, as over any game");
+        var over = Shown(scene.HintLabel) && scene.HintLabel.GetGlobalRect().End.Y <= scene.GoBackButton.GetGlobalRect().Position.Y + 0.5f;
         await Click(scene.GoBackButton);
+        Check(over && !model.Asking && Shown(scene.HintLabel) && scene.HintLabel.Text == MenuModel.RebuiltWords && scene.HintLabel.GetGlobalRect().Position.Y >= scene.NewGameButton.GetGlobalRect().End.Y - 0.5f,
+            "the question stood over the buttons, and \"Go back\" puts the page's own line under them again: " + scene.HintLabel.Text);
 
         // A game New game put away, and none in play: the page says where it went (so also when the land then did not open).
         GameSetAside.PutAway(layout, "jets", "challenge", DateTime.UtcNow);
@@ -658,6 +668,13 @@ public partial class MenuTest
         Check(up && !shared.Asking && _boot.Menu == chooseAgain && _boot.Title == null, "Esc on the Choose page takes its question down first, and only then, pressed again, goes back to the title page");
         await PressKey(Key.Escape);
         Check(_boot.Title != null && _boot.Menu == null && shared.RoomId == "test_room" && shared.Mode == "challenge" && Shown(_boot.Title.ContinueButton), "(pressed again: the title page, on the game chosen)");
+        await CloseGame();
+
+        // A page that opens where this mode's game is on another land: "Bring my game here" leads, so the keyboard starts on it
+        // (Enter there is not New game).
+        var elsewhere = await OpenTitleBoot("--room=plain_isle", "--mode=challenge", "--difficulty=standard");
+        Check(Shown(elsewhere.BringButton) && !Shown(elsewhere.ContinueButton) && Shown(elsewhere.NewGameButton) && elsewhere.BringButton.HasFocus() && !elsewhere.NewGameButton.HasFocus(),
+            $"a title page that opens on \"Bring my game here\" gives it the focus, not New game (the focus is on {elsewhere.GetViewport().GuiGetFocusOwner()?.Name})");
         await CloseGame();
         MainMenu.LaunchArguments = null;
     }
