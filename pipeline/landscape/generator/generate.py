@@ -1469,7 +1469,7 @@ class Planter:
                                    sink=.01, clear=.1*sc)
                     if rec:
                         out.append(rec)
-            elif o is not None and o['form'] not in ('dome',) and 22 < s < 42 and u < .5:
+            elif o is not None and o['form'] not in ('dome', 'sugarloaf') and 22 < s < 42 and u < .5:
                 sc = .18+.35*rnd.random()
                 if self.free(x, z, .07*sc+.01):
                     rec = self.put('rock', x, z, [sc, sc*(.7+.5*rnd.random()), sc], rnd.uniform(0, 360), .06*sc,

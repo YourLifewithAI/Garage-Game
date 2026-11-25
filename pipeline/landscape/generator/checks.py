@@ -12,7 +12,9 @@ the sea surrounds it out past the reef line (the shelf's edge), which lies a
 short swim off the coast; nothing stands offshore near the surface (no reef
 rocks, no sea stacks); every promised beach has a shelving shore a swimmer
 walks out of the sea up, and the beaches and the jetty are reachable on foot
-from the spawn.
+from the spawn. A land made with `--edge rim` has no sea: on it the rim check
+(rim.py) stands where the island's check stands, and the last line says rim=
+where it says sea=. A package that says neither and has no sea still fails.
 """
 import argparse
 import heapq
@@ -1982,16 +1984,25 @@ def run(package, room_dir):
     floods = {}
     p_ok, walks = walk_checks(doc, meshes, terrain, room, floods)
     f_ok, prints = footprint_checks(inventory, terrain, room, world_scale(doc), stair_rects(doc))
-    s_ok, sea = sea_checks(doc, meshes, terrain, room, floods)
+    # A land made with --edge rim has no sea: the rim check stands where the sea check stands (rim.py).
+    from . import rim
+    rimmed = rim.is_rim(doc)
+    if rimmed:
+        s_ok, sea = rim.rim_checks(doc, meshes, terrain, room, inventory)
+    else:
+        s_ok, sea = sea_checks(doc, meshes, terrain, room, floods)
     c_ok, climbs = climb_checks(doc, meshes)
     x_ok, fractals = fractal_checks(doc, meshes, terrain, room, floods)
     fp_ok, firepits = firepit_checks(doc, meshes, terrain, room, floods)
     # The climb principle is reported beside the others; it joins `ok` once the
     # generator meets it on the whole corpus (tall object crests still fail it).
-    return dict(ok=w_ok and g_ok and p_ok and f_ok and s_ok and x_ok and fp_ok, water_ok=w_ok, grounded_ok=g_ok,
-                walk_ok=p_ok, footprints_ok=f_ok, sea_ok=s_ok, climb_ok=c_ok, fractals_ok=x_ok, firepits_ok=fp_ok, water=water,
-                joins=joins, grounding=ground, walks=walks, footprints=prints, sea=sea, climbs=climbs, fractals=fractals,
-                firepits=firepits, stats=stats)
+    result = dict(ok=w_ok and g_ok and p_ok and f_ok and s_ok and x_ok and fp_ok, water_ok=w_ok, grounded_ok=g_ok,
+                  walk_ok=p_ok, footprints_ok=f_ok, sea_ok=s_ok, climb_ok=c_ok, fractals_ok=x_ok, firepits_ok=fp_ok, water=water,
+                  joins=joins, grounding=ground, walks=walks, footprints=prints, sea=sea, climbs=climbs, fractals=fractals,
+                  firepits=firepits, stats=stats)
+    if rimmed:
+        result['rim_ok'], result['rim'] = result.pop('sea_ok'), result.pop('sea')
+    return result
 
 
 def main():
@@ -2004,6 +2015,9 @@ def main():
     if args.world_scale != 1:
         world.set_world(args.world_scale)
     result = run(args.package, args.room)
+    if 'rim' in result:
+        from . import rim
+        rim.report(result, args.json)       # the rim's rows where the sea's stand; leaves with 0 or 1
     if args.json:
         Path(args.json).write_text(json.dumps(result, indent=2, sort_keys=True)+'\n', encoding='utf-8', newline='\n')
     for w in result['water']:

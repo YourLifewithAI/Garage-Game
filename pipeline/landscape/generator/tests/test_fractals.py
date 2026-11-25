@@ -728,14 +728,11 @@ class LiftPlaces(unittest.TestCase):
         degree sides is no climb to the rule and a band-10 climb to the body, which grabs any face over 45 degrees: no
         lift place may rest on it.
 
-        `fractals.LIFT_RIM_M` is 4.5 m, set over the 4.0 m the top bar climbed before decision 65 and BODY-21, and
-        fractals.py is not BODY-21's to edit (its change request: 6.5 m). With the rim at 4.5 m this mound is a lift
-        place; while it is still that 4.5 m this test stands aside and says so, and at any other value it runs."""
+        `fractals.LIFT_RIM_M` was 4.5 m, set over the 4.0 m the top bar climbed before decision 65 and BODY-21: with
+        it this mound was a lift place, and this test stood aside until the rim was raised. It is 6.5 m since the
+        generator lane's integration (24 November, BODY-21's change request), and the test runs at any value."""
         top = pack_climb(gates.BANDS)
-        if Fractals.LIFT_RIM_M == 4.5:
-            self.skipTest('fractals.LIFT_RIM_M is still 4.5 m, under the %.1f m the top band climbs: a 5.7 m mound the '
-                          'body climbs at band 10 is a lift place (BODY-21\'s change request: 6.5 m)' % top)
-        self.assertGreater(Fractals.LIFT_RIM_M, top)
+        self.assertGreater(Fractals.LIFT_RIM_M, top, 'the rim a lift place needs stands over the top band\'s climb')
         from pipeline.landscape.generator.field import slope_field
         half = 14.
         land = synthetic_land(half, level=1.)

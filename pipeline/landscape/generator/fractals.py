@@ -253,8 +253,8 @@ HIGH_WALK_DEG = 40.  # a lift place is closed in by cliffs: ground no steeper th
 HIGH_REGION_CELLS = 40000   # ... this many cells (a 400 m2 plateau), else a hillside leads down from it
 LIFT_GENTLE_DEG = 35.    # ... and where it rests the ground is one a body stands on (the climb rule's lip) ...
 LIFT_RING = 3            # ... 0.3 m round it, in cells
-LIFT_RIM_M = 4.5     # ... and its rim stands this far over the ground at the foot of the cliff: more than the top band's bar
-#                      (4.0 m), so no base body climbs it at any band, only the Gubble's lift or a built ladder reach it
+LIFT_RIM_M = 6.5     # ... and its rim stands this far over the ground at the foot of the cliff: more than the top band's bar
+#                      climbs (6.0 m, gates.cap), so no base body climbs it at any band, only the Gubble's lift or a built ladder reach it
 LIFT_LOOK_M = 4.     # ... measured this far down the fall line from the rim
 LIFT_APART_M = 6.    # lift places lie this far from each other and from every other Fractal
 LIFT_PLACES = 3      # this many Fractals rest on lift places, spread over the island (where the budget allows)
@@ -640,8 +640,8 @@ def report_text(block):
                    s['reached_from']['pair'], s['own_band'], block['budget']['max'], block['budget'].get('per_band', gates.PER_BAND),
                    'the summit waits for a return visit with more capability, a Bubble lift or a built ladder.'
                    if s['top_band'] > s['own_band'] else
-                   'the summit is within them (no landmark on this island is tall enough for more); a Bubble lift or a built '
-                   'ladder reach it sooner.')]
+                   'the summit is within them (its corridor tops out below them and no stair above it fits the landmark\'s top); a '
+                   'Bubble lift or a built ladder reach it sooner.')]
     if c.get('coverage'):
         cv = c['coverage']
         out += ['', '## How much of the island the exact walk reaches', '',

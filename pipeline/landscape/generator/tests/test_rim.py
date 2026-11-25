@@ -1550,6 +1550,82 @@ class Package(unittest.TestCase):
         self.assertEqual(again[:-1], lines[:-1])
         self.assertTrue(again[-1].endswith('rim=True climb=True fractals=True firepits=True overall=False'))
 
+    def test_the_standard_check_command_takes_a_package_made_with_the_rim(self):
+        """`python -m pipeline.landscape.generator.checks` on this package, run whole: checks.run itself hands a land
+        made with the rim to the rim check where the sea check stands, so the standard command no longer fails it on
+        'no sea', and its last line says rim= where an island's says sea= (WORLD-2's request, applied when the
+        generator lane was integrated)."""
+        got = {}
+
+        def run(package, room_dir, real=checks.run):
+            got.update(real(package, room_dir))
+            return got
+        out = io.StringIO()
+        with mock.patch.object(checks, 'run', run), contextlib.redirect_stdout(out), \
+                mock.patch('sys.argv', ['checks', '--package', self.pkg, '--room', str(self.room), '--world-scale', '10']):
+            try:
+                with self.assertRaises(SystemExit) as stop:
+                    checks.main()
+            finally:
+                world.set_world(1.)
+        self.assertEqual(stop.exception.code, 0)
+        oks = lambda r: {k: v for k, v in r.items() if k.endswith('ok')}
+        self.assertEqual(oks(got), oks(self.result))
+        self.assertEqual(got['rim'], self.result['rim'])
+        self.assertNotIn('sea', got)
+        lines = out.getvalue().splitlines()
+        self.assertEqual(lines[-1], 'CHECKS water=True grounded=True walk=True footprints=True rim=True climb=True '
+                                    'fractals=True firepits=True overall=True')
+        self.assertEqual(sum(line.startswith('RIM ') for line in lines), 1)
+        self.assertFalse(any(line.startswith('SEA ') for line in lines))
+
+    def test_the_standard_check_command_still_fails_an_island_that_lost_its_sea(self):
+        """A package that does not say it was made with the rim and holds no rim record is an island: without its sea
+        the sea check fails it as it always did, and the rim check is never asked. Shown on this package's own land
+        with every word of the rim taken out of it. The other checks are stood in for: they are not what is asked
+        here, and a walk no sea bounds floods the whole grid (minutes)."""
+        stood_in = dict(water_checks=(True, [], []), grounding_checks=(True, []), walk_checks=(True, []),
+                        footprint_checks=(True, []), climb_checks=(True, {}), fractal_checks=(True, {}),
+                        firepit_checks=(True, {}))
+
+        def run(doc, main=False):
+            out = io.StringIO()
+            with contextlib.ExitStack() as stack:
+                for name, value in stood_in.items():
+                    stack.enter_context(mock.patch.object(checks, name, return_value=value))
+                stack.enter_context(mock.patch.object(checks, 'read_package', return_value=(doc, self.meshes, self.magnified, {})))
+                stack.enter_context(mock.patch.object(checks, 'Terrain', return_value=self.terrain))
+                asked = stack.enter_context(mock.patch.object(Rim, 'rim_checks', wraps=Rim.rim_checks))
+                if not main:
+                    return checks.run(self.pkg, self.room), asked.call_count
+                stack.enter_context(contextlib.redirect_stdout(out))
+                stack.enter_context(mock.patch('sys.argv', ['checks', '--package', self.pkg, '--room', str(self.room)]))
+                with self.assertRaises(SystemExit) as stop:
+                    checks.main()
+            return stop.exception.code, out.getvalue().splitlines()
+
+        island = copy.deepcopy(self.doc)
+        for word in ('edge', 'rim'):
+            del island['x_generator'][word]
+        self.assertFalse(Rim.is_rim(island))
+        got, asked = run(island)
+        self.assertEqual((got['ok'], got['sea_ok'], got['sea']), (False, False, dict(error='no sea in the package (x_generator.sea)')))
+        self.assertNotIn('rim', got)
+        self.assertEqual(asked, 0)
+        code, lines = run(island, main=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(lines[-1], 'CHECKS water=True grounded=True walk=True footprints=True sea=False climb=True '
+                                    'fractals=True firepits=True overall=False')
+        # The same land as it was made passes through the same stand-ins: it is the lost sea that fails the island.
+        got, asked = run(self.doc)
+        self.assertEqual((got['ok'], got['rim_ok'], asked), (True, True, 1))
+        # And a package that says it was made with the rim and has lost its record is the rim check's to fail.
+        lost = copy.deepcopy(self.doc)
+        del lost['x_generator']['rim']
+        got, asked = run(lost)
+        self.assertEqual((got['ok'], got['rim_ok'], asked), (False, False, 1))
+        self.assertIn('error', got['rim'])
+
     @unittest.skipUnless(os.environ.get('LANDSCAPE_RIM_TWICE'), 'set LANDSCAPE_RIM_TWICE=1: a second whole package (a minute)')
     def test_the_same_room_makes_the_same_bytes(self):
         again = os.path.join(workdir('rim_pkg_again'), 'pkg')

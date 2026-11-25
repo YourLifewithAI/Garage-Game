@@ -935,6 +935,23 @@ class TenTimesPackage(unittest.TestCase):
         forms = doc['x_generator']['forms']
         self.assertEqual((forms['office_chair_1'][0], forms['bean_bag_1'][0], forms['couch_1'][0]), ('seat', 'sugarloaf', 'couch'))
 
+    def test_no_loose_stone_lies_on_a_bean_bag(self):
+        """A bean bag's blocks make a `sugarloaf`, soft ground the summit's corridor may be cut into, and the planting's
+        loose-stone rule spares it as it spares the melted `dome` (generate.py, where the planting puts its rocks).
+        While the rule named the dome alone, 36 stones lay on the stand-in's two bean bags."""
+        import json
+        from pathlib import Path
+        doc = json.loads(Path(self.folder, 'package.json').read_text(encoding='utf-8'))
+        inventory = json.loads((ROOMS/'garage_nominal'/'inventory.json').read_text(encoding='utf-8'))
+        forms = doc['x_generator']['forms']
+        soft = {e['id']: [W10*v for v in e['box']['footprint_m']] for e in inventory['objects']
+                if forms.get(e['id'], ('',))[0] == 'sugarloaf'}
+        self.assertEqual(sorted(soft), ['bean_bag_1', 'bean_bag_2'])
+        rocks = [r['position_m'] for r in doc['scatter'] if r['prototype'] == 'rock']
+        self.assertGreater(len(rocks), 50, 'the island keeps its loose stones')
+        on = {name: sum(1 for x, _, z in rocks if b[0] <= x <= b[2] and b[1] <= z <= b[3]) for name, b in soft.items()}
+        self.assertEqual(on, dict(bean_bag_1=0, bean_bag_2=0))
+
 
 if __name__ == '__main__':
     unittest.main()
