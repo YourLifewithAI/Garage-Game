@@ -63,13 +63,18 @@ Write-Output (($newGame.Stdout.Trim().Split("`n") | Where-Object { $_ -match '^N
 # here, and not only when someone captures. Its teams, saves and land are made up, under the runner's own user folder.
 $titleCapture = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
     -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native/Menu/native_menu_title_capture.tscn', '--', '--set=four') -TimeoutSeconds 120
+# Every guard must print its state line: the scene prints no count of its own, so the count is held here. Nine is the number of
+# Must(...) guards in FourStates (game/tests/native/Menu/MenuTitleCapture.cs): the stand-in folder, then four states before and
+# four after. A guard added or taken away there changes this number in the same commit, here and in tools/linux/test-all.sh.
+$titleStatesDeclared = 9
 $titleStates = [regex]::Matches($titleCapture.Stdout, '(?m)^TITLE_CAPTURE state: ').Count
-if ((Get-GarageGameCountedStderr $titleCapture.Stderr) -or $titleCapture.Stdout -notmatch '(?m)^TITLE_CAPTURE done: 0 pictures' -or $titleStates -lt 8) { throw "The title page's capture scene did not walk its four states:`n$($titleCapture.Stdout)`n$($titleCapture.Stderr)" }
+if ((Get-GarageGameCountedStderr $titleCapture.Stderr) -or $titleCapture.Stdout -notmatch '(?m)^TITLE_CAPTURE done: 0 pictures' -or $titleStates -ne $titleStatesDeclared) { throw "The title page's capture scene did not walk its four states ($titleStates of $titleStatesDeclared state lines):`n$($titleCapture.Stdout)`n$($titleCapture.Stderr)" }
 Write-Output "TITLE_CAPTURE dry run: $titleStates states are the ones their pictures name; no picture (headless)"
 # A room shortcut's route (Run 4, MENU-3 and MENU-4): run-room.ps1 -Room passes --menu with the room, and the game's main scene
 # then opens the title page on it and starts no room, so no old game opens unasked. Headless, quitting after 240 frames: the step
 # passes on the menu's own line for the title page, with no room started and nothing on stderr. (The launcher's own lines are
-# held by the contract tests: test_run_room_opens_the_menu_on_a_named_room_and_only_straight_goes_in.)
+# held by the contract tests: test_run_room_opens_the_menu_on_a_named_room_and_only_straight_goes_in. Those tests run in the Linux
+# runner, tools/linux/test-all.sh, and by hand; neither Windows runner runs them.)
 $shortcut = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
     -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', '--quit-after', '240', '--', '--menu', '--room=test_room') -TimeoutSeconds 120
 if ((Get-GarageGameCountedStderr $shortcut.Stderr) -or $shortcut.Stdout -notmatch '(?m)^MENU_OPEN title teams=\d+ islands=\d+' -or $shortcut.Stdout -match 'MENU_LAUNCH|ROOM_WORLD_READY') { throw "A room shortcut's launch did not stop at the title page:`n$($shortcut.Stdout)`n$($shortcut.Stderr)" }

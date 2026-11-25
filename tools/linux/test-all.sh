@@ -110,6 +110,10 @@ run native_new_game "NATIVE_NEW_GAME: [0-9]+/[0-9]+ checks passed" --headless --
 # The title page's capture scene, dry (Run 4, MENU-4's pictures): no picture headless, and it fails when one of the four states the
 # founder is shown is not the one its picture names. Its teams, saves and land are made up, under the test data folder above.
 run native_menu_title_capture "^TITLE_CAPTURE done: 0 pictures" --headless --path "$P" --fixed-fps 60 res://tests/native/Menu/native_menu_title_capture.tscn -- --set=four
+# Every guard prints its state line, and the scene prints no count of its own: nine is the number of Must(...) guards in FourStates
+# (game/tests/native/Menu/MenuTitleCapture.cs), the same number tools/test-room.ps1 holds. A guard added or taken away changes both.
+title_states=$(grep -cE "^TITLE_CAPTURE state: " "$LOG/native_menu_title_capture.out" || true)
+if [ "$title_states" != "9" ]; then echo "FAIL native_menu_title_capture walked $title_states state lines, not 9"; failed=1; fi
 # A room shortcut's route (run-room.ps1 -Room passes --menu with the room): the main scene opens the title page and starts no room.
 # Both steps are tools/test-room.ps1's, added on Windows on 25 November and not yet run on Linux.
 run main_scene_menu_boot "^MENU_OPEN title teams=[0-9]+ islands=[0-9]+" --headless --path "$P" --fixed-fps 60 --quit-after 240 -- --menu --room=test_room
