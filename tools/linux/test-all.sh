@@ -107,6 +107,13 @@ run native_team_saves "NATIVE_TEAM_SAVES: [0-9]+/[0-9]+ checks passed" --headles
 run native_menu "NATIVE_MENU: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native/Menu/native_menu.tscn
 # New game's put-away and the team's play lease (Run 4, MENU-2). The lease is .NET's advisory lock here: its first run on Linux.
 run native_new_game "NATIVE_NEW_GAME: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native/Saves/native_new_game.tscn
+# The title page's capture scene, dry (Run 4, MENU-4's pictures): no picture headless, and it fails when one of the four states the
+# founder is shown is not the one its picture names. Its teams, saves and land are made up, under the test data folder above.
+run native_menu_title_capture "^TITLE_CAPTURE done: 0 pictures" --headless --path "$P" --fixed-fps 60 res://tests/native/Menu/native_menu_title_capture.tscn -- --set=four
+# A room shortcut's route (run-room.ps1 -Room passes --menu with the room): the main scene opens the title page and starts no room.
+# Both steps are tools/test-room.ps1's, added on Windows on 25 November and not yet run on Linux.
+run main_scene_menu_boot "^MENU_OPEN title teams=[0-9]+ islands=[0-9]+" --headless --path "$P" --fixed-fps 60 --quit-after 240 -- --menu --room=test_room
+if grep -qE "MENU_LAUNCH|ROOM_WORLD_READY" "$LOG/main_scene_menu_boot.out"; then echo "FAIL main_scene_menu_boot started a room"; failed=1; fi
 run native_character_gaits "NATIVE_CHARACTER_GAITS: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native_character_gaits.tscn -- --skip-budget
 run native_character_contact "NATIVE_CHARACTER_CONTACT: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native_character_contact.tscn
 # 40 seeded tumbles per character and ground (the Windows runner takes all 200, about 4 minutes) to fit run()'s 180 s.

@@ -150,10 +150,16 @@ function Get-GarageGameCountedStderr {
       WARNING: Jolt Physics job system exceeded the maximum number of jobs. ... Waiting for jobs to become available...
          at: CreateJob (modules/jolt_physics/spaces/jolt_job_system.cpp:<line>)
     and waits. The step's results are the same; the warning says only that the machine was busy, and a runner that fails on it
-    fails for the other work on the machine. tools/linux/test-all.sh has ignored exactly these two lines since its stderr_counts;
-    tools/test-room.ps1 and run-engine-tests.ps1 follow the same rule through this one function, and nothing wider: a stderr
-    without them comes back unchanged, and every other line (an ERROR, a SCRIPT ERROR, another warning) still fails the step that
-    printed it. tools/smoke-boot.ps1 and tools/export-native.ps1 do not use it.
+    fails for the other work on the machine. tools/linux/test-all.sh has ignored these two lines since its stderr_counts;
+    tools/test-room.ps1 and run-engine-tests.ps1 follow the same rule through this one function, with its pattern character
+    for character. What the pattern drops is any line that holds, anywhere in it and in exactly these capitals, either
+      Jolt Physics job system exceeded the maximum number of jobs
+    or
+      at: CreateJob (modules/jolt_physics/spaces/jolt_job_system.cpp
+    whatever the line begins with: a line of another kind that quotes the first phrase goes with it, on Linux too. Nothing else
+    is dropped: a stderr with no such line comes back unchanged (one of blanks only as well), and every other line (an ERROR, a
+    SCRIPT ERROR, another warning, the "at:" line of a warning raised anywhere else) is kept and fails the step that printed it.
+    tools/smoke-boot.ps1 and tools/export-native.ps1 do not use it. Assert-GarageGameCountedStderr, below, holds the rule.
     #>
     [CmdletBinding()]
     param([Parameter(Position = 0)][AllowNull()][AllowEmptyString()][string]$Stderr)
@@ -163,6 +169,18 @@ function Get-GarageGameCountedStderr {
     if ($kept.Count -eq $lines.Count) { return $Stderr }
     if (-not ($kept | Where-Object { $_ -match '\S' })) { return '' }
     return ($kept -join "`n")
+}
+
+function Assert-GarageGameCountedStderr {
+    # The rule's check of itself, run by each runner before a step leans on it: the busy machine's two lines alone are a clean
+    # stderr, and whatever stands beside them, or only looks like them, still counts. A pattern made wider or narrower throws here.
+    $busy = "WARNING: Jolt Physics job system exceeded the maximum number of jobs. Waiting for jobs to become available...`n   at: CreateJob (modules/jolt_physics/spaces/jolt_job_system.cpp:123)"
+    $other = "WARNING: another warning`n   at: CreateJob (modules/other/file.cpp:3)"
+    $cases = @(@('', ''), @($busy, ''), @("$busy`r`n", ''), @($other, $other), @("$busy`n$other", $other), @("ERROR: a real error`n$busy", 'ERROR: a real error'),
+        @($busy.ToLowerInvariant(), $busy.ToLowerInvariant()), @(" `n", " `n"))
+    foreach ($case in $cases) {
+        if ((Get-GarageGameCountedStderr $case[0]) -cne $case[1]) { throw "Get-GarageGameCountedStderr no longer counts a stderr as the runners rely on it to: '$($case[0])'" }
+    }
 }
 
 function Build-GarageGameNativeProject {

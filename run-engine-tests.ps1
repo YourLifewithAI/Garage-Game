@@ -10,6 +10,7 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
 
 # Native baseline: build C# before running the retained GDScript kernel regressions.
 . (Join-Path $PSScriptRoot 'tools/native-toolchain.ps1')
+Assert-GarageGameCountedStderr
 $nativeToolchain = Get-GarageGameNativeToolchain
 Build-GarageGameNativeProject -Toolchain $nativeToolchain
 $projectPath = $nativeToolchain.ProjectPath

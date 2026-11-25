@@ -7,6 +7,7 @@ param([switch]$Scale)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'native-toolchain.ps1')
 . (Join-Path $PSScriptRoot 'landscape-fixture.ps1')
+Assert-GarageGameCountedStderr
 $toolchain = Get-GarageGameNativeToolchain
 Build-GarageGameNativeProject -Toolchain $toolchain
 $import = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
@@ -57,6 +58,22 @@ $newGame = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolc
     -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native/Saves/native_new_game.tscn') -TimeoutSeconds 240
 if ((Get-GarageGameCountedStderr $newGame.Stderr) -or $newGame.Stdout -notmatch 'NATIVE_NEW_GAME: \d+/\d+ checks passed') { throw "$($newGame.Stdout)`n$($newGame.Stderr)" }
 Write-Output (($newGame.Stdout.Trim().Split("`n") | Where-Object { $_ -match '^NATIVE_NEW_GAME' }) -join "`n")
+# The title page's capture scene, dry (Run 4, MENU-4's pictures): headless it takes no picture, but it walks the four states the
+# founder is shown, before and after, and fails when a page is not in the state its picture's name says. So those guards run
+# here, and not only when someone captures. Its teams, saves and land are made up, under the runner's own user folder.
+$titleCapture = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
+    -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native/Menu/native_menu_title_capture.tscn', '--', '--set=four') -TimeoutSeconds 120
+$titleStates = [regex]::Matches($titleCapture.Stdout, '(?m)^TITLE_CAPTURE state: ').Count
+if ((Get-GarageGameCountedStderr $titleCapture.Stderr) -or $titleCapture.Stdout -notmatch '(?m)^TITLE_CAPTURE done: 0 pictures' -or $titleStates -lt 8) { throw "The title page's capture scene did not walk its four states:`n$($titleCapture.Stdout)`n$($titleCapture.Stderr)" }
+Write-Output "TITLE_CAPTURE dry run: $titleStates states are the ones their pictures name; no picture (headless)"
+# A room shortcut's route (Run 4, MENU-3 and MENU-4): run-room.ps1 -Room passes --menu with the room, and the game's main scene
+# then opens the title page on it and starts no room, so no old game opens unasked. Headless, quitting after 240 frames: the step
+# passes on the menu's own line for the title page, with no room started and nothing on stderr. (The launcher's own lines are
+# held by the contract tests: test_run_room_opens_the_menu_on_a_named_room_and_only_straight_goes_in.)
+$shortcut = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
+    -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', '--quit-after', '240', '--', '--menu', '--room=test_room') -TimeoutSeconds 120
+if ((Get-GarageGameCountedStderr $shortcut.Stderr) -or $shortcut.Stdout -notmatch '(?m)^MENU_OPEN title teams=\d+ islands=\d+' -or $shortcut.Stdout -match 'MENU_LAUNCH|ROOM_WORLD_READY') { throw "A room shortcut's launch did not stop at the title page:`n$($shortcut.Stdout)`n$($shortcut.Stderr)" }
+Write-Output ("SHORTCUT_ROUTE --menu --room=test_room: {0}; no room started" -f (($shortcut.Stdout.Trim().Split("`n") | Where-Object { $_ -match '^MENU_OPEN title' } | Select-Object -First 1) -replace '\s+$', ''))
 $gaits = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
     -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native_character_gaits.tscn') -TimeoutSeconds 300
 if ((Get-GarageGameCountedStderr $gaits.Stderr) -or $gaits.Stdout -notmatch 'NATIVE_CHARACTER_GAITS: \d+/\d+ checks passed') { throw "$($gaits.Stdout)`n$($gaits.Stderr)" }
@@ -75,15 +92,17 @@ if ((Get-GarageGameCountedStderr $navigation.Stderr) -or $navigation.Stdout -not
 Write-Output $navigation.Stdout.Trim()
 # The plant maker (Run 4, FLORA-1): its suite, and the pinned plants made again and compared byte for byte, so a stale pinned
 # plant fails here. The system python the fixture uses, no install and no network, about ten seconds. The generator's long
-# suites are not in this runner: pipeline/landscape/generator/REPORT.md says how they are run by hand.
+# suites are not in this runner: pipeline/landscape/generator/REPORT.md says how they are run by hand. The suite passes on
+# unittest's own exit code (a failure or an error throws in the helper) and its closing OK line, with or without a count of
+# skipped tests: a test that runs only on asking is no failure here, as it is none in tools/linux/test-all.sh.
 $python = (Get-Command python -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
 $floraSuite = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $python -WorkingDirectory $toolchain.RepositoryPath -TimeoutSeconds 300 `
     -Arguments @('-B', '-m', 'unittest', 'pipeline.landscape.generator.flora.tests.test_flora')
-if ("$($floraSuite.Stdout)`n$($floraSuite.Stderr)" -notmatch '(?m)^OK\s*$') { throw "The flora suite did not pass:`n$($floraSuite.Stdout)`n$($floraSuite.Stderr)" }
+if ("$($floraSuite.Stdout)`n$($floraSuite.Stderr)" -notmatch '(?m)^OK( \(skipped=\d+\))?\s*$') { throw "The flora suite did not pass:`n$($floraSuite.Stdout)`n$($floraSuite.Stderr)" }
 $floraPinned = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $python -WorkingDirectory $toolchain.RepositoryPath -TimeoutSeconds 300 `
     -Arguments @('-B', '-m', 'pipeline.landscape.generator.flora.make', '--check')
 if ($floraPinned.Stdout -notmatch '(?m)^FLORA_PINNED: [1-9]\d* plants, 0 stale\s*$') { throw "A pinned plant is stale:`n$($floraPinned.Stdout)`n$($floraPinned.Stderr)" }
-Write-Output ("FLORA_SUITE: {0}" -f ((("$($floraSuite.Stdout)`n$($floraSuite.Stderr)".Split("`n") | Where-Object { $_ -match '^Ran \d+ tests' }) -join ' ').Trim()))
+Write-Output ("FLORA_SUITE: {0}" -f ((("$($floraSuite.Stdout)`n$($floraSuite.Stderr)".Split("`n") | Where-Object { $_ -match '^(Ran \d+ tests|OK)' } | ForEach-Object { $_.Trim() }) -join ' / ')))
 Write-Output (($floraPinned.Stdout.Trim().Split("`n") | Where-Object { $_ -match '^FLORA_PINNED' }) -join "`n").Trim()
 # Play on the land: the 1x garage landscape, derived data never committed, from the fixture cache every worktree shares
 # (tools/landscape-fixture.ps1; built there first, about 35 s, when the generator, exporter, harness or corpus room changed).
