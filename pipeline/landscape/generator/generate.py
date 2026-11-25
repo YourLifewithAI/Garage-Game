@@ -41,7 +41,10 @@ RAMP_PASSES = 6    # ways graded (each proved by a new walk) before a site is gi
 # The planting is one random stream, and the game's navigation bake trips on about one layout in five (a rare layout of trunk
 # holes it cannot triangulate: see REPORT.md, "Navigation edge errors"). A magnified room draws its planting with this salt
 # unless one is asked for (`plant_salt=0`: none), the one the 10x nominal garage with its Fractals boots clean under. 1x: none.
-WORLD_PLANT_SALT = 1
+# Every change to a magnified room's land draws the planting again, so the salt is picked again with it: it was 1 until Run 4's
+# block land got its summit back (3 edge errors under 1; none under 2). tests/test_generator.py (PlantSalt) holds this number to
+# the one `tools/test-room.ps1 -Scale` last passed under.
+WORLD_PLANT_SALT = 2
 PAD_HOLD_M = .07   # the pad's flattened margin: nothing is cut or filled there by a way graded later
 
 

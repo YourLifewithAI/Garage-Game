@@ -882,6 +882,34 @@ class PlantSalt(unittest.TestCase):
         self.assertGreater(len(plants(before)), 50)
         self.assertNotEqual(plants(before), plants(after))
 
+    def test_a_magnified_room_takes_the_salt_its_island_bakes_clean_under(self):
+        """The proof is `tools/test-room.ps1 -Scale`: it plays the ten-times stand-in garage and refuses a navigation
+        bake's "edge error(s)". This holds the generator to the salt that proof last passed under. Run 4's block land
+        with its summit back drew, under salt 1, a layout whose bake had 3 edge errors (the suite's 10 checks passed
+        and the runner threw); under salt 2, none. Every change to a magnified room's land draws the planting again:
+        whoever makes one runs -Scale, picks the salt again if the bake complains, and moves this number with it.
+        A salt that is asked for is taken as asked, and true size takes none."""
+        import inspect
+        from unittest import mock
+        from pipeline.landscape.generator import generate as G, scale as world
+        self.assertEqual(G.WORLD_PLANT_SALT, 2, 'the salt tools/test-room.ps1 -Scale last passed under')
+        names, taken = inspect.signature(G._generate), []
+
+        def stand_in(*args, **kwargs):
+            taken.append(names.bind(*args, **kwargs).arguments['plant_salt'])
+
+        with mock.patch.object(G, '_generate', stand_in):
+            G.generate('room', 'out')
+            G.generate('room', 'out', plant_salt=5)
+            world.set_world(10.)
+            try:
+                G.generate('room', 'out')
+                G.generate('room', 'out', plant_salt=0)
+                G.generate('room', 'out', plant_salt=3)
+            finally:
+                world.set_world(1.)
+        self.assertEqual(taken, [0, 5, G.WORLD_PLANT_SALT, 0, 3])
+
 
 if __name__ == '__main__':
     unittest.main()
