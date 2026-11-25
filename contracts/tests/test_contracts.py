@@ -2291,6 +2291,19 @@ class MechanicsRoundTests(unittest.TestCase):
             with self.subTest(parameter=name):
                 self.assertTrue(f"[string]${name}" in script and f'"--{name.lower()}=${name}"' in script, f"run-room.ps1 -{name}")
 
+    def test_run_room_opens_the_menu_on_a_named_room_and_only_straight_goes_in(self):
+        # Run 4, MENU-3 and MENU-4: a room shortcut opens the menu's title page on its room and never an old game unasked.
+        # The launcher's own lines hold its half of that: --menu goes with every named room but under -Straight, in one place,
+        # and -Straight needs a room and refuses -Menu. The game's half (the main scene under --menu --room=) is a step of
+        # tools/test-room.ps1. A reworded launcher fails here on purpose: read the rule again before changing these lines.
+        script = (ROOT / "run-room.ps1").read_text(encoding="utf-8")
+        for switch in ("Menu", "Straight"):
+            self.assertIn(f"[switch]${switch}", script)
+        self.assertIn("if ($Menu -or ($Room -and -not $Straight)) { $userArgs += '--menu' }", script)
+        self.assertEqual(script.count("'--menu'"), 1, "run-room.ps1 passes --menu in one place")
+        self.assertIn("if ($Straight -and (-not $Room -or $Menu)) { throw ", script)
+        self.assertIn('if ($Room) { $userArgs += "--room=$Room" }', script)
+
 
 # ----- the playtest record (R0, 15 October): docs/runs/RUN-2-PLAYTEST-LOOP.md -----
 PLAYTEST_RECORD = EXAMPLES / "playtests" / "20261015-143000-island_example"
