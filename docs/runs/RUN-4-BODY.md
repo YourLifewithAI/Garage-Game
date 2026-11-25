@@ -68,7 +68,7 @@ BODY-4, BODY-11 and BODY-12 can start now. **BODY-8 to BODY-20 are beyond what w
 | BODY-18 | The chimney ride (K) | `K/Bubble/**` | the world's clefts | Over a lit pit the lift reaches its shelf record, no higher; unlit, 1.2 m; a hostile record clamps |
 | BODY-19 | The air bell (K) | `K/Bubble/**`, v6 | BODY-3 | Under water a bubble anchors; inside, the drain stops and the bar refills |
 | BODY-20 | Leaf ferries (K) | `K/CommandHostFerries.cs` (new), `G/water.py` | the world's streams | A leaf carries a standing body from spring to pool; nobody else is moved |
-| BODY-21 | The gates read the bar's 1.5 | `G/gates.py`, `G/reach.py`, `G/tests/test_fractals.py` | none | Failing first: on today's ten-times land a band-2 bar (0.8 m, 1.2 m of climb) tops band 3's gate (1.18 m). After: `gates.cap` carries the pack's `climb_m_per_bar_m`, kept equal to the pack by the test; no band tops the next band's gate; `-Scale` green; true-size bytes unchanged |
+| BODY-21 | The gates read the bar's 1.5 | `G/gates.py`, `G/reach.py`, `G/tests/test_fractals.py` | none | Failing first: on today's ten-times land a band-2 bar (0.8 m, 1.2 m of climb) tops band 3's gate (1.18 m). After: `gates.cap` carries the pack's `climb_m_per_bar_m`, kept equal to the pack by the test; no band tops the next band's gate; `-Scale` green; true-size bytes unchanged. Built (integrated 24 November): gates of 0.58, 1.18, 1.78 and on to 5.98 m, shortcuts of 0.66 and 1.32 m, a climb followed to 8.64 m over at most 13 m of ground; a lift place's rim at 6.5 m, over the top band's 6.0 m (`G/fractals.py`, `LIFT_RIM_M`); the stand-in garage's true-size bytes pinned by digest (`TrueSize`); the summit left to WORLD-4 |
 
 ## Provisional values
 
@@ -115,7 +115,7 @@ Falling is a skill: steer, catch, aim for moss (BODY-8, BODY-10). Scree and dune
 ## Not verified
 
 - Nothing was built, run or measured; every number is my arithmetic.
-- The gates carry no 1.5 (`G/gates.py:35-39`), though the bar climbs 1.5 m per metre (v5:102): by arithmetic a band-2 bar tops band 3's gate today. BODY-21 mends it; how many of today's ledges move, and whether `-Scale` names a rise, is not checked.
+- The gates carried no 1.5, though the bar climbs 1.5 m per metre (v5:102): by arithmetic a band-2 bar topped band 3's gate. BODY-21 mended it (the number is at `G/gates.py:28`, the arithmetic at `:51-54`). Checked since: on the ten-times stand-in made before it the pack's own body stood on 12 of 26 benches from below their band, and on none of the land made after it. `-Scale` names no rise, because its walk never climbs; a real ten-times land's gates are walked only on asking (`LANDSCAPE_TEN_TIMES`, `TenTimesGarage` in `G/tests/test_fractals.py`), as they were when the lane was integrated. Not checked: any room but the stand-in garage at ten times, and how the taller first ledge feels (0.58 m, 97 percent of the starting bar).
 - The gates with drift, skin, brace, bell, ride and ferry on; whether any rim seed-clock passes the fan rule.
 - How footing reaches the body: a face lookup or a small grid.
 - A sand slab travelling under the walker; the Gubble on it and in a long drift (`N/CompanionAvatar.cs:1626-1639`).

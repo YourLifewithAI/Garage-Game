@@ -1,5 +1,97 @@
 # The garage as land: the landscape generator (C5)
 
+## Run 4, wave 1 as integrated: how the suites are run, the stand-in's numbers, the salt (24 November)
+
+Three packets of the world lane (BODY-21, WORLD-1 and WORLD-2) and the plant maker (FLORA-1, `flora/README.md`) came into
+`run4/integration` together. This section is the integrator's: what the tree is once the lane's change requests were applied, and
+how its proof is run. BODY-21's own account is the next section; WORLD-1's and WORLD-2's are the heads of `parts.py` and `rim.py`.
+
+**How the suites are run.** By hand, from the repository's root, with the system Python and nothing installed. No Windows runner
+runs them: `tools/test-room.ps1` runs only the flora suite and its pinned-bytes check (about ten seconds). `tools/linux/test-all.sh`
+runs the first line below and the flora pair, and not `test_fractals`.
+
+```
+python -B -m unittest pipeline.landscape.generator.tests.test_generator pipeline.landscape.generator.tests.test_rim pipeline.landscape.generator.tests.test_firepits pipeline.landscape.generator.tests.test_parts
+python -B -m unittest pipeline.landscape.generator.tests.test_fractals
+python -B -m unittest pipeline.landscape.generator.tests.test_from_capture
+python -B -m unittest pipeline.landscape.generator.flora.tests.test_flora
+python -B -m pipeline.landscape.generator.flora.make --check
+python -B -S -m unittest discover -s pipeline/landscape/export/tests -t . -v
+python -B -S -m unittest pipeline.landscape.harness.tests.test_harness
+python -B -S -m pipeline.landscape.export.tests.corpus_smoke --scratch <a temp folder>
+```
+
+The first line is one process (165 tests in about 15 minutes on a machine other lanes were loading): `test_parts` makes the
+true-size garage again where `test_generator` has taken its folder down, and `test_generator` named whole without `test_rim` brings
+the rim's tests with it, so the older line (`test_generator test_firepits`) still runs them. `test_fractals` runs alone, in a process
+of its own (71 tests in about five minutes): its teardown and `test_generator`'s share that garage. The corpus check takes about a
+quarter of an hour.
+
+Three classes make a whole ten-times land and run only on asking, with `LANDSCAPE_TEN_TIMES=generate` (six or seven minutes each), or
+with `LANDSCAPE_TEN_TIMES` set to a package folder of the stand-in garage made with `--world-scale 10 --tutorial` (and `--edge rim`
+for the rim's): `test_fractals.TenTimesGarage` (every gate walked by the pack's own body), `test_parts.TenTimesPackage` (the blocks'
+likeness on the written land, the summit, no stone on a bean bag) and `test_rim.TenTimes` (the stand-in's rim). `LANDSCAPE_RIM_TWICE=1`
+makes the made-up rim package a second time and compares the bytes. They are run at a generator merge, and so is
+`pwsh -NoProfile -File tools/test-room.ps1 -Scale` after any change to a magnified room's land, for the navigation bake (the salt, below).
+
+**What the integration applied to the generator** (the lane's requests for files outside its packets' paths):
+
+- `checks.py`: the standard check command takes a land made with `--edge rim`. `checks.run` hands it to `rim.rim_checks` where
+  `sea_checks` stands, the result carries `rim_ok` and `rim` in place of `sea_ok` and `sea`, and the last line says `rim=`. A package
+  that says nothing of a rim and has no sea is still the sea check's and still fails. `python -m pipeline.landscape.generator.rim`
+  prints what it printed.
+- `generate.py`: the planting's loose-stone rule spares a `sugarloaf` beside the melted `dome`, so no stone lies on a bean bag now
+  that its blocks name it so (36 lay on the stand-in's two; the couch keeps its stones, 147 under salt 2).
+- `fractals.py`: `LIFT_RIM_M` 4.5 to 6.5 m, over the 6.0 m the top band climbs, so no lift place rests where the body's own bar
+  climbs; and the reach report's reason for a summit inside the island's own bands.
+- Not applied: the one line offered for `sites.plan_summit` (read the landmark's own top, not what rests on it). As written it stands
+  the desk's top bench 0.95 m over the desk's own top and fails two of the summit's tests; re-siting the summit is WORLD-4's.
+
+**The stand-in garage at ten times, as integrated** (`--tutorial`, the fixture's command; the numbers are the generator's own lines
+and its reach report):
+
+| | |
+|---|---|
+| Fractals placed | 26 (budget 25 to 30): band 1: 15, band 2: 4, band 3: 4, band 4: 2, no band: 1; by where they rest: step 8, ladder 7, corner 4, stair 3, shortcut 2, summit 1, high 1 |
+| Routes and benches | 13 routes, 21 benches, every one reached from the band it was built as |
+| The summit | a corridor of 4 ledges cut through `bean_bag_2`, to 5.77 m above its foot; its top ledge needs band 4, inside the 7 bands the island's own Fractals open, so it does not wait for a return visit. No hard landform takes a corridor on the island yet (WORLD-4, `docs/runs/RUN-4-WORLD.md`) |
+| Lift places | 1. The lane's own close had 27 Fractals with two lift places; with the rim at 6.5 m one of the two is no lift place |
+| Firepits | 12 over 3,784 m2, all within first-run reach |
+| Loose stones | none on either bean bag |
+| Checks | `overall` true: water, grounded, walk, footprints, sea, Fractals and firepits (the climb principle is reported beside it and is false, as before) |
+| The exported room | 533,806 plant copies, 202 files, 90 MB; `tools/test-room.ps1 -Scale`: 10 of 10 |
+
+With `--edge rim` the same room is the rim's land (WORLD-2). Its package passes the standard check command too (`CHECKS water=True grounded=True walk=True footprints=True rim=True climb=False fractals=True firepits=True overall=True`): no sea, the lip at 27 m all round but for the window's notch and the door's bay, seven of the twelve floor things joined into the cliffs (the rule: within 25 cm of a wall), 27 Fractals, and the summit on `table_1` at band 4.
+
+**The planting salt stays 2.** The world lane's close moved `WORLD_PLANT_SALT` from 1 to 2: the block land's summit had drawn the
+planting again, and the layout under 1 gave the navigation bake 3 edge errors where 2 gave none. With the lift rim and the stone rule
+applied the planting is drawn once more, and salt 2 still bakes clean (the scale suite on the integrated tree: 10 of 10, nothing on
+stderr). Every later change to a magnified room's land draws the planting again: rerun `-Scale`, and if the bake reports edge errors
+change `WORLD_PLANT_SALT` in `generate.py` and the number in `tests/test_generator.py` (`PlantSalt`) together.
+
+## The gates read the bar's 1.5 (Run 4, packet BODY-21, 24 November)
+
+The pack's bar climbs a metre and a half for each metre of bar (`traits.stamina.climb_m_per_bar_m`, decision 65), and the gates were
+sized for a metre a metre: the pack's own body opened the old ten gates from bands 1, 2, 2, 3, 4, 4, 5, 6, 6 and 7. `gates.cap` now
+carries the pack's number (`gates.CLIMB_M_PER_BAR_M`, held to `game/rules/storybook_wild/v5.json` by a test), and a band is a
+course of 0.6 m (`gates.COURSE_M`).
+
+- **Band gates:** 0.58, 1.18, 1.78, 2.38, 2.98, 3.58, 4.18, 4.78, 5.38 and 5.98 m (they were 0.38 to 3.98 m).
+- **Knack shortcuts:** 0.66 m over band 1 and 1.32 m over band 2 (they were 0.44 and 0.88 m); the base body falls short by 0.06 and
+  0.12 m.
+- **The follow:** a climb is followed to 8.64 m, the strongest pair's top rise, over at most 13 m of ground (they were 5.76 m and 9 m).
+- **True size:** a 1x package holds no gate and still reads the reach for its firepits. The stand-in garage's true-size package is
+  pinned (`test_fractals.TrueSize`: its firepits' rows and the SHA-256 of its 18 files, taken on Windows); the other 23 corpus rooms
+  were compared by hand when the packet was built and reviewed, and are not pinned.
+- **On the ten-times stand-in, at the packet alone** (before WORLD-1's blocks): 9 routes, 19 benches all proved, 30 Fractals (band 1:
+  15, 2: 4, 3: 4, 4: 2, 5: 2, none: 3), 4 of 8 steps placed, the summit on `bicycle_1` at band 5 and not waiting. On the land made
+  before the packet the pack's body stood on 12 of 26 benches from below their band; after it, on none. The table above is the land
+  as integrated.
+
+This section supersedes, in the sections below: the lift places' "more than the top band's 4.0 m bar" (the rim is 6.5 m, over a
+6.0 m climb); "a climb costs the metres it rises"; the follow of 5.76 m; the ladder of 0.38, 0.78, 1.18 m; the shortcuts of 0.44 and
+0.88 m; and the garage's counts. Land made before the packet keeps its old gates until it is regenerated.
+
 ## The firepits (Run 2, Lane C, 24 October)
 
 Decision 74 (firepits spread evenly over any island) was the kernel's own rule until now (`CampLaws.SpreadFirepits`). The generator
@@ -212,7 +304,7 @@ untouched.
 
 **The planting salt.** The layout the packet's changes drew tripped the game's navigation bake (the rare trunk-hole layout of "Navigation
 edge errors" below: three bakes with 2, 4 and 2 edge errors, so `tools/test-room.ps1 -Scale` threw on stderr though its 10 checks passed).
-A magnified room now draws its planting with `WORLD_PLANT_SALT` (1) unless `--plant-salt` says otherwise (`--plant-salt 0`: none); salt 1, the
+A magnified room now draws its planting with `WORLD_PLANT_SALT` (1; 2 since Run 4's world close, when the block land's summit redrew the planting: 3 edge errors under 1, none under 2, and none under 2 when the lane was integrated) unless `--plant-salt` says otherwise (`--plant-salt 0`: none); salt 1, the
 first tried, passes the scale suite (10 of 10, no warnings), also from a clean fixture cache. 1x is untouched.
 
 **Other rooms at 10x.** Where the exact walk from the spawn reaches little the packet places little: `near_empty_nominal` at 10x reaches 47
