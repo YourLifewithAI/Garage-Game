@@ -51,6 +51,12 @@ $menu = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchai
     -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native/Menu/native_menu.tscn') -TimeoutSeconds 240
 if ($menu.Stderr -or $menu.Stdout -notmatch 'NATIVE_MENU: \d+/\d+ checks passed') { throw "$($menu.Stdout)`n$($menu.Stderr)" }
 Write-Output (($menu.Stdout.Trim().Split("`n") | Where-Object { $_ -match '^NATIVE_MENU' }) -join "`n")
+# New game's put-away and the team's play lease (Run 4, MENU-2): a new start no longer opens the old game; the put-away's bytes by
+# SHA-256; nothing brings a put-away game back; a held lease refuses; a fault part-way leaves the old game whole.
+$newGame = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
+    -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native/Saves/native_new_game.tscn') -TimeoutSeconds 240
+if ($newGame.Stderr -or $newGame.Stdout -notmatch 'NATIVE_NEW_GAME: \d+/\d+ checks passed') { throw "$($newGame.Stdout)`n$($newGame.Stderr)" }
+Write-Output (($newGame.Stdout.Trim().Split("`n") | Where-Object { $_ -match '^NATIVE_NEW_GAME' }) -join "`n")
 $gaits = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
     -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native_character_gaits.tscn') -TimeoutSeconds 300
 if ($gaits.Stderr -or $gaits.Stdout -notmatch 'NATIVE_CHARACTER_GAITS: \d+/\d+ checks passed') { throw "$($gaits.Stdout)`n$($gaits.Stderr)" }
@@ -79,6 +85,11 @@ $food = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchai
     -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native/Kernel/native_kernel_food.tscn', '--', "--landscape=$landscapeRoom") -TimeoutSeconds 180
 if ($food.Stderr -or $food.Stdout -match 'FOOD_GARAGE skipped' -or $food.Stdout -notmatch 'NATIVE_KERNEL_FOOD: \d+/\d+ checks passed') { throw "$($food.Stdout)`n$($food.Stderr)" }
 Write-Output (($food.Stdout.Trim().Split("`n") | Where-Object { $_ -match '^(FOOD_|NATIVE_KERNEL_FOOD)' }) -join "`n")
+# LOOK-3: the nature step's measure and audit on the same land: three fires of 1.5 m in a world that changes (about 45 s).
+$natureStep = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
+    -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native/Kernel/native_kernel_nature_step_probe.tscn', '--', "--room=$landscapeRoom", '--audit') -TimeoutSeconds 300
+if ($natureStep.Stderr -or $natureStep.Stdout -notmatch 'NATURE_STEP_DONE') { throw "$($natureStep.Stdout)`n$($natureStep.Stderr)" }
+Write-Output (($natureStep.Stdout.Trim().Split("`n") | Where-Object { $_ -match '^NATURE_STEP' }) -join "`n")
 $roomData = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $toolchain.EnginePath `
     -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native_room_data.tscn') -TimeoutSeconds 90
 if ($roomData.Stderr -or $roomData.Stdout -notmatch 'checks passed') { throw "$($roomData.Stdout)`n$($roomData.Stderr)" }

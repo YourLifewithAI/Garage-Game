@@ -105,6 +105,8 @@ run native_audio "NATIVE_KERNEL_AUDIO: [0-9]+/[0-9]+ checks passed" --headless -
 run native_body_knacks_boot "NATIVE_BODY_KNACKS_BOOT: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native_body_knacks.tscn -- --boot-room --knack=quick_feet:3 --knack=cat_feet:2
 run native_team_saves "NATIVE_TEAM_SAVES: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native_team_saves.tscn
 run native_menu "NATIVE_MENU: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native/Menu/native_menu.tscn
+# New game's put-away and the team's play lease (Run 4, MENU-2). The lease is .NET's advisory lock here: its first run on Linux.
+run native_new_game "NATIVE_NEW_GAME: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native/Saves/native_new_game.tscn
 run native_character_gaits "NATIVE_CHARACTER_GAITS: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native_character_gaits.tscn -- --skip-budget
 run native_character_contact "NATIVE_CHARACTER_CONTACT: [0-9]+/[0-9]+ checks passed" --headless --path "$P" --fixed-fps 60 res://tests/native_character_contact.tscn
 # 40 seeded tumbles per character and ground (the Windows runner takes all 200, about 4 minutes) to fit run()'s 180 s.
@@ -165,6 +167,9 @@ if grep -q "FOOD_GARAGE skipped" "$LOG/native_kernel_food.out"; then echo "FAIL 
 if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" -I contracts/validate.py "$FOOD_DUMP"/*.json > "$LOG/food_messages.log" 2>&1); then
   echo "PASS food messages validate: $(tail -1 "$LOG/food_messages.log")"
 else cat "$LOG/food_messages.log"; failed=1; fi
+# LOOK-3: the nature step's measure and audit on the same land: three fires of 1.5 m in a world that changes (about 45 s on
+# Windows; never run on Linux before this line, and run()'s 180 s is its limit here).
+run native_kernel_nature_step "NATURE_STEP_DONE" --headless --path "$P" --fixed-fps 60 res://tests/native/Kernel/native_kernel_nature_step_probe.tscn -- --room="$LR" --audit
 echo "== kernel canonical JSON (Python reference)"
 if (cd "$REPO" && "$LINUX/contracts-venv/bin/python" tools/kernel/canonical_json.py --check game/tests/fixtures/kernel > "$LOG/canonical.log" 2>&1 \
     && "$LINUX/contracts-venv/bin/python" -m unittest discover -s tools/kernel >> "$LOG/canonical.log" 2>&1); then

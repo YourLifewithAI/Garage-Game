@@ -15,7 +15,10 @@
 # -Hour HH:MM and -Date YYYY-MM-DD (the preview clock, Run 4's R4-6) show this play's sky, sun and season at that hour and day, as
 # --look-clock= and --look-date= (Look/LookClock.cs, ClockOverride): the look only. Nothing is saved and the kernel keeps the real
 # clock, so an evening player can see the land at dawn or noon. Either may be given alone.
-param([string]$Style, [string]$Room, [string]$Profile, [string]$Team, [string]$Mode, [string]$Difficulty, [string[]]$Knack, [switch]$NoRecord, [switch]$Fullscreen, [switch]$Menu, [string]$Hour, [string]$Date)
+# -NatureWhole passes --nature-spread=off (Run 4's LOOK-3; Kernel/CommandHostNature.cs, NatureStepSpread): the nature step does all
+# its reading in its own tick, as before LOOK-3, instead of spread over the ticks before it. For the frame timing's before and after
+# while a fire burns; the island's results are the same either way, and nothing is saved of the switch.
+param([string]$Style, [string]$Room, [string]$Profile, [string]$Team, [string]$Mode, [string]$Difficulty, [string[]]$Knack, [switch]$NoRecord, [switch]$Fullscreen, [switch]$Menu, [string]$Hour, [string]$Date, [switch]$NatureWhole)
 $ErrorActionPreference = 'Stop'
 if ($Profile -and $Profile -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$') { throw '-Profile takes a short name of letters, digits, - and _.' }
 if ($Team -and $Team -cnotmatch '^[a-z][a-z0-9_-]{0,63}$') { throw '-Team takes a team id: lowercase letters, digits, - and _, starting with a letter.' }
@@ -55,6 +58,7 @@ if ($Difficulty) { $userArgs += "--difficulty=$Difficulty" }
 foreach ($knackArg in $knackArgs) { $userArgs += "--knack=$knackArg" }
 if ($Hour) { $userArgs += "--look-clock=$Hour" }
 if ($Date) { $userArgs += "--look-date=$Date" }
+if ($NatureWhole) { $userArgs += '--nature-spread=off' }
 if ($userArgs) { $userArgs = @('--') + $userArgs }
 $priorRoaming = $env:APPDATA
 $priorLocal = $env:LOCALAPPDATA
