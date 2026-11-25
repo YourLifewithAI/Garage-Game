@@ -30,8 +30,15 @@ namespace GarageGame.Tests;
 /// <item>One picture per state of the title page: a game to continue at morning, dawn, dusk and night (the look's own clock pins),
 /// New game alone, New game's question, "Bring my game here", the buttons waiting on a game still closing, the longest names with
 /// a notice (the page given way), a land with no map, the paper without the hour's wash, and the Choose page behind "Choose".</item>
+/// <item><b>The four states, each with its before</b> (<c>--set=four</c>; the script's <c>-Set four</c>): no saved game, a game to
+/// continue, New game's question over that game, and the Choose page, first on the page the game opened on before the title page
+/// (N-...-before.png) and then on the title page (N-...-after.png). They are taken on a stand-in user folder as a family's machine
+/// has one: its rooms folder holds the land the script names, copied in as the exporter installs a room, beside the shipped test
+/// room, and it has two teams, one with a game on that land and one with none. A picture whose page is not in the state its name
+/// says fails the run, headless too, so no picture is ever of something else.</item>
 /// </list>
-/// Nothing here is a check; the headless suite (MenuTest) is the test.
+/// The page's rules are the headless suite's to check (MenuTest); this scene checks only that each of the four states is the one
+/// its picture names.
 /// </summary>
 public partial class MenuTitleCapture : Node
 {
@@ -40,6 +47,12 @@ public partial class MenuTitleCapture : Node
     private MenuBoot? _boot;
 
     private const string Day = "2026-11-24";
+    /// <summary>The four states with their befores, and nothing else.</summary>
+    public const string FourArgument = "--set=four";
+    /// <summary>The hour every picture of the four states is taken at: the pairs differ in the page, not in the light.</summary>
+    private const string FourHour = "09:30";
+    /// <summary>A stand-in room is a few megabytes; a folder larger than this is not one, and is not copied.</summary>
+    private const long MaxInstallBytes = 64L * 1024 * 1024;
 
     /// <summary>A made-up land: a room six metres by seven with a door, a window and a dozen things, some against a wall, some on another.</summary>
     private static string SampleLand(string roomId, string name)
@@ -92,61 +105,9 @@ public partial class MenuTitleCapture : Node
             Directory.CreateDirectory(scratchPath);
             TeamBoot.UserRootOverride = scratch;
             RoomHud.ProfilePath = scratch + "/profile/avatar_profile_v1.cfg";
-            // The lands: the scene's own two (a plain one and one with the longest name a land can have), and the shipped stand-ins.
-            WriteText(Path.Combine(scratchPath, "lands", "sample_land", "room.json"), SampleLand("sample_land", "Sample land"));
-            WriteText(Path.Combine(scratchPath, "lands", "long_land", "room.json"), SampleLand("long_land", "The Wide And Windy Workbench Tablelands"));
-            IslandCatalog.RootsOverride = new[] { scratch + "/lands", "res://rooms" };
             var named = args.FirstOrDefault(a => a.StartsWith("--room=", StringComparison.Ordinal))?["--room=".Length..];
-            var room = string.IsNullOrWhiteSpace(named) ? scratch + "/lands/sample_land" : named.Replace((char)92, '/');
-            var rules = IslandRules.Load(RoomWorld.DefaultRulesId, RoomWorld.DefaultRulesVersion);
-            var layout = MenuRoots.Layout();
-            var now = DateTime.UtcNow;
-            TeamMaker.Create(layout, rules, "Mira", "stickbear", "Pip", "#a18cc3", "quick_feet", now);
-            TeamMaker.Create(layout, rules, "Theo", "potato_man", "the Gubble", "#d7b765", "cat_feet", now.AddMinutes(-5));
-            TeamMaker.Create(layout, rules, "Nest", "", "Wisp", "#65b9b0", "", now.AddMinutes(-10));
-            var explorers = TeamMaker.Create(layout, rules, "The Long Named Explorers Of The Far Wall", "", "Wisp", "#65b9b0", "", now.AddMinutes(-15));
-            var entry = IslandCatalog.Read(room, shipped: room.StartsWith("res://", StringComparison.Ordinal)) ?? throw new InvalidOperationException("no room at " + room);
-            var longLand = IslandCatalog.Read(scratch + "/lands/long_land", shipped: false)!;
-            var other = IslandCatalog.Read("res://rooms/test_room", shipped: true)!;
-            // Mira has a game on the land pictured; Nest's is on another land ("Bring my game here"); the explorers' is on the long-named land; Theo has none.
-            Game(layout, "mira", "creative", entry);
-            Game(layout, "nest", "creative", other);
-            Game(layout, explorers.TeamId, "challenge", longLand);
-
-            // Today's page, the before picture: the Choose page as the game opened on it before the title page.
-            var before = new[] { "--team=mira", "--room=" + room, "--mode=creative" };
-            MainMenu.LaunchArguments = () => before;
-            _boot = new MenuBoot { AutoOpen = false };
-            AddChild(_boot);
-            _boot.Open(before);
-            await Frames(8);
-            await Shot("00-before-todays-page");
-
-            await Show("01-continue-morning", "mira", room, "creative", "09:30");
-            await Show("02-continue-dawn", "mira", room, "creative", "06:45");
-            await Show("03-continue-dusk", "mira", room, "creative", "16:50");
-            await Show("04-continue-night", "mira", room, "creative", "22:00");
-            await Show("05-new-game-alone", "theo", room, "creative", "12:00");
-            var asking = await Show("06-new-game-question", "mira", room, "creative", "09:30", picture: false);
-            asking.ConfirmGuardMs = 600_000;
-            asking.NewGameButton.EmitSignal(BaseButton.SignalName.Pressed);
-            await Frames(6);
-            await Shot("06-new-game-question", asking);
-            asking.GoBackButton.EmitSignal(BaseButton.SignalName.Pressed);
-            await Show("07-bring-my-game", "nest", room, "creative", "15:00");
-            using (var leaving = PlayLease.TryPlay(layout, "mira"))
-                await Show("08-still-closing", "mira", room, "creative", "09:30");
-            var given = await Show("09-longest-names", explorers.TeamId, scratch + "/lands/long_land", "challenge", "20:10", picture: false);
-            given.Model.SetNotice("That game is still open, so it was not touched. Close it and try again, please.");
-            given.Refresh();
-            await Frames(6);
-            await Shot("09-longest-names", given);
-            await Show("10-no-map", "theo", "res://rooms/test_room", "creative", "12:00");
-            await Show("11-night-plain-paper", "mira", room, "creative", "22:00", TitleScreen.NoHourWashArgument);
-            var last = await Show("12-choose-page", "mira", room, "creative", "09:30", picture: false);
-            _boot!.ShowChoose();
-            await Frames(8);
-            await Shot("12-choose-page");
+            if (args.Contains(FourArgument)) await FourStates(scratch, scratchPath, named);
+            else await EveryState(scratch, scratchPath, named);
             GD.Print($"TITLE_CAPTURE done: {_shots} pictures in {_out}");
             code = 0;
         }
@@ -156,6 +117,167 @@ public partial class MenuTitleCapture : Node
         }
         MainMenu.LaunchArguments = null;
         GetTree().Quit(code);
+    }
+
+    /// <summary>Every state the title page has, one picture each, and one before picture.</summary>
+    private async Task EveryState(string scratch, string scratchPath, string? named)
+    {
+        // The lands: the scene's own two (a plain one and one with the longest name a land can have), and the shipped stand-ins.
+        WriteText(Path.Combine(scratchPath, "lands", "sample_land", "room.json"), SampleLand("sample_land", "Sample land"));
+        WriteText(Path.Combine(scratchPath, "lands", "long_land", "room.json"), SampleLand("long_land", "The Wide And Windy Workbench Tablelands"));
+        IslandCatalog.RootsOverride = new[] { scratch + "/lands", "res://rooms" };
+        var room = string.IsNullOrWhiteSpace(named) ? scratch + "/lands/sample_land" : named.Replace((char)92, '/');
+        var rules = IslandRules.Load(RoomWorld.DefaultRulesId, RoomWorld.DefaultRulesVersion);
+        var layout = MenuRoots.Layout();
+        var now = DateTime.UtcNow;
+        TeamMaker.Create(layout, rules, "Mira", "stickbear", "Pip", "#a18cc3", "quick_feet", now);
+        TeamMaker.Create(layout, rules, "Theo", "potato_man", "the Gubble", "#d7b765", "cat_feet", now.AddMinutes(-5));
+        TeamMaker.Create(layout, rules, "Nest", "", "Wisp", "#65b9b0", "", now.AddMinutes(-10));
+        var explorers = TeamMaker.Create(layout, rules, "The Long Named Explorers Of The Far Wall", "", "Wisp", "#65b9b0", "", now.AddMinutes(-15));
+        var entry = IslandCatalog.Read(room, shipped: room.StartsWith("res://", StringComparison.Ordinal)) ?? throw new InvalidOperationException("no room at " + room);
+        var longLand = IslandCatalog.Read(scratch + "/lands/long_land", shipped: false)!;
+        var other = IslandCatalog.Read("res://rooms/test_room", shipped: true)!;
+        // Mira has a game on the land pictured; Nest's is on another land ("Bring my game here"); the explorers' is on the long-named land; Theo has none.
+        Game(layout, "mira", "creative", entry);
+        Game(layout, "nest", "creative", other);
+        Game(layout, explorers.TeamId, "challenge", longLand);
+
+        // Today's page, the before picture: the Choose page as the game opened on it before the title page.
+        await Before("mira", room);
+        await Shot("00-before-todays-page");
+
+        await Show("01-continue-morning", "mira", room, "creative", "09:30");
+        await Show("02-continue-dawn", "mira", room, "creative", "06:45");
+        await Show("03-continue-dusk", "mira", room, "creative", "16:50");
+        await Show("04-continue-night", "mira", room, "creative", "22:00");
+        await Show("05-new-game-alone", "theo", room, "creative", "12:00");
+        var asking = await Show("06-new-game-question", "mira", room, "creative", "09:30", picture: false);
+        asking.ConfirmGuardMs = 600_000;
+        asking.NewGameButton.EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(6);
+        await Shot("06-new-game-question", asking);
+        asking.GoBackButton.EmitSignal(BaseButton.SignalName.Pressed);
+        await Show("07-bring-my-game", "nest", room, "creative", "15:00");
+        using (var leaving = PlayLease.TryPlay(layout, "mira"))
+            await Show("08-still-closing", "mira", room, "creative", "09:30");
+        var given = await Show("09-longest-names", explorers.TeamId, scratch + "/lands/long_land", "challenge", "20:10", picture: false);
+        given.Model.SetNotice("That game is still open, so it was not touched. Close it and try again, please.");
+        given.Refresh();
+        await Frames(6);
+        await Shot("09-longest-names", given);
+        await Show("10-no-map", "theo", "res://rooms/test_room", "creative", "12:00");
+        await Show("11-night-plain-paper", "mira", room, "creative", "22:00", TitleScreen.NoHourWashArgument);
+        await Show("12-choose-page", "mira", room, "creative", "09:30", picture: false);
+        _boot!.ShowChoose();
+        await Frames(8);
+        await Shot("12-choose-page");
+    }
+
+    /// <summary>
+    /// The four states the founder is shown, each on the page the game opened on before the title page (the Choose page) and then on
+    /// the title page, on a stand-in user folder: two lands (the one installed in its rooms folder and the shipped test room) and
+    /// two teams (Mira, with a Creative game on the installed land; Theo, with none).
+    /// </summary>
+    private async Task FourStates(string scratch, string scratchPath, string? named)
+    {
+        var land = Install(scratch, scratchPath, named);
+        // The roots a real user folder has: its own rooms first, then the rooms shipped with the game.
+        IslandCatalog.RootsOverride = new[] { scratch + "/rooms", "res://rooms" };
+        var rules = IslandRules.Load(RoomWorld.DefaultRulesId, RoomWorld.DefaultRulesVersion);
+        var layout = MenuRoots.Layout();
+        var now = DateTime.UtcNow;
+        TeamMaker.Create(layout, rules, "Mira", "stickbear", "Pip", "#a18cc3", "quick_feet", now);
+        TeamMaker.Create(layout, rules, "Theo", "potato_man", "the Gubble", "#d7b765", "cat_feet", now.AddMinutes(-5));
+        var entry = IslandCatalog.Read(land, shipped: false) ?? throw new InvalidOperationException("no room at " + land);
+        Game(layout, "mira", "creative", entry);
+        var lands = IslandCatalog.Scan();
+        Must(lands.Count >= 2 && lands.Any(l => l.RoomId == entry.RoomId && !l.Shipped) && lands.Any(l => l.RoomId == "test_room" && l.Shipped),
+            "the stand-in user folder holds the installed land and the shipped test room: " + string.Join(", ", lands.Select(l => l.RoomId)));
+        GD.Print($"TITLE_CAPTURE lands: {string.Join(", ", lands.Select(l => l.RoomId + (l.Shipped ? " (shipped)" : " (installed)")))}; teams: mira (a Creative game on {entry.RoomId}), theo (no game)");
+
+        // Before: the page the game opened on, with the start rule's buttons where Play was (MENU-3).
+        var old = await Before("theo", land);
+        Must(old.Model.TeamId == "theo" && old.Model.RoomId == entry.RoomId && old.NewGameButton.Visible && !old.ContinueButton.Visible && !old.Model.Asking, "before, no saved game: New game and no Continue");
+        await Shot("1-no-saved-game-before", Words(old));
+        old = await Before("mira", land);
+        Must(old.Model.TeamId == "mira" && old.ContinueButton.Visible && old.NewGameButton.Visible && !old.Model.Asking, "before, a game to continue: Continue and New game");
+        await Shot("2-continue-before", Words(old));
+        old.ConfirmGuardMs = 600_000;
+        old.NewGameButton.EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(6);
+        Must(old.Model.Asking && old.GoBackButton.Visible && !old.ContinueButton.Visible, "before, New game's question: the question is up");
+        await Shot("3-new-game-question-before", Words(old));
+        old.GoBackButton.EmitSignal(BaseButton.SignalName.Pressed);
+        old = await Before("mira", land);
+        Must(old.Model.TeamId == "mira" && !old.Model.Asking && old.IslandButtons.Count == lands.Count, "before, the Choose page: every land has its card");
+        await Shot("4-choose-page-before", Words(old));
+
+        // After: the title page, and the Choose page behind its "Choose".
+        var page = await Show("1-no-saved-game-after", "theo", land, "creative", FourHour, picture: false);
+        Must(page.Model.TeamId == "theo" && page.NewGameButton.Visible && !page.ContinueButton.Visible && !page.BringButton.Visible && !page.Model.Asking, "after, no saved game: New game alone");
+        await Shot("1-no-saved-game-after", page);
+        page = await Show("2-continue-after", "mira", land, "creative", FourHour, picture: false);
+        Must(page.Model.TeamId == "mira" && page.ContinueButton.Visible && page.NewGameButton.Visible && !page.Model.Asking, "after, a game to continue: Continue and New game");
+        await Shot("2-continue-after", page);
+        page.ConfirmGuardMs = 600_000;
+        page.NewGameButton.EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(6);
+        Must(page.Model.Asking && page.GoBackButton.Visible && !page.ContinueButton.Visible, "after, New game's question: the question is up");
+        await Shot("3-new-game-question-after", page);
+        page.GoBackButton.EmitSignal(BaseButton.SignalName.Pressed);
+        await Show("4-choose-page-after", "mira", land, "creative", FourHour, picture: false);
+        var choose = _boot!.ShowChoose();
+        await Frames(8);
+        Must(_boot.Title == null && choose.Model.TeamId == "mira" && choose.ContinueButton.Visible && choose.IslandButtons.Count == lands.Count, "after, the Choose page: behind \"Choose\", on the same choices");
+        await Shot("4-choose-page-after", Words(choose));
+    }
+
+    /// <summary>A picture is of the state its name says, or the run fails: said in the run's words either way.</summary>
+    private static void Must(bool holds, string state)
+    {
+        if (!holds) throw new InvalidOperationException("not the state its picture names: " + state);
+        GD.Print("TITLE_CAPTURE state: " + state);
+    }
+
+    /// <summary>
+    /// The stand-in user folder's rooms folder, holding the land the script names as the exporter installs a room: the folder copied
+    /// whole (a fixture's files are read-only; the copies are not, so the next run can clear them). With no land named it holds the
+    /// scene's own made-up one. Returns the installed land's folder.
+    /// </summary>
+    private static string Install(string scratch, string scratchPath, string? named)
+    {
+        if (string.IsNullOrWhiteSpace(named))
+        {
+            WriteText(Path.Combine(scratchPath, "rooms", "sample_land", "room.json"), SampleLand("sample_land", "Sample land"));
+            return scratch + "/rooms/sample_land";
+        }
+        var from = ProjectSettings.GlobalizePath(named.Replace((char)92, '/'));
+        var entry = IslandCatalog.Read(from, shipped: false) ?? throw new InvalidOperationException("no room at " + from);
+        var to = Path.Combine(scratchPath, "rooms", entry.RoomId);
+        long bytes = 0;
+        foreach (var file in Directory.EnumerateFiles(from, "*", SearchOption.AllDirectories))
+        {
+            bytes += new FileInfo(file).Length;
+            if (bytes > MaxInstallBytes) throw new InvalidOperationException($"{from} holds more than {MaxInstallBytes >> 20} MB: not a stand-in room this scene installs");
+            var target = Path.Combine(to, Path.GetRelativePath(from, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target);
+            File.SetAttributes(target, FileAttributes.Normal);
+        }
+        return scratch + "/rooms/" + entry.RoomId;
+    }
+
+    /// <summary>The page the game opened on before the title page: the Choose page, on what a launch names.</summary>
+    private async Task<MainMenu> Before(string team, string room)
+    {
+        if (_boot != null) { _boot.QueueFree(); _boot = null; await Frames(2); }
+        var arguments = new[] { "--team=" + team, "--room=" + room, "--mode=creative" };
+        MainMenu.LaunchArguments = () => arguments;
+        _boot = new MenuBoot { AutoOpen = false };
+        AddChild(_boot);
+        var page = _boot.Open(arguments);
+        await Frames(8);
+        return page;
     }
 
     /// <summary>A game as a played one leaves it: the mode's save on that land (the menu reads that it is there, not what is in it).</summary>
@@ -179,12 +301,21 @@ public partial class MenuTitleCapture : Node
         return page;
     }
 
-    private async Task Shot(string name, TitleScreen? page = null)
+    /// <summary>What the title page shows, in the run's words.</summary>
+    private static string Words(TitleScreen page) =>
+        $"land=\"{page.LandName.Text}\" strokes={page.Picture.DrawnStrokes.Count} hour=\"{page.HourLine.Text}\" window={page.Dial.Body} continue={page.ContinueButton.Visible} bring={page.BringButton.Visible} " +
+        $"shut={page.NewGameButton.Disabled} asking={page.Model.Asking} given_way={page.Tightness} needs={page.Needs:0} of {page.Has:0}";
+
+    /// <summary>What the Choose page shows, in the run's words.</summary>
+    private static string Words(MainMenu page) =>
+        $"the Choose page: team={page.Model.TeamId} land={page.Model.RoomId} mode={page.Model.Mode} lands={page.IslandButtons.Count} teams={page.TeamButtons.Count} continue={page.ContinueButton.Visible} " +
+        $"new_game={page.NewGameButton.Visible} asking={page.Model.Asking}";
+
+    private Task Shot(string name, TitleScreen? page = null) => Shot(name, page == null ? "the Choose page" : Words(page));
+
+    private async Task Shot(string name, string words)
     {
         await Frames(2);
-        var words = page == null ? "the Choose page" :
-            $"land=\"{page.LandName.Text}\" strokes={page.Picture.DrawnStrokes.Count} hour=\"{page.HourLine.Text}\" window={page.Dial.Body} continue={page.ContinueButton.Visible} bring={page.BringButton.Visible} " +
-            $"shut={page.NewGameButton.Disabled} asking={page.Model.Asking} given_way={page.Tightness} needs={page.Needs:0} of {page.Has:0}";
         if (DisplayServer.GetName() == "headless") { GD.Print($"TITLE_CAPTURE {name}: no picture (headless has none); {words}"); return; }
         var image = GetViewport().GetTexture().GetImage();
         if (image == null || image.IsEmpty()) { GD.Print($"TITLE_CAPTURE {name}: no picture (the window gave none); {words}"); return; }

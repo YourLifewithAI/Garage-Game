@@ -18,6 +18,15 @@ and saves are made up by the scene, and the land is a stand-in:
   -Room sample      the scene's own made-up land (a room six metres by seven with a dozen things). Needs no fixture.
   -Room DIR         a fixture room's folder. A folder under the real user folder or under captures/ is refused.
 
+-Set four takes the four states the founder is shown instead, each with its before: no saved game, a game to continue, New
+game's question, and the Choose page, on the page the game opened on before the title page (N-...-before.png) and on the title
+page (N-...-after.png). The land is then copied into the scratch user folder's rooms folder, as the exporter installs a room,
+beside the shipped test room; a picture whose page is not in the state its name says fails the run (-Headless too).
+
+A window with a title bar cannot be as large as the screen: on a 1920x1080 screen -Resolution 1920x1080 gives pictures of about
+1886x1061. -Fullscreen fills the screen instead, as the game does in full screen (the screen's own size; its mode is not
+changed), so on a 1920x1080 screen the pictures are 1920x1080. The script says the size the pictures came out at.
+
 The script refuses to start while a game window is open (someone is playing on this GPU; -AllowOpenGame overrides), builds the
 C# project first (-NoBuild skips it) and sets DOTNET_ROOT for the engine. -Headless is a dry run: the same states are walked
 and their words printed, no window opens and no picture is taken (headless renders nothing).
@@ -25,11 +34,15 @@ and their words printed, no window opens and no picture is taken (headless rende
 .EXAMPLE
 pwsh -NoProfile -File game/tests/native/Menu/capture-title.ps1 -OutDir .cache/title-capture/out
 pwsh -NoProfile -File game/tests/native/Menu/capture-title.ps1 -Room sample -Headless
+pwsh -NoProfile -File game/tests/native/Menu/capture-title.ps1 -Set four -OutDir .cache/title-capture/four-1280x720
+pwsh -NoProfile -File game/tests/native/Menu/capture-title.ps1 -Set four -Fullscreen -OutDir .cache/title-capture/four-screen
 #>
 param(
     [string]$OutDir = '.cache/title-capture/out',
     [string]$Room = 'landscape',
     [string]$Resolution = '1280x720',
+    [ValidateSet('all', 'four')][string]$Set = 'all',
+    [switch]$Fullscreen,
     [switch]$Headless,
     [switch]$NoBuild,
     [switch]$AllowOpenGame,
@@ -62,6 +75,7 @@ function Test-Under([string]$Path, [string]$Folder) {
 }
 
 $userArgs = @("--out=$($outPath -replace '\\', '/')", '--no-playtest-record')
+if ($Set -eq 'four') { $userArgs += '--set=four' }
 $land = 'the scene''s own made-up land'
 if ($Room -and $Room -ne 'sample') {
     if ($Room -eq 'landscape') {
@@ -90,6 +104,8 @@ $scene = 'res://tests/native/Menu/native_menu_title_capture.tscn'
 $dotnetRoot = Split-Path -Parent $toolchain.DotnetPath
 # The page is silent, but the Choose page behind it may not always be: a capture has no one listening.
 $engineArgs = if ($Headless) { @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60') }
+              # Full screen is the screen's own size (the engine fills the screen with its window; the screen's mode stays as it is).
+              elseif ($Fullscreen) { @('--path', $toolchain.ProjectPath, '--audio-driver', 'Dummy', '--fullscreen') }
               else { @('--path', $toolchain.ProjectPath, '--audio-driver', 'Dummy', '--resolution', $Resolution, '--position', '40,40') }
 $engineArgs += @($scene, '--') + $userArgs
 
@@ -131,5 +147,11 @@ if ($Headless) { Write-Output "Dry run (headless): every state walked on $land, 
 else {
     $taken = [int]([regex]::Match($stdout, 'TITLE_CAPTURE done: (\d+) pictures').Groups[1].Value)
     if ($taken -eq 0) { throw "The window gave no picture; see $(Join-Path $scratch 'last.log')" }
-    Write-Output "$taken pictures of the title page on $land in $outPath (the before picture is 00-before-todays-page.png)."
+    # The size the pictures came out at: a window is smaller than a screen it would fill, and full screen is the screen's own size.
+    $sizes = @([regex]::Matches($stdout, '(?m)^TITLE_CAPTURE \S+: (\d+x\d+);') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+    $size = $sizes -join ', '
+    if ($Fullscreen) { $size += ' (full screen: the screen''s own size)' }
+    elseif ($sizes.Count -ne 1 -or $sizes[0] -ne $Resolution) { $size += " (not the $Resolution asked: a window cannot be as large as the screen; -Fullscreen gives the screen's own size)" }
+    $before = if ($Set -eq 'four') { 'each state''s before picture is N-...-before.png beside its N-...-after.png' } else { 'the before picture is 00-before-todays-page.png' }
+    Write-Output "$taken pictures, $size, of the title page on $land in $outPath ($before)."
 }
