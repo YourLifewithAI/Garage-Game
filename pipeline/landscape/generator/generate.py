@@ -1233,6 +1233,15 @@ def tree_crown(name):
 _ROUND = tuple((math.cos(a), math.sin(a)) for a in (0, 1.57, 3.14, 4.71))   # a footing's four sides (Planter.ground)
 BLOCKING = {'broadleaf', 'conifer', 'rock', 'boulder', 'shrub', 'cottage', 'woodpile', 'fence', 'lantern',
             'crate', 'drying_line'}
+STONE_FREE_FORMS = ('dome', 'sugarloaf')   # soft ground: a melted thing's dome, and the sugarloaf a bean bag's blocks make
+
+
+def loose_stone_ground(o, slope_deg):
+    """Whether the planting may lay a loose stone on this ground: below a cliff, on a landform's own flank of 22 to
+    42 degrees, and never on soft ground (the summit's corridor may be cut into a sugarloaf; while the rule named the
+    dome alone, 36 stones lay on the stand-in's two bean bags at ten times). `o` is the object whose land this is,
+    or None on open ground. Asked by the planting's one place for rocks (Planter.everything)."""
+    return o is not None and o['form'] not in STONE_FREE_FORMS and 22 < slope_deg < 42
 
 
 class Planter:
@@ -1469,7 +1478,7 @@ class Planter:
                                    sink=.01, clear=.1*sc)
                     if rec:
                         out.append(rec)
-            elif o is not None and o['form'] not in ('dome', 'sugarloaf') and 22 < s < 42 and u < .5:
+            elif loose_stone_ground(o, s) and u < .5:
                 sc = .18+.35*rnd.random()
                 if self.free(x, z, .07*sc+.01):
                     rec = self.put('rock', x, z, [sc, sc*(.7+.5*rnd.random()), sc], rnd.uniform(0, 360), .06*sc,

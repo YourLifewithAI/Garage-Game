@@ -6,8 +6,9 @@ The grammar (parts.py) on made-up boxes; the land a magnified room raises from i
 garage at ten times as generate.py makes it, stopped where the coast is cut (six seconds: the landforms are whole
 there); the likeness measure, on the stand-in's twelve floor boxes and against unlike families, each of its five views
 checked against a plain reference; the summit the stand-in keeps (the same room stopped where the flights are planned:
-two minutes); and true size, whose bytes are as they were. A written ten-times package is measured too when one is
-named (LANDSCAPE_TEN_TIMES, as in test_fractals.py: `generate`, or a package folder of corpus/rooms/garage_nominal).
+two minutes); the planting's loose-stone rule, asked directly; and true size, whose bytes are as they were. A written
+ten-times package is measured too when one is named (LANDSCAPE_TEN_TIMES, as in test_fractals.py: `generate`, or a
+package folder of corpus/rooms/garage_nominal).
 """
 import contextlib
 import io
@@ -861,6 +862,33 @@ class Summit(unittest.TestCase):
         cut = scores[self.plan.summit.landmark]['least']
         self.assertLess(cut, parts.measure(self.by[self.plan.summit.landmark], land_of(first, self.by[self.plan.summit.landmark]),
                                            GRAIN10, W10)['least'])
+
+
+class LooseStones(unittest.TestCase):
+    """The planting's loose-stone rule (generate.py, `loose_stone_ground`), on the rule itself: by default, and in no
+    time. That no stone lies on the written ten-times land's bean bags is TenTimesPackage's, which runs on asking;
+    before this class, dropping `sugarloaf` from the rule again passed every default suite."""
+
+    def test_no_loose_stone_lies_on_soft_ground(self):
+        # A bean bag's two lands, by the tables that name them: melted at true size, of blocks on a magnified room.
+        self.assertEqual((land.FORMS['bean bag'], parts.LANDFORMS['beanbag']), ('dome', 'sugarloaf'))
+        self.assertEqual(G.STONE_FREE_FORMS, ('dome', 'sugarloaf'))
+        for form in G.STONE_FREE_FORMS:
+            self.assertEqual([slope for slope in range(91) if G.loose_stone_ground(dict(form=form), slope)], [], form)
+
+    def test_loose_stones_lie_on_a_landforms_own_flank(self):
+        for form in ('mesa', 'ridge', 'knoll', 'stack', 'seat', 'couch', 'stair', 'flatiron'):
+            self.assertEqual([slope for slope in range(91) if G.loose_stone_ground(dict(form=form), slope)],
+                             list(range(23, 42)), form)
+        self.assertFalse(G.loose_stone_ground(None, 30.), 'open ground has no cliff over it')
+
+    def test_the_planting_asks_the_rule(self):
+        """The planting has one place for rocks, and its condition is the rule and a coin: no form is named there."""
+        import inspect
+        source = inspect.getsource(G.Planter.everything)
+        self.assertEqual(source.count("self.put('rock'"), 1)
+        self.assertIn('elif loose_stone_ground(o, s) and u < .5:', source)
+        self.assertNotIn("'sugarloaf'", source)
 
 
 def true_size_garage():
