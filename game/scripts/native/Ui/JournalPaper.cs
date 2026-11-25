@@ -11,6 +11,31 @@ public partial class JournalPaper : Control
 {
     /// <summary>Where the gutter falls across the spread, as a share of its width (the left page is the narrower).</summary>
     public const float SpineShare = 0.465f;
+    public const float CupRingRadius = 33f;
+
+    /// <summary>
+    /// Where the old cup's ring lies. Unset, near the foot of the outer edge, as the in-game journal has always had it. Set, in the
+    /// top outer corner: the title page sets it, because its "Quit" stands at the foot and the ring beside it read as a stray mark
+    /// in the page's pictures (MENU-4). The in-game journal keeps the foot: its top outer corner holds the rule under the page's
+    /// heading and the first lines of every page.
+    /// </summary>
+    public bool CupRingAtTop { get; set; }
+
+    /// <summary>
+    /// The ring's centre on a spread of this size: as far in from the outer edge at the top as at the foot. (Another 20 px in,
+    /// the title page's longest hour line ran 8 px under it; here the menu suite measures bare paper under it in every state.)
+    /// </summary>
+    public static Vector2 CupRingCentre(Vector2 size, bool atTop) => new(size.X - 50, atTop ? 120 : size.Y - 90);
+
+    /// <summary>The box the ring is drawn in, on this spread: the left half of a circle, with its line's width (a test asks what lies under it).</summary>
+    public Rect2 CupRingBox
+    {
+        get
+        {
+            var centre = CupRingCentre(Size, CupRingAtTop);
+            return new Rect2(centre.X - CupRingRadius - 2, centre.Y - CupRingRadius - 2, CupRingRadius + 4, 2 * CupRingRadius + 4);
+        }
+    }
 
     public override void _Ready()
     {
@@ -82,7 +107,7 @@ public partial class JournalPaper : Control
             var side = i % 2 == 0 ? -1 : 1;
             DrawPolyline(new[] { at, at + new Vector2(side * 30, -20), at + new Vector2(side * 20, 1), at }, ink, 1, true);
         }
-        // A faded ring left by an old cup near the outer edge.
-        DrawArc(new Vector2(w - 50, h - 90), 33, 1.6f, 4.5f, 48, new Color(0.40f, 0.23f, 0.08f, 0.1f), 3, true);
+        // A faded ring left by an old cup near the outer edge: at its foot, or in its top corner (CupRingAtTop).
+        DrawArc(CupRingCentre(Size, CupRingAtTop), CupRingRadius, 1.6f, 4.5f, 48, new Color(0.40f, 0.23f, 0.08f, 0.1f), 3, true);
     }
 }

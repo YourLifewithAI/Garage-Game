@@ -17,7 +17,8 @@ namespace GarageGame.Tests;
 /// at 1280x720 whatever the test window is: every visible control is on the screen, no label is clipped or trimmed, no word is under
 /// 18 px, no button's word is wider than the button, and the page's minimum size is inside the screen, in every state the page has
 /// (a game, "Bring my game here", the question, a game still open, a long notice), with the longest names a team and a land can
-/// have, and again in wider and taller fonts than this machine's; Continue's two lines are whole; the word "island" is in nothing
+/// have, and again in wider and taller fonts than this machine's, and in each the old cup's ring in the book's top outer corner
+/// lies on bare paper (RingProblem); Continue's two lines are whole; the word "island" is in nothing
 /// the page says of its own, and a name is shown as it is; the land's picture is drawn, on the left page, from its shape data; and
 /// New game and Continue are driven by real clicks and keys through MenuBoot (OpenTitle), by the start rule of MENU-3, the wait on
 /// the team's lease and the rebuilt room among them. No check reads the machine's clock, zone, regional settings or environment:
@@ -87,6 +88,38 @@ public partial class MenuTest
             }
         }
         if (page.LeftPage.GetGlobalRect().End.X > page.RightPage.GetGlobalRect().Position.X + 0.5f) return "the two pages overlap";
+        return RingProblem(page);
+    }
+
+    /// <summary>The box a label's words are written in: its own box, narrowed to its widest line where it is written from the left.</summary>
+    private static Rect2 Written(Label label)
+    {
+        var box = label.GetGlobalRect();
+        if (label.HorizontalAlignment != HorizontalAlignment.Left) return box;
+        var wide = label.GetThemeFont("font").GetMultilineStringSize(label.Text, HorizontalAlignment.Left, label.AutowrapMode == TextServer.AutowrapMode.Off ? -1 : label.Size.X, label.GetThemeFontSize("font_size")).X;
+        return new Rect2(box.Position, new Vector2(Math.Min(wide, box.Size.X), box.Size.Y));
+    }
+
+    /// <summary>
+    /// The old cup's ring lies on bare paper, in the book's top outer corner: under no word, button, window or map of the page
+    /// (beside "Quit" it read as a stray mark). What it lies under, in words; null when it is clear. How it looks is a picture's.
+    /// </summary>
+    private static string? RingProblem(TitleScreen page)
+    {
+        var book = page.GetNode<JournalPaper>("Book");
+        var ring = book.CupRingBox;
+        ring.Position += book.GetGlobalRect().Position;
+        if (!book.CupRingAtTop || ring.Position.Y > page.QuitButton.GetGlobalRect().Position.Y) return $"the cup's ring {ring} is not in the top outer corner";
+        foreach (var control in ControlsUnder(page).Where(Shown))
+        {
+            Rect2? drawn = control switch
+            {
+                Label { Text.Length: > 0 } label => Written(label),
+                Button or HourDial or MapMat or IslandThumbnail or NorthMark => control.GetGlobalRect(),
+                _ => null,
+            };
+            if (drawn is { } box && box.Intersects(ring)) return $"the cup's ring {ring} lies under {control.Name} {box}";
+        }
         return null;
     }
 
@@ -426,6 +459,16 @@ public partial class MenuTest
         var (newView, newMoon) = await TitleIn(size, Fresh(), new[] { "--look-clock=22:00", "--look-date=2026-11-09" });
         Check(newMoon.Dial.Body == "stars" && newMoon.Dial.MoonAlong == null && newMoon.HourLine.Text == "Night, 10:00 pm. The new moon.", "at the new moon there is no moon in the window, only stars: " + newMoon.HourLine.Text);
         newView.QueueFree();
+
+        // The longest line the head says (the longest word for a part of the day, with the longest moon) stops short of the old
+        // cup's ring in the book's top outer corner.
+        var (longView, longest) = await TitleIn(size, Fresh(), new[] { "--look-clock=13:05", "--look-date=2026-12-02" });
+        var book = longest.GetNode<JournalPaper>("Book");
+        var ringFrom = book.CupRingBox.Position.X + book.GetGlobalRect().Position.X;
+        var ringProblem = TitleProblem(longView, longest);
+        Check(longest.HourLine.Text == "Afternoon, 1:05 pm. The half moon shrinking." && longest.DateLine.Text == "Wednesday, December 2" && ringProblem == null && Written(longest.HourLine).End.X < ringFrom,
+            $"the head's longest line (\"{longest.HourLine.Text}\", written as far as x = {Written(longest.HourLine).End.X:0}) stops short of the cup's ring (from x = {ringFrom:0})" + (ringProblem != null ? ": " + ringProblem : ""));
+        longView.QueueFree();
 
         // The machine's own clock, its zone, and how it writes them.
         var (realView, real) = await TitleIn(size, Fresh(), Array.Empty<string>());

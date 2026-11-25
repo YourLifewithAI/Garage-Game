@@ -541,7 +541,8 @@ public partial class TitleScreen : Control
         var table = new ColorRect { Name = "Table", Color = new Color("2a1d14"), MouseFilter = MouseFilterEnum.Ignore };
         AddChild(table);
         table.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        var book = new JournalPaper { Name = "Book" };
+        // The cup's ring lies in the book's top outer corner here, clear of "Quit" at the foot (JournalPaper.CupRingAtTop).
+        var book = new JournalPaper { Name = "Book", CupRingAtTop = true };
         AddChild(book);
         book.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 12);
         _wash = new ColorRect { Name = "HourWash", Color = new Color(0, 0, 0, 0), MouseFilter = MouseFilterEnum.Ignore };
