@@ -496,6 +496,10 @@ public partial class CommandHost
     /// does, slowed by rain and by its fuel (a grown plant burns longer), and one at 1 has burned down: gone, its ground left with ash.
     /// Every change is recorded in the fire's undo step. The island keeps at most MaxBurntPlants burnt or burning: past that, no other
     /// plant catches. Returns whether any plant changed.
+    /// <para>The nature step does not always hand it the fire's whole list: CommandHostNature.BurnPlantsUnderFire shortens _firePlants
+    /// for the call, leaving out every plant with no burning cell in its measured squares (LOOK-3), because this method passes such
+    /// a plant by untouched and reads the list for nothing else. Whoever changes how it reads the list, or what it does to a plant
+    /// it passes by, changes that with it: NatureTest.Spread fails if the two drift.</para>
     /// </summary>
     private bool BurnPlants(float seconds)
     {

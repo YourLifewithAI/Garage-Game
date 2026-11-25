@@ -72,6 +72,10 @@ public partial class CharacterLookTest : Node3D
             CheckSharing();
             CheckSourcesNameNoCharacter(repository);
             GD.Print($"NATIVE_LOOK_CHARACTERS: {_checks - _failures}/{_checks} checks passed; the five characters' bubble, felt, ink and effect surfaces, exact colours, the aura and Recolor, the hem, no shadows from films and lights, no name-specific look, and the shaders' uniforms");
+            // The wrappers left to the finalizer (the glTF documents and states, the materials) are let go before the quit:
+            // pending at exit, they abort Godot's shutdown (RoomWorld.QuitAfter and the other suites do the same).
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
             GetTree().Quit(_failures == 0 ? 0 : 1);
         }
         catch (Exception exception)

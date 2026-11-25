@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using GarageGame.Native;
 using GarageGame.Native.Kernel;
@@ -165,6 +166,55 @@ public partial class NewGameTest
             Check(Same(oldBefore, Hashes(old, locks: true)), "and the old folder is as it was throughout, every file and its bytes: " + Differences(oldBefore, Hashes(old, locks: true)));
         }
         finally { GameSetAside.AtStep = null; }
+    }
+
+    // ---- a real launch reaches the hold: the two boots ask TeamBoot first (the shape of the source, not a launch) ----
+
+    /// <summary>
+    /// The hold above is TeamBoot's, and this suite calls it directly: with a boot's own line undone (the save folder's move
+    /// called straight, as before MENU-2) every check above would still pass while a real launch copied a put-away game back in.
+    /// So the source is read: the game's two boots each ask TeamBoot.BringOldSaves before they open anything, and nothing but
+    /// TeamBoot calls the save folder's move or the migration of the saves from before teams. A check on the code's shape; no
+    /// game is launched beside an old folder here (that needs a user folder of its own, which only a runner can give).
+    /// </summary>
+    private void TestTheBootsAskBeforeOldSavesMove()
+    {
+        var game = Path.GetFullPath(ProjectSettings.GlobalizePath("res://"));
+        // Code without its comments: a line that only describes a call is not one. Text in quotes is kept ("res://..." is no comment).
+        static string Code(string path) =>
+            File.Exists(path) ? Regex.Replace(File.ReadAllText(path), @"(""(?:\\.|[^""\\\n])*"")|//[^\n]*|/\*.*?\*/", match => match.Groups[1].Value, RegexOptions.Singleline) : "";
+        static int At(string code, string text) => code.IndexOf(text, StringComparison.Ordinal);
+
+        var boot = Code(Path.Combine(game, "native", "NativeGameBoot.cs"));
+        var asks = At(boot, "TeamBoot.BringOldSaves()");
+        Check(asks >= 0 && At(boot, "Instantiate<RoomWorld>") > asks && At(boot, "AddChild(world)") > asks,
+            "the game's boot (native/NativeGameBoot.cs) asks TeamBoot.BringOldSaves before it makes the room: a launch is held off a put-away game's place");
+
+        var menu = Code(Path.Combine(game, "scripts", "native", "Ui", "Menu", "MenuBoot.cs"));
+        var ready = At(menu, "void _Ready()");
+        var body = ready < 0 ? "" : menu[ready..];
+        asks = At(body, "TeamBoot.BringOldSaves()");
+        Check(asks >= 0 && At(body, "Open(arguments)") > asks && At(body, "base._Ready()") is >= 0 and var straight && straight < asks,
+            "the menu's boot (Ui/Menu/MenuBoot.cs) asks TeamBoot.BringOldSaves before it opens the menu, and a launch straight into a room goes through the game's boot, which asks");
+
+        // Nothing else moves old saves in: every other caller would go round the hold.
+        var round = new List<string>();
+        var read = 0;
+        foreach (var folder in new[] { Path.Combine(game, "native"), Path.Combine(game, "scripts", "native") })
+        {
+            if (!Directory.Exists(folder)) continue;
+            foreach (var file in Directory.GetFiles(folder, "*.cs", SearchOption.AllDirectories))
+            {
+                read++;
+                var name = Path.GetFileName(file);
+                var code = Code(file);
+                if (name is not ("TeamBoot.cs" or "UserFolderMove.cs") && At(code, "UserFolderMove.Run") >= 0) round.Add(name + " calls the save folder's move");
+                if (name is not ("TeamBoot.cs" or "SaveMigration.cs") && At(code, "SaveMigration.Run(") >= 0) round.Add(name + " calls the migration of the saves from before teams");
+            }
+        }
+        var held = Code(Path.Combine(game, "scripts", "native", "Saves", "TeamBoot.cs"));
+        Check(read > 100 && round.Count == 0 && At(held, "OldFolderWouldRefill(") >= 0 && At(held, "LegacyWouldRefill(") >= 0,
+            $"only TeamBoot calls the save folder's move and the migration, each behind its hold ({read} source files read): {string.Join("; ", round)}");
     }
 
     // ---- the migration of the saves from before teams never refills a put-away game's place ----
