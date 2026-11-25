@@ -1215,9 +1215,9 @@ def build_teams(out: Path, at: str) -> None:
 # The last game and the carried builds (M7), and since Run 4's first contract round (CR-1, MENU-1) the ledger of a game
 # New game put away: the example team's Challenge game, in its folder under user://set_aside/.
 
-# The ledger was first written after the rename, so its id has one spelling. The id table (schema_ids.py, NEW_ONLY) is to
-# hold it; until it does the id is spelt here, and contracts/tests/test_menu.py holds this, the validator and the table to it.
-SET_ASIDE_ID = "garage_game.set_aside"
+# The ledger was first written after the rename, so its id has one spelling: the id table's (schema_ids.py, NEW_ONLY), which
+# contracts/tests/test_menu.py holds this builder and the validator to.
+SET_ASIDE_ID = ID("set_aside")
 SET_ASIDE_AT = "2026-11-23T19:05:12Z"
 SET_ASIDE_FOLDER = f"20261123T190512Z-{TEAM_ID}-challenge"  # <yyyyMMddTHHmmssZ>-<team_id>-<mode>
 # The manifest prefix the example team's pocketed cup already names (team_documents): the garage island's save.

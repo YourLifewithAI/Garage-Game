@@ -71,6 +71,7 @@ GLB_MATERIAL_KEYS = ("garage_game_material", "enfractal_material")  # a characte
 # Kinds first written after the rename, which no file ever wrote with the old spelling: one id, and readers accept only it.
 NEW_ONLY: dict[str, str] = {
     "island_story": "garage_game.island_story",
+    "set_aside": "garage_game.set_aside",
 }
 
 _BY_ID = {spelling: kind for kind, pair in IDS.items() for spelling in pair} | {new: kind for kind, new in NEW_ONLY.items()}

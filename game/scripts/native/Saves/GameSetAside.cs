@@ -34,7 +34,7 @@ public sealed record PutAwayGame(string Folder, SetAsideLedger Ledger);
 public sealed record SetAsideLedger(string TeamId, string Mode, string SetAsideUtc, string LastPlayedUtc, IReadOnlyList<SetAsideFile> Files)
 {
     /// <summary>Written only after the rename, so it has one spelling (as the story pack's): compare with ==.</summary>
-    public const string SchemaId = "garage_game.set_aside";
+    public const string SchemaId = SchemaIds.SetAside;
     public const int Version = 1;
     public const string FileName = "set_aside.json";
     public const string TeamFileName = "team.json";

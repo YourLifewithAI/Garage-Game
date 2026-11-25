@@ -10,6 +10,7 @@ import copy
 import hashlib
 import io
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -85,13 +86,18 @@ class TheSchema(unittest.TestCase):
         ledger = validate.load_strict(LEDGER)
         self.assertEqual(ledger["schema"], validate.SET_ASIDE)
         self.assertEqual(validate.schema_errors({**ledger, "schema": "enfractal.set_aside"}), ["$.schema: unknown schema 'enfractal.set_aside'"])
-        # The id table: a kind first written after the rename has no old spelling. When the table holds this one (the
-        # round's change request for contracts/schema_ids.py), it holds this spelling, under NEW_ONLY.
+        # The id table: a kind first written after the rename has no old spelling, so it stands under NEW_ONLY, and the
+        # validator, the examples' builder and the game's C# take the id from their tables, never from a spelling of their own.
         self.assertNotIn("set_aside", IDS.IDS)
-        self.assertEqual(IDS.NEW_ONLY.get("set_aside", validate.SET_ASIDE), validate.SET_ASIDE)
+        self.assertEqual(IDS.NEW_ONLY["set_aside"], "garage_game.set_aside")
+        self.assertEqual((IDS.id_of("set_aside"), IDS.ids_of("set_aside"), IDS.kind_of(validate.SET_ASIDE)), (validate.SET_ASIDE, (validate.SET_ASIDE,), "set_aside"))
         self.assertIsNone(IDS.kind_of("enfractal.set_aside"))
         builder = (EXAMPLES / "build_examples.py").read_text(encoding="utf-8")
-        self.assertIn(f'SET_ASIDE_ID = "{validate.SET_ASIDE}"', builder)
+        self.assertIn('SET_ASIDE_ID = ID("set_aside")', builder)
+        self.assertNotIn('"garage_game.set_aside"', builder)
+        game = CONTRACTS.parent / "game" / "scripts" / "native"
+        self.assertIn(f'public const string SetAside = "{validate.SET_ASIDE}";', (game / "SchemaIds.cs").read_text(encoding="utf-8"))
+        self.assertIn("public const string SchemaId = SchemaIds.SetAside;", (game / "Saves" / "GameSetAside.cs").read_text(encoding="utf-8"))
 
     def test_the_readme_lists_the_kind_and_the_validator_reads_all_three(self):
         readme = (CONTRACTS / "README.md").read_text(encoding="utf-8")
@@ -251,6 +257,10 @@ class TheSetAsideLedger(unittest.TestCase):
                                     "file modes/live/vitals.json is not under modes/challenge/"),
             "a mode that is not its files'": (self.changed(mode="creative"), f"file {VITALS} is not under modes/creative/"),
             "past its size": (self.changed(files=big), f"the limit is {validate.SET_ASIDE_LEDGER_LIMIT}"),
+            # The last save is the newest write among the game's files as the put-away found them: never after it.
+            "last played years after it was put away": (self.changed(last_played_utc="2031-01-01T00:00:00Z"),
+                                                        "last_played_utc '2031-01-01T00:00:00Z' is after set_aside_utc '2026-11-23T19:05:12Z'"),
+            "last played a moment after it was put away": (self.changed(last_played_utc="2026-11-23T19:05:12.001Z"), "a game is last saved before it is put away"),
         }
         for name, (ledger, reason) in cases.items():
             with self.subTest(case=name):
@@ -258,7 +268,12 @@ class TheSetAsideLedger(unittest.TestCase):
                 problems = validate.check_set_aside(ledger, "ledger")
                 self.assertTrue(any(reason in problem for problem in problems), problems)
         # A leap day is a real day; a fraction on the last save's moment is the vitals store's to write.
-        self.assertEqual(validate.check_set_aside(self.changed(last_played_utc="2028-02-29T23:59:59.250Z"), "ledger"), [])
+        self.assertEqual(validate.check_set_aside(self.changed(last_played_utc="2024-02-29T23:59:59.250Z"), "ledger"), [])
+        # Saved in the very second it was put away, or a split second before: both are before the put-away.
+        for moment in ("2026-11-23T19:05:12Z", "2026-11-23T19:05:11.999999Z"):
+            self.assertEqual(validate.check_set_aside(self.changed(last_played_utc=moment), "ledger"), [], moment)
+        # No real moment, no order to tell: the one problem is the moment's own.
+        self.assertEqual(len(validate.check_set_aside(self.changed(last_played_utc="2027-02-30T19:30:00Z"), "ledger")), 1)
         # The team file alone is a game: pockets filled and nothing saved yet.
         self.assertEqual(validate.check_set_aside(self.changed(files=[team]), "ledger"), [])
 
@@ -301,6 +316,59 @@ class TheSetAsideLedger(unittest.TestCase):
         self.assertEqual(problems_after(lambda folder: (folder / "team.json").unlink()), [f"{label}: listed file team.json does not exist"])
         self.assertEqual(problems_after(lambda folder: shutil.rmtree(folder / "modes")),
                          [f"{label}: listed file {entry['path']} does not exist" for entry in self.ledger["files"] if entry["path"] != "team.json"])
+
+    def test_a_file_is_listed_by_its_own_name(self):
+        """Where the file system is forgiving (Windows: another case, a trailing dot or space), one file answers to more than
+        one name, so a ledger could list it twice and still find every file "there". A listed file is there under its listed
+        name; on a file system that tells the names apart, the second name is simply missing. Refused either way."""
+        island = next(e["path"] for e in self.ledger["files"] if "/islands/garage_example/" in e["path"])
+        label = f"{FOLDER.name}/set_aside.json"
+        cases = {
+            "another case": (VITALS, "modes/challenge/Vitals.json"),
+            "a trailing dot": (VITALS, VITALS + "."),
+            "a trailing space": (VITALS, VITALS + " "),
+            "a folder in another case": (island, island.replace("/islands/", "/Islands/")),
+        }
+        for name, (real, other) in cases.items():
+            with self.subTest(case=name):
+                entry = next(e for e in self.ledger["files"] if e["path"] == real)
+                ledger = self.changed(files=self.ledger["files"] + [{**entry, "path": other}])
+                self.assertEqual(validate.schema_errors(ledger), [], "the schema passes it: the rule is the validator's")
+                folder = self.copy(f"{len(list(self.base.iterdir()))}/{FOLDER.name}")
+                (folder / "set_aside.json").write_bytes(validate.canonical_bytes(ledger) + b"\n")
+                problems = validate.check_path(folder)
+                if (folder / other).is_file():  # this file system answers to the other name with the same file
+                    self.assertEqual(problems, [f"{label}: listed file {other} is {real} in the folder: a file is listed by its own name, once"])
+                else:
+                    self.assertEqual(problems, [f"{label}: listed file {other} does not exist"])
+        # The mend's own rule, on any file system: a name the folder's walk does not hold is not the file's own.
+        self.assertEqual(validate._other_spelling("modes/challenge/Vitals.json.", [VITALS, "team.json"]), VITALS)
+        self.assertEqual(validate._other_spelling("modes/challenge/VITALS.JSON . .", [VITALS]), VITALS)
+        self.assertEqual(validate._other_spelling("modes/Challenge ./vitals.json", [VITALS]), VITALS)
+        self.assertIsNone(validate._other_spelling("modes/challenge/vitals.jsonx", [VITALS]))
+
+    def test_a_folder_given_by_a_relative_path_is_read_as_the_folder_it_is(self):
+        """The folder's name is its real one, not the last word of the path as it was typed: from inside the folder, or
+        through a path that ends in '..', a put-away game is the same game."""
+        folder = self.copy()
+        misnamed = self.copy("20261123T190513Z-example_team-challenge")
+        before = Path.cwd()
+        try:
+            os.chdir(folder)
+            self.assertEqual(validate.check_path(Path(".")), [])
+            self.assertEqual(validate.check_path(Path("modes") / ".."), [])
+            self.assertEqual(validate.check_document(Path("set_aside.json")), [])
+            self.assertEqual(run_validator("."), (0, "OK: 1 item(s) checked, 0 problem(s)\n"))
+            self.assertEqual(run_validator("set_aside.json"), (0, "OK: 1 item(s) checked, 0 problem(s)\n"))
+            os.chdir(folder / "modes" / "challenge")
+            self.assertEqual(validate.check_path(Path("..") / ".."), [])
+            # A folder with the wrong name is still refused for it, and named by its real name.
+            os.chdir(misnamed)
+            for path in (Path("."), Path("modes") / ".."):
+                self.assertEqual(validate.check_path(path),
+                                 [f"{misnamed.name}/set_aside.json: the ledger belongs in a folder named {FOLDER.name!r} (its moment, team and mode), not {misnamed.name!r}"])
+        finally:
+            os.chdir(before)
 
     def test_the_ledger_has_one_name_and_is_strict_json(self):
         folder = self.copy()

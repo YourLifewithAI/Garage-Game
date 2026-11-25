@@ -91,9 +91,9 @@ KIND_FILES = {
 SCHEMA_FILES = {spelling: file for kind, file in KIND_FILES.items() for spelling in SCHEMA_IDS.ids_of(kind)}
 # The menu's third file, the set-aside ledger (Run 4's first contract round, CR-1): the record of one game New game put
 # away, user://set_aside/<yyyyMMddTHHmmssZ>-<team_id>-<mode>/set_aside.json. First written after the rename, so it has one
-# spelling and readers accept only it. The id table (contracts/schema_ids.py, NEW_ONLY) is to hold it too: this validator
-# reads the same with or without that line, and contracts/tests/test_menu.py checks the table spells it as here.
-SET_ASIDE = "garage_game.set_aside"
+# spelling and readers accept only it: the id table holds it under NEW_ONLY (contracts/schema_ids.py), and
+# contracts/tests/test_menu.py holds the table, the schema, the examples' builder and the C# constant to that one spelling.
+SET_ASIDE = id_of("set_aside")
 SCHEMA_FILES[SET_ASIDE] = "menu.schema.json"
 SET_ASIDE_LEDGER = "set_aside.json"  # the ledger's name in its folder
 SET_ASIDE_TEAM_FILE = "team.json"  # the team file as it was: always among a ledger's files
@@ -1886,12 +1886,7 @@ def set_aside_folder_name(ledger: dict) -> str:
 
 def _real_moment(text: str) -> bool:
     """Whether a utc_timestamp names a moment the calendar has (the pattern lets the 31st of February through)."""
-    match = PLAYTEST_UTC.match(text)
-    try:
-        datetime.datetime(*(int(group) for group in match.groups()[:6]))
-    except (AttributeError, ValueError):
-        return False
-    return True
+    return _moment(text) is not None
 
 
 def _files_in(folder: Path) -> list[str]:
@@ -1902,12 +1897,30 @@ def _files_in(folder: Path) -> list[str]:
     return sorted(found)
 
 
+def _moment(text: str) -> datetime.datetime | None:
+    """A utc_timestamp as a moment, to the microsecond; None when it names no moment the calendar has."""
+    match = PLAYTEST_UTC.match(text)
+    try:
+        return datetime.datetime(*(int(group) for group in match.groups()[:6]), int((match.group(7) or "0").ljust(6, "0")))
+    except (AttributeError, ValueError):
+        return None
+
+
+def _other_spelling(path: str, there: list[str]) -> str | None:
+    """The file among `there` (a folder's files by their own names) that a forgiving file system gives for `path`: the one
+    whose name differs only in case or in dots and spaces at the end of a segment, as Windows reads names. None if none."""
+    def folded(name: str) -> str:
+        return "/".join(segment.rstrip(". ").casefold() for segment in name.split("/"))
+    return next((real for real in there if folded(real) == folded(path)), None)
+
+
 def check_set_aside(ledger: dict, label: str, folder: Path | None = None) -> list[str]:
-    """What the menu schema cannot express for the ledger of a game set aside: its two moments real ones, the team file
-    among its files, every other file under its own mode's folder, and no file twice. Given the folder it lies in, also
-    that the folder is named for the ledger (its moment, team and mode), that every listed file is there with its size and
-    SHA-256, and that the folder holds no other file: a put-away game is whole, with nothing added. The ledger pins bytes,
-    never meaning, so no put-away file is parsed here."""
+    """What the menu schema cannot express for the ledger of a game set aside: its two moments real ones, the last save
+    no later than the put-away, the team file among its files, every other file under its own mode's folder, and no file
+    twice. Given the folder it lies in, also that the folder is named for the ledger (its moment, team and mode; the
+    folder's real name, however the path was typed), that every listed file is there under its listed name with its size
+    and SHA-256, and that the folder holds no other file: a put-away game is whole, with nothing added. The ledger pins
+    bytes, never meaning, so no put-away file is parsed here."""
     problems = []
     size = len(canonical_bytes(ledger))
     if size > SET_ASIDE_LEDGER_LIMIT:
@@ -1915,6 +1928,10 @@ def check_set_aside(ledger: dict, label: str, folder: Path | None = None) -> lis
     for name in ("set_aside_utc", "last_played_utc"):
         if not _real_moment(ledger[name]):
             problems.append(f"{label}: {name} {ledger[name]!r} is not a real moment")
+    put_away, last_played = _moment(ledger["set_aside_utc"]), _moment(ledger["last_played_utc"])
+    if put_away is not None and last_played is not None and last_played > put_away:
+        problems.append(f"{label}: last_played_utc {ledger['last_played_utc']!r} is after set_aside_utc {ledger['set_aside_utc']!r}; "
+                        "a game is last saved before it is put away")
     paths = [entry["path"] for entry in ledger["files"]]
     if SET_ASIDE_TEAM_FILE not in paths:
         problems.append(f"{label}: the ledger does not list {SET_ASIDE_TEAM_FILE}, the team file as it was (the game's pockets and hand are in it)")
@@ -1924,21 +1941,29 @@ def check_set_aside(ledger: dict, label: str, folder: Path | None = None) -> lis
             problems.append(f"{label}: file {path} is not under {home}; a {ledger['mode']} game holds its own mode's files only")
     if folder is None:
         return problems + [f"{label}: file {path} is listed twice" for path in _twice(paths)]
-    folder = Path(folder)
+    folder = Path(folder).resolve()  # the folder's real name, however the path to it was typed ("." from inside it, "x/..")
     name = set_aside_folder_name(ledger)
     if folder.name != name:
         problems.append(f"{label}: the ledger belongs in a folder named {name!r} (its moment, team and mode), not {folder.name!r}")
     problems += _check_listed_files(folder, ledger["files"], set(), label, meshes=False)
+    # A forgiving file system answers to a name that is not the file's own (Windows: another case, a dot or a space at the
+    # end), so one file could be listed twice and each listing found "there". A listed file is there under its listed name.
+    there = _files_in(folder)
+    for path in sorted(set(paths) - set(there)):
+        if (folder / PurePosixPath(path)).is_file():
+            real = _other_spelling(path, there)
+            problems.append(f"{label}: listed file {path} is {real or 'under another name'} in the folder: a file is listed by its own name, once")
     listed = set(paths) | {SET_ASIDE_LEDGER}
     problems += [f"{label}: file {path} is in the folder but not in the ledger; a put-away game is whole, with nothing added"
-                 for path in _files_in(folder) if path not in listed]
+                 for path in there if path not in listed]
     return problems
 
 
 def check_set_aside_folder(folder: Path, ledger_name: str = SET_ASIDE_LEDGER) -> list[str]:
     """A game New game put away, in its folder under user://set_aside/: the ledger by its schema, then check_set_aside
-    against the folder. The folder's one ledger has one name, set_aside.json; under any other it is refused."""
-    folder = Path(folder)
+    against the folder. The folder's one ledger has one name, set_aside.json; under any other it is refused. The folder is
+    read by its real path, so it is the same folder from inside it (".") or through a path that ends in ".."."""
+    folder = Path(folder).resolve()
     label = f"{folder.name}/{ledger_name}"
     try:
         ledger = load_strict(folder / ledger_name)

@@ -224,6 +224,11 @@ class TheOtherTables(unittest.TestCase):
         self.assertGreaterEqual(len(table), 20)
         for kind, pair in table.items():
             self.assertEqual(pair, IDS.IDS[kind], kind)
+        # A kind written only after the rename is a constant with no table entry (no old spelling to accept), named for the kind.
+        for kind, new in IDS.NEW_ONLY.items():
+            with self.subTest(new_only=kind):
+                self.assertEqual(constants.get("".join(part.capitalize() for part in kind.split("_"))), new)
+                self.assertNotIn(kind, table)
         self.assertEqual(re.findall(r'"(\w+_part)"', text)[:2], list(IDS.GLB_PART_KEYS))
         self.assertEqual(re.findall(r'"(\w+_material)"', text)[:2], list(IDS.GLB_MATERIAL_KEYS))
 
