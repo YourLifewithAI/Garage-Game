@@ -14,7 +14,7 @@ Plants turn room-shaped rock into land, and they are how the land speaks. Trees 
 
 ## The design
 
-**Scale.** The world stays ten times the room; plants stay body-sized (`G/scale.py:59-61`). New flora grows only on magnified rooms, as Fractals do (`G/generate.py:136`): the suites play a true-size room (`tools/test-room.ps1:78-87`).
+**Scale.** The world stays ten times the room; plants stay body-sized (`G/scale.py:59-61`). New flora grows only on magnified rooms, as Fractals do (`G/generate.py:136`): the suites play a true-size room (`tools/test-room.ps1:93-106`).
 
 **The maker.** A maker under `G/flora/` replaces the kit's cone and five balls (`pipeline/landscape/harness/kit.py:84-90`). Each species sheet names a branching model. A tree collides as trunk, pole and up to eight caps (`contracts/room-manifest.schema.json:922-926`), so the model is also the climb: a pine is a ladder, an oak a hall under low limbs. Meshes are pinned bytes with three authored levels: branch growth magnifies rounding between machines, the exporter's clustering would wreck limbs (`X/copies.py:199-209`), and its tree fit needs a flat trunk top (`X/trees.py:227-246`). Leaves are solid clumps (the land shader is opaque, `game/shaders/painterly_land.gdshader:15`); each carries its twig point, so winter bares the branching. The leaf style is one option of the maker, so a change of mind is a rerun, not a rewrite. Pinned meshes are `.json`: the fixture key hashes only `.py` and `.json` (`tools/landscape-fixture.ps1:21`). **He walks among made trees early:** FLORA-20 plants the maker's trees in today's noise groves on magnified rooms, so wave 2's first basin has real trees, and one oak stands there both ways, clumps beside cards.
 

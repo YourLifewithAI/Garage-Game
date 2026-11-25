@@ -20,7 +20,7 @@ A new lead session keeps this file from 23 November, started by Wren on Ben's wo
 
   | Shortcut | Arguments | Opens |
   |---|---|---|
-  | Garage Game Menu | none | The opening menu: the team, one of four islands (the test room, the garage as a room, the stand-in island, the real garage), the mode and the difficulty |
+  | Garage Game Menu | none | The opening menu's title page, on the game played last. Behind its "Choose": the team, one of four islands (the test room, the garage as a room, the stand-in island, the real garage), the mode and the difficulty |
   | Garage Game My Garage | `-Room landscape_my_garage` | The title page on the island made from Ben's own garage, in the mode played last. An older island: it has campfires and no Fractals |
   | Garage Game Landscape | `-Room landscape_garage_nominal -Mode challenge -Difficulty standard -Fullscreen` | The title page on the stand-in garage island, Challenge standard, full screen |
   | Garage Game 10x Island | `-Room landscape10` | The title page on the stand-in island at ten times the size, the one Run 3 builds on (Fractals, the summit, the look pictures). It was built into the cache on 18 November |

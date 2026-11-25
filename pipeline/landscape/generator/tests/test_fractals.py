@@ -630,8 +630,9 @@ class LiftPlaces(unittest.TestCase):
     Two rules keep a bar's own climb off a lift place, and each has a stand of its own here. The reach: a sheer stand a
     bar climbs carries a band (the 4.4 m stand, band 8). The rim: the walk models no face between 20 and 55 degrees, so
     a mound with sides in between carries no band at all, though the game's body grabs any face over 45 (`FaceAngle`); only
-    its rim's height keeps a lift place off it (the 4 m mound). The rim is meant to stand over the top band's climb: it is
-    4.5 m, right while that climb was 4.0 m and 1.5 m short of today's 6.0 (`test_no_lift_place_where_the_bodys_own_bar_climbs`)."""
+    its rim's height keeps a lift place off it (the 4 m mound). The rim stands over the top band's climb: it is 6.5 m over
+    today's 6.0. It was 4.5 m until the generator lane's integration, right while that climb was 4.0 m and 1.5 m short
+    afterwards (`test_no_lift_place_where_the_bodys_own_bar_climbs`, which holds it at any value)."""
 
     MOUND = (-2., -17.)     # the mound's middle: a flat top 2 m in radius, then 48 degree sides down to the plain
     MOUND_M = 4.            # its top over the plain
@@ -1311,8 +1312,9 @@ class TrueSize(unittest.TestCase):
 class TenTimesGarage(unittest.TestCase):
     """BODY-21 on a real room: the stand-in garage at ten times, every gate walked by the body the rules pack describes.
     The synthetic islands above hold the arithmetic; this holds a land the game loads (what `tools/test-room.ps1 -Scale`
-    builds, whose own walk never climbs). On the land the generator made before BODY-21 the pack's body stood on 12 of 26
-    benches, and on 8 of 28 Fractals, from below the band they say; on the land it makes now, on none."""
+    builds; that suite's own walk counts climbing and did none on this land when the lane was integrated, so it walks
+    no gate). On the land the generator made before BODY-21 the pack's body stood on 12 of 26 benches, and on 8 of 28
+    Fractals, from below the band they say; on the land it makes now, on none."""
 
     @classmethod
     def setUpClass(cls):

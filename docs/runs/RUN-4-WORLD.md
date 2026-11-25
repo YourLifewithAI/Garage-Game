@@ -41,7 +41,7 @@ Generator packets run in series with flora's and the villages' (`tools/landscape
 | Id | Title | Lane | Paths | After | GPU | Founder's eye | Model | Done when |
 |---|---|---|---|---|---|---|---|---|
 | WORLD-1 | Blocks, caps | C | `G/parts.py` (new), `G/land.py` | none | no | WORLD-8 | Opus | Stand-in: 12 floor boxes match their blocks from five sides; unlike families fail; true-size bytes unchanged |
-| WORLD-2 | The rim | C | `G/rim.py` (new), `G/generate.py` | WORLD-1 | no | WORLD-8 | Opus | Behind `--edge rim`; without it today's bytes. Lip at 27 m but for openings; wall things joined; each notch open to its low desert; the rim record in the brief's shape; a `rim` check stands beside `sea` (`G/checks.py:2034`); `sun_gate` lists each notch's sunlit hours |
+| WORLD-2 | The rim | C | `G/rim.py` (new), `G/generate.py` | WORLD-1 | no | WORLD-8 | Opus | Behind `--edge rim`; without it today's bytes. Lip at 27 m but for openings; wall things joined; each notch open to its low desert; the rim record in the brief's shape; a `rim` check stands beside `sea` (`G/checks.py:2048`); `sun_gate` lists each notch's sunlit hours |
 | WORLD-3 | Water where the land puts it | C | `G/water.py` | WORLD-2 | no | WORLD-8 | Opus | A dented floor gives one lake, in the dent; no stream rises on high ground; water leaves by the door's swallow-hole; no sea |
 | WORLD-19 | Scree and country | C | `G/ground.py` (new) | WORLD-3 | no | WORLD-8 | Opus | Scree graded, fines on top; the floor's colour names the country and a second colour changes it; a blue floor dents deeper and puts no water by itself |
 | WORLD-4 | Ways up | C | `G/ascents.py` (new), `G/fractals.py`, `G/sites.py` | WORLD-12 | no | no | Opus | Every top, sill and lip proved from the spawn, with a way down; no other standable lip. The summit waits for a return visit again: on the block stand-in its corridor tops out at band 4, inside the 7 bands the land's own Fractals open (on a bean bag on the island, where no hard landform takes one; on the table on the rim's land) (`sites.plan_summit` reads a landmark's top over what rests on it; the one line offered for that stands the desk's top bench 0.95 m over the desk's own top, so it is not taken as written). `test_parts.Summit.test_the_landmarks_the_melted_forms_offered_take_no_corridor` records today's lack and turns over with this |
@@ -112,7 +112,7 @@ All provisional. Caprock, the rock column and the spring line (WORLD-1, 12). Slo
 ## Not verified
 
 - Nothing was built, run or rendered; no picture seen; no frame cost measured (slots add detail blocks, the rim adds ground).
-- The walker holds a body inside the floor polygon (`G/checks.py:829-830,855`); proving the rim needs a wider floor.
+- The walker holds a body inside the floor polygon (`G/checks.py:831-832,857`); proving the rim needs a wider floor.
 - A hall's roof; near-vertical slot walls; the gates once benches move; the kernel on sand past the tiles.
 - Whether a window faces the sun's path; how long a scan round takes; whether the scan's weights are cached.
 - The low desert: its scarps past the tile edge, a wrap from it onto the high desert, and its cost in ground. The 28 m is arithmetic from the stand-in's window (`pipeline/landscape/corpus/generate.py:189-190`, ten times over).

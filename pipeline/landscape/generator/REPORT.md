@@ -8,7 +8,8 @@ how its proof is run. BODY-21's own account is the next section; WORLD-1's and W
 
 **How the suites are run.** By hand, from the repository's root, with the system Python and nothing installed. No Windows runner
 runs them: `tools/test-room.ps1` runs only the flora suite and its pinned-bytes check (about ten seconds). `tools/linux/test-all.sh`
-runs the first line below and the flora pair, and not `test_fractals`.
+runs the first line below, the flora pair, the exporter's three test modules named one by one (the sixth line's 70 tests) and the
+harness suite (the seventh line). It runs neither `test_fractals`, nor `test_from_capture`, nor the corpus check.
 
 ```
 python -B -m unittest pipeline.landscape.generator.tests.test_generator pipeline.landscape.generator.tests.test_rim pipeline.landscape.generator.tests.test_firepits pipeline.landscape.generator.tests.test_parts
@@ -21,7 +22,8 @@ python -B -S -m unittest pipeline.landscape.harness.tests.test_harness
 python -B -S -m pipeline.landscape.export.tests.corpus_smoke --scratch <a temp folder>
 ```
 
-The first line is one process (165 tests in about 15 minutes on a machine other lanes were loading): `test_parts` makes the
+The first line is one process (165 tests in about 15 minutes on a machine other lanes were loading, as counted at the integration;
+the loose-stone rule's three quick tests in `test_parts` came at the batch's close): `test_parts` makes the
 true-size garage again where `test_generator` has taken its folder down, and `test_generator` named whole without `test_rim` brings
 the rim's tests with it, so the older line (`test_generator test_firepits`) still runs them. `test_fractals` runs alone, in a process
 of its own (71 tests in about five minutes): its teardown and `test_generator`'s share that garage. The corpus check takes about a
