@@ -40,7 +40,7 @@ foreach ($test in $tests) {
     $exitCode = $result.ExitCode
     $stdout = $result.Stdout
     $stderr = $result.Stderr
-    if ($null -eq $exitCode -or $exitCode -ne 0 -or -not [string]::IsNullOrWhiteSpace($stderr)) {
+    if ($null -eq $exitCode -or $exitCode -ne 0 -or -not [string]::IsNullOrWhiteSpace((Get-GarageGameCountedStderr $stderr))) {
         Write-Output $stdout
         Write-Output $stderr
         throw "$test failed with exit code $exitCode."
@@ -50,7 +50,7 @@ foreach ($test in $tests) {
 
 $probe = Invoke-GarageGameNativeProcess -Toolchain $nativeToolchain -FilePath $enginePath `
     -Arguments @('--headless', '--path', $projectPath, 'res://scenes/native_contract_probe.tscn') -TimeoutSeconds 30
-if ($probe.Stderr -or $probe.Stdout -notmatch 'Native release probe passed:') {
+if ((Get-GarageGameCountedStderr $probe.Stderr) -or $probe.Stdout -notmatch 'Native release probe passed:') {
     throw "Native compiler probe failed:`n$($probe.Stdout)`n$($probe.Stderr)"
 }
 Write-Output ($probe.Stdout.Trim().Split("`n") | Select-Object -Last 1)
@@ -59,7 +59,7 @@ Write-Output ($probe.Stdout.Trim().Split("`n") | Select-Object -Last 1)
 foreach ($scene in @('native_kernel_canonical_json.tscn', 'native_kernel_command_host.tscn', 'native_kernel_play_hud.tscn', 'native_kernel_sandbox.tscn', 'native_kernel_journal.tscn', 'native_kernel_rebuild.tscn', 'native_kernel_nature.tscn', 'native/Kernel/native_kernel_inventory.tscn', 'native_kernel_bubble.tscn', 'native_playtest.tscn', 'native_audio.tscn')) {
     $kernel = Invoke-GarageGameNativeProcess -Toolchain $nativeToolchain -FilePath $enginePath `
         -Arguments @('--headless', '--path', $projectPath, '--fixed-fps', '60', "res://tests/$scene") -TimeoutSeconds 120
-    if ($kernel.Stderr -or $kernel.Stdout -notmatch 'NATIVE_KERNEL_[A-Z_]+: \d+/\d+ checks passed') {
+    if ((Get-GarageGameCountedStderr $kernel.Stderr) -or $kernel.Stdout -notmatch 'NATIVE_KERNEL_[A-Z_]+: \d+/\d+ checks passed') {
         throw "$scene failed:`n$($kernel.Stdout)`n$($kernel.Stderr)"
     }
     Write-Output ($kernel.Stdout.Trim().Split("`n") | Select-Object -Last 1)

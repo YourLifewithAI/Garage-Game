@@ -140,6 +140,31 @@ function Invoke-GarageGameNativeProcess {
     }
 }
 
+function Get-GarageGameCountedStderr {
+    <#
+    .SYNOPSIS
+    A headless step's stderr as a runner counts it: the text as it came, less the two lines of one engine warning that a busy
+    machine prints. An empty answer is a clean stderr; anything else fails the step.
+    .DESCRIPTION
+    When other suites load the machine, Godot's Jolt job system prints
+      WARNING: Jolt Physics job system exceeded the maximum number of jobs. ... Waiting for jobs to become available...
+         at: CreateJob (modules/jolt_physics/spaces/jolt_job_system.cpp:<line>)
+    and waits. The step's results are the same; the warning says only that the machine was busy, and a runner that fails on it
+    fails for the other work on the machine. tools/linux/test-all.sh has ignored exactly these two lines since its stderr_counts;
+    tools/test-room.ps1 and run-engine-tests.ps1 follow the same rule through this one function, and nothing wider: a stderr
+    without them comes back unchanged, and every other line (an ERROR, a SCRIPT ERROR, another warning) still fails the step that
+    printed it. tools/smoke-boot.ps1 and tools/export-native.ps1 do not use it.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Position = 0)][AllowNull()][AllowEmptyString()][string]$Stderr)
+    if (-not $Stderr) { return '' }
+    $lines = $Stderr -split "`r?`n"
+    $kept = @($lines | Where-Object { $_ -cnotmatch 'Jolt Physics job system exceeded the maximum number of jobs|at: CreateJob \(modules/jolt_physics/spaces/jolt_job_system\.cpp' })
+    if ($kept.Count -eq $lines.Count) { return $Stderr }
+    if (-not ($kept | Where-Object { $_ -match '\S' })) { return '' }
+    return ($kept -join "`n")
+}
+
 function Build-GarageGameNativeProject {
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)]$Toolchain)
@@ -153,7 +178,8 @@ function Invoke-GarageGameRoomBoot {
     <#
     .SYNOPSIS
     Boots a room through the game's main scene (scenes/native_boot.tscn reads --room) and quits by RoomWorld's
-    "-- --quit-after-ready=N"; throws unless it exits 0 with "ROOM_WORLD_READY room=<id>", "ROOM_WORLD_QUIT" and nothing on stderr.
+    "-- --quit-after-ready=N"; throws unless it exits 0 with "ROOM_WORLD_READY room=<id>", "ROOM_WORLD_QUIT" and nothing on stderr
+    (with -BusyMachineWarningAllowed, nothing but the busy machine's warning: Get-GarageGameCountedStderr).
     .DESCRIPTION
     Godot never compiles C# when it runs a game: it runs the assembly last built into game/.godot. Build first (the runners
     and tools/smoke-boot.ps1 do). An assembly built before an option existed ignores it: on 13 October a smoke boot on a
@@ -172,7 +198,9 @@ function Invoke-GarageGameRoomBoot {
         [string]$FilePath,
         [string]$WorkingDirectory,
         [switch]$WithoutDotnetRuntime,
-        [hashtable]$Environment = @{}
+        [hashtable]$Environment = @{},
+        # The runner's rule (tools/test-room.ps1): the Jolt job system's warning under load is not a failure. Off, any stderr fails.
+        [switch]$BusyMachineWarningAllowed
     )
     $arguments = @('--headless')
     if (-not $FilePath) {
@@ -186,7 +214,8 @@ function Invoke-GarageGameRoomBoot {
         -WorkingDirectory $WorkingDirectory -WithoutDotnetRuntime:$WithoutDotnetRuntime -Environment $Environment
     $ready = $run.Stdout -split "`r?`n" | Where-Object { $_ -match "^ROOM_WORLD_READY room=$([regex]::Escape($RoomId))\b" } | Select-Object -First 1
     $quit = $run.Stdout -split "`r?`n" | Where-Object { $_ -match '^ROOM_WORLD_QUIT ' } | Select-Object -First 1
-    if ($run.Stderr -or -not $ready -or -not $quit) {
+    $stderr = if ($BusyMachineWarningAllowed) { Get-GarageGameCountedStderr $run.Stderr } else { $run.Stderr }
+    if ($stderr -or -not $ready -or -not $quit) {
         throw "Booting $RoomId through the main scene did not load and quit cleanly:`n$($run.Stdout)`n$($run.Stderr)"
     }
     return [pscustomobject]@{ Seconds = $clock.Elapsed.TotalSeconds; Ready = $ready; Quit = $quit; Stdout = $run.Stdout }
