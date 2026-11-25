@@ -27,6 +27,7 @@ namespace GarageGame.Native.Ui;
 /// </list>
 /// The menu is MenuModel drawn: every click goes to the model and the rows show what it says. A launch is handed to <see cref="Launch"/>
 /// (MenuBoot boots the room with the team, island, mode and difficulty, through the same boot that --team --mode --difficulty take).
+/// Under MenuBoot this is the Choose page, and its header's "Title page" button goes back to the title page (BackToTitle), as Esc does.
 /// </summary>
 public partial class MainMenu : Control
 {
@@ -36,6 +37,28 @@ public partial class MainMenu : Control
     /// <summary>Told the game to start (Continue, "Bring my game here" or New game).</summary>
     public Action<MenuLaunch>? Launch { get; set; }
     public Action? QuitGame { get; set; }
+    /// <summary>
+    /// Told to go back to the title page (MenuBoot, over the same model: what was chosen here stands there). Null where there
+    /// is no title page to go back to (a test's page of its own): the header's "Title page" button is then not shown.
+    /// </summary>
+    public Action? BackToTitle
+    {
+        get => _backToTitle;
+        set
+        {
+            _backToTitle = value;
+            if (_titlePage != null) _titlePage.Visible = value != null;
+        }
+    }
+    private Action? _backToTitle;
+    private Button? _titlePage;
+    /// <summary>The header's way back to the title page; shown only where BackToTitle is set.</summary>
+    public Button TitlePageButton => _titlePage!;
+    /// <summary>
+    /// Whether the room, team and mode this launch names are chosen as the page opens (as TitleScreen.ChoosesFromLaunch). False
+    /// where they already were (the page opens from the title page): what the player chose since stands.
+    /// </summary>
+    public bool ChoosesFromLaunch { get; set; } = true;
 
     private readonly Dictionary<string, Button> _teamButtons = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Button> _islandButtons = new(StringComparer.Ordinal);
@@ -146,6 +169,11 @@ public partial class MainMenu : Control
         tagline.VerticalAlignment = VerticalAlignment.Bottom;
         tagline.MouseFilter = MouseFilterEnum.Ignore;
         header.AddChild(tagline);
+        // The way back to the title page, in plain sight (Esc does the same once the title page has been up).
+        _titlePage = new Button { Name = "TitlePage", Text = MenuModel.TitlePageWords, Visible = _backToTitle != null, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(120, 34) };
+        MenuStyle.AsCard(_titlePage, 8);
+        _titlePage.Pressed += () => _backToTitle?.Invoke();
+        header.AddChild(_titlePage);
         _quit = new Button { Name = "Quit", Text = "Quit", FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(90, 34) };
         MenuStyle.AsCard(_quit, 8);
         _quit.Pressed += () => QuitGame?.Invoke();
@@ -292,7 +320,7 @@ public partial class MainMenu : Control
         BuildNewTeam();
         // The room and the mode this launch names (a room shortcut: a room's folder, a mode, no team) are chosen first; what that
         // leaves open is the last game's. So the menu opens on that room's Continue and New game, and opens no game by itself.
-        Model.ChooseFromLaunch(LaunchArguments?.Invoke() ?? OS.GetCmdlineUserArgs());
+        if (ChoosesFromLaunch) Model.ChooseFromLaunch(LaunchArguments?.Invoke() ?? OS.GetCmdlineUserArgs());
         Model.ChooseFromLastGame();
         Refresh();
         var focus = _continue.Visible ? _continue : Model.TeamId != null && _teamButtons.TryGetValue(Model.TeamId, out var chosen) ? chosen
@@ -469,7 +497,8 @@ public partial class MainMenu : Control
         picture.SetShape(island.ReadShape());
         lines.AddChild(picture);
         var name = new HBoxContainer();
-        var title = MenuStyle.Text(island.DisplayName, 17, name: "IslandName");
+        // The land's name as the title page shows it (the room's name without the word "Landscape"); the list is ordered by it.
+        var title = MenuStyle.Text(island.LandName, 17, name: "IslandName");
         title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         name.AddChild(title);
         if (island.Tutorial) name.AddChild(MenuStyle.Text("tutorial", 13, MenuStyle.Warm, "TutorialTag"));
@@ -534,7 +563,7 @@ public partial class MainMenu : Control
     private string SavesLineWords()
     {
         if (Model.Team is not { Readable: true } || Model.Island is not { } island) return "Choose a character and an island; then the mode.";
-        if (Model.Mode == null) return $"{island.DisplayName}: choose Creative or Challenge.";
+        if (Model.Mode == null) return $"{island.LandName}: choose Creative or Challenge.";
         if (Model.Mode == "live") return "";
         var save = Model.SaveOf(Model.Mode);
         var name = MenuModel.ModeWords(Model.Mode);
@@ -543,7 +572,7 @@ public partial class MainMenu : Control
             : _offer.Case == StartCase.Rebuilt ? $"Your {name} island here is from before this room was rebuilt: New game makes a new one."
             : _offer.Bring ? $"No {name} island here yet: bring your game here, or start a new one."
             // No game in play, and one put away (New game's own doing, also when the room then did not open): the page says where it went.
-            : Model.GamePutAway ? $"Your last {name} game is put away: New game makes a new one."
+            : Model.GamePutAway ? TitleWords.PutAway(name)
             : $"No {name} island here yet: New game makes one.";
     }
 

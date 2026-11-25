@@ -18,16 +18,18 @@ public static class MenuRoots
 /// <summary>
 /// The game's main scene (scenes/menu.tscn): a NativeGameBoot that opens the opening menu when the game starts without a room (or with
 /// <c>--menu</c>), and otherwise boots the room straight away exactly as NativeGameBoot does (a bare <c>--room=</c>, with no
-/// <c>--menu</c>, goes straight in, and so does any boot check). The menu opens on the title page (TitleScreen, MENU-4), whose small
-/// "Choose" opens the Choose page (MainMenu) and whose Esc on the Choose page comes back; <c>--choose</c> opens the Choose page
-/// first. The two pages share one model: what a launch names is chosen once, when the first page opens, and what the player chooses
+/// <c>--menu</c>, goes straight in, and so does any boot check; run-room.ps1 -Room passes <c>--menu</c> with the room, so a room
+/// shortcut opens the menu on its room, and only -Straight goes straight in). The menu opens on the title page (TitleScreen,
+/// MENU-4), whose small "Choose" opens the Choose page (MainMenu); the Choose page's "Title page" button comes back, and so does
+/// Esc there once the title page has been up; <c>--choose</c> opens the Choose page first. The two pages share one model: what a launch names is chosen once, when the first page opens, and what the player chooses
 /// on either page stands on the other. Being a NativeGameBoot, the room it starts is the game's own boot:
 /// the team's boot (TeamBoot) honours the team, island, mode and difficulty the menu chose, through the same arguments --team=, --mode=
 /// and --difficulty= take, and the HUD sees the game's boot for the window it remembers.
 /// <list type="bullet">
 /// <item>The menu does not open in a headless run or a boot check (--quit-after-ready=) unless --menu names it: those never wait on a person.</item>
 /// <item>With <c>--menu</c> the team, room, mode and difficulty named on the command line are the menu's first choices.</item>
-/// <item>Going back from a room to the menu restarts the game; the room is not torn down in place (a follow-up).</item>
+/// <item>Going back from a room to the menu restarts the game; the room is not torn down in place (a follow-up). The new launch
+/// names the room that was played by its folder, so the menu opens on that very room (RelaunchArguments).</item>
 /// </list>
 /// </summary>
 public partial class MenuBoot : NativeGameBoot
@@ -125,26 +127,27 @@ public partial class MenuBoot : NativeGameBoot
     }
 
     /// <summary>
-    /// The Choose page, over the model the title page was using: its choices stand. The Choose page chooses from the launch's line
-    /// as it opens (MainMenu reads it itself); that was done when the title page opened, so here it is given an empty line, and
-    /// what the player chose since is not thrown away.
+    /// The Choose page, over the model the title page was using: its choices stand. The launch's own choices were made when the
+    /// title page opened, so this page does not make them again (MainMenu.ChoosesFromLaunch), and what the player chose since is
+    /// not thrown away.
     /// </summary>
     public MainMenu ShowChoose()
     {
         var model = Model!;
         TakeDownPages();
         Menu = NewChoose(model);
-        var launch = MainMenu.LaunchArguments;
-        MainMenu.LaunchArguments = () => Array.Empty<string>();
-        try { AddChild(Menu); }
-        finally { MainMenu.LaunchArguments = launch; }
+        Menu.ChoosesFromLaunch = false;
+        AddChild(Menu);
         return Menu;
     }
 
     private MainMenu NewChoose(MenuModel model) =>
-        new() { Model = model, Characters = ShippedCharacters, Launch = launch => StartRoom(launch), QuitGame = () => GetTree().Quit() };
+        new() { Model = model, Characters = ShippedCharacters, Launch = launch => StartRoom(launch), QuitGame = () => GetTree().Quit(), BackToTitle = () => ShowTitle() };
 
-    /// <summary>Esc on the Choose page, when the title page came first, goes back to it. The Choose page keeps its own Esc (a panel, a question) first.</summary>
+    /// <summary>
+    /// Esc on the Choose page, when the title page came first, goes back to it, as the page's own "Title page" button does (that
+    /// one also where the Choose page came first, under <c>--choose</c>). The Choose page keeps its own Esc (a panel, a question) first.
+    /// </summary>
     public override void _UnhandledInput(InputEvent @event)
     {
         if (Menu == null || Title != null || !_titleFirst || Model == null) return;
@@ -157,13 +160,14 @@ public partial class MenuBoot : NativeGameBoot
 
     /// <summary>
     /// The title page again, over the same model, with what the player chose on the Choose page standing: the launch's own choices
-    /// were made when the title page first opened and are not made again.
+    /// were made when the first page opened and are not made again. From here on Esc on the Choose page comes back too.
     /// </summary>
     public TitleScreen ShowTitle()
     {
         var model = Model!;
         model.Reload();
         TakeDownPages();
+        _titleFirst = true;
         Title = NewTitle(model, choosesFromLaunch: false);
         AddChild(Title);
         return Title;
@@ -256,12 +260,24 @@ public partial class MenuBoot : NativeGameBoot
     /// The command line that opens this game again at the menu ("Back to the menu": switching modes means going back to the menu, decision
     /// 3): the engine's own arguments as they were (the project's path, the window's size), then, after "--", the user arguments the
     /// game was launched with but for the room, team, mode and difficulty it was playing and any boot check's, and "--menu".
+    /// <paramref name="playedRoom"/> is the folder of the room that was played: named again as <c>--room=</c>, so the menu opens
+    /// on that very room (MenuModel.SelectRoom) and tells it from a listed island that carries its id. The last game on record
+    /// keeps only the room's id, so without the folder a room launched from a folder of its own (the fixture cache's island at
+    /// ten times, which carries the installed island's id) would come back as the listed island, read as rebuilt.
     /// </summary>
-    public static IReadOnlyList<string> RelaunchArguments(IEnumerable<string> engineArguments, IEnumerable<string> userArguments, string? projectPath = null) =>
+    public static IReadOnlyList<string> RelaunchArguments(IEnumerable<string> engineArguments, IEnumerable<string> userArguments, string? projectPath = null, string? playedRoom = null) =>
         // The engine does not list the project path it was started with, and a new process finds the project from where it starts: the path is given again (a game run from its source tree).
         (projectPath == null || engineArguments.Contains("--path") ? engineArguments : new[] { "--path", projectPath }.Concat(engineArguments)).Concat(new[] { "--" }).Concat(userArguments.Where(a => !a.StartsWith("--room=", StringComparison.Ordinal) && !a.StartsWith("--team=", StringComparison.Ordinal) &&
             !a.StartsWith("--mode=", StringComparison.Ordinal) && !a.StartsWith("--difficulty=", StringComparison.Ordinal) && !a.StartsWith("--quit-after-ready=", StringComparison.Ordinal) &&
-            a != MenuArgument)).Concat(new[] { MenuArgument }).ToList();
+            a != MenuArgument)).Concat(string.IsNullOrWhiteSpace(playedRoom) ? Array.Empty<string>() : new[] { "--room=" + playedRoom }).Concat(new[] { MenuArgument }).ToList();
+
+    /// <summary>The folder of the room that is up under this tree (the game's boot holds it one or two levels down), or null when none is.</summary>
+    public static string? RoomUp(SceneTree tree)
+    {
+        static RoomWorld? In(Node node, int deeper) =>
+            node as RoomWorld ?? (deeper > 0 ? node.GetChildren().Select(child => In(child, deeper - 1)).FirstOrDefault(found => found != null) : null);
+        return In(tree.Root, 3) is { } world && !string.IsNullOrWhiteSpace(world.RoomDirectory) ? world.RoomDirectory : null;
+    }
 
     /// <summary>
     /// Starts this game again at the menu and ends this one. The island is saved as the game goes (every durable command writes it), and
@@ -270,7 +286,7 @@ public partial class MenuBoot : NativeGameBoot
     public static bool BackToMenu(SceneTree tree)
     {
         var project = ProjectSettings.GlobalizePath("res://").TrimEnd('/', (char)92);
-        var arguments = RelaunchArguments(OS.GetCmdlineArgs(), OS.GetCmdlineUserArgs(), System.IO.File.Exists(System.IO.Path.Combine(project, "project.godot")) ? project : null);
+        var arguments = RelaunchArguments(OS.GetCmdlineArgs(), OS.GetCmdlineUserArgs(), System.IO.File.Exists(System.IO.Path.Combine(project, "project.godot")) ? project : null, RoomUp(tree));
         var started = OS.CreateProcess(OS.GetExecutablePath(), arguments.ToArray());
         if (started <= 0) return false;
         GD.Print($"MENU_BACK relaunched as pid {started}");

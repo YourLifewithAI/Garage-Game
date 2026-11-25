@@ -29,7 +29,8 @@ public sealed record PutAwayGame(string Folder, SetAsideLedger Ledger);
 /// file of it with its size and SHA-256. It pins bytes, never meaning: no put-away file is parsed to write or to accept one.
 /// It holds no free text, no name and no path out of its folder, so nothing in it is shown or followed. Read strictly, by
 /// the schema's rules and the validator's (contracts/validate.py check_set_aside), so a folder the game lists is one the
-/// contract accepts.
+/// contract accepts: the last save no later than the put-away among them (Checked), and every listed file there under its own
+/// name (GameSetAside.Problems walks the folder's real names, so a name the file system merely answers to is not found).
 /// </summary>
 public sealed record SetAsideLedger(string TeamId, string Mode, string SetAsideUtc, string LastPlayedUtc, IReadOnlyList<SetAsideFile> Files)
 {
@@ -82,13 +83,17 @@ public sealed record SetAsideLedger(string TeamId, string Mode, string SetAsideU
         return points <= MaxPathLength;
     }
 
-    /// <summary>The ledger checked against the schema and the validator's rules; throws SetAsideLedgerException with what is wrong.</summary>
+    /// <summary>
+    /// The ledger checked against the schema and the validator's rules (both moments real ones, and the last save no later
+    /// than the put-away, to the microsecond as the validator compares them); throws SetAsideLedgerException with what is wrong.
+    /// </summary>
     public SetAsideLedger Checked()
     {
         if (!TeamLayout.ValidTeamId(TeamId)) throw new SetAsideLedgerException("the ledger names an invalid team");
         if (!TeamLayout.ValidMode(Mode)) throw new SetAsideLedgerException("the ledger names an invalid mode");
         if (SetAsideUtc == null || !Moment.IsMatch(SetAsideUtc) || !Real(SetAsideUtc)) throw new SetAsideLedgerException("set_aside_utc is not a real moment to the whole second");
         if (LastPlayedUtc == null || !Timestamp.IsMatch(LastPlayedUtc) || !Real(LastPlayedUtc)) throw new SetAsideLedgerException("last_played_utc is not a real moment");
+        if (Ticks(LastPlayedUtc) > Ticks(SetAsideUtc)) throw new SetAsideLedgerException("last_played_utc is after set_aside_utc: a game is last saved before it is put away");
         if (Files == null || Files.Count is < 1 or > MaxFiles) throw new SetAsideLedgerException($"the ledger lists 1 to {MaxFiles} files");
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var home = "modes/" + Mode + "/";
@@ -108,6 +113,14 @@ public sealed record SetAsideLedger(string TeamId, string Mode, string SetAsideU
 
     private static bool Real(string moment) =>
         DateTime.TryParseExact(moment[..19], "yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out _);
+
+    /// <summary>A moment that has passed Real and its pattern, in ticks: its whole second, and its fraction of up to six digits.</summary>
+    private static long Ticks(string moment)
+    {
+        var second = DateTime.ParseExact(moment[..19], "yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+        var fraction = moment.Length > 21 ? moment[20..^1] : "";
+        return second.Ticks + (fraction.Length == 0 ? 0 : long.Parse(fraction.PadRight(7, '0'), CultureInfo.InvariantCulture));
+    }
 
     /// <summary>The ledger's size as canonical JSON (sorted keys, no spaces), as the validator counts it.</summary>
     private int CanonicalSize()
@@ -713,7 +726,9 @@ public static class GameSetAside
     /// <summary>
     /// What is wrong with a put-away folder, as contracts/validate.py check_set_aside_folder finds it (none: the folder is whole):
     /// the ledger reads; the folder is named for it; every listed file is there with its size and SHA-256; the folder holds no
-    /// other file and no link. For a test, a tool or a careful reader; never shown to a player.
+    /// other file and no link. A listed file is there under its listed name: the folder is walked by its files' own names and
+    /// each is looked up exactly, so a name the file system merely answers to (on Windows another case, or a dot or a space at
+    /// the end) is a file the ledger lists and the folder lacks. For a test, a tool or a careful reader; never shown to a player.
     /// </summary>
     public static IReadOnlyList<string> Problems(string folder)
     {

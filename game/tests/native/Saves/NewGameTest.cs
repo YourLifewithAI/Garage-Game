@@ -57,7 +57,7 @@ public partial class NewGameTest : Node3D
             await TestABootAndAPutAway();
             GC.Collect();
             GC.WaitForPendingFinalizers();
-            GD.Print($"NATIVE_NEW_GAME: {_checks - _failures}/{_checks} checks passed; a start that puts nothing away opens the old game as it was left (health 50, the fire out); after New game the next start has full hearts, a lit fire, empty pockets and hand and no room save; the put-away's bytes match by SHA-256 and its folder is one the contract accepts (the contract's example reads and writes back byte for byte, its ten broken folders are refused); the team's rest, the other mode and the other team untouched; nothing brings a put-away game back (boots, a second New game, a recovery with nothing to recover; the save folder's move and the saves from before teams are held off while they would refill its place, their ledgers never written; the game's two boots ask TeamBoot before old saves move, by the shape of their source, not by a launch); a held lease refuses (New game under a room that is up, until the host has written as it leaves; a second put-away; a room while a put-away is at work), and a lease that is read-only or cannot be opened is not taken for a held one; a fault at each step and the process ending at each step leave the old game whole, byte for byte, with nothing left under set_aside, and the next start plays it; New game pressed again after a cut puts the old game back first and away whole; a room never opens a game half put away; a newer game is never moved over; the link check: {_linkCheck}");
+            GD.Print($"NATIVE_NEW_GAME: {_checks - _failures}/{_checks} checks passed; a start that puts nothing away opens the old game as it was left (health 50, the fire out); after New game the next start has full hearts, a lit fire, empty pockets and hand and no room save; the put-away's bytes match by SHA-256 and its folder is one the contract accepts (the contract's example reads and writes back byte for byte, its ten broken folders are refused, and so are a last save after the put-away and a file listed under a name that is not its own); the team's rest, the other mode and the other team untouched; nothing brings a put-away game back (boots, a second New game, a recovery with nothing to recover; the save folder's move and the saves from before teams are held off while they would refill its place, their ledgers never written; the game's two boots ask TeamBoot before old saves move, by the shape of their source, the menu's read to the end of its _Ready and no further, not by a launch); a held lease refuses (New game under a room that is up, until the host has written as it leaves; a second put-away; a room while a put-away is at work), and a lease that is read-only or cannot be opened is not taken for a held one; a fault at each step and the process ending at each step leave the old game whole, byte for byte, with nothing left under set_aside, and the next start plays it; New game pressed again after a cut puts the old game back first and away whole; a room never opens a game half put away; a newer game is never moved over; the link check: {_linkCheck}");
             GetTree().Quit(_failures == 0 ? 0 : 1);
         }
         catch (Exception error)
@@ -162,6 +162,34 @@ public partial class NewGameTest : Node3D
         var unread = badLedgers.Count(t => { try { SetAsideLedger.Parse(new UTF8Encoding(false).GetBytes(t)); return false; } catch (SetAsideLedgerException) { return true; } });
         Check(unread == badLedgers.Length,
             $"a ledger is read strictly: CR, another version, an unknown mode, a day the calendar lacks, a fraction of a second in its moment, a negative size, a path that climbs, a path Windows cannot hold, a file twice, a path for a team, a field it does not have, a byte-order mark ({unread}/{badLedgers.Length} refused)");
+        // The two things the validator refuses since the first contract round was closed, which the game's reader refuses too.
+        bool Reads(string ledgerText) { try { SetAsideLedger.Parse(new UTF8Encoding(false).GetBytes(ledgerText)); return true; } catch (SetAsideLedgerException) { return false; } }
+        string LastSaved(string moment) => text.Replace("\"last_played_utc\": \"2026-10-14T19:30:00Z\"", "\"last_played_utc\": \"" + moment + "\"", StringComparison.Ordinal);
+        Check(LastSaved("x") != text && Reads(LastSaved("2026-11-23T19:05:12Z")) && Reads(LastSaved("2026-11-23T19:05:11.999999Z")) && !Reads(LastSaved("2026-11-23T19:05:12.000001Z")) &&
+              !Reads(LastSaved("2026-11-23T19:05:13Z")) && !Reads(LastSaved("2026-11-24T00:00:00Z")),
+            "a last save at the very moment of the put-away reads, and one a microsecond before it; a last save a microsecond, a second or a day after the put-away is refused, as the validator refuses it");
+        var copy = Path.Combine(Folder("own_name"), Path.GetFileName(folder));
+        foreach (var file in Directory.GetFiles(folder, "*", SearchOption.AllDirectories))
+        {
+            var target = Path.Combine(copy, Path.GetRelativePath(folder, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target);
+        }
+        var whole = GameSetAside.Problems(copy).Count == 0;
+        var answered = new List<string>();
+        var accepted = new List<string>();
+        foreach (var other in new[] { "modes/challenge/Vitals.json", "modes/challenge/VITALS.JSON", "modes/Challenge/vitals.json", "modes/challenge/vitals.json.", "modes/challenge/vitals.json " })
+        {
+            // The ledger lists the vitals store under a name that is not its own; on Windows the file system answers to it all the same.
+            var respelled = text.Replace("\"path\": \"modes/challenge/vitals.json\"", "\"path\": \"" + other + "\"", StringComparison.Ordinal);
+            File.WriteAllBytes(Path.Combine(copy, SetAsideLedger.FileName), new UTF8Encoding(false).GetBytes(respelled));
+            if (File.Exists(Path.Combine(copy, other))) answered.Add(other);
+            // "modes/Challenge/..." is no path of a challenge game at all (the ledger does not read); the others read and are not found.
+            if (respelled == text || GameSetAside.Problems(copy).Count == 0) accepted.Add(other);
+        }
+        File.WriteAllBytes(Path.Combine(copy, SetAsideLedger.FileName), bytes);
+        Check(whole && accepted.Count == 0 && GameSetAside.Problems(copy).Count == 0,
+            $"a file listed under a name that is not its own (another case, a dot or a space at the end) is refused, though the file system answers to {answered.Count} of the 5 names here, as the validator refuses it: accepted {string.Join(", ", accepted)}");
         Check(SetAsideLedger.ValidPath("modes/creative/islands/garage/0123456789abcdef/inventions - Copy.json") && SetAsideLedger.ValidPath("team.json") &&
               !SetAsideLedger.ValidPath("expertise.json") && !SetAsideLedger.ValidPath("modes/creative") && !SetAsideLedger.ValidPath("modes/creative/") &&
               !SetAsideLedger.ValidPath("modes/creative//a") && !SetAsideLedger.ValidPath("/modes/creative/a") && !SetAsideLedger.ValidPath("modes/night/a") &&

@@ -79,6 +79,8 @@ public sealed class MenuModel
     public const string YesNewGameWords = "Yes, new game";
     public const string BringWords = "Bring my game here";
     public const string GoBackWords = "Go back";
+    /// <summary>The Choose page's way back to the title page (its header's button).</summary>
+    public const string TitlePageWords = "Title page";
     public const string RebuiltWords = "This room was rebuilt. Your old game is kept.";
     public const string StillClosingWords = "The last game is still closing. One moment.";
     /// <summary>After the wait a team still held is a game still open: in another window, or a room that is slow to leave. True of both.</summary>
@@ -312,10 +314,13 @@ public sealed class MenuModel
     /// <summary>Whether a game of the chosen team in the chosen mode was put away before (the page says so where there is none in play).</summary>
     public bool GamePutAway => Team is { Readable: true } team && Mode is ("creative" or "challenge") && GameSetAside.WasPutAway(Layout, team.TeamId, Mode);
 
-    /// <summary>"Mira on the Garage, Challenge (Brave)": the game the buttons would start; null while something is not chosen.</summary>
+    /// <summary>
+    /// "Mira on the Garage, Challenge (Brave)": the game the buttons would start; null while something is not chosen. The land
+    /// by the name its card shows (IslandEntry.LandName), so the card and the line under it say one name.
+    /// </summary>
     public string? ChoiceWords =>
         WhyNotReady != null ? null
-            : $"{Team!.DisplayName} on {Island!.DisplayName}, {ModeWords(Mode!)}" + (Mode == "challenge" ? $" ({DifficultyWords(Difficulty ?? "standard")})" : "") + (CopyCreative ? ", with your Creative island" : "");
+            : $"{Team!.DisplayName} on {Island!.LandName}, {ModeWords(Mode!)}" + (Mode == "challenge" ? $" ({DifficultyWords(Difficulty ?? "standard")})" : "") + (CopyCreative ? ", with your Creative island" : "");
 
     /// <summary>
     /// Whether a room of the chosen team is up, and whether the start buttons still wait for it. The first time the team is seen
@@ -359,7 +364,9 @@ public sealed class MenuModel
     /// other mode's game stay) and starts a first game: with the difficulty the old game had unless another was chosen while the
     /// question was up, and with the Creative copy when that was chosen. Where there is no game in this mode (StartRule.HasGame)
     /// it asks nothing, puts nothing away and starts at once. Null, with Notice and the old game whole, while the team's room is
-    /// still leaving, when its game is still open, or when the put-away fails.
+    /// still leaving, when its game is still open, or when the put-away fails. "Still open" holds whether or not there is a game
+    /// to put away: the put-away takes the team's lease alone, and a start with nothing to put away asks the lease itself, so
+    /// New game never starts a room beside one of the team's that is up (Continue opens beside it, as before).
     /// </summary>
     public MenuLaunch? NewGame()
     {
@@ -397,6 +404,9 @@ public sealed class MenuModel
             // The question stays up: once what is in the way is gone (a game closed), New game pressed again goes on.
             catch (SetAsideException error) { Notice = error.Message; return null; }
         }
+        // Nothing to put away, so nothing has asked the team's lease: New game asks it here. After the wait a team still up is a
+        // game still open, and New game waits until it is closed, as the page says (OpenElsewhereWords), in the put-away's words.
+        else if (Hold() is var held && held != TeamHold.Free) { Notice = held == TeamHold.Leaving ? StillClosingWords : PlayLease.StillOpen; return null; }
         TakeQuestionDown();
         if (away != null)
         {
@@ -475,7 +485,7 @@ public sealed class MenuModel
         var team = Teams.First(t => t.TeamId == last.TeamId);
         var island = Islands.First(i => i.RoomId == last.RoomId);
         var kept = last.Mode == "challenge" ? IslandSaveInfo.One(Layout, last.TeamId, island, "challenge").Difficulty ?? last.Difficulty : null;
-        return $"{team.DisplayName} on {island.DisplayName}, {ModeWords(last.Mode)}" + (kept != null ? $" ({DifficultyWords(kept)})" : "");
+        return $"{team.DisplayName} on {island.LandName}, {ModeWords(last.Mode)}" + (kept != null ? $" ({DifficultyWords(kept)})" : "");
     }
 
     /// <summary>

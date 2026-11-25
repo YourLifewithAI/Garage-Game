@@ -184,6 +184,18 @@ public partial class NewGameTest
         static string Code(string path) =>
             File.Exists(path) ? Regex.Replace(File.ReadAllText(path), @"(""(?:\\.|[^""\\\n])*"")|//[^\n]*|/\*.*?\*/", match => match.Groups[1].Value, RegexOptions.Singleline) : "";
         static int At(string code, string text) => code.IndexOf(text, StringComparison.Ordinal);
+        // One method's body, from its opening brace to the brace that closes it: an order test never reads on into the next method.
+        static string Method(string code, string signature)
+        {
+            var open = At(code, signature) is >= 0 and var at ? code.IndexOf('{', at) : -1;
+            var depth = 0;
+            for (var index = open; index >= 0 && index < code.Length; index++)
+            {
+                if (code[index] == '{') depth++;
+                else if (code[index] == '}' && --depth == 0) return code[open..(index + 1)];
+            }
+            return "";
+        }
 
         var boot = Code(Path.Combine(game, "native", "NativeGameBoot.cs"));
         var asks = At(boot, "TeamBoot.BringOldSaves()");
@@ -191,11 +203,19 @@ public partial class NewGameTest
             "the game's boot (native/NativeGameBoot.cs) asks TeamBoot.BringOldSaves before it makes the room: a launch is held off a put-away game's place");
 
         var menu = Code(Path.Combine(game, "scripts", "native", "Ui", "Menu", "MenuBoot.cs"));
-        var ready = At(menu, "void _Ready()");
-        var body = ready < 0 ? "" : menu[ready..];
+        // Within _Ready alone, and before the first call that opens a page there (OpenFirst, OpenTitle or Open: the title page
+        // came in between, and an Open(arguments) in a later method must not stand in for it).
+        var body = Method(menu, "void _Ready()");
         asks = At(body, "TeamBoot.BringOldSaves()");
-        Check(asks >= 0 && At(body, "Open(arguments)") > asks && At(body, "base._Ready()") is >= 0 and var straight && straight < asks,
-            "the menu's boot (Ui/Menu/MenuBoot.cs) asks TeamBoot.BringOldSaves before it opens the menu, and a launch straight into a room goes through the game's boot, which asks");
+        var opens = Regex.Match(body, @"\bOpen\w*\(");
+        Check(body.Length > 0 && At(menu, body) + body.Length < menu.Length && asks >= 0 && opens.Success && opens.Index > asks && At(body, "base._Ready()") is >= 0 and var straight && straight < asks,
+            $"the menu's boot (Ui/Menu/MenuBoot.cs) asks TeamBoot.BringOldSaves before it opens the menu (in _Ready itself: asked at {asks}, the first page opened at {(opens.Success ? opens.Index : -1)} of {body.Length}), and a launch straight into a room goes through the game's boot, which asks");
+        // The check's own teeth: the same method with the ask moved to its end is caught, whatever the later methods call.
+        var moved = body.Replace("TeamBoot.BringOldSaves();", "", StringComparison.Ordinal);
+        moved = moved.Length > 0 ? moved[..^1] + "TeamBoot.BringOldSaves(); }" : "";
+        var later = body.Length > 0 ? menu[(At(menu, body) + body.Length)..] : "";
+        Check(moved.Length > 0 && moved != body && Regex.Match(moved, @"\bOpen\w*\(") is { Success: true } first && first.Index < At(moved, "TeamBoot.BringOldSaves()"),
+            $"and with the ask moved to the end of _Ready the same reading finds the page opened first (a later method calls Open(arguments): {At(later, "Open(arguments)") >= 0}, which a reading to the end of the file would take for the menu's opening)");
 
         // Nothing else moves old saves in: every other caller would go round the hold.
         var round = new List<string>();
