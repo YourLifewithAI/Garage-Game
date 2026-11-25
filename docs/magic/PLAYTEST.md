@@ -10,7 +10,7 @@ From PowerShell 7 in that directory, run:
 .\run-room.ps1 -Profile growth -Room landscape
 ```
 
-This rebuilds the game and launches the generated garage landscape. `-Profile growth` keeps this playtest's saves, wishes and companion session in `.cache/profiles/growth`, apart from your own; delete that folder to start fresh. `-Room landscape` picks the newest landscape `tools/test-room.ps1` prepared (derived data, not committed); `-Room <id or path>` selects another room.
+This rebuilds the game and opens the menu's title page on the generated garage landscape: press Continue, or New game for a fresh start (`-Straight` beside `-Room` skips the menu and goes straight in, as every launch with a room did before Run 4). `-Profile growth` keeps this playtest's saves, wishes and companion session in `.cache/profiles/growth`, apart from your own; delete that folder to start fresh. `-Room landscape` picks the newest landscape `tools/test-room.ps1` prepared (derived data, not committed); `-Room <id or path>` selects another room.
 
 Press **M**, or the Magic button, for the Island (Grow, Fire, repair and undo), Glow and Wishes pages. **Choose spot** closes the panel for one click, then returns to it. The keys work too: `1` Glow, `2` Grow, `3` Bubbles, `4` Fireworks, `5` Build, `6` Fire (a tap previews the fire where you point; hold the right button to light it), `Q` to call the Gubble back, `X` to stop it, and the right-button wheel; `H` shows the help with any remapped keys. Fire is locked until the Gubble learns it from your first rest (`Z`) by the starting campfire. Fire and wishes also have explicit panel controls.
 

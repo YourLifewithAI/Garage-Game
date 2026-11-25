@@ -43,7 +43,7 @@ New game over a game asks once: "Your game from 25 Oct is put away, not deleted.
 
 **Never under a live room.** A leaving room writes on exit (`N/Kernel/CommandHost.cs:339-346`) and remakes its folder unchecked (`game/scripts/creation_authority.gd:1144-1161`). So a room holds `teams/<team>/in_play.lock` open while it is up; a crash frees it. Putting away takes the lease or refuses. After "Back to the menu" (`M/MenuBoot.cs:162-171`) both buttons wait for it.
 
-**Launches.** A bare `--room=` still goes straight in and continues (`M/MenuBoot.cs:46`), for tests. The three room shortcuts gain `-Menu` (`run-room.ps1:11-15`). The Esc menu gets no New game.
+**Launches.** A bare `--room=` still goes straight in and continues (`MenuBoot.ShowsMenu`, `M/MenuBoot.cs:55`), for tests. `run-room.ps1 -Room` passes `--menu` with the room (`run-room.ps1:11-14`, `:58`), so the three room shortcuts open the title page on their rooms as they stand, and `-Straight` is the bare `--room=`. The Esc menu gets no New game.
 
 ## Packets
 
@@ -69,7 +69,7 @@ New game over a game asks once: "Your game from 25 Oct is put away, not deleted.
 
 ## Provisional values
 
-- Every word on screen is a placeholder for the family. "World" stands for "island" (`M/MainMenu.cs:103,335`); folder and contract names keep it.
+- Every word on screen is a placeholder for the family. "World" stands for "island" (`M/MainMenu.cs:103,335`); folder and contract names keep it. The title page's words are one list, `TitleWords` in `M/TitleScreen.cs`: "Field journal"; "Garage Game"; "A room, grown into a land."; "The room, as the land it has become."; "Seen from above. North is at the top."; "No map of this one yet."; "No land is here yet."; "Install a room to see its land here."; "Continue"; "Choose"; "Pick a different person, land or way to play."; "Quit"; "N"; ", with your Creative land"; the eight moon names ("new moon", "thin moon growing", "half moon growing", "fat moon growing", "full moon", "fat moon shrinking", "half moon shrinking", "thin moon shrinking"); "Your last <mode> game is put away: New game makes a new one."; "That land could not be opened (<why>). It was left as it was."; "<Day part>, <clock>. The <moon>.". The Choose page's way back reads "Title page" (`MenuModel.TitlePageWords`).
 - New game always puts away, never deletes: `set_aside/<yyyyMMddTHHmmssZ>-<team>-<mode>`, kept without limit.
 - A title page before the three rows changes MECHANICS section 3. The shortcuts open it. System fonts.
 - Title buttons 520 by 120 px at 1280x720; a child's text at size 18 or more.

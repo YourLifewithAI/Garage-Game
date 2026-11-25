@@ -16,14 +16,14 @@ A new lead session keeps this file from 23 November, started by Wren on Ben's wo
 
 - **Branches.** `run3/integration` is at `0a47245`, the same on GitHub, and 35 commits ahead of GitHub's `main` (`f7af65f`), which Run 3 has not touched. The three lane branches (`run3/contracts`, `run3/look-perf`, `run3/sound`) are merged, local only, and their worktrees under `C:\dev\Garage-Game-run3` are kept. Draft [pull request #21](https://github.com/YourLifewithAI/Garage-Game/pull/21), the planning branch, is still open; everything in it is inside `run3/integration`.
 - **The Unreal slice.** `C:\dev\Garage-Unreal` `main` is at `6ea8d89`: one status commit ahead of GitHub's `8869523`, not pushed. No pull request is open, and nothing has been done there since 8 November.
-- **What plays today, and what opens it.** Four desktop shortcuts, each `pwsh -NoProfile -File C:\dev\Garage-Game\run-room.ps1` with its own arguments, started in `C:\dev\Garage-Game`. Every launch builds first and records the play.
+- **What plays today, and what opens it.** Four desktop shortcuts, each `pwsh -NoProfile -File C:\dev\Garage-Game\run-room.ps1` with its own arguments, started in `C:\dev\Garage-Game`. Every launch builds first and records the play. Since the menu lane was integrated (24 November) a shortcut that names a room opens the menu's title page on that room, with Continue and New game, and never an old game unasked; `run-room.ps1 -Straight` is the old way straight in, for tests.
 
   | Shortcut | Arguments | Opens |
   |---|---|---|
   | Garage Game Menu | none | The opening menu: the team, one of four islands (the test room, the garage as a room, the stand-in island, the real garage), the mode and the difficulty |
-  | Garage Game My Garage | `-Room landscape_my_garage` | The island made from Ben's own garage, in the mode played last. An older island: it has campfires and no Fractals |
-  | Garage Game Landscape | `-Room landscape_garage_nominal -Mode challenge -Difficulty standard -Fullscreen` | The stand-in garage island, Challenge standard, full screen |
-  | Garage Game 10x Island | `-Room landscape10` | The stand-in island at ten times the size, the one Run 3 builds on (Fractals, the summit, the look pictures). It was built into the cache on 18 November |
+  | Garage Game My Garage | `-Room landscape_my_garage` | The title page on the island made from Ben's own garage, in the mode played last. An older island: it has campfires and no Fractals |
+  | Garage Game Landscape | `-Room landscape_garage_nominal -Mode challenge -Difficulty standard -Fullscreen` | The title page on the stand-in garage island, Challenge standard, full screen |
+  | Garage Game 10x Island | `-Room landscape10` | The title page on the stand-in island at ten times the size, the one Run 3 builds on (Fractals, the summit, the look pictures). It was built into the cache on 18 November |
 
   - All four carry Run 3's sound: ambience and effects made in code, no music.
   - The story has nothing to play yet. Its contract and an example pack are in; the quest ledger (Q1) is not started.
