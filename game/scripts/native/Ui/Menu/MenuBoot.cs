@@ -280,13 +280,23 @@ public partial class MenuBoot : NativeGameBoot
     }
 
     /// <summary>
+    /// The command line "Back to the menu" starts the game again with: this process's own arguments and the room that is up under
+    /// this tree, through RelaunchArguments. BackToMenu runs exactly this and the menu suite reads it (a test cannot call
+    /// BackToMenu, which starts a process and quits), so the room that was played cannot drop out of the relaunch unseen.
+    /// </summary>
+    public static IReadOnlyList<string> BackToMenuArguments(SceneTree tree)
+    {
+        var project = ProjectSettings.GlobalizePath("res://").TrimEnd('/', (char)92);
+        return RelaunchArguments(OS.GetCmdlineArgs(), OS.GetCmdlineUserArgs(), System.IO.File.Exists(System.IO.Path.Combine(project, "project.godot")) ? project : null, RoomUp(tree));
+    }
+
+    /// <summary>
     /// Starts this game again at the menu and ends this one. The island is saved as the game goes (every durable command writes it), and
     /// Trust settles when the room leaves the tree. Returns false, leaving the room as it is, when the new game could not be started.
     /// </summary>
     public static bool BackToMenu(SceneTree tree)
     {
-        var project = ProjectSettings.GlobalizePath("res://").TrimEnd('/', (char)92);
-        var arguments = RelaunchArguments(OS.GetCmdlineArgs(), OS.GetCmdlineUserArgs(), System.IO.File.Exists(System.IO.Path.Combine(project, "project.godot")) ? project : null, RoomUp(tree));
+        var arguments = BackToMenuArguments(tree);
         var started = OS.CreateProcess(OS.GetExecutablePath(), arguments.ToArray());
         if (started <= 0) return false;
         GD.Print($"MENU_BACK relaunched as pid {started}");

@@ -158,6 +158,11 @@ public partial class MenuTest
         Check(nobodyUp && up == own && game.World.RoomDirectory == own && game.World.Room.ManifestSha256[..16] != listed.ManifestPrefix && back.Count(a => a.StartsWith("--room=", StringComparison.Ordinal)) == 1 &&
               back.Contains("--room=" + own) && back[^1] == MenuBoot.MenuArgument && !back.Any(a => a.StartsWith("--mode=", StringComparison.Ordinal) || a.StartsWith("--team=", StringComparison.Ordinal)),
             $"with a room up, the relaunch names that room's own folder ({up}), and no team or mode: " + string.Join(" ", back.SkipWhile(a => a != "--").Skip(1)));
+        // The line the game itself runs: BackToMenu starts a process with exactly BackToMenuArguments, from this process's own
+        // command line and the room that is up, so the played room cannot drop out of it unseen.
+        var run = MenuBoot.BackToMenuArguments(GetTree());
+        Check(run.Count(a => a.StartsWith("--room=", StringComparison.Ordinal)) == 1 && run.Contains("--room=" + own) && run[^1] == MenuBoot.MenuArgument && run.Contains("--"),
+            "\"Back to the menu\" as the game runs it (BackToMenu's own command line) names the room that is up: " + string.Join(" ", run.SkipWhile(a => a != "--").Skip(1)));
         await CloseGame();
 
         // The menu as that relaunch opens it: the title page, on the room that was played, with its Continue.
