@@ -115,6 +115,8 @@ The bodies' own files stay Lane P's: `SmallPlayerController.cs` and `CompanionAv
 
 [RUN-4.md](RUN-4.md) section 3 names the twelve lanes and section 5 their paths; that table is the run's ownership and is not repeated here. Lane worktrees are `C:\dev\Garage-Game-run4\<lane>` on branches `run4/<lane>`, cut from `run4/integration`; each keeps its scratch files in its own `.cache\scratch`. The generator's lanes (`world`, `habitat`, `flora`) merge in series into the batch branch `run4/generator`, which integration takes once a batch. One agent per lane at a time, and one editor at a time on the files RUN-4.md's ruling 14 lists. Run 3's story lanes (Q, V, the tale) are parked and hold no paths while Run 4 lasts; Sound and Track K keep theirs.
 
+**A rule for every lane: colliders on the world layer.** A lane that moves, re-layers or reshapes a collider on the world layer (`RoomBuilder.WorldLayer`) where it stands, outside a command, calls `CommandHost.NoteWorldCollisionChanged()` when it does. A collision node entering or leaving the tree needs nothing: the host counts it. A collider that moves every tick should not be on the world layer. The reason (LOOK-3): the nature step keeps ground readings from the ticks before it only while the world's mark stands. Without the call, the step's spot check finds the stale reading only by chance, warns once (`NATURE_SPREAD ...`) and switches the reading ahead off for that host, and the hitch LOOK-3 removed is back.
+
 ## Rules for crossing a boundary
 
 - **Need a change in a file you do not own?** Write the exact diff and the reason in your lane report. The integrator applies it or hands it to the owning lane. Do not edit it yourself, even for a one-line fix.
