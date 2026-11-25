@@ -206,10 +206,16 @@ echo "== landscape harness (package format and views; its Blender tests skip wit
 if (cd "$REPO" && python3 -B -S -m unittest pipeline.landscape.harness.tests.test_harness > "$LOG/harness.log" 2>&1); then
   echo "PASS landscape harness: $(grep -E '^Ran' "$LOG/harness.log") $(grep -E '^OK' "$LOG/harness.log")"
 else cat "$LOG/harness.log"; failed=1; fi
-echo "== landscape generator (determinism and the design's principles on corpus rooms)"
-if (cd "$REPO" && python3 -B -m unittest pipeline.landscape.generator.tests.test_generator pipeline.landscape.generator.tests.test_firepits > "$LOG/landscape_generator.log" 2>&1); then
+echo "== landscape generator (determinism and the design's principles on corpus rooms; the rim; the firepits; blocks and caps)"
+# One process, in this order: test_parts makes the true-size garage again where test_generator has taken its folder down.
+# test_fractals is not here: it runs alone (its teardown and test_generator's share that garage), by hand (the generator's REPORT.md).
+if (cd "$REPO" && python3 -B -m unittest pipeline.landscape.generator.tests.test_generator pipeline.landscape.generator.tests.test_rim pipeline.landscape.generator.tests.test_firepits pipeline.landscape.generator.tests.test_parts > "$LOG/landscape_generator.log" 2>&1); then
   echo "PASS landscape generator: $(grep -E '^Ran' "$LOG/landscape_generator.log") $(grep -E '^OK' "$LOG/landscape_generator.log")"
 else echo "FAIL landscape generator"; tail -20 "$LOG/landscape_generator.log"; failed=1; fi
+echo "== landscape flora (the plant maker: its suite and the pinned bytes)"
+if (cd "$REPO" && python3 -B -m unittest pipeline.landscape.generator.flora.tests.test_flora > "$LOG/landscape_flora.log" 2>&1 && python3 -B -m pipeline.landscape.generator.flora.make --check >> "$LOG/landscape_flora.log" 2>&1); then
+  echo "PASS landscape flora: $(grep -E '^Ran' "$LOG/landscape_flora.log") $(tail -n 1 "$LOG/landscape_flora.log")"
+else echo "FAIL landscape flora"; tail -20 "$LOG/landscape_flora.log"; failed=1; fi
 
 echo "== $([ $failed -eq 0 ] && echo GREEN || echo RED)"
 exit $failed

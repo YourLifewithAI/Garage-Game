@@ -1,6 +1,6 @@
 #requires -Version 7.0
-# Runs the small-avatar fixture, the room navigation fixture and the room data/builder fixture, plays the 1x garage landscape,
-# then boots the default room headlessly and the landscape through the game's main scene.
+# Runs the small-avatar fixture, the room navigation fixture and the room data/builder fixture, checks the pinned plants, plays the
+# 1x garage landscape, then boots the default room headlessly and the landscape through the game's main scene.
 # -Scale runs the scale suite instead, and only it: the 10x garage (built once into the shared fixture cache, about 4 min), its
 # load, navigation, memory, a long walk across it and a come from far away, one SCALE_* line each (tests/native_scale_suite.tscn).
 param([switch]$Scale)
@@ -73,6 +73,18 @@ $navigation = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $to
     -Arguments @('--headless', '--path', $toolchain.ProjectPath, '--fixed-fps', '60', 'res://tests/native_room_navigation.tscn') -TimeoutSeconds 90
 if ((Get-GarageGameCountedStderr $navigation.Stderr) -or $navigation.Stdout -notmatch 'checks passed') { throw "$($navigation.Stdout)`n$($navigation.Stderr)" }
 Write-Output $navigation.Stdout.Trim()
+# The plant maker (Run 4, FLORA-1): its suite, and the pinned plants made again and compared byte for byte, so a stale pinned
+# plant fails here. The system python the fixture uses, no install and no network, about ten seconds. The generator's long
+# suites are not in this runner: pipeline/landscape/generator/REPORT.md says how they are run by hand.
+$python = (Get-Command python -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+$floraSuite = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $python -WorkingDirectory $toolchain.RepositoryPath -TimeoutSeconds 300 `
+    -Arguments @('-B', '-m', 'unittest', 'pipeline.landscape.generator.flora.tests.test_flora')
+if ("$($floraSuite.Stdout)`n$($floraSuite.Stderr)" -notmatch '(?m)^OK\s*$') { throw "The flora suite did not pass:`n$($floraSuite.Stdout)`n$($floraSuite.Stderr)" }
+$floraPinned = Invoke-GarageGameNativeProcess -Toolchain $toolchain -FilePath $python -WorkingDirectory $toolchain.RepositoryPath -TimeoutSeconds 300 `
+    -Arguments @('-B', '-m', 'pipeline.landscape.generator.flora.make', '--check')
+if ($floraPinned.Stdout -notmatch '(?m)^FLORA_PINNED: [1-9]\d* plants, 0 stale\s*$') { throw "A pinned plant is stale:`n$($floraPinned.Stdout)`n$($floraPinned.Stderr)" }
+Write-Output ("FLORA_SUITE: {0}" -f ((("$($floraSuite.Stdout)`n$($floraSuite.Stderr)".Split("`n") | Where-Object { $_ -match '^Ran \d+ tests' }) -join ' ').Trim()))
+Write-Output (($floraPinned.Stdout.Trim().Split("`n") | Where-Object { $_ -match '^FLORA_PINNED' }) -join "`n").Trim()
 # Play on the land: the 1x garage landscape, derived data never committed, from the fixture cache every worktree shares
 # (tools/landscape-fixture.ps1; built there first, about 35 s, when the generator, exporter, harness or corpus room changed).
 $landscapeRoom = (Get-GarageGameLandscapeFixture -Toolchain $toolchain -Scale 1).Room
